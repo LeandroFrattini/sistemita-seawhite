@@ -43,7 +43,10 @@ usuario (los das de alta vos en **Admin**).
 
 ## Reportes / Outlook
 
-El botón `.eml` descarga el mail en la PC de cada uno y lo abre en **su**
-Outlook. Para que no se descoloque la firma: en Outlook de cada uno,
-**Archivo → Opciones → Correo → Firmas** → "Mensajes nuevos: (ninguno)".
-La firma la agrega la app (se edita en **Admin → Firma de los reportes**).
+Recomendado: instalar el **ayudante** en cada PC que mande reportes (carpeta
+`helper`, ver `helper/LEEME.md`). Con eso, el botón **"Abrir en Outlook"** abre
+el mail directo en Outlook con la **firma normal de esa persona** al final, sin
+tocar ninguna configuración.
+
+Sin el ayudante, queda el botón **`.eml`** como alternativa (descarga el mail y
+se abre en Outlook; en ese caso Outlook puede agregar su firma automática).

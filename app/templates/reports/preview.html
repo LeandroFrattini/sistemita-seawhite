@@ -44,19 +44,57 @@ También podés usar <b>Copiar</b> y pegar el cuerpo en un mail nuevo.</p>
   </div>
 
   <footer>
-    <a class="btn" href="/reports/{{ it.call_id }}/client/{{ it.client_id }}.eml">⬇ .eml (abrir en Outlook)</a>
+    <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
+    <a class="btn" href="/reports/{{ it.call_id }}/client/{{ it.client_id }}.eml">⬇ .eml</a>
     <button class="btn" data-copy>Copiar cuerpo</button>
+    <span class="hint" hidden></span>
     <script type="application/json" class="payload">
-      {"html": {{ it.html_body|tojson }}, "text": {{ it.text_body|tojson }}, "isText": {{ 'true' if it.format == 'WBL_TEXT' else 'false' }}}
+      {"html": {{ it.html_body|tojson }}, "text": {{ it.text_body|tojson }},
+       "subject": {{ it.subject|tojson }}, "to": {{ (it.emails|join('; '))|tojson }},
+       "isText": {{ 'true' if it.format == 'WBL_TEXT' else 'false' }}}
     </script>
   </footer>
 </article>
 {% endfor %}
 
 <script>
+const MAILER = "http://127.0.0.1:8765";
+
+function payloadOf(btn) {
+  return JSON.parse(btn.closest("footer").querySelector(".payload").textContent);
+}
+
+document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const data = payloadOf(btn);
+    const hint = btn.closest("footer").querySelector(".hint");
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = "Abriendo…";
+    try {
+      const res = await fetch(MAILER + "/compose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: data.to, subject: data.subject, html: data.html }),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || "error de Outlook");
+      btn.textContent = "✓ Abierto en Outlook";
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+    } catch (e) {
+      btn.textContent = orig;
+      btn.disabled = false;
+      hint.hidden = false;
+      hint.textContent =
+        "No se pudo. ¿Está instalado el ayudante en esta PC? (helper/instalar-helper.bat). " +
+        "Mientras tanto usá el botón .eml.";
+    }
+  });
+});
+
 document.querySelectorAll(".report-card [data-copy]").forEach((btn) => {
   btn.addEventListener("click", async () => {
-    const data = JSON.parse(btn.closest("footer").querySelector(".payload").textContent);
+    const data = payloadOf(btn);
     try {
       if (data.isText) {
         await navigator.clipboard.writeText(data.text);
