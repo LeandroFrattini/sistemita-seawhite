@@ -129,7 +129,9 @@ def build_excel_report(call, client, lineup, terminal, term_calls, signature_htm
     footer = settings.report_footer
     html_body = _wrap_body(
         f"<div>{_text_to_html(header)}</div>"
+        "<div><br></div>"
         f"{_excel_table_html(terminal, term_calls)}"
+        "<div><br></div>"
         f"<div>{_text_to_html(footer)}</div>",
         signature_html,
     )

@@ -23,15 +23,20 @@ from ..templating import templates
 router = APIRouter()
 
 
-def _collect(db: Session):
+def _collect(db: Session, *, with_signature: bool = False):
     """Devuelve [(call, client, BuiltReport)] para todos los barcos propios
-    con al menos un cliente destinatario."""
+    con al menos un cliente destinatario.
+
+    with_signature=False (default): sin firma de la app. Se usa al abrir en
+    Outlook (Outlook agrega su propia firma) y al copiar el cuerpo.
+    with_signature=True: agrega la firma de la app. Se usa solo para el .eml.
+    """
     lineup = get_draft_lineup(db)
     terminals = active_terminals(db)
     calls = calls_for_lineup(db, lineup.id)
     grouped = group_by_terminal(terminals, calls)
     term_by_id = {t.id: t for t in terminals}
-    signature_html = get_setting(db, SIGNATURE_KEY, "")
+    signature_html = get_setting(db, SIGNATURE_KEY, "") if with_signature else ""
 
     out: list[tuple[VesselCall, Client, BuiltReport]] = []
     for call in calls:
@@ -76,7 +81,7 @@ def reports_page(request: Request, db: Session = Depends(get_db), user: User = D
 
 @router.get("/reports/{call_id}/client/{client_id}.eml")
 def one_eml(call_id: int, client_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup, rows = _collect(db)
+    lineup, rows = _collect(db, with_signature=True)
     for call, client, report in rows:
         if call.id == call_id and client.id == client_id:
             data = build_eml(
@@ -97,7 +102,7 @@ def one_eml(call_id: int, client_id: int, db: Session = Depends(get_db), user: U
 
 @router.get("/reports/all.zip")
 def all_zip(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup, rows = _collect(db)
+    lineup, rows = _collect(db, with_signature=True)
     if not rows:
         return JSONResponse({"error": "no hay reportes para generar"}, status_code=400)
     buf = io.BytesIO()
