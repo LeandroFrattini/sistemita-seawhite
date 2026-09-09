@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Line-up Sea White{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+{% if user %}
+<header class="topbar">
+  <div class="brand">⚓ Line-up <span>Sea White</span></div>
+  <nav>
+    <a href="/" class="{% block nav_lineup %}{% endblock %}">Line-up</a>
+    <a href="/reports" class="{% block nav_reports %}{% endblock %}">Reportes</a>
+    <a href="/finalize" class="{% block nav_finalize %}{% endblock %}">Exportar</a>
+    <a href="/clients" class="{% block nav_clients %}{% endblock %}">Clientes</a>
+    {% if user.is_admin %}<a href="/admin" class="{% block nav_admin %}{% endblock %}">Admin</a>{% endif %}
+  </nav>
+  <div class="user">{{ user.full_name or user.username }} · <a href="/logout">salir</a></div>
+</header>
+{% endif %}
+<main class="{% block main_class %}wrap{% endblock %}">
+  {% block content %}{% endblock %}
+</main>
+{% block scripts %}{% endblock %}
+</body>
+</html>

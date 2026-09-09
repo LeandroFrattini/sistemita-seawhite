@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block nav_reports %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Reportes · line-up {{ lineup.lineup_date }}</h1>
+  {% if items %}
+  <div class="actions">
+    <a class="btn primary" href="/reports/all.zip">⬇ Descargar todos (.eml en zip)</a>
+  </div>
+  {% endif %}
+</div>
+
+<p class="muted">Cada <b>.eml</b> se abre en Outlook como borrador listo para enviar (To y asunto ya cargados).
+También podés usar <b>Copiar</b> y pegar el cuerpo en un mail nuevo.</p>
+
+{% if not items %}
+<p class="warn">No hay reportes. Marcá barcos como <b>Nuestro</b> en el line-up y asignales PRINCIPAL / Otras agencias.</p>
+{% endif %}
+
+{% for it in items %}
+<article class="report-card" data-idx="{{ loop.index0 }}">
+  <header>
+    <div>
+      <span class="badge {{ 'wbl' if it.format == 'WBL_TEXT' else 'xls' }}">
+        {{ 'WBL texto' if it.format == 'WBL_TEXT' else 'Excel' }}</span>
+      <b>{{ it.subject }}</b>
+    </div>
+    <div class="report-to">
+      TO {{ it.to_name }} —
+      {% if it.missing_email %}
+        <span class="warn">sin mail cargado</span>
+      {% else %}
+        {{ it.emails|join(', ') }}
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="report-body">
+    {% if it.format == 'WBL_TEXT' %}
+      <pre>{{ it.text_body }}</pre>
+    {% else %}
+      {{ it.html_body|safe }}
+    {% endif %}
+  </div>
+
+  <footer>
+    <a class="btn" href="/reports/{{ it.call_id }}/client/{{ it.client_id }}.eml">⬇ .eml (abrir en Outlook)</a>
+    <button class="btn" data-copy>Copiar cuerpo</button>
+    <script type="application/json" class="payload">
+      {"html": {{ it.html_body|tojson }}, "text": {{ it.text_body|tojson }}, "isText": {{ 'true' if it.format == 'WBL_TEXT' else 'false' }}}
+    </script>
+  </footer>
+</article>
+{% endfor %}
+
+<script>
+document.querySelectorAll(".report-card [data-copy]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const data = JSON.parse(btn.closest("footer").querySelector(".payload").textContent);
+    try {
+      if (data.isText) {
+        await navigator.clipboard.writeText(data.text);
+      } else {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([data.html], { type: "text/html" }),
+            "text/plain": new Blob([data.text], { type: "text/plain" }),
+          }),
+        ]);
+      }
+      btn.textContent = "¡Copiado!";
+      setTimeout(() => (btn.textContent = "Copiar cuerpo"), 1500);
+    } catch (e) {
+      alert("No se pudo copiar: " + e.message);
+    }
+  });
+});
+</script>
+{% endblock %}

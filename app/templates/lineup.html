@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block nav_lineup %}active{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="lineup-meta">
+    <label>Fecha
+      <input id="lineup-date" value="{{ lineup.lineup_date }}" placeholder="dd/mm/aa" size="9">
+    </label>
+    <label>Puerto
+      <input id="lineup-port" value="{{ lineup.port_name }}" size="22">
+    </label>
+    <span class="muted">Última edición: {{ lineup.updated_by or "—" }}</span>
+  </div>
+  <div class="actions">
+    <button id="btn-recalc" class="btn">↻ Recalcular ETB/ETC</button>
+    <a class="btn" href="/export/internal.xlsx">⬇ Excel interno</a>
+    <a class="btn" href="/export/clients.xlsx">⬇ Excel clientes</a>
+    <a class="btn primary" href="/reports">Generar reportes →</a>
+  </div>
+</div>
+
+<p id="flash" class="flash" hidden></p>
+
+<datalist id="clients-datalist">
+  {% for c in clients %}<option value="{{ c.name }}">{% endfor %}
+</datalist>
+
+{% for term in terminals %}
+<section class="terminal" data-terminal="{{ term.id }}">
+  <h2>{{ term.code }} <span class="muted">· {{ term.name }}</span></h2>
+  <div class="table-scroll">
+    <table class="grid">
+      <thead>
+        <tr>
+          <th class="col-ord"></th>
+          <th>Vessel</th><th>Type</th><th>IMO</th>
+          <th>ETA</th><th>ETB</th><th>ETC</th>
+          <th>Oper.</th><th>Quantity</th><th>Grade</th><th>Shipper</th><th>Destination</th>
+          <th>LOCAL</th><th>PRINCIPAL</th>
+          <th class="col-ours">Nuestro</th>
+          <th>Otras agencias</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for call in grouped.get(term.id, []) %}
+        <tr data-call="{{ call.id }}" class="{{ 'is-ours' if call.is_ours }}">
+          <td class="col-ord">
+            <button class="mini" data-move="up" title="Subir">▲</button>
+            <button class="mini" data-move="down" title="Bajar">▼</button>
+            <button class="mini danger" data-del title="Eliminar">✕</button>
+          </td>
+          <td><input data-f="vessel_name" value="{{ call.vessel_name }}" class="w-vessel"></td>
+          <td>
+            <select data-f="vessel_type">
+              {% for vt in vessel_types %}
+              <option value="{{ vt }}" {{ 'selected' if call.vessel_type == vt }}>{{ vt }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td><input data-f="imo" value="{{ call.imo }}" class="w-imo"></td>
+          <td><input data-f="eta" value="{{ call.eta }}" class="w-date" placeholder=""></td>
+          <td><input data-f="etb" value="{{ call.etb }}" class="w-date"></td>
+          <td><input data-f="etc" value="{{ call.etc }}" class="w-date"></td>
+          <td><input data-f="operation" value="{{ call.operation }}" class="w-oper"></td>
+          <td><input data-f="quantity" value="{{ call.quantity }}" class="w-qty"></td>
+          <td><input data-f="grade" value="{{ call.grade }}" class="w-grade"></td>
+          <td><input data-f="shipper" value="{{ call.shipper }}" class="w-grade"></td>
+          <td><input data-f="destination" value="{{ call.destination }}" class="w-grade"></td>
+          <td><input data-f="local_agent" value="{{ call.local_agent }}" class="w-agent"></td>
+          <td>
+            <input data-f="principal" list="clients-datalist" class="w-agent principal-input"
+                   value="{{ call.principal_name }}">
+          </td>
+          <td class="col-ours">
+            <input type="checkbox" data-f="is_ours" {{ 'checked' if call.is_ours }}>
+          </td>
+          <td class="extras-cell">
+            <button class="chip-btn" data-extras>
+              <span class="cnt">{{ call.extra_agencies|length }}</span> clientes ▾
+            </button>
+            <div class="extras-panel" hidden>
+              {% for c in clients %}
+              <label><input type="checkbox" value="{{ c.id }}"
+                {{ 'checked' if c.id in call.extra_agencies|map(attribute='client_id')|list }}>
+                {{ c.name }} <em>{{ 'WBL' if c.report_format == 'WBL_TEXT' else 'Excel' }}</em></label>
+              {% endfor %}
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button class="btn add-row" data-add="{{ term.id }}">＋ Agregar barco</button>
+</section>
+{% endfor %}
+
+<div id="recalc-result" class="recalc-box" hidden></div>
+{% endblock %}
+
+{% block scripts %}<script src="/static/lineup.js"></script>{% endblock %}

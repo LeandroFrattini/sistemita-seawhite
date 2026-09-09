@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block nav_finalize %}active{% endblock %}
+{% block content %}
+<h1>Exportar y finalizar</h1>
+
+<section class="card">
+  <h2>Descargar Excel</h2>
+  <p><a class="btn" href="/export/internal.xlsx">⬇ Excel interno completo</a>
+     <span class="muted">con LOCAL, PRINCIPAL y Otras agencias</span></p>
+  <p><a class="btn" href="/export/clients.xlsx">⬇ Excel para clientes</a>
+     <span class="muted">sin LOCAL / PRINCIPAL / Otras agencias</span></p>
+</section>
+
+<section class="card">
+  <h2>Reportes a disparar</h2>
+  {% if reportable %}
+  <p>{{ reportable|length }} barco(s) propios con destinatarios:</p>
+  <ul>
+    {% for c in reportable %}
+    <li><b>{{ c.vessel_name }}</b> →
+      {% for cl in c.recipient_clients() %}
+        {{ cl.name }}{% if cl.report_format == 'WBL_TEXT' %} <em>(WBL texto)</em>{% endif %}{% if not loop.last %}, {% endif %}
+      {% endfor %}
+    </li>
+    {% endfor %}
+  </ul>
+  <p><a class="btn primary" href="/reports">Ir a generar los reportes →</a></p>
+  {% else %}
+  <p class="muted">No hay barcos marcados como propios con cliente asignado.</p>
+  {% endif %}
+
+  {% if ours_no_recipient %}
+  <p class="warn">⚠ Barcos propios sin destinatario (no se les generará reporte):
+    {% for c in ours_no_recipient %}{{ c.vessel_name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>Archivar este line-up</h2>
+  {% if request.query_params.get('archived') %}<p class="ok-box">✔ Line-up archivado.</p>{% endif %}
+  <p class="muted">Guarda una copia con fecha del line-up actual. El line-up de trabajo sigue editable.</p>
+  <form method="post" action="/finalize">
+    <button type="submit" class="btn">Archivar copia del {{ lineup.lineup_date or "—" }}</button>
+  </form>
+
+  {% if archives %}
+  <h3>Historial</h3>
+  <table class="list">
+    <thead><tr><th>Fecha line-up</th><th>Archivado</th><th>Por</th></tr></thead>
+    <tbody>
+    {% for a in archives %}
+      <tr><td>{{ a.lineup_date }}</td>
+          <td class="nowrap">{{ a.archived_at.strftime("%d/%m/%Y %H:%M") }}</td>
+          <td>{{ a.archived_by }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+{% endblock %}

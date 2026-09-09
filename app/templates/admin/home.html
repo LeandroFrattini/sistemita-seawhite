@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block nav_admin %}active{% endblock %}
+{% block content %}
+<h1>Administración</h1>
+
+<section>
+  <h2>Usuarios</h2>
+  <form class="card" method="post" action="/admin/users">
+    <h3>Nuevo usuario</h3>
+    <div class="row">
+      <label>Usuario<input name="username" required></label>
+      <label>Nombre<input name="full_name"></label>
+      <label>Contraseña<input name="password" required></label>
+      <label class="check">Admin<input type="checkbox" name="is_admin"></label>
+    </div>
+    <button type="submit">Crear</button>
+  </form>
+
+  <div class="client-list">
+  {% for u in users %}
+    <form class="card client-row {{ 'inactive' if not u.is_active }}" method="post" action="/admin/users/{{ u.id }}">
+      <div class="row">
+        <label>Usuario<input value="{{ u.username }}" disabled></label>
+        <label>Nombre<input name="full_name" value="{{ u.full_name }}"></label>
+        <label>Nueva contraseña<input name="password" placeholder="(dejar vacío = sin cambio)"></label>
+        <label class="check">Admin<input type="checkbox" name="is_admin" {{ 'checked' if u.is_admin }}></label>
+        <label class="check">Activo<input type="checkbox" name="is_active" {{ 'checked' if u.is_active }}></label>
+      </div>
+      <div class="row end"><button type="submit">Guardar</button></div>
+    </form>
+  {% endfor %}
+  </div>
+</section>
+
+<section>
+  <h2>Terminales</h2>
+  <p class="muted"><b>Código</b> = texto de la primera celda del encabezado en el Excel y los mails.
+  <b>Muelle</b> = rótulo que usa el formato WBL ("Line up at … goes").</p>
+  <form class="card" method="post" action="/admin/terminals">
+    <div class="row">
+      <label>Código<input name="code" required></label>
+      <label>Nombre<input name="name"></label>
+      <label>Muelle (WBL)<input name="berth_label"></label>
+      <label>Orden<input name="sort_order" type="number" value="100" size="4"></label>
+    </div>
+    <button type="submit">Agregar terminal</button>
+  </form>
+  <div class="client-list">
+  {% for t in terminals %}
+    <form class="card client-row {{ 'inactive' if not t.active }}" method="post" action="/admin/terminals/{{ t.id }}">
+      <div class="row">
+        <label>Código<input name="code" value="{{ t.code }}" required></label>
+        <label>Nombre<input name="name" value="{{ t.name }}"></label>
+        <label>Muelle (WBL)<input name="berth_label" value="{{ t.berth_label }}"></label>
+        <label>Orden<input name="sort_order" type="number" value="{{ t.sort_order }}" size="4"></label>
+        <label class="check">Activa<input type="checkbox" name="active" {{ 'checked' if t.active }}></label>
+      </div>
+      <div class="row end"><button type="submit">Guardar</button></div>
+    </form>
+  {% endfor %}
+  </div>
+</section>
+
+<section>
+  <h2>Últimos reportes generados</h2>
+  <table class="list">
+    <thead><tr><th>Fecha</th><th>Line-up</th><th>Barco</th><th>Cliente</th><th>Mails</th><th>Formato</th><th>Por</th></tr></thead>
+    <tbody>
+    {% for l in logs %}
+      <tr>
+        <td class="nowrap">{{ l.generated_at.strftime("%d/%m %H:%M") }}</td>
+        <td>{{ l.lineup_date }}</td><td>{{ l.vessel_name }}</td><td>{{ l.client_name }}</td>
+        <td>{{ l.to_emails }}</td><td>{{ l.report_format }}</td><td>{{ l.generated_by }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="muted">Todavía no se generó ningún reporte.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

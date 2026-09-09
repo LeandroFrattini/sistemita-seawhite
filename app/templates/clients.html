@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block nav_clients %}active{% endblock %}
+{% block content %}
+<h1>Clientes</h1>
+<p class="muted">El nombre debe coincidir con lo que se carga en la columna PRINCIPAL / Otras agencias del line-up.
+Formato <b>Excel</b> = mail con la tabla pegada. Formato <b>WBL</b> = mail todo texto.</p>
+
+<form class="card new-client" method="post" action="/clients">
+  <h3>Nuevo cliente</h3>
+  <div class="row">
+    <label>Nombre (= PRINCIPAL)<input name="name" required></label>
+    <label>TO en el mail<input name="to_name" placeholder="si difiere del nombre"></label>
+    <label>Formato
+      <select name="report_format">
+        <option value="EXCEL">Excel (tabla)</option>
+        <option value="WBL_TEXT">WBL (texto)</option>
+      </select>
+    </label>
+  </div>
+  <label>Mails (separados por coma)<input name="emails" placeholder="ops@cliente.com, chartering@cliente.com"></label>
+  <button type="submit">Agregar</button>
+</form>
+
+<div class="client-list">
+{% for c in clients %}
+  <form class="card client-row {{ 'inactive' if not c.active }}" method="post" action="/clients/{{ c.id }}">
+    <div class="row">
+      <label>Nombre<input name="name" value="{{ c.name }}" required></label>
+      <label>TO en el mail<input name="to_name" value="{{ c.to_name }}" placeholder="{{ c.name }}"></label>
+      <label>Formato
+        <select name="report_format">
+          <option value="EXCEL" {{ 'selected' if c.report_format == 'EXCEL' }}>Excel (tabla)</option>
+          <option value="WBL_TEXT" {{ 'selected' if c.report_format == 'WBL_TEXT' }}>WBL (texto)</option>
+        </select>
+      </label>
+      <label class="check">Activo<input type="checkbox" name="active" {{ 'checked' if c.active }}></label>
+    </div>
+    <label>Mails<input name="emails" value="{{ c.emails }}"></label>
+    <div class="row end">
+      <button type="submit">Guardar</button>
+      <button type="submit" formaction="/clients/{{ c.id }}/delete" class="danger"
+              formnovalidate onclick="return confirm('¿Desactivar cliente?')">Dar de baja</button>
+    </div>
+  </form>
+{% endfor %}
+</div>
+{% endblock %}

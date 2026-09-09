@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block main_class %}login-wrap{% endblock %}
+{% block content %}
+<form class="login-card" method="post" action="/login">
+  <h1>⚓ Line-up Sea White</h1>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <label>Usuario<input name="username" autofocus autocomplete="username"></label>
+  <label>Contraseña<input name="password" type="password" autocomplete="current-password"></label>
+  <button type="submit">Entrar</button>
+</form>
+{% endblock %}
