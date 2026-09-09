@@ -9,12 +9,22 @@ Dos formatos:
 from __future__ import annotations
 
 import html
+import re
 from dataclasses import dataclass
 
 from .config import settings
 from .dates import fmt_dm, fmt_long, parse_date
 
 ROADS_LABEL = "Bahia Blanca roads"
+MONO = "font-family:'Courier New',monospace;font-size:13px;"
+
+
+def _text_to_html(text: str) -> str:
+    """Convierte texto plano a HTML que Outlook respeta: saltos de linea reales
+    (<br>) y espacios consecutivos preservados (Outlook ignora white-space)."""
+    out = html.escape(text).replace("\t", "    ")
+    out = re.sub(r" {2,}", lambda m: "&nbsp;" * len(m.group(0)), out)
+    return out.replace("\n", "<br>")
 
 MAIL_COLS = [
     ("__TERMINAL__", "vessel_name"),
@@ -107,7 +117,7 @@ def _wrap_body(inner_html: str, signature_html: str = "") -> str:
     la firma en el medio. Si hay firma configurada, se agrega al final."""
     sig = f'<div style="margin-top:14px;">{signature_html}</div>' if signature_html.strip() else ""
     return (
-        '<div style="font-family:\'Courier New\',monospace;font-size:13px;">'
+        f'<div style="{MONO}">'
         f"{inner_html}"
         "<div><br></div>"
         f"{sig}</div>"
@@ -118,9 +128,9 @@ def build_excel_report(call, client, lineup, terminal, term_calls, signature_htm
     header = _excel_header_text(call, client, lineup)
     footer = settings.report_footer
     html_body = _wrap_body(
-        f'<div style="white-space:pre-wrap;">{html.escape(header)}</div>'
+        f"<div>{_text_to_html(header)}</div>"
         f"{_excel_table_html(terminal, term_calls)}"
-        f'<div style="white-space:pre-wrap;">{html.escape(footer)}</div>',
+        f"<div>{_text_to_html(footer)}</div>",
         signature_html,
     )
     text_body = f"{header}\n\n{_excel_table_text(terminal, term_calls)}\n\n{footer}"
@@ -219,7 +229,7 @@ def build_wbl_report(call, client, lineup, terminal, term_calls, signature_html:
         f"{settings.report_footer}"
     )
     html_body = _wrap_body(
-        f'<div style="white-space:pre-wrap;">{html.escape(text_body)}</div>',
+        f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>',
         signature_html,
     )
     return BuiltReport(
