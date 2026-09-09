@@ -22,4 +22,4 @@ echo ============================================================
 echo.
 
 start "" http://localhost:8010
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8010
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload

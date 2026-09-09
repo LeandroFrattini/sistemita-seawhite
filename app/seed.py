@@ -6,7 +6,21 @@ from sqlalchemy.orm import Session
 from .auth import hash_password
 from .config import settings
 from .database import Base, SessionLocal, engine
-from .models import Client, Lineup, Terminal, User
+from .models import AppSetting, Client, Lineup, Terminal, User
+
+DEFAULT_SIGNATURE_HTML = """<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#333333;">
+  <div style="font-weight:bold;">Saludos / Regards</div>
+  <br>
+  <div style="font-size:16px;font-weight:bold;color:#1F4E79;">Leandro Frattini</div>
+  <div style="color:#1F4E79;">Operations Department</div>
+  <br>
+  <div>Facundo Zurivia 401</div>
+  <div>Bahia Blanca (B8000), Bs As, Argentina</div>
+  <div>+54 9 291 4421772</div>
+  <br>
+  <div><a href="mailto:lfrattini@seawhite.com.ar" style="color:#1F4E79;">lfrattini@seawhite.com.ar</a></div>
+  <div><a href="https://www.seawhite.com.ar" style="color:#1F4E79;font-weight:bold;">www.seawhite.com.ar</a></div>
+</div>"""
 
 DEFAULT_TERMINALS = [
     # (code, name, berth_label, sort_order)
@@ -39,6 +53,7 @@ def init_db() -> None:
         _seed_terminals(db)
         _seed_clients(db)
         _seed_lineup(db)
+        _seed_signature(db)
         db.commit()
     finally:
         db.close()
@@ -82,3 +97,9 @@ def _seed_lineup(db: Session) -> None:
             status="draft",
         )
     )
+
+
+def _seed_signature(db: Session) -> None:
+    if db.get(AppSetting, "report_signature_html"):
+        return
+    db.add(AppSetting(key="report_signature_html", value=DEFAULT_SIGNATURE_HTML))
