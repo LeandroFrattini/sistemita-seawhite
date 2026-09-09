@@ -11,9 +11,11 @@ from ..eml import build_eml, safe_filename
 from ..models import Client, ReportLog, User, VesselCall
 from ..reports import BuiltReport, build_report
 from ..service import (
+    SIGNATURE_KEY,
     active_terminals,
     calls_for_lineup,
     get_draft_lineup,
+    get_setting,
     group_by_terminal,
 )
 from ..templating import templates
@@ -29,6 +31,7 @@ def _collect(db: Session):
     calls = calls_for_lineup(db, lineup.id)
     grouped = group_by_terminal(terminals, calls)
     term_by_id = {t.id: t for t in terminals}
+    signature_html = get_setting(db, SIGNATURE_KEY, "")
 
     out: list[tuple[VesselCall, Client, BuiltReport]] = []
     for call in calls:
@@ -39,7 +42,7 @@ def _collect(db: Session):
             continue
         term_calls = grouped.get(call.terminal_id, [])
         for client in call.recipient_clients():
-            report = build_report(call, client, lineup, terminal, term_calls)
+            report = build_report(call, client, lineup, terminal, term_calls, signature_html)
             out.append((call, client, report))
     return lineup, out
 

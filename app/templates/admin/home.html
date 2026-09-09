@@ -62,6 +62,19 @@
 </section>
 
 <section>
+  <h2>Firma de los reportes</h2>
+  <p class="muted">Se agrega al final de cada mail (Excel y WBL). Dejalo <b>vacío</b> si preferís
+  usar la firma automática de Outlook. Acepta HTML — para el logo, poné una etiqueta
+  <code>&lt;img src="https://www.seawhite.com.ar/…"&gt;</code> con la URL pública de la imagen.</p>
+  <form class="card" method="post" action="/admin/signature">
+    <label>Firma (HTML)
+      <textarea name="signature_html" rows="8" style="width:100%;font-family:monospace;">{{ signature_html }}</textarea>
+    </label>
+    <div class="row end"><button type="submit">Guardar firma</button></div>
+  </form>
+</section>
+
+<section>
   <h2>Últimos reportes generados</h2>
   <table class="list">
     <thead><tr><th>Fecha</th><th>Line-up</th><th>Barco</th><th>Cliente</th><th>Mails</th><th>Formato</th><th>Por</th></tr></thead>

@@ -101,7 +101,7 @@ table.grid tr.is-ours td { background: #f0faf5; }
 .card .row.end { justify-content: flex-end; margin-top: 10px; }
 .card label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; }
 .card label.check { flex-direction: row; align-items: center; gap: 6px; }
-.card input, .card select { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; min-width: 160px; }
+.card input, .card select, .card textarea { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; min-width: 160px; }
 .card input[name=emails] { width: 100%; }
 .client-row.inactive { opacity: .55; }
 

@@ -102,17 +102,26 @@ def _excel_table_text(terminal, term_calls) -> str:
     return "\n".join("  ".join(c.ljust(widths[i]) for i, c in enumerate(r)) for r in rows)
 
 
-def build_excel_report(call, client, lineup, terminal, term_calls) -> BuiltReport:
+def _wrap_body(inner_html: str, signature_html: str = "") -> str:
+    """Envuelve todo el reporte en UN solo bloque para que Outlook no meta
+    la firma en el medio. Si hay firma configurada, se agrega al final."""
+    sig = f'<div style="margin-top:14px;">{signature_html}</div>' if signature_html.strip() else ""
+    return (
+        '<div style="font-family:\'Courier New\',monospace;font-size:13px;">'
+        f"{inner_html}"
+        "<div><br></div>"
+        f"{sig}</div>"
+    )
+
+
+def build_excel_report(call, client, lineup, terminal, term_calls, signature_html: str = "") -> BuiltReport:
     header = _excel_header_text(call, client, lineup)
     footer = settings.report_footer
-    html_body = (
-        '<div style="font-family:\'Courier New\',monospace;font-size:13px;'
-        'white-space:pre-wrap;">'
-        f"{html.escape(header)}</div>"
+    html_body = _wrap_body(
+        f'<div style="white-space:pre-wrap;">{html.escape(header)}</div>'
         f"{_excel_table_html(terminal, term_calls)}"
-        '<div style="font-family:\'Courier New\',monospace;font-size:13px;'
-        'white-space:pre-wrap;">'
-        f"{html.escape(footer)}</div>"
+        f'<div style="white-space:pre-wrap;">{html.escape(footer)}</div>',
+        signature_html,
     )
     text_body = f"{header}\n\n{_excel_table_text(terminal, term_calls)}\n\n{footer}"
     return BuiltReport(
@@ -194,7 +203,7 @@ def _wbl_lineup_block(terminal, term_calls) -> str:
     return f"Line up at {berth} goes:\n\n" + "\n".join(rows)
 
 
-def build_wbl_report(call, client, lineup, terminal, term_calls) -> BuiltReport:
+def build_wbl_report(call, client, lineup, terminal, term_calls, signature_html: str = "") -> BuiltReport:
     pfx = vessel_prefix(call.vessel_type).capitalize()  # "Mv" / "Mt"
     date_tag = (lineup.lineup_date or "").replace("/", ".")
     from_name = settings.mail_from_name.title()
@@ -209,9 +218,9 @@ def build_wbl_report(call, client, lineup, terminal, term_calls) -> BuiltReport:
         f"{_wbl_lineup_block(terminal, term_calls)}\n\n\n"
         f"{settings.report_footer}"
     )
-    html_body = (
-        '<div style="font-family:\'Courier New\',monospace;font-size:13px;'
-        f'white-space:pre-wrap;">{html.escape(text_body)}</div>'
+    html_body = _wrap_body(
+        f'<div style="white-space:pre-wrap;">{html.escape(text_body)}</div>',
+        signature_html,
     )
     return BuiltReport(
         subject=build_subject(call, lineup),
@@ -225,7 +234,7 @@ def build_wbl_report(call, client, lineup, terminal, term_calls) -> BuiltReport:
     )
 
 
-def build_report(call, client, lineup, terminal, term_calls) -> BuiltReport:
+def build_report(call, client, lineup, terminal, term_calls, signature_html: str = "") -> BuiltReport:
     if client.report_format == "WBL_TEXT":
-        return build_wbl_report(call, client, lineup, terminal, term_calls)
-    return build_excel_report(call, client, lineup, terminal, term_calls)
+        return build_wbl_report(call, client, lineup, terminal, term_calls, signature_html)
+    return build_excel_report(call, client, lineup, terminal, term_calls, signature_html)

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from ..auth import admin_required, hash_password
 from ..database import get_db
 from ..models import ReportLog, Terminal, User
-from ..service import all_terminals
+from ..service import SIGNATURE_KEY, all_terminals, get_setting, set_setting
 from ..templating import templates
 
 router = APIRouter(prefix="/admin")
@@ -18,8 +18,24 @@ def admin_home(request: Request, db: Session = Depends(get_db), user: User = Dep
     return templates.TemplateResponse(
         request,
         "admin/home.html",
-        {"user": user, "users": users, "terminals": all_terminals(db), "logs": logs},
+        {
+            "user": user,
+            "users": users,
+            "terminals": all_terminals(db),
+            "logs": logs,
+            "signature_html": get_setting(db, SIGNATURE_KEY, ""),
+        },
     )
+
+
+@router.post("/signature")
+def save_signature(
+    db: Session = Depends(get_db),
+    admin: User = Depends(admin_required),
+    signature_html: str = Form(""),
+):
+    set_setting(db, SIGNATURE_KEY, signature_html.strip())
+    return RedirectResponse("/admin", status_code=302)
 
 
 # --- Usuarios ------------------------------------------------------------- #
