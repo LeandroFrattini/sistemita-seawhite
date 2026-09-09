@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block nav_lineup %}active{% endblock %}
+{% block content %}
+<h1>Importar line-up desde Excel</h1>
+
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+{% if applied and summary %}
+<div class="ok-box">
+  ✔ Importado: <b>{{ summary.calls }}</b> barcos en <b>{{ summary.terminals }}</b> terminales.
+  {% if summary.created_terminals %}<br>Terminales nuevas creadas: {{ summary.created_terminals|join(', ') }}.{% endif %}
+  {% if summary.unmatched_clients %}
+  <br>⚠ Nombres de PRINCIPAL / Otras agencias que no coinciden con ningún cliente cargado
+  (quedaron como texto, sin mail): <b>{{ summary.unmatched_clients|join(', ') }}</b>.
+  Cargalos en <a href="/clients">Clientes</a> y volvé a importar, o editalos a mano.
+  {% endif %}
+  {% for w in summary.warnings %}<br>· {{ w }}{% endfor %}
+</div>
+<p><a class="btn primary" href="/">Ver el line-up →</a></p>
+{% endif %}
+
+{% if not applied %}
+<form class="card" method="post" action="/import" enctype="multipart/form-data">
+  <p class="muted">Subí el archivo tal cual te lo manda la terminal (el que tiene las tablas por
+  terminal con las columnas Vessel type, IMO, ETA, ETB, ETC, …). Se leen todas las terminales juntas.</p>
+  <label>Archivo .xlsx<input type="file" name="file" accept=".xlsx" required></label>
+  <div class="row">
+    <label class="check"><input type="radio" name="mode" value="replace" checked>
+      Reemplazar el line-up actual</label>
+    <label class="check"><input type="radio" name="mode" value="append">
+      Agregar a lo que ya hay</label>
+  </div>
+  <button type="submit">Importar</button>
+</form>
+
+{% if result and result.warnings %}
+<div class="warn">{% for w in result.warnings %}<p>{{ w }}</p>{% endfor %}</div>
+{% endif %}
+{% endif %}
+{% endblock %}
