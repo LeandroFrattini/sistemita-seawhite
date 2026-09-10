@@ -11,12 +11,15 @@ from ..eml import build_eml, safe_filename
 from ..models import Client, ReportLog, User, VesselCall
 from ..reports import BuiltReport, build_report
 from ..service import (
+    CC_KEY,
+    DEFAULT_CC,
     SIGNATURE_KEY,
     active_terminals,
     calls_for_lineup,
     get_draft_lineup,
     get_setting,
     group_by_terminal,
+    split_emails,
 )
 from ..templating import templates
 
@@ -37,6 +40,7 @@ def _collect(db: Session, *, with_signature: bool = False):
     grouped = group_by_terminal(terminals, calls)
     term_by_id = {t.id: t for t in terminals}
     signature_html = get_setting(db, SIGNATURE_KEY, "") if with_signature else ""
+    cc_emails = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
 
     out: list[tuple[VesselCall, Client, BuiltReport]] = []
     for call in calls:
@@ -48,6 +52,7 @@ def _collect(db: Session, *, with_signature: bool = False):
         term_calls = grouped.get(call.terminal_id, [])
         for client in call.recipient_clients():
             report = build_report(call, client, lineup, terminal, term_calls, signature_html)
+            report.cc_emails = [e for e in cc_emails if e not in report.to_emails]
             out.append((call, client, report))
     return lineup, out
 
@@ -66,6 +71,7 @@ def reports_page(request: Request, db: Session = Depends(get_db), user: User = D
             "format": report.report_format,
             "subject": report.subject,
             "emails": report.to_emails,
+            "cc_emails": report.cc_emails,
             "missing_email": not report.to_emails,
             "html_body": report.html_body,
             "text_body": report.text_body,
@@ -87,6 +93,7 @@ def one_eml(call_id: int, client_id: int, db: Session = Depends(get_db), user: U
             data = build_eml(
                 subject=report.subject,
                 to_emails=report.to_emails,
+                cc_emails=report.cc_emails,
                 html_body=report.html_body,
                 text_body=report.text_body,
             )
@@ -111,6 +118,7 @@ def all_zip(db: Session = Depends(get_db), user: User = Depends(current_user)):
             data = build_eml(
                 subject=report.subject,
                 to_emails=report.to_emails,
+                cc_emails=report.cc_emails,
                 html_body=report.html_body,
                 text_body=report.text_body,
             )

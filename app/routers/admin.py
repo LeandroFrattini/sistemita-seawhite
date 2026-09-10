@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from ..auth import admin_required, hash_password
 from ..database import get_db
 from ..models import ReportLog, Terminal, User
-from ..service import SIGNATURE_KEY, all_terminals, get_setting, set_setting
+from ..service import CC_KEY, DEFAULT_CC, SIGNATURE_KEY, all_terminals, get_setting, set_setting
 from ..templating import templates
 
 router = APIRouter(prefix="/admin")
@@ -24,6 +24,7 @@ def admin_home(request: Request, db: Session = Depends(get_db), user: User = Dep
             "terminals": all_terminals(db),
             "logs": logs,
             "signature_html": get_setting(db, SIGNATURE_KEY, ""),
+            "report_cc": get_setting(db, CC_KEY, DEFAULT_CC),
         },
     )
 
@@ -35,6 +36,16 @@ def save_signature(
     signature_html: str = Form(""),
 ):
     set_setting(db, SIGNATURE_KEY, signature_html.strip())
+    return RedirectResponse("/admin", status_code=302)
+
+
+@router.post("/report-cc")
+def save_report_cc(
+    db: Session = Depends(get_db),
+    admin: User = Depends(admin_required),
+    report_cc: str = Form(""),
+):
+    set_setting(db, CC_KEY, report_cc.strip())
     return RedirectResponse("/admin", status_code=302)
 
 

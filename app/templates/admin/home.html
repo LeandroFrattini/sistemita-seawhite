@@ -69,6 +69,18 @@
 </section>
 
 <section>
+  <h2>Copia (CC) en todos los reportes</h2>
+  <p class="muted">Estas direcciones van en copia en <b>todos</b> los mails que se envían.
+  Separar por coma.</p>
+  <form class="card" method="post" action="/admin/report-cc">
+    <label>CC fijo
+      <input name="report_cc" value="{{ report_cc }}" style="min-width:340px;">
+    </label>
+    <div class="row end"><button type="submit">Guardar CC</button></div>
+  </form>
+</section>
+
+<section>
   <h2>Firma de los reportes</h2>
   <p class="muted">Se agrega al final de cada mail (Excel y WBL). Dejalo <b>vacío</b> si preferís
   usar la firma automática de Outlook. Acepta HTML — para el logo, poné una etiqueta

@@ -37,7 +37,8 @@ if errorlevel 1 (
   echo Va a arrancar solo cada vez que inicies sesion.
 )
 
-REM --- arrancar ahora ---
+REM --- reiniciar (frenar si ya estaba corriendo, y arrancar) ---
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr :8765 ^| findstr LISTENING') do taskkill /PID %%p /F >nul 2>&1
 wscript.exe "%~dp0run-helper-oculto.vbs"
 
 echo.

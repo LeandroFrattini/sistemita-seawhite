@@ -26,6 +26,11 @@ correr `instalar-helper.bat` de nuevo, o `schtasks /run /tn "Lineup Mailer"`.
 El botón **`.eml`** sigue estando como alternativa por si alguna PC no tiene el
 ayudante.
 
+## Actualizar el ayudante
+
+Si te pasan una versión nueva de `lineup_mailer.py`: copiar el archivo y volver
+a correr `instalar-helper.bat` (frena el viejo y arranca el nuevo).
+
 ## Frenar / desinstalar
 
 - Frenar ahora: `detener-helper.bat`

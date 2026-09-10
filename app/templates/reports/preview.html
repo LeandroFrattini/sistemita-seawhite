@@ -32,6 +32,7 @@ También podés usar <b>Copiar</b> y pegar el cuerpo en un mail nuevo.</p>
       {% else %}
         {{ it.emails|join(', ') }}
       {% endif %}
+      {% if it.cc_emails %}<br>CC {{ it.cc_emails|join(', ') }}{% endif %}
     </div>
   </header>
 
@@ -51,6 +52,7 @@ También podés usar <b>Copiar</b> y pegar el cuerpo en un mail nuevo.</p>
     <script type="application/json" class="payload">
       {"html": {{ it.html_body|tojson }}, "text": {{ it.text_body|tojson }},
        "subject": {{ it.subject|tojson }}, "to": {{ (it.emails|join('; '))|tojson }},
+       "cc": {{ (it.cc_emails|join('; '))|tojson }},
        "isText": {{ 'true' if it.format == 'WBL_TEXT' else 'false' }}}
     </script>
   </footer>
@@ -75,7 +77,7 @@ document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
       const res = await fetch(MAILER + "/compose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: data.to, subject: data.subject, html: data.html }),
+        body: JSON.stringify({ to: data.to, cc: data.cc, subject: data.subject, html: data.html }),
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "error de Outlook");

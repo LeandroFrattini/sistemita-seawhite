@@ -7,6 +7,13 @@ from sqlalchemy.orm import Session, selectinload
 from .models import AppSetting, Client, Lineup, Terminal, VesselCall, VesselExtraAgency
 
 SIGNATURE_KEY = "report_signature_html"
+CC_KEY = "report_cc"
+DEFAULT_CC = "operations@seawhite.com.ar"
+
+
+def split_emails(raw: str) -> list[str]:
+    raw = (raw or "").replace(";", ",").replace("\n", ",")
+    return [e.strip() for e in raw.split(",") if e.strip()]
 
 
 def get_setting(db: Session, key: str, default: str = "") -> str:

@@ -100,6 +100,7 @@ def _seed_lineup(db: Session) -> None:
 
 
 def _seed_signature(db: Session) -> None:
-    if db.get(AppSetting, "report_signature_html"):
-        return
-    db.add(AppSetting(key="report_signature_html", value=DEFAULT_SIGNATURE_HTML))
+    if not db.get(AppSetting, "report_signature_html"):
+        db.add(AppSetting(key="report_signature_html", value=DEFAULT_SIGNATURE_HTML))
+    if not db.get(AppSetting, "report_cc"):
+        db.add(AppSetting(key="report_cc", value="operations@seawhite.com.ar"))

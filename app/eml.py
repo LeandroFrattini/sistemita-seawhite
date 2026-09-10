@@ -18,11 +18,14 @@ def build_eml(
     to_emails: list[str],
     html_body: str,
     text_body: str,
+    cc_emails: list[str] | None = None,
     attachments: list[tuple[str, bytes, str]] | None = None,
 ) -> bytes:
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["To"] = ", ".join(to_emails)
+    if cc_emails:
+        msg["Cc"] = ", ".join(cc_emails)
     if settings.mail_from_address:
         msg["From"] = f"{settings.mail_from_name} <{settings.mail_from_address}>"
     msg["Date"] = formatdate(localtime=True)

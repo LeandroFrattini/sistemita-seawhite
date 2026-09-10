@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import html
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .config import settings
 from .dates import fmt_dm, fmt_long, parse_date
@@ -55,6 +55,7 @@ class BuiltReport:
     text_body: str
     vessel_name: str
     client_name: str
+    cc_emails: list[str] = field(default_factory=list)
 
 
 def build_subject(call, lineup) -> str:
