@@ -39,7 +39,6 @@ BASE_COLS = [
 INTERNAL_EXTRA = [
     ("LOCAL", "local_agent", 14.9, False),
     ("PRINCIPAL", "principal_name", 14.0, False),
-    ("OTRAS AGENCIAS", "__extra__", 22.0, False),
 ]
 
 
@@ -98,11 +97,7 @@ def build_lineup_xlsx(lineup, terminals, calls_by_terminal, *, internal: bool) -
         for call in term_calls:
             for i, (head, attr, _, is_date) in enumerate(cols):
                 c = ws.cell(row=row, column=first_col + i)
-                if attr == "__extra__":
-                    val = ", ".join(cl.name for cl in _extra_clients(call))
-                else:
-                    val = getattr(call, attr, "")
-                _write_value(c, val, is_date)
+                _write_value(c, getattr(call, attr, ""), is_date)
                 c.font = Font(name=FONT, size=10)
                 c.fill = WHITE_FILL
                 c.alignment = Alignment(horizontal="left", vertical="center")
@@ -124,7 +119,3 @@ def build_lineup_xlsx(lineup, terminals, calls_by_terminal, *, internal: bool) -
     prefix = settings.internal_filename_prefix if internal else settings.client_filename_prefix
     filename = f"{prefix} {date_tag}.xlsx".strip()
     return bio, filename
-
-
-def _extra_clients(call):
-    return [link.client for link in getattr(call, "extra_agencies", []) if link.client]
