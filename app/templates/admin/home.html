@@ -47,7 +47,10 @@
     <div class="row">
       <label>Código<input name="code" required></label>
       <label>Nombre<input name="name"></label>
-      <label>Muelle (WBL)<input name="berth_label"></label>
+      <label>Muelle<input name="berth_label"></label>
+      <label>Tipo
+        <select name="kind"><option value="GRAIN">Grain</option><option value="FLAMMABLE">Flammable</option></select>
+      </label>
       <label>Orden<input name="sort_order" type="number" value="100" size="4"></label>
     </div>
     <button type="submit">Agregar terminal</button>
@@ -58,7 +61,13 @@
       <div class="row">
         <label>Código<input name="code" value="{{ t.code }}" required></label>
         <label>Nombre<input name="name" value="{{ t.name }}"></label>
-        <label>Muelle (WBL)<input name="berth_label" value="{{ t.berth_label }}"></label>
+        <label>Muelle<input name="berth_label" value="{{ t.berth_label }}"></label>
+        <label>Tipo
+          <select name="kind">
+            <option value="GRAIN" {{ 'selected' if t.kind != 'FLAMMABLE' }}>Grain</option>
+            <option value="FLAMMABLE" {{ 'selected' if t.kind == 'FLAMMABLE' }}>Flammable</option>
+          </select>
+        </label>
         <label>Orden<input name="sort_order" type="number" value="{{ t.sort_order }}" size="4"></label>
         <label class="check">Activa<input type="checkbox" name="active" {{ 'checked' if t.active }}></label>
       </div>
@@ -77,6 +86,18 @@
       <input name="report_cc" value="{{ report_cc }}" style="min-width:340px;">
     </label>
     <div class="row end"><button type="submit">Guardar CC</button></div>
+  </form>
+</section>
+
+<section>
+  <h2>Lista fija Flammable</h2>
+  <p class="muted">Direcciones a las que se manda el <b>line-up completo</b> de Flammable
+  (además, cada barco se manda a su cliente por separado). Separar por coma.</p>
+  <form class="card" method="post" action="/admin/flammable-list">
+    <label>Lista fija
+      <input name="flammable_list" value="{{ flammable_list }}" style="min-width:340px;">
+    </label>
+    <div class="row end"><button type="submit">Guardar lista</button></div>
   </form>
 </section>
 

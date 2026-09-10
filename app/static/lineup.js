@@ -58,8 +58,20 @@ document.querySelectorAll(".grid [data-f]").forEach((input) => {
   el.addEventListener("change", async () => {
     const key = id === "lineup-date" ? "lineup_date" : "port_name";
     try {
-      await api("/api/lineup", "POST", { [key]: el.value });
+      await api("/api/lineup", "POST", { kind: el.dataset.kind || "GRAIN", [key]: el.value });
       flash("Guardado");
+    } catch (e) {
+      flash("Error: " + e.message, false);
+    }
+  });
+});
+
+// --- nota de estado del muelle (flammable) -------------------------- //
+document.querySelectorAll("input[data-note]").forEach((el) => {
+  el.addEventListener("change", async () => {
+    try {
+      await api(`/api/terminals/${el.dataset.note}/note`, "POST", { value: el.value });
+      flash("Nota guardada");
     } catch (e) {
       flash("Error: " + e.message, false);
     }
@@ -131,10 +143,11 @@ document.addEventListener("click", (ev) => {
 });
 
 // --- recalcular ------------------------------------------------------ //
-document.getElementById("btn-recalc").addEventListener("click", async () => {
+document.getElementById("btn-recalc").addEventListener("click", async (ev) => {
   const box = document.getElementById("recalc-result");
+  const kind = ev.currentTarget.dataset.kind || "GRAIN";
   try {
-    const r = await api("/api/recalc", "POST");
+    const r = await api("/api/recalc?kind=" + encodeURIComponent(kind), "POST");
     if (!r.count) {
       box.innerHTML = "<strong>Sin cambios.</strong> Todas las fechas ya estaban en cascada.";
     } else {

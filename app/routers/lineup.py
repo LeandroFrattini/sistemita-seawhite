@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import current_user
 from ..database import get_db
-from ..models import Client, OperatedVessel, User, VesselCall, VesselExtraAgency
+from ..models import Client, OperatedVessel, Terminal, User, VesselCall, VesselExtraAgency
 from ..recalc import recalc_lineup
 from ..service import (
     active_clients,
@@ -23,44 +23,54 @@ EDITABLE = {
     "vessel_name", "vessel_type", "imo", "eta", "etb", "etc", "operation",
     "quantity", "grade", "shipper", "destination", "local_agent",
 }
+BOOL_FIELDS = {"is_ours", "second_call"}
 SEA_WHITE = {"sea white", "seawhite", "sw"}
 
 
-@router.get("/", response_class=HTMLResponse)
-def lineup_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup = get_draft_lineup(db)
-    terminals = active_terminals(db)
+def _render_lineup(request: Request, db: Session, user: User, kind: str) -> HTMLResponse:
+    lineup = get_draft_lineup(db, kind)
+    terminals = active_terminals(db, kind)
     calls = calls_for_lineup(db, lineup.id)
     grouped = group_by_terminal(terminals, calls)
-    clients = active_clients(db)
     return templates.TemplateResponse(
         request,
         "lineup.html",
         {
             "user": user,
+            "kind": kind,
+            "flammable": kind == "FLAMMABLE",
             "lineup": lineup,
             "terminals": terminals,
             "grouped": grouped,
-            "clients": clients,
+            "clients": active_clients(db),
             "vessel_types": ["Bulk Carrier", "Tanker"],
             "ours_count": sum(1 for c in calls if c.is_ours),
         },
     )
 
 
+@router.get("/", response_class=HTMLResponse)
+def grain_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    return _render_lineup(request, db, user, "GRAIN")
+
+
+@router.get("/flammable", response_class=HTMLResponse)
+def flammable_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    return _render_lineup(request, db, user, "FLAMMABLE")
+
+
 @router.get("/nuestros-barcos", response_class=HTMLResponse)
 def our_vessels_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup = get_draft_lineup(db)
-    terminals = active_terminals(db)
-    calls = calls_for_lineup(db, lineup.id)
-    grouped = group_by_terminal(terminals, calls)
-    term_by_id = {t.id: t for t in terminals}
-
     en_lineup = []
-    for t in terminals:
-        for c in grouped.get(t.id, []):
-            if c.is_ours:
-                en_lineup.append((term_by_id.get(c.terminal_id), c))
+    for kind in ("GRAIN", "FLAMMABLE"):
+        lineup = get_draft_lineup(db, kind)
+        terminals = active_terminals(db, kind)
+        grouped = group_by_terminal(terminals, calls_for_lineup(db, lineup.id))
+        term_by_id = {t.id: t for t in terminals}
+        for t in terminals:
+            for c in grouped.get(t.id, []):
+                if c.is_ours:
+                    en_lineup.append((kind, term_by_id.get(c.terminal_id), c))
 
     operados = list(
         db.scalars(select(OperatedVessel).order_by(OperatedVessel.operated_at.desc()))
@@ -68,7 +78,7 @@ def our_vessels_page(request: Request, db: Session = Depends(get_db), user: User
     return templates.TemplateResponse(
         request,
         "nuestros_barcos.html",
-        {"user": user, "lineup": lineup, "en_lineup": en_lineup, "operados": operados},
+        {"user": user, "en_lineup": en_lineup, "operados": operados},
     )
 
 
@@ -84,7 +94,7 @@ def delete_operated(op_id: int, db: Session = Depends(get_db), user: User = Depe
 @router.post("/api/lineup")
 async def update_lineup(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
     data = await request.json()
-    lineup = get_draft_lineup(db)
+    lineup = get_draft_lineup(db, str(data.get("kind", "GRAIN")))
     if "lineup_date" in data:
         lineup.lineup_date = str(data["lineup_date"]).strip()
     if "port_name" in data:
@@ -97,19 +107,21 @@ async def update_lineup(request: Request, db: Session = Depends(get_db), user: U
 @router.post("/api/calls")
 async def create_call(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
     data = await request.json()
-    lineup = get_draft_lineup(db)
-    terminal_id = int(data["terminal_id"])
+    terminal = db.get(Terminal, int(data["terminal_id"]))
+    if not terminal:
+        return JSONResponse({"error": "terminal no existe"}, status_code=400)
+    lineup = get_draft_lineup(db, terminal.kind)
     max_order = db.scalar(
         select(func.coalesce(func.max(VesselCall.sort_order), 0)).where(
-            VesselCall.lineup_id == lineup.id, VesselCall.terminal_id == terminal_id
+            VesselCall.lineup_id == lineup.id, VesselCall.terminal_id == terminal.id
         )
     )
     call = VesselCall(
         lineup_id=lineup.id,
-        terminal_id=terminal_id,
+        terminal_id=terminal.id,
         sort_order=(max_order or 0) + 10,
         operation="Load",
-        vessel_type="Bulk Carrier",
+        vessel_type="Tanker" if terminal.kind == "FLAMMABLE" else "Bulk Carrier",
     )
     db.add(call)
     lineup.updated_by = user.username
@@ -126,8 +138,8 @@ async def update_call(call_id: int, request: Request, db: Session = Depends(get_
     field = data.get("field")
     value = data.get("value", "")
 
-    if field == "is_ours":
-        call.is_ours = bool(value)
+    if field in BOOL_FIELDS:
+        setattr(call, field, bool(value))
     elif field == "principal":
         _set_principal(db, call, str(value).strip())
     elif field in EDITABLE:
@@ -145,6 +157,17 @@ async def update_call(call_id: int, request: Request, db: Session = Depends(get_
         "principal_name": call.principal_name,
         "linked": call.principal_client_id is not None,
     }
+
+
+@router.post("/api/terminals/{terminal_id}/note")
+async def update_terminal_note(terminal_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    data = await request.json()
+    term = db.get(Terminal, terminal_id)
+    if not term:
+        return JSONResponse({"error": "no existe"}, status_code=404)
+    term.status_note = str(data.get("value", "")).strip()
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/api/calls/{call_id}/extras")
@@ -227,9 +250,9 @@ def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
 
 
 @router.post("/api/recalc")
-def recalc(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup = get_draft_lineup(db)
-    terminals = active_terminals(db)
+def recalc(kind: str = "GRAIN", db: Session = Depends(get_db), user: User = Depends(current_user)):
+    lineup = get_draft_lineup(db, kind)
+    terminals = active_terminals(db, kind)
     calls = calls_for_lineup(db, lineup.id)
     grouped = group_by_terminal(terminals, calls)
     changes = recalc_lineup(grouped)

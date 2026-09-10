@@ -9,7 +9,7 @@ from ..auth import current_user
 from ..database import get_db
 from ..eml import build_eml, safe_filename
 from ..models import Client, ReportLog, User, VesselCall
-from ..reports import BuiltReport, build_report
+from ..reports import BuiltReport, build_flammable_full, build_flammable_report, build_report
 from ..service import (
     CC_KEY,
     DEFAULT_CC,
@@ -25,22 +25,19 @@ from ..templating import templates
 
 router = APIRouter()
 
+FLAMMABLE_LIST_KEY = "flammable_list_emails"
 
-def _collect(db: Session, *, with_signature: bool = False):
-    """Devuelve [(call, client, BuiltReport)] para todos los barcos propios
-    con al menos un cliente destinatario.
 
-    with_signature=False (default): sin firma de la app. Se usa al abrir en
-    Outlook (Outlook agrega su propia firma) y al copiar el cuerpo.
-    with_signature=True: agrega la firma de la app. Se usa solo para el .eml.
-    """
-    lineup = get_draft_lineup(db)
-    terminals = active_terminals(db)
+def _collect(db: Session, *, kind: str = "GRAIN", with_signature: bool = False):
+    """[(call, client, BuiltReport)] para los barcos propios con destinatarios."""
+    lineup = get_draft_lineup(db, kind)
+    terminals = active_terminals(db, kind)
     calls = calls_for_lineup(db, lineup.id)
     grouped = group_by_terminal(terminals, calls)
     term_by_id = {t.id: t for t in terminals}
     signature_html = get_setting(db, SIGNATURE_KEY, "") if with_signature else ""
     cc_emails = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
+    builder = build_flammable_report if kind == "FLAMMABLE" else build_report
 
     out: list[tuple[VesselCall, Client, BuiltReport]] = []
     for call in calls:
@@ -51,21 +48,32 @@ def _collect(db: Session, *, with_signature: bool = False):
             continue
         term_calls = grouped.get(call.terminal_id, [])
         for client in call.recipient_clients():
-            report = build_report(call, client, lineup, terminal, term_calls, signature_html)
+            report = builder(call, client, lineup, terminal, term_calls, signature_html)
             report.cc_emails = [e for e in cc_emails if e not in report.to_emails]
             out.append((call, client, report))
     return lineup, out
 
 
+def _flammable_full(db: Session, *, with_signature: bool = False):
+    lineup = get_draft_lineup(db, "FLAMMABLE")
+    terminals = active_terminals(db, "FLAMMABLE")
+    grouped = group_by_terminal(terminals, calls_for_lineup(db, lineup.id))
+    piers = [(t, grouped.get(t.id, [])) for t in terminals]
+    subject, text_body, html_body = build_flammable_full(lineup, piers)
+    to_emails = split_emails(get_setting(db, FLAMMABLE_LIST_KEY, ""))
+    cc_emails = [e for e in split_emails(get_setting(db, CC_KEY, DEFAULT_CC)) if e not in to_emails]
+    return lineup, subject, text_body, html_body, to_emails, cc_emails
+
+
 @router.get("/reports")
-def reports_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup, rows = _collect(db)
+def reports_page(request: Request, kind: str = "GRAIN", db: Session = Depends(get_db), user: User = Depends(current_user)):
+    kind = "FLAMMABLE" if kind.upper() == "FLAMMABLE" else "GRAIN"
+    lineup, rows = _collect(db, kind=kind)
     items = [
         {
             "call_id": call.id,
             "client_id": client.id,
             "vessel": call.vessel_name,
-            "vessel_type": call.vessel_type,
             "client": client.name,
             "to_name": report.to_name,
             "format": report.report_format,
@@ -78,16 +86,38 @@ def reports_page(request: Request, db: Session = Depends(get_db), user: User = D
         }
         for call, client, report in rows
     ]
-    return templates.TemplateResponse(
-        request,
-        "reports/preview.html",
-        {"user": user, "lineup": lineup, "items": items},
+    ctx = {"user": user, "lineup": lineup, "items": items, "kind": kind}
+    if kind == "FLAMMABLE":
+        _, subject, text_body, html_body, to_emails, cc_emails = _flammable_full(db)
+        ctx["full"] = {
+            "subject": subject,
+            "text_body": text_body,
+            "html_body": html_body,
+            "to": "; ".join(to_emails),
+            "cc": "; ".join(cc_emails),
+            "missing_list": not to_emails,
+        }
+    return templates.TemplateResponse(request, "reports/preview.html", ctx)
+
+
+@router.get("/reports/flammable-full.eml")
+def flammable_full_eml(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    lineup, subject, text_body, html_body, to_emails, cc_emails = _flammable_full(db, with_signature=True)
+    data = build_eml(
+        subject=subject, to_emails=to_emails, cc_emails=cc_emails,
+        html_body=html_body, text_body=text_body,
+    )
+    return Response(
+        content=data,
+        media_type="message/rfc822",
+        headers={"Content-Disposition": f'attachment; filename="{safe_filename(subject)}.eml"'},
     )
 
 
 @router.get("/reports/{call_id}/client/{client_id}.eml")
-def one_eml(call_id: int, client_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup, rows = _collect(db, with_signature=True)
+def one_eml(call_id: int, client_id: int, kind: str = "GRAIN", db: Session = Depends(get_db), user: User = Depends(current_user)):
+    kind = "FLAMMABLE" if kind.upper() == "FLAMMABLE" else "GRAIN"
+    lineup, rows = _collect(db, kind=kind, with_signature=True)
     for call, client, report in rows:
         if call.id == call_id and client.id == client_id:
             data = build_eml(
@@ -108,8 +138,9 @@ def one_eml(call_id: int, client_id: int, db: Session = Depends(get_db), user: U
 
 
 @router.get("/reports/all.zip")
-def all_zip(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup, rows = _collect(db, with_signature=True)
+def all_zip(kind: str = "GRAIN", db: Session = Depends(get_db), user: User = Depends(current_user)):
+    kind = "FLAMMABLE" if kind.upper() == "FLAMMABLE" else "GRAIN"
+    lineup, rows = _collect(db, kind=kind, with_signature=True)
     if not rows:
         return JSONResponse({"error": "no hay reportes para generar"}, status_code=400)
     buf = io.BytesIO()
@@ -130,7 +161,7 @@ def all_zip(db: Session = Depends(get_db), user: User = Depends(current_user)):
     return StreamingResponse(
         buf,
         media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="Reportes {tag}.zip"'},
+        headers={"Content-Disposition": f'attachment; filename="Reportes {kind} {tag}.zip"'},
     )
 
 

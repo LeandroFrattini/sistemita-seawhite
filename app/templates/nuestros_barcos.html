@@ -9,13 +9,14 @@
   {% if en_lineup %}
   <table class="list">
     <thead><tr>
-      <th>Barco</th><th>Terminal</th><th>Muelle</th>
-      <th>ETA</th><th>ETB</th><th>ETC</th><th>Carga</th><th>Grade</th>
+      <th>Line-up</th><th>Barco</th><th>Terminal</th><th>Muelle</th>
+      <th>ETA</th><th>ETB</th><th>ETC/ETS</th><th>Carga</th><th>Producto</th>
       <th>Principal</th><th>Destino</th>
     </tr></thead>
     <tbody>
-    {% for term, c in en_lineup %}
+    {% for kind, term, c in en_lineup %}
       <tr>
+        <td>{{ 'Flammable' if kind == 'FLAMMABLE' else 'Grain' }}</td>
         <td><b>{{ c.vessel_name }}</b></td>
         <td>{{ term.code if term }}</td>
         <td>{{ (term.berth_label or term.code) if term }}</td>

@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from .auth import hash_password
@@ -31,6 +31,30 @@ DEFAULT_TERMINALS = [
     ("2/3 GALVAN", "2/3 Galvan", "2/3 Galvan berth", 50),
 ]
 
+DEFAULT_FLAMMABLE_TERMINALS = [
+    ("FLAMMABLE PIER N 1", "Flammable Berth 1", "Flammable Pier N 1", 10),
+    ("FLAMMABLE PIER N 2", "Flammable Berth 2", "Flammable Pier N 2", 20),
+    ("FLAMMABLE PIER N 3", "Flammable Berth 3", "Flammable Pier N 3", 30),
+    ("MEGA TERMINAL", "Mega", "Mega Terminal", 40),
+    ("PROFERTIL", "Profertil", "Profertil", 50),
+]
+
+# ALTER TABLE ... ADD COLUMN para bases creadas antes de agregar estas columnas
+_MIGRATIONS = [
+    ("terminals", "kind", "TEXT DEFAULT 'GRAIN'"),
+    ("terminals", "status_note", "TEXT DEFAULT ''"),
+    ("lineups", "kind", "TEXT DEFAULT 'GRAIN'"),
+    ("vessel_calls", "second_call", "BOOLEAN DEFAULT 0"),
+]
+
+
+def _migrate(db: Session) -> None:
+    for table, column, decl in _MIGRATIONS:
+        cols = {r[1] for r in db.execute(text(f"PRAGMA table_info({table})"))}
+        if column not in cols:
+            db.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {decl}"))
+    db.commit()
+
 # Clientes de arranque tomados de la columna PRINCIPAL del Excel.
 # Cargar los mails desde la pantalla "Clientes".
 DEFAULT_CLIENTS = [
@@ -49,8 +73,10 @@ def init_db() -> None:
     Base.metadata.create_all(engine)
     db: Session = SessionLocal()
     try:
+        _migrate(db)
         _seed_admin(db)
         _seed_terminals(db)
+        _seed_flammable_terminals(db)
         _seed_clients(db)
         _seed_lineup(db)
         _seed_signature(db)
@@ -74,10 +100,19 @@ def _seed_admin(db: Session) -> None:
 
 
 def _seed_terminals(db: Session) -> None:
-    if db.scalar(select(Terminal).limit(1)):
+    if db.scalar(select(Terminal).where(Terminal.kind == "GRAIN").limit(1)):
         return
     for code, name, berth, order in DEFAULT_TERMINALS:
-        db.add(Terminal(code=code, name=name, berth_label=berth, sort_order=order, active=True))
+        db.add(Terminal(kind="GRAIN", code=code, name=name, berth_label=berth,
+                        sort_order=order, active=True))
+
+
+def _seed_flammable_terminals(db: Session) -> None:
+    if db.scalar(select(Terminal).where(Terminal.kind == "FLAMMABLE").limit(1)):
+        return
+    for code, name, berth, order in DEFAULT_FLAMMABLE_TERMINALS:
+        db.add(Terminal(kind="FLAMMABLE", code=code, name=name, berth_label=berth,
+                        sort_order=order, active=True))
 
 
 def _seed_clients(db: Session) -> None:
@@ -88,15 +123,11 @@ def _seed_clients(db: Session) -> None:
 
 
 def _seed_lineup(db: Session) -> None:
-    if db.scalar(select(Lineup).where(Lineup.status == "draft")):
-        return
-    db.add(
-        Lineup(
-            port_name=settings.port_name,
-            lineup_date=date.today().strftime("%d/%m/%y"),
-            status="draft",
-        )
-    )
+    for kind, port in (("GRAIN", settings.port_name), ("FLAMMABLE", "BAHIA BLANCA FLAMMABLE STATIONS")):
+        if db.scalar(select(Lineup).where(Lineup.status == "draft", Lineup.kind == kind)):
+            continue
+        db.add(Lineup(kind=kind, port_name=port,
+                      lineup_date=date.today().strftime("%d/%m/%y"), status="draft"))
 
 
 def _seed_signature(db: Session) -> None:
@@ -104,3 +135,5 @@ def _seed_signature(db: Session) -> None:
         db.add(AppSetting(key="report_signature_html", value=DEFAULT_SIGNATURE_HTML))
     if not db.get(AppSetting, "report_cc"):
         db.add(AppSetting(key="report_cc", value="operations@seawhite.com.ar"))
+    if not db.get(AppSetting, "flammable_list_emails"):
+        db.add(AppSetting(key="flammable_list_emails", value=""))

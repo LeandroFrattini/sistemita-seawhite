@@ -251,3 +251,122 @@ def build_report(call, client, lineup, terminal, term_calls, signature_html: str
     if client.report_format == "WBL_TEXT":
         return build_wbl_report(call, client, lineup, terminal, term_calls, signature_html)
     return build_excel_report(call, client, lineup, terminal, term_calls, signature_html)
+
+
+# --------------------------------------------------------------------------- #
+# Formato FLAMMABLE (texto monoespaciado, agrupado por muelle)
+# --------------------------------------------------------------------------- #
+FLAMMABLE_FOOTER = (
+    "ALL BERTH ASSIGNMENTS ARE SUBJECT TO CONFIRMATION AND MAY VARY "
+    "DEPENDING ON THE DECISION OF THE SHIPPERS/RECEIVERS."
+)
+FL_HEADERS = ["PIER / VESSEL", "ETA", "OPS (OPS – QTTS – PRODUCT – SHIPPER/RECEIVER)",
+              "DESTINY", "ETB", "ETS"]
+
+
+def _fl_eta(call) -> str:
+    d = parse_date(call.eta)
+    base = f"ETA {d.strftime('%d/%m')}" if d else (call.eta or "").strip().upper()
+    if getattr(call, "second_call", False):
+        base = f"{base} 2ND CALL".strip()
+    return base
+
+
+def _fl_etb(call) -> str:
+    d = parse_date(call.etb)
+    if d:
+        return f"ETB {d.strftime('%d/%m')}"
+    t = (call.etb or "").strip().upper()
+    return t or "---------"
+
+
+def _fl_ets(call) -> str:
+    d = parse_date(call.etc)
+    if d:
+        return f"ETS {d.strftime('%d/%m')}"
+    return (call.etc or "").strip().upper()
+
+
+def _fl_ops(call) -> str:
+    parts = [call.operation, call.quantity, call.grade, call.shipper]
+    return " – ".join((p or "").strip() or "TBC" for p in parts)
+
+
+def _fl_row(call) -> list[str]:
+    return [call.vessel_name, _fl_eta(call), _fl_ops(call),
+            (call.destination or "TBC"), _fl_etb(call), _fl_ets(call)]
+
+
+def flammable_table_text(piers: list[tuple]) -> str:
+    """piers = [(terminal, [calls]), ...]  ->  bloque de texto con header comun."""
+    all_rows = [_fl_row(c) for _, calls in piers for c in calls]
+    widths = []
+    for i, head in enumerate(FL_HEADERS):
+        cells = [head] + [r[i] for r in all_rows]
+        widths.append(max(len(x) for x in cells) + 3)
+
+    def fmt(cells: list[str]) -> str:
+        return "".join(c.ljust(widths[i]) for i, c in enumerate(cells)).rstrip()
+
+    out = [fmt(FL_HEADERS), ""]
+    for term, calls in piers:
+        title = term.code
+        if term.status_note:
+            title = f"{term.code}   ({term.status_note})"
+        out.append(title)
+        out.append("-" * 18)
+        for c in calls:
+            out.append(fmt(_fl_row(c)))
+        out.append("")
+    return "\n".join(out).rstrip()
+
+
+def _flammable_wrap(text_body: str, signature_html: str = "") -> tuple[str, str]:
+    html_body = _wrap_body(
+        f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>', signature_html
+    )
+    return text_body, html_body
+
+
+def build_flammable_full(lineup, piers: list[tuple]) -> tuple[str, str, str]:
+    """Line-up completo (para la lista fija). Devuelve (subject, text, html)."""
+    d = parse_date(lineup.lineup_date)
+    title_date = d.strftime("%d.%m.%Y") if d else (lineup.lineup_date or "")
+    subj_date = d.strftime("%d.%m.%y") if d else (lineup.lineup_date or "")
+    text_body = (
+        f"BAHIA BLANCA FLAMMABLE STATIONS LINE UP - {title_date}\n\n"
+        f"GOOD DAY,\n\n"
+        f"PLS FIND BELOW UPDATED LINE UPS:\n\n"
+        f"+++\n\n"
+        f"{flammable_table_text(piers)}\n\n"
+        f"{FLAMMABLE_FOOTER}"
+    )
+    _, html_body = _flammable_wrap(text_body)
+    return f"BAHIA BLANCA FLAMMABLE STATIONS LINE UP - {subj_date}", text_body, html_body
+
+
+def build_flammable_report(call, client, lineup, terminal, term_calls, signature_html: str = "") -> BuiltReport:
+    d = parse_date(lineup.lineup_date)
+    date_tag = d.strftime("%d.%m.%y") if d else (lineup.lineup_date or "")
+    text_body = (
+        f"TO {client.display_to.upper()}\n"
+        f"FM {settings.mail_from_name}\n\n"
+        f"REF {call.vessel_name.upper()}\n"
+        f"{date_tag}\n\n"
+        f"GOOD DAY,\n\n"
+        f"PLS FIND BELOW UPDATED LINE UPS:\n\n"
+        f"+++\n\n"
+        f"{flammable_table_text([(terminal, term_calls)])}\n\n"
+        f"{FLAMMABLE_FOOTER}"
+    )
+    _, html_body = _flammable_wrap(text_body, signature_html)
+    return BuiltReport(
+        subject=f"{call.vessel_name.upper()} - FLAMMABLE LINE UP {date_tag}",
+        to_name=client.display_to,
+        to_emails=client.email_list,
+        report_format="FLAMMABLE",
+        html_body=html_body,
+        text_body=text_body,
+        vessel_name=call.vessel_name,
+        client_name=client.name,
+    )

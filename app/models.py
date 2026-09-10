@@ -16,6 +16,7 @@ from .database import Base
 
 VESSEL_TYPES = ["Bulk Carrier", "Tanker"]
 REPORT_FORMATS = ["EXCEL", "WBL_TEXT"]
+LINEUP_KINDS = ["GRAIN", "FLAMMABLE"]
 
 
 class User(Base):
@@ -34,12 +35,15 @@ class Terminal(Base):
     __tablename__ = "terminals"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20), default="GRAIN")  # GRAIN | FLAMMABLE
     # Texto que va en la primera celda del encabezado de la tabla (ej. "9TBB", "CARGILL")
-    code: Mapped[str] = mapped_column(String(40))
+    code: Mapped[str] = mapped_column(String(60))
     # Nombre largo para mostrar en la app
     name: Mapped[str] = mapped_column(String(120), default="")
     # Rótulo del muelle para el texto del formato WBL (ej. "Pier 9 TBB berth")
     berth_label: Mapped[str] = mapped_column(String(120), default="")
+    # Nota de estado del muelle (flammable), ej. "OUT OF SERVICE SINCE ... "
+    status_note: Mapped[str] = mapped_column(String(255), default="")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
@@ -76,6 +80,7 @@ class Lineup(Base):
     __tablename__ = "lineups"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20), default="GRAIN")  # GRAIN | FLAMMABLE
     port_name: Mapped[str] = mapped_column(String(120), default="")
     lineup_date: Mapped[str] = mapped_column(String(10), default="")  # dd/mm/yy
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | archived
@@ -121,6 +126,7 @@ class VesselCall(Base):
     )
 
     is_ours: Mapped[bool] = mapped_column(Boolean, default=False)
+    second_call: Mapped[bool] = mapped_column(Boolean, default=False)  # flammable "2ND CALL"
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

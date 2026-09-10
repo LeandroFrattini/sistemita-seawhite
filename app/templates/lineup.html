@@ -1,23 +1,28 @@
 {% extends "base.html" %}
-{% block nav_lineup %}active{% endblock %}
+{% if flammable %}{% block nav_flammable %}active{% endblock %}{% else %}{% block nav_lineup %}active{% endblock %}{% endif %}
 {% block main_class %}wide{% endblock %}
 {% block content %}
 <div class="page-head">
   <div class="lineup-meta">
+    <h1 style="margin:0">{{ 'Line-up Flammable' if flammable else 'Line-up Grain' }}</h1>
     <label>Fecha
-      <input id="lineup-date" value="{{ lineup.lineup_date }}" placeholder="dd/mm/aa" size="9">
+      <input id="lineup-date" data-kind="{{ kind }}" value="{{ lineup.lineup_date }}" placeholder="dd/mm/aa" size="9">
     </label>
     <label>Puerto
-      <input id="lineup-port" value="{{ lineup.port_name }}" size="22">
+      <input id="lineup-port" data-kind="{{ kind }}" value="{{ lineup.port_name }}" size="28">
     </label>
     <span class="muted">Última edición: {{ lineup.updated_by or "—" }}</span>
   </div>
   <div class="actions">
+    {% if not flammable %}
     <a class="btn" href="/import">⬆ Importar Excel</a>
-    <button id="btn-recalc" class="btn">↻ Recalcular ETB/ETC</button>
+    {% endif %}
+    <button id="btn-recalc" class="btn" data-kind="{{ kind }}">↻ Recalcular {{ 'ETB/ETS' if flammable else 'ETB/ETC' }}</button>
+    {% if not flammable %}
     <a class="btn" href="/export/internal.xlsx">⬇ Excel interno</a>
     <a class="btn" href="/export/clients.xlsx">⬇ Excel clientes</a>
-    <a class="btn primary" href="/reports">Generar reportes →</a>
+    {% endif %}
+    <a class="btn primary" href="/reports?kind={{ kind }}">Generar reportes →</a>
   </div>
 </div>
 
@@ -30,14 +35,26 @@
 {% for term in terminals %}
 <section class="terminal" data-terminal="{{ term.id }}">
   <h2>{{ term.code }} <span class="muted">· {{ term.name }}</span></h2>
+  {% if flammable %}
+  <label class="note-line">Nota de estado del muelle:
+    <input data-note="{{ term.id }}" value="{{ term.status_note }}" placeholder="(vacío = sin nota)" size="70">
+  </label>
+  {% endif %}
   <div class="table-scroll">
     <table class="grid">
       <thead>
         <tr>
           <th class="col-ord"></th>
-          <th>Vessel</th><th>Type</th><th>IMO</th>
+          <th>Vessel</th>
+          {% if flammable %}
+          <th>ETA</th><th>ETB</th><th>ETS</th>
+          <th>OPS</th><th>QTTS</th><th>PRODUCT</th><th>SHIPPER/RECEIVER</th><th>DESTINY</th>
+          <th class="col-ours">2ND CALL</th>
+          {% else %}
+          <th>Type</th><th>IMO</th>
           <th>ETA</th><th>ETB</th><th>ETC</th>
           <th>Oper.</th><th>Quantity</th><th>Grade</th><th>Shipper</th><th>Destination</th>
+          {% endif %}
           <th>LOCAL</th><th>PRINCIPAL</th>
           <th class="col-ours">Nuestro</th>
           <th>Otras agencias</th>
@@ -52,6 +69,7 @@
             <button class="mini danger" data-del title="Eliminar">✕</button>
           </td>
           <td><input data-f="vessel_name" value="{{ call.vessel_name }}" class="w-vessel"></td>
+          {% if not flammable %}
           <td>
             <select data-f="vessel_type">
               {% for vt in vessel_types %}
@@ -60,7 +78,8 @@
             </select>
           </td>
           <td><input data-f="imo" value="{{ call.imo }}" class="w-imo"></td>
-          <td><input data-f="eta" value="{{ call.eta }}" class="w-date" placeholder=""></td>
+          {% endif %}
+          <td><input data-f="eta" value="{{ call.eta }}" class="w-date"></td>
           <td><input data-f="etb" value="{{ call.etb }}" class="w-date"></td>
           <td><input data-f="etc" value="{{ call.etc }}" class="w-date"></td>
           <td><input data-f="operation" value="{{ call.operation }}" class="w-oper"></td>
@@ -68,6 +87,9 @@
           <td><input data-f="grade" value="{{ call.grade }}" class="w-grade"></td>
           <td><input data-f="shipper" value="{{ call.shipper }}" class="w-grade"></td>
           <td><input data-f="destination" value="{{ call.destination }}" class="w-grade"></td>
+          {% if flammable %}
+          <td class="col-ours"><input type="checkbox" data-f="second_call" {{ 'checked' if call.second_call }}></td>
+          {% endif %}
           <td><input data-f="local_agent" value="{{ call.local_agent }}" class="w-agent"></td>
           <td>
             <input data-f="principal" list="clients-datalist" class="w-agent principal-input"

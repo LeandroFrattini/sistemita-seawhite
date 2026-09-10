@@ -30,27 +30,34 @@ def set_setting(db: Session, key: str, value: str) -> None:
     db.commit()
 
 
-def get_draft_lineup(db: Session) -> Lineup:
+def get_draft_lineup(db: Session, kind: str = "GRAIN") -> Lineup:
     lineup = db.scalar(
-        select(Lineup).where(Lineup.status == "draft").order_by(Lineup.id.desc())
+        select(Lineup)
+        .where(Lineup.status == "draft", Lineup.kind == kind)
+        .order_by(Lineup.id.desc())
     )
     if not lineup:
-        lineup = Lineup(status="draft", lineup_date="", port_name="")
+        lineup = Lineup(kind=kind, status="draft", lineup_date="", port_name="")
         db.add(lineup)
         db.commit()
     return lineup
 
 
-def active_terminals(db: Session) -> list[Terminal]:
+def active_terminals(db: Session, kind: str = "GRAIN") -> list[Terminal]:
     return list(
         db.scalars(
-            select(Terminal).where(Terminal.active).order_by(Terminal.sort_order, Terminal.id)
+            select(Terminal)
+            .where(Terminal.active, Terminal.kind == kind)
+            .order_by(Terminal.sort_order, Terminal.id)
         )
     )
 
 
-def all_terminals(db: Session) -> list[Terminal]:
-    return list(db.scalars(select(Terminal).order_by(Terminal.sort_order, Terminal.id)))
+def all_terminals(db: Session, kind: str | None = None) -> list[Terminal]:
+    stmt = select(Terminal).order_by(Terminal.kind, Terminal.sort_order, Terminal.id)
+    if kind:
+        stmt = stmt.where(Terminal.kind == kind)
+    return list(db.scalars(stmt))
 
 
 def active_clients(db: Session) -> list[Client]:

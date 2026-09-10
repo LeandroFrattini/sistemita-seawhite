@@ -2,27 +2,58 @@
 {% block nav_reports %}active{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>Reportes · line-up {{ lineup.lineup_date }}</h1>
-  {% if items %}
+  <h1>Reportes {{ 'Flammable' if kind == 'FLAMMABLE' else 'Grain' }} · {{ lineup.lineup_date }}</h1>
   <div class="actions">
-    <a class="btn primary" href="/reports/all.zip">⬇ Descargar todos (.eml en zip)</a>
+    <a class="btn {{ '' if kind == 'FLAMMABLE' else 'primary' }}" href="/reports?kind=GRAIN">Grain</a>
+    <a class="btn {{ 'primary' if kind == 'FLAMMABLE' else '' }}" href="/reports?kind=FLAMMABLE">Flammable</a>
+    {% if items %}
+    <a class="btn" href="/reports/all.zip?kind={{ kind }}">⬇ Todos (.eml zip)</a>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
 
-<p class="muted">Cada <b>.eml</b> se abre en Outlook como borrador listo para enviar (To y asunto ya cargados).
-También podés usar <b>Copiar</b> y pegar el cuerpo en un mail nuevo.</p>
+<p class="muted"><b>Abrir en Outlook</b> arma el mail directo (con tu firma). El <b>.eml</b> lo abre como
+borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
+
+{% if kind == 'FLAMMABLE' and full %}
+<article class="report-card">
+  <header>
+    <div><span class="badge fl">Line-up completo</span> <b>{{ full.subject }}</b></div>
+    <div class="report-to">
+      {% if full.missing_list %}
+        <span class="warn">Falta cargar la lista fija en Admin → "Lista fija Flammable"</span>
+      {% else %}
+        TO {{ full.to }}
+      {% endif %}
+      {% if full.cc %}<br>CC {{ full.cc }}{% endif %}
+    </div>
+  </header>
+  <div class="report-body"><pre>{{ full.text_body }}</pre></div>
+  <footer>
+    <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
+    <a class="btn" href="/reports/flammable-full.eml">⬇ .eml</a>
+    <button class="btn" data-copy>Copiar cuerpo</button>
+    <span class="hint" hidden></span>
+    <script type="application/json" class="payload">
+      {"html": {{ full.html_body|tojson }}, "text": {{ full.text_body|tojson }},
+       "subject": {{ full.subject|tojson }}, "to": {{ full.to|tojson }},
+       "cc": {{ full.cc|tojson }}, "isText": true}
+    </script>
+  </footer>
+</article>
+{% endif %}
 
 {% if not items %}
-<p class="warn">No hay reportes. Marcá barcos como <b>Nuestro</b> en el line-up y asignales PRINCIPAL / Otras agencias.</p>
+<p class="warn">No hay reportes por barco. Marcá barcos como <b>Nuestro</b> en el line-up
+{{ 'Flammable' if kind == 'FLAMMABLE' else 'Grain' }} y asignales PRINCIPAL / Otras agencias.</p>
 {% endif %}
 
 {% for it in items %}
 <article class="report-card" data-idx="{{ loop.index0 }}">
   <header>
     <div>
-      <span class="badge {{ 'wbl' if it.format == 'WBL_TEXT' else 'xls' }}">
-        {{ 'WBL texto' if it.format == 'WBL_TEXT' else 'Excel' }}</span>
+      <span class="badge {{ 'fl' if it.format == 'FLAMMABLE' else ('wbl' if it.format == 'WBL_TEXT' else 'xls') }}">
+        {{ 'Flammable' if it.format == 'FLAMMABLE' else ('WBL texto' if it.format == 'WBL_TEXT' else 'Excel') }}</span>
       <b>{{ it.subject }}</b>
     </div>
     <div class="report-to">
@@ -37,23 +68,23 @@ También podés usar <b>Copiar</b> y pegar el cuerpo en un mail nuevo.</p>
   </header>
 
   <div class="report-body">
-    {% if it.format == 'WBL_TEXT' %}
-      <pre>{{ it.text_body }}</pre>
-    {% else %}
+    {% if it.format == 'EXCEL' %}
       {{ it.html_body|safe }}
+    {% else %}
+      <pre>{{ it.text_body }}</pre>
     {% endif %}
   </div>
 
   <footer>
     <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
-    <a class="btn" href="/reports/{{ it.call_id }}/client/{{ it.client_id }}.eml">⬇ .eml</a>
+    <a class="btn" href="/reports/{{ it.call_id }}/client/{{ it.client_id }}.eml?kind={{ kind }}">⬇ .eml</a>
     <button class="btn" data-copy>Copiar cuerpo</button>
     <span class="hint" hidden></span>
     <script type="application/json" class="payload">
       {"html": {{ it.html_body|tojson }}, "text": {{ it.text_body|tojson }},
        "subject": {{ it.subject|tojson }}, "to": {{ (it.emails|join('; '))|tojson }},
        "cc": {{ (it.cc_emails|join('; '))|tojson }},
-       "isText": {{ 'true' if it.format == 'WBL_TEXT' else 'false' }}}
+       "isText": {{ 'false' if it.format == 'EXCEL' else 'true' }}}
     </script>
   </footer>
 </article>

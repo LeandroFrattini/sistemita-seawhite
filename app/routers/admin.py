@@ -25,8 +25,19 @@ def admin_home(request: Request, db: Session = Depends(get_db), user: User = Dep
             "logs": logs,
             "signature_html": get_setting(db, SIGNATURE_KEY, ""),
             "report_cc": get_setting(db, CC_KEY, DEFAULT_CC),
+            "flammable_list": get_setting(db, "flammable_list_emails", ""),
         },
     )
+
+
+@router.post("/flammable-list")
+def save_flammable_list(
+    db: Session = Depends(get_db),
+    admin: User = Depends(admin_required),
+    flammable_list: str = Form(""),
+):
+    set_setting(db, "flammable_list_emails", flammable_list.strip())
+    return RedirectResponse("/admin", status_code=302)
 
 
 @router.post("/signature")
@@ -103,6 +114,7 @@ def create_terminal(
     code: str = Form(...),
     name: str = Form(""),
     berth_label: str = Form(""),
+    kind: str = Form("GRAIN"),
     sort_order: int = Form(100),
 ):
     db.add(
@@ -110,6 +122,7 @@ def create_terminal(
             code=code.strip(),
             name=name.strip(),
             berth_label=berth_label.strip(),
+            kind="FLAMMABLE" if kind.upper() == "FLAMMABLE" else "GRAIN",
             sort_order=sort_order,
             active=True,
         )
@@ -126,6 +139,7 @@ def update_terminal(
     code: str = Form(...),
     name: str = Form(""),
     berth_label: str = Form(""),
+    kind: str = Form("GRAIN"),
     sort_order: int = Form(100),
     active: str = Form(""),
 ):
@@ -134,6 +148,7 @@ def update_terminal(
         t.code = code.strip()
         t.name = name.strip()
         t.berth_label = berth_label.strip()
+        t.kind = "FLAMMABLE" if kind.upper() == "FLAMMABLE" else "GRAIN"
         t.sort_order = sort_order
         t.active = active == "on"
         db.commit()
