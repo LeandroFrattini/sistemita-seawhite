@@ -194,6 +194,7 @@ class OperatedVessel(Base):
     operated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     removed_by: Mapped[str] = mapped_column(String(120), default="")
     lineup_date: Mapped[str] = mapped_column(String(10), default="")
+    period: Mapped[str] = mapped_column(String(7), default="")  # YYYY-MM para el recuento
 
     terminal_code: Mapped[str] = mapped_column(String(40), default="")
     berth_label: Mapped[str] = mapped_column(String(120), default="")

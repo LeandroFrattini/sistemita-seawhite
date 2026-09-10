@@ -1,10 +1,13 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
 from ..database import get_db
+from datetime import date
+
+from ..dates import parse_date
 from ..models import Client, OperatedVessel, Terminal, User, VesselCall, VesselExtraAgency
 from ..recalc import recalc_lineup, recalc_terminal
 from ..service import (
@@ -59,8 +62,20 @@ def flammable_page(request: Request, db: Session = Depends(get_db), user: User =
     return _render_lineup(request, db, user, "FLAMMABLE")
 
 
+_MESES = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+          "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def _period_label(p: str) -> str:
+    try:
+        y, m = p.split("-")
+        return f"{_MESES[int(m)].capitalize()} {y}"
+    except (ValueError, IndexError):
+        return p or "sin mes"
+
+
 @router.get("/nuestros-barcos", response_class=HTMLResponse)
-def our_vessels_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(current_user)):
     en_lineup = []
     for kind in ("GRAIN", "FLAMMABLE"):
         lineup = get_draft_lineup(db, kind)
@@ -72,23 +87,51 @@ def our_vessels_page(request: Request, db: Session = Depends(get_db), user: User
                 if c.is_ours:
                     en_lineup.append((kind, term_by_id.get(c.terminal_id), c))
 
-    operados = list(
-        db.scalars(select(OperatedVessel).order_by(OperatedVessel.operated_at.desc()))
-    )
+    todos = list(db.scalars(select(OperatedVessel).order_by(OperatedVessel.period.desc(),
+                                                            OperatedVessel.operated_at.desc())))
+    # conteo por mes para las pestañas
+    counts: dict[str, int] = {}
+    for o in todos:
+        counts[o.period or ""] = counts.get(o.period or "", 0) + 1
+    meses = sorted(counts.keys(), reverse=True)
+    operados = [o for o in todos if o.period == mes] if mes else todos
+
     return templates.TemplateResponse(
         request,
         "nuestros_barcos.html",
-        {"user": user, "en_lineup": en_lineup, "operados": operados},
+        {
+            "user": user,
+            "en_lineup": en_lineup,
+            "operados": operados,
+            "total_operados": len(todos),
+            "mes": mes,
+            "meses": [(m, _period_label(m), counts[m]) for m in meses],
+            "period_label": _period_label,
+        },
     )
 
 
+@router.post("/operados/{op_id}/mes")
+def move_operated(op_id: int, period: str = Form(""), volver: str = Form(""),
+                  db: Session = Depends(get_db), user: User = Depends(current_user)):
+    row = db.get(OperatedVessel, op_id)
+    if row:
+        p = period.strip()[:7]
+        if len(p) == 7 and p[4] == "-":
+            row.period = p
+            db.commit()
+    dest = f"/nuestros-barcos?mes={volver}" if volver else "/nuestros-barcos"
+    return RedirectResponse(dest + "#operados", status_code=302)
+
+
 @router.post("/operados/{op_id}/delete")
-def delete_operated(op_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def delete_operated(op_id: int, volver: str = Form(""), db: Session = Depends(get_db), user: User = Depends(current_user)):
     row = db.get(OperatedVessel, op_id)
     if row:
         db.delete(row)
         db.commit()
-    return RedirectResponse("/nuestros-barcos", status_code=302)
+    dest = f"/nuestros-barcos?mes={volver}" if volver else "/nuestros-barcos"
+    return RedirectResponse(dest + "#operados", status_code=302)
 
 
 @router.post("/api/lineup")
@@ -225,9 +268,11 @@ def delete_call(call_id: int, db: Session = Depends(get_db), user: User = Depend
 
 def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
     term = call.terminal
+    d = parse_date(call.etc) or parse_date(call.etb) or date.today()
     db.add(
         OperatedVessel(
             removed_by=user.username,
+            period=d.strftime("%Y-%m"),
             lineup_date=call.lineup.lineup_date if call.lineup else "",
             terminal_code=term.code if term else "",
             berth_label=(term.berth_label or term.code) if term else "",

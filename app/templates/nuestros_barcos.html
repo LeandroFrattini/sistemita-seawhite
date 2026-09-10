@@ -32,15 +32,28 @@
   {% endif %}
 </section>
 
-<section>
-  <h2>Operados ({{ operados|length }})</h2>
-  <p class="muted">Cuando borrás un barco nuestro del line-up (la ✕), pasa acá como histórico.</p>
+<section id="operados">
+  <h2>Operados
+    {% if mes %}· {{ period_label(mes) }} ({{ operados|length }}){% else %}· todos ({{ total_operados }}){% endif %}
+  </h2>
+  <p class="muted">Cuando borrás un barco nuestro del line-up (la ✕), pasa acá. El <b>mes</b> se toma del ETC/ETS
+  del barco, y lo podés cambiar por fila para tu recuento.</p>
+
+  {% if meses %}
+  <div class="mes-tabs">
+    <a class="mes-tab {{ 'on' if not mes }}" href="/nuestros-barcos#operados">Todos ({{ total_operados }})</a>
+    {% for p, label, n in meses %}
+    <a class="mes-tab {{ 'on' if mes == p }}" href="/nuestros-barcos?mes={{ p }}#operados">{{ label }} ({{ n }})</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if operados %}
   <table class="list">
     <thead><tr>
       <th>Barco</th><th>Terminal</th><th>Muelle</th>
       <th>ETA</th><th>ETB</th><th>ETC</th><th>Carga</th><th>Grade</th>
-      <th>Principal</th><th>Destino</th><th>Sacado</th><th>Por</th><th></th>
+      <th>Principal</th><th>Destino</th><th>Sacado</th><th>Por</th><th>Mes (recuento)</th><th></th>
     </tr></thead>
     <tbody>
     {% for o in operados %}
@@ -50,11 +63,19 @@
         <td>{{ o.eta }}</td><td>{{ o.etb }}</td><td>{{ o.etc }}</td>
         <td>{{ o.quantity }}</td><td>{{ o.grade }}</td>
         <td>{{ o.principal }}</td><td>{{ o.destination }}</td>
-        <td class="nowrap">{{ o.operated_at.strftime("%d/%m/%Y %H:%M") }}</td>
+        <td class="nowrap">{{ o.operated_at.strftime("%d/%m/%Y") }}</td>
         <td>{{ o.removed_by }}</td>
+        <td class="nowrap">
+          <form method="post" action="/operados/{{ o.id }}/mes" class="inline-form">
+            <input type="hidden" name="volver" value="{{ mes }}">
+            <input type="month" name="period" value="{{ o.period }}">
+            <button class="mini">Mover</button>
+          </form>
+        </td>
         <td>
           <form method="post" action="/operados/{{ o.id }}/delete"
                 onsubmit="return confirm('¿Borrar del histórico?')">
+            <input type="hidden" name="volver" value="{{ mes }}">
             <button class="mini danger">✕</button>
           </form>
         </td>
@@ -63,7 +84,7 @@
     </tbody>
   </table>
   {% else %}
-  <p class="muted">Todavía no hay barcos operados.</p>
+  <p class="muted">{{ 'No hay barcos operados en ese mes.' if mes else 'Todavía no hay barcos operados.' }}</p>
   {% endif %}
 </section>
 {% endblock %}

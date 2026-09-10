@@ -45,6 +45,7 @@ _MIGRATIONS = [
     ("terminals", "status_note", "TEXT DEFAULT ''"),
     ("lineups", "kind", "TEXT DEFAULT 'GRAIN'"),
     ("vessel_calls", "second_call", "BOOLEAN DEFAULT 0"),
+    ("operated_vessels", "period", "TEXT DEFAULT ''"),
 ]
 
 
@@ -53,6 +54,13 @@ def _migrate(db: Session) -> None:
         cols = {r[1] for r in db.execute(text(f"PRAGMA table_info({table})"))}
         if column not in cols:
             db.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {decl}"))
+    # backfill period de barcos operados viejos, desde operated_at
+    db.execute(
+        text(
+            "UPDATE operated_vessels SET period = strftime('%Y-%m', operated_at) "
+            "WHERE period IS NULL OR period = ''"
+        )
+    )
     db.commit()
 
 # Clientes de arranque tomados de la columna PRINCIPAL del Excel.
