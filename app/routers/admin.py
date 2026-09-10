@@ -37,7 +37,7 @@ def save_flammable_list(
     flammable_list: str = Form(""),
 ):
     set_setting(db, "flammable_list_emails", flammable_list.strip())
-    return RedirectResponse("/admin", status_code=302)
+    return RedirectResponse("/admin#sec-flam", status_code=302)
 
 
 @router.post("/signature")
@@ -47,7 +47,7 @@ def save_signature(
     signature_html: str = Form(""),
 ):
     set_setting(db, SIGNATURE_KEY, signature_html.strip())
-    return RedirectResponse("/admin", status_code=302)
+    return RedirectResponse("/admin#sec-firma", status_code=302)
 
 
 @router.post("/report-cc")
@@ -57,7 +57,7 @@ def save_report_cc(
     report_cc: str = Form(""),
 ):
     set_setting(db, CC_KEY, report_cc.strip())
-    return RedirectResponse("/admin", status_code=302)
+    return RedirectResponse("/admin#sec-cc", status_code=302)
 
 
 # --- Usuarios ------------------------------------------------------------- #
@@ -103,7 +103,7 @@ def update_user(
         if password.strip():
             u.password_hash = hash_password(password.strip())
         db.commit()
-    return RedirectResponse("/admin", status_code=302)
+    return RedirectResponse(f"/admin#usr-{user_id}", status_code=302)
 
 
 # --- Terminales --------------------------------------------------------- #
@@ -152,4 +152,4 @@ def update_terminal(
         t.sort_order = sort_order
         t.active = active == "on"
         db.commit()
-    return RedirectResponse("/admin", status_code=302)
+    return RedirectResponse(f"/admin#trm-{terminal_id}", status_code=302)

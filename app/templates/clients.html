@@ -27,7 +27,7 @@
 
 <div class="client-list">
 {% for c in clients %}
-  <form class="card client-row {{ 'inactive' if not c.active }}" method="post" action="/clients/{{ c.id }}">
+  <form id="cli-{{ c.id }}" class="card client-row {{ 'inactive' if not c.active }}" method="post" action="/clients/{{ c.id }}">
     <div class="row">
       <label>Nombre<input name="name" value="{{ c.name }}" required></label>
       <label>Nombre para "TO ..."<input name="to_name" value="{{ c.to_name }}" placeholder="(vacío = {{ c.name }})"></label>

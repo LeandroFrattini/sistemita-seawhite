@@ -31,18 +31,19 @@ def create_client(
     report_format: str = Form("EXCEL"),
 ):
     name = name.strip()
+    anchor = ""
     if name and not db.query(Client).filter(Client.name.ilike(name)).first():
-        db.add(
-            Client(
-                name=name,
-                to_name=to_name.strip(),
-                emails=emails.strip(),
-                report_format=report_format if report_format in {"EXCEL", "WBL_TEXT"} else "EXCEL",
-                active=True,
-            )
+        client = Client(
+            name=name,
+            to_name=to_name.strip(),
+            emails=emails.strip(),
+            report_format=report_format if report_format in {"EXCEL", "WBL_TEXT"} else "EXCEL",
+            active=True,
         )
+        db.add(client)
         db.commit()
-    return RedirectResponse("/clients", status_code=302)
+        anchor = f"#cli-{client.id}"
+    return RedirectResponse(f"/clients{anchor}", status_code=302)
 
 
 @router.post("/clients/{client_id}")
@@ -71,7 +72,7 @@ def update_client(
         client.report_format = report_format if report_format in {"EXCEL", "WBL_TEXT"} else "EXCEL"
         client.active = active == "on"
         db.commit()
-    return RedirectResponse("/clients", status_code=302)
+    return RedirectResponse(f"/clients#cli-{client_id}", status_code=302)
 
 
 @router.post("/clients/{client_id}/delete")
@@ -80,7 +81,7 @@ def deactivate_client(client_id: int, db: Session = Depends(get_db), user: User 
     if client:
         client.active = False
         db.commit()
-    return RedirectResponse("/clients", status_code=302)
+    return RedirectResponse(f"/clients#cli-{client_id}", status_code=302)
 
 
 @router.post("/clients/{client_id}/mail-remove")
@@ -96,7 +97,7 @@ def remove_client_mail(
         remaining = [e for e in client.email_list if e.lower() != target]
         client.emails = ", ".join(remaining)
         db.commit()
-    return RedirectResponse("/clients", status_code=302)
+    return RedirectResponse(f"/clients#cli-{client_id}", status_code=302)
 
 
 @router.post("/clients/{client_id}/borrar")

@@ -25,7 +25,7 @@
 
   <div class="client-list">
   {% for u in users %}
-    <form class="card client-row {{ 'inactive' if not u.is_active }}" method="post" action="/admin/users/{{ u.id }}">
+    <form id="usr-{{ u.id }}" class="card client-row {{ 'inactive' if not u.is_active }}" method="post" action="/admin/users/{{ u.id }}">
       <div class="row">
         <label>Usuario<input value="{{ u.username }}" disabled></label>
         <label>Nombre<input name="full_name" value="{{ u.full_name }}"></label>
@@ -57,7 +57,7 @@
   </form>
   <div class="client-list">
   {% for t in terminals %}
-    <form class="card client-row {{ 'inactive' if not t.active }}" method="post" action="/admin/terminals/{{ t.id }}">
+    <form id="trm-{{ t.id }}" class="card client-row {{ 'inactive' if not t.active }}" method="post" action="/admin/terminals/{{ t.id }}">
       <div class="row">
         <label>Código<input name="code" value="{{ t.code }}" required></label>
         <label>Nombre<input name="name" value="{{ t.name }}"></label>
@@ -77,7 +77,7 @@
   </div>
 </section>
 
-<section>
+<section id="sec-cc">
   <h2>Copia (CC) en todos los reportes</h2>
   <p class="muted">Estas direcciones van en copia en <b>todos</b> los mails que se envían.
   Separar por coma.</p>
@@ -89,7 +89,7 @@
   </form>
 </section>
 
-<section>
+<section id="sec-flam">
   <h2>Lista fija Flammable</h2>
   <p class="muted">Direcciones a las que se manda el <b>line-up completo</b> de Flammable
   (además, cada barco se manda a su cliente por separado). Separar por coma.</p>
@@ -101,7 +101,7 @@
   </form>
 </section>
 
-<section>
+<section id="sec-firma">
   <h2>Firma de los reportes</h2>
   <p class="muted">Se agrega al final de cada mail (Excel y WBL). Dejalo <b>vacío</b> si preferís
   usar la firma automática de Outlook. Acepta HTML — para el logo, poné una etiqueta
