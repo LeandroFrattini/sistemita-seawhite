@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..auth import current_user
 from ..database import get_db
 from ..models import Client, User, VesselCall, VesselExtraAgency
-from ..service import all_clients
+from ..service import all_clients, split_emails
 from ..templating import templates
 
 router = APIRouter()
@@ -60,7 +60,14 @@ def update_client(
     if client:
         client.name = name.strip()
         client.to_name = to_name.strip()
-        client.emails = emails.strip()
+        # el campo "Agregar mails" SUMA a los existentes (que se ven como chips)
+        merged = list(client.email_list)
+        lower = {e.lower() for e in merged}
+        for e in split_emails(emails):
+            if e.lower() not in lower:
+                merged.append(e)
+                lower.add(e.lower())
+        client.emails = ", ".join(merged)
         client.report_format = report_format if report_format in {"EXCEL", "WBL_TEXT"} else "EXCEL"
         client.active = active == "on"
         db.commit()
@@ -72,6 +79,22 @@ def deactivate_client(client_id: int, db: Session = Depends(get_db), user: User 
     client = db.get(Client, client_id)
     if client:
         client.active = False
+        db.commit()
+    return RedirectResponse("/clients", status_code=302)
+
+
+@router.post("/clients/{client_id}/mail-remove")
+def remove_client_mail(
+    client_id: int,
+    email: str = "",
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    client = db.get(Client, client_id)
+    if client:
+        target = email.strip().lower()
+        remaining = [e for e in client.email_list if e.lower() != target]
+        client.emails = ", ".join(remaining)
         db.commit()
     return RedirectResponse("/clients", status_code=302)
 

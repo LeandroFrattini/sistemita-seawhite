@@ -104,6 +104,10 @@ table.grid tr.is-ours td { background: #f0faf5; }
 .card input, .card select, .card textarea { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; min-width: 160px; }
 .card input[name=emails] { width: 100%; }
 .client-row.inactive { opacity: .55; }
+.mail-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.mail-chip { display: inline-flex; align-items: center; gap: 6px; background: #eef2f0; border: 1px solid var(--line); border-radius: 14px; padding: 3px 6px 3px 10px; font-size: 12.5px; }
+.mail-chip .chip-x { border: none; background: #d8534f; color: #fff; width: 18px; height: 18px; min-width: 18px; border-radius: 50%; padding: 0; font-size: 13px; line-height: 1; cursor: pointer; font-weight: 700; }
+.mail-chip .chip-x:hover { background: #c0392b; }
 
 /* lists */
 table.list { border-collapse: collapse; width: 100%; background: #fff; font-size: 13px; }

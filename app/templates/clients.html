@@ -39,7 +39,17 @@
       </label>
       <label class="check">Activo<input type="checkbox" name="active" {{ 'checked' if c.active }}></label>
     </div>
-    <label>Mails (a dónde se envía)<input name="emails" value="{{ c.emails }}"></label>
+    <label>Agregar mails (separados por coma)<input name="emails" value="" placeholder="ops@cliente.com, chartering@cliente.com"></label>
+    {% if c.email_list %}
+    <div class="mail-chips">
+      {% for m in c.email_list %}
+      <span class="mail-chip">{{ m }}<button type="submit" class="chip-x" title="Quitar"
+        formaction="/clients/{{ c.id }}/mail-remove?email={{ m|urlencode }}" formnovalidate>×</button></span>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted" style="margin:2px 0 0">Sin mails cargados.</p>
+    {% endif %}
     <div class="row end">
       <button type="submit">Guardar</button>
       <button type="submit" formaction="/clients/{{ c.id }}/delete" class="danger"
