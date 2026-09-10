@@ -39,7 +39,9 @@ Formato <b>Excel</b> = mail con la tabla pegada. Formato <b>WBL</b> = mail todo 
     <div class="row end">
       <button type="submit">Guardar</button>
       <button type="submit" formaction="/clients/{{ c.id }}/delete" class="danger"
-              formnovalidate onclick="return confirm('¿Desactivar cliente?')">Dar de baja</button>
+              formnovalidate onclick="return confirm('¿Dar de baja el cliente? (se puede reactivar)')">Dar de baja</button>
+      <button type="submit" formaction="/clients/{{ c.id }}/borrar" class="danger"
+              formnovalidate onclick="return confirm('¿BORRAR el cliente {{ c.name }} de forma PERMANENTE? No se puede deshacer.')">Borrar</button>
     </div>
   </form>
 {% endfor %}
