@@ -6,40 +6,46 @@
   <div class="actions">
     <a class="btn {{ '' if kind == 'FLAMMABLE' else 'primary' }}" href="/reports?kind=GRAIN">Grain</a>
     <a class="btn {{ 'primary' if kind == 'FLAMMABLE' else '' }}" href="/reports?kind=FLAMMABLE">Flammable</a>
-    {% if items %}
-    <a class="btn" href="/reports/all.zip?kind={{ kind }}">⬇ Todos (.eml zip)</a>
-    {% endif %}
+    {% if items %}<a class="btn" href="/reports/all.zip?kind={{ kind }}">⬇ Todos (.eml zip)</a>{% endif %}
   </div>
 </div>
 
 <p class="muted"><b>Abrir en Outlook</b> arma el mail directo (con tu firma). El <b>.eml</b> lo abre como
 borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
 
+{% macro payload(html, text, subject, to, cc='', bcc='', isText='false') -%}
+<script type="application/json" class="payload">
+{"html": {{ html|tojson }}, "text": {{ text|tojson }}, "subject": {{ subject|tojson }},
+ "to": {{ to|tojson }}, "cc": {{ cc|tojson }}, "bcc": {{ bcc|tojson }}, "isText": {{ isText }}}
+</script>
+{%- endmacro %}
+
 {% if kind == 'FLAMMABLE' and full %}
 <article class="report-card">
-  <header>
-    <div><span class="badge fl">Line-up completo</span> <b>{{ full.subject }}</b></div>
-    <div class="report-to">
-      TO {{ full.to }}
-      {% if full.missing_list %}
-        <br><span class="warn">Falta cargar la lista fija en Admin → "Lista fija Flammable"</span>
-      {% else %}
-        <br>CCO (oculta) {{ full.bcc }}
-      {% endif %}
+  <div class="rc-head">
+    <div class="rc-name"><span class="badge fl">Line-up completo</span> <b>FLAMMABLE STATIONS</b>
+      <span class="rc-date">{{ lineup.lineup_date }}</span>
+      {% if full.missing_list %}<span class="rc-warn">⚠ falta lista fija</span>{% endif %}
     </div>
-  </header>
-  <div class="report-body"><pre>{{ full.text_body }}</pre></div>
-  <footer>
-    <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
-    <a class="btn" href="/reports/flammable-full.eml">⬇ .eml</a>
-    <button class="btn" data-copy>Copiar cuerpo</button>
-    <span class="hint" hidden></span>
-    <script type="application/json" class="payload">
-      {"html": {{ full.html_body|tojson }}, "text": {{ full.text_body|tojson }},
-       "subject": {{ full.subject|tojson }}, "to": {{ full.to|tojson }},
-       "bcc": {{ full.bcc|tojson }}, "isText": true}
-    </script>
-  </footer>
+    <div class="rc-actions">
+      <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
+      <a class="btn" href="/reports/flammable-full.eml">⬇ .eml</a>
+      <button class="btn" data-copy>Copiar cuerpo</button>
+      <span class="hint" hidden></span>
+    </div>
+  </div>
+  <div class="rc-detail">
+    <details><summary>Destinatarios</summary>
+      <div class="rc-to">TO {{ full.to }}
+        {% if full.missing_list %}<br><span class="warn">Cargá la lista fija en Admin → "Lista fija Flammable"</span>
+        {% else %}<br>CCO (oculta): {{ full.bcc }}{% endif %}
+      </div>
+    </details>
+    <details><summary>Ver cuerpo del mail</summary>
+      <div class="report-body"><pre>{{ full.text_body }}</pre></div>
+    </details>
+  </div>
+  {{ payload(full.html_body, full.text_body, full.subject, full.to, bcc=full.bcc, isText='true') }}
 </article>
 {% endif %}
 
@@ -49,58 +55,48 @@ borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
 {% endif %}
 
 {% for it in items %}
-<article class="report-card" data-idx="{{ loop.index0 }}">
-  <header>
-    <div>
+<article class="report-card">
+  <div class="rc-head">
+    <div class="rc-name">
       <span class="badge {{ 'fl' if it.format == 'FLAMMABLE' else ('wbl' if it.format == 'WBL_TEXT' else 'xls') }}">
-        {{ 'Flammable' if it.format == 'FLAMMABLE' else ('WBL texto' if it.format == 'WBL_TEXT' else 'Excel') }}</span>
-      <b>{{ it.subject }}</b>
+        {{ 'Flammable' if it.format == 'FLAMMABLE' else ('WBL' if it.format == 'WBL_TEXT' else 'Excel') }}</span>
+      <b>{{ it.subject.rsplit(' - ', 1)[0] }}</b>
+      <span class="rc-date">{{ it.subject.rsplit(' - ', 1)[-1] }} · {{ it.to_name }}</span>
+      {% if it.missing_email %}<span class="rc-warn">⚠ sin mail</span>{% endif %}
     </div>
-    <div class="report-to">
-      TO {{ it.to_name }} —
-      {% if it.missing_email %}
-        <span class="warn">sin mail cargado</span>
-      {% else %}
-        {{ it.emails|join(', ') }}
-      {% endif %}
-      {% if it.cc_emails %}<br>CC {{ it.cc_emails|join(', ') }}{% endif %}
+    <div class="rc-actions">
+      <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
+      <a class="btn" href="/reports/{{ it.call_id }}/client/{{ it.client_id }}.eml?kind={{ kind }}">⬇ .eml</a>
+      <button class="btn" data-copy>Copiar cuerpo</button>
+      <span class="hint" hidden></span>
     </div>
-  </header>
-
-  <div class="report-body">
-    {% if it.format == 'EXCEL' %}
-      {{ it.html_body|safe }}
-    {% else %}
-      <pre>{{ it.text_body }}</pre>
-    {% endif %}
   </div>
-
-  <footer>
-    <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
-    <a class="btn" href="/reports/{{ it.call_id }}/client/{{ it.client_id }}.eml?kind={{ kind }}">⬇ .eml</a>
-    <button class="btn" data-copy>Copiar cuerpo</button>
-    <span class="hint" hidden></span>
-    <script type="application/json" class="payload">
-      {"html": {{ it.html_body|tojson }}, "text": {{ it.text_body|tojson }},
-       "subject": {{ it.subject|tojson }}, "to": {{ (it.emails|join('; '))|tojson }},
-       "cc": {{ (it.cc_emails|join('; '))|tojson }},
-       "isText": {{ 'false' if it.format == 'EXCEL' else 'true' }}}
-    </script>
-  </footer>
+  <div class="rc-detail">
+    <details><summary>Destinatarios</summary>
+      <div class="rc-to">
+        TO {{ it.to_name }} — {% if it.missing_email %}<span class="warn">sin mail cargado</span>{% else %}{{ it.emails|join(', ') }}{% endif %}
+        {% if it.cc_emails %}<br>CC {{ it.cc_emails|join(', ') }}{% endif %}
+      </div>
+    </details>
+    <details><summary>Ver cuerpo del mail</summary>
+      <div class="report-body">
+        {% if it.format == 'EXCEL' %}{{ it.html_body|safe }}{% else %}<pre>{{ it.text_body }}</pre>{% endif %}
+      </div>
+    </details>
+  </div>
+  {{ payload(it.html_body, it.text_body, it.subject, it.emails|join('; '),
+             cc=it.cc_emails|join('; '), isText=('false' if it.format == 'EXCEL' else 'true')) }}
 </article>
 {% endfor %}
 
 <script>
 const MAILER = "http://127.0.0.1:8765";
-
-function payloadOf(btn) {
-  return JSON.parse(btn.closest("footer").querySelector(".payload").textContent);
-}
+const payloadOf = (btn) => JSON.parse(btn.closest(".report-card").querySelector(".payload").textContent);
 
 document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const data = payloadOf(btn);
-    const hint = btn.closest("footer").querySelector(".hint");
+    const hint = btn.closest(".rc-actions").querySelector(".hint");
     btn.disabled = true;
     const orig = btn.textContent;
     btn.textContent = "Abriendo…";
@@ -118,9 +114,7 @@ document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
       btn.textContent = orig;
       btn.disabled = false;
       hint.hidden = false;
-      hint.textContent =
-        "No se pudo. ¿Está instalado el ayudante en esta PC? (helper/instalar-helper.bat). " +
-        "Mientras tanto usá el botón .eml.";
+      hint.textContent = "No se pudo. ¿Está el ayudante en esta PC? Mientras, usá el .eml.";
     }
   });
 });

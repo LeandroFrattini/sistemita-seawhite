@@ -124,12 +124,19 @@ table.list th { background: #eef2f0; }
 .ok-box { background: #dcfce7; color: #166534; padding: 8px 12px; border-radius: 6px; }
 
 /* reports */
-.report-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 16px; overflow: hidden; }
-.report-card header { padding: 10px 14px; border-bottom: 1px solid var(--line); background: #f7faf9; }
-.report-card .report-to { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
-.report-body { padding: 14px; overflow-x: auto; }
+.report-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; padding: 12px 14px; }
+.rc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px 20px; flex-wrap: wrap; }
+.rc-name b { font-size: 16px; }
+.rc-date { color: var(--muted); font-size: 12px; margin-left: 8px; }
+.rc-warn { color: #b91c1c; font-size: 12px; font-weight: 700; margin-left: 8px; }
+.rc-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.rc-actions .hint { font-size: 12px; color: var(--warn); }
+.rc-detail { margin-top: 8px; }
+.rc-detail details { margin-top: 6px; }
+.rc-detail summary { cursor: pointer; font-size: 12.5px; color: var(--green-dark); width: fit-content; user-select: none; }
+.rc-to { font-size: 12.5px; color: var(--muted); padding: 6px 0 2px; }
+.report-body { padding: 8px 0 0; overflow-x: auto; }
 .report-body pre { font: 13px/1.4 "Courier New", monospace; white-space: pre-wrap; margin: 0; }
-.report-card footer { padding: 10px 14px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
 .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 5px; margin-right: 8px; }
 .badge.xls { background: #dcfce7; color: #166534; }
 .badge.wbl { background: #e0e7ff; color: #3730a3; }
