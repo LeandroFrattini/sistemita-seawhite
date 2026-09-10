@@ -16,7 +16,7 @@ from .config import settings
 from .dates import fmt_dm, fmt_long, parse_date
 
 ROADS_LABEL = "Bahia Blanca roads"
-MONO = "font-family:'Courier New',monospace;font-size:13px;"
+MONO = "font-family:'Courier New',monospace;font-size:15px;"
 
 
 def _text_to_html(text: str) -> str:
@@ -98,7 +98,7 @@ def _excel_table_html(terminal, term_calls) -> str:
         body_rows.append("<tr>" + "".join(tds) + "</tr>")
     return (
         '<table style="border-collapse:collapse;font-family:\'Courier New\','
-        "monospace;font-size:12px;margin:10px 0;\">"
+        "monospace;font-size:14px;margin:10px 0;\">"
         f"<thead><tr>{head_cells}</tr></thead>"
         f"<tbody>{''.join(body_rows)}</tbody></table>"
     )
