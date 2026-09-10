@@ -16,7 +16,7 @@ from .config import settings
 from .dates import fmt_dm, fmt_long, parse_date
 
 ROADS_LABEL = "Bahia Blanca roads"
-MONO = "font-family:'Courier New',monospace;font-size:15px;"
+MONO = "font-family:'Courier New',monospace;font-size:16px;"
 
 
 def _text_to_html(text: str) -> str:
@@ -80,10 +80,15 @@ def _excel_header_text(call, client, lineup) -> str:
 
 
 def _excel_table_html(terminal, term_calls) -> str:
+    # <p style="margin:0"> en cada celda: sin eso Outlook agrega ~8pt de espacio
+    # despues de cada parrafo y las filas salen altas.
+    cell_css = "margin:0;line-height:1.15;mso-line-height-rule:exactly;"
+
     head_cells = "".join(
-        f'<th style="border:1px solid #7f9f6a;padding:2px 8px;text-align:left;'
-        f'background:#c6e0b4;font-weight:bold;">'
-        f"{html.escape(terminal.code if h == '__TERMINAL__' else h)}</th>"
+        f'<th style="border:1px solid #7f9f6a;padding:1px 8px;text-align:left;'
+        f'background:#c6e0b4;">'
+        f'<p style="{cell_css}font-weight:bold;">'
+        f"{html.escape(terminal.code if h == '__TERMINAL__' else h)}</p></th>"
         for h, _ in MAIL_COLS
     )
     body_rows = []
@@ -92,13 +97,14 @@ def _excel_table_html(terminal, term_calls) -> str:
         for h, attr in MAIL_COLS:
             val = "" if getattr(call, attr, "") is None else str(getattr(call, attr, ""))
             tds.append(
-                f'<td style="border:1px solid #cfcfcf;padding:2px 8px;'
-                f'white-space:nowrap;">{html.escape(val)}</td>'
+                f'<td style="border:1px solid #cfcfcf;padding:1px 8px;white-space:nowrap;">'
+                f'<p style="{cell_css}">{html.escape(val)}</p></td>'
             )
         body_rows.append("<tr>" + "".join(tds) + "</tr>")
     return (
-        '<table style="border-collapse:collapse;font-family:\'Courier New\','
-        "monospace;font-size:14px;margin:10px 0;\">"
+        '<table cellpadding="0" cellspacing="0" border="0" '
+        'style="border-collapse:collapse;font-family:\'Courier New\','
+        "monospace;font-size:15px;margin:10px 0;\">"
         f"<thead><tr>{head_cells}</tr></thead>"
         f"<tbody>{''.join(body_rows)}</tbody></table>"
     )
