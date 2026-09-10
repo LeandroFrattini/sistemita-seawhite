@@ -142,7 +142,24 @@ document.addEventListener("click", (ev) => {
   }
 });
 
-// --- recalcular ------------------------------------------------------ //
+// --- recalcular por muelle ----------------------------------------- //
+document.querySelectorAll("[data-recalc-term]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    try {
+      const r = await api(`/api/terminals/${btn.dataset.recalcTerm}/recalc`, "POST");
+      if (!r.count) {
+        flash("Muelle sin cambios");
+      } else {
+        flash(`${r.count} fecha(s) ajustada(s)`);
+        setTimeout(() => location.reload(), 900);
+      }
+    } catch (e) {
+      flash("Error: " + e.message, false);
+    }
+  });
+});
+
+// --- recalcular TODO ---------------------------------------------- //
 document.getElementById("btn-recalc").addEventListener("click", async (ev) => {
   const box = document.getElementById("recalc-result");
   const kind = ev.currentTarget.dataset.kind || "GRAIN";

@@ -82,6 +82,8 @@ table.grid tr.is-ours td { background: #f0faf5; }
 .col-ord { white-space: nowrap; width: 1%; }
 .col-ours { text-align: center; }
 .add-row { margin-top: 10px; }
+.term-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.term-actions .add-row { margin-top: 0; }
 
 .extras-cell { position: relative; min-width: 120px; }
 .chip-btn { font-size: 12px; padding: 4px 8px; }

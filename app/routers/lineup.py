@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from ..auth import current_user
 from ..database import get_db
 from ..models import Client, OperatedVessel, Terminal, User, VesselCall, VesselExtraAgency
-from ..recalc import recalc_lineup
+from ..recalc import recalc_lineup, recalc_terminal
 from ..service import (
     active_clients,
     active_terminals,
@@ -249,14 +249,7 @@ def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
     )
 
 
-@router.post("/api/recalc")
-def recalc(kind: str = "GRAIN", db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup = get_draft_lineup(db, kind)
-    terminals = active_terminals(db, kind)
-    calls = calls_for_lineup(db, lineup.id)
-    grouped = group_by_terminal(terminals, calls)
-    changes = recalc_lineup(grouped)
-    db.commit()
+def _changes_payload(changes) -> dict:
     return {
         "ok": True,
         "count": len(changes),
@@ -265,6 +258,34 @@ def recalc(kind: str = "GRAIN", db: Session = Depends(get_db), user: User = Depe
             for c in changes
         ],
     }
+
+
+@router.post("/api/recalc")
+def recalc(kind: str = "GRAIN", db: Session = Depends(get_db), user: User = Depends(current_user)):
+    lineup = get_draft_lineup(db, kind)
+    terminals = active_terminals(db, kind)
+    grouped = group_by_terminal(terminals, calls_for_lineup(db, lineup.id))
+    changes = recalc_lineup(grouped)
+    db.commit()
+    return _changes_payload(changes)
+
+
+@router.post("/api/terminals/{terminal_id}/recalc")
+def recalc_one_terminal(terminal_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    term = db.get(Terminal, terminal_id)
+    if not term:
+        return JSONResponse({"error": "no existe"}, status_code=404)
+    lineup = get_draft_lineup(db, term.kind)
+    calls = list(
+        db.scalars(
+            select(VesselCall)
+            .where(VesselCall.lineup_id == lineup.id, VesselCall.terminal_id == terminal_id)
+            .order_by(VesselCall.sort_order, VesselCall.id)
+        )
+    )
+    changes = recalc_terminal(calls)
+    db.commit()
+    return _changes_payload(changes)
 
 
 def _set_principal(db: Session, call: VesselCall, value: str) -> None:

@@ -17,7 +17,7 @@
     {% if not flammable %}
     <a class="btn" href="/import">⬆ Importar Excel</a>
     {% endif %}
-    <button id="btn-recalc" class="btn" data-kind="{{ kind }}">↻ Recalcular {{ 'ETB/ETS' if flammable else 'ETB/ETC' }}</button>
+    <button id="btn-recalc" class="btn" data-kind="{{ kind }}">↻ Recalcular TODO</button>
     {% if not flammable %}
     <a class="btn" href="/export/internal.xlsx">⬇ EXCEL HEINLEIN</a>
     <a class="btn" href="/export/clients.xlsx">⬇ GRAIN TERMINAL</a>
@@ -115,7 +115,10 @@
       </tbody>
     </table>
   </div>
-  <button class="btn add-row" data-add="{{ term.id }}">＋ Agregar barco</button>
+  <div class="term-actions">
+    <button class="btn add-row" data-add="{{ term.id }}">＋ Agregar barco</button>
+    <button class="btn" data-recalc-term="{{ term.id }}">↻ Recalcular {{ 'ETB/ETS' if flammable else 'ETB/ETC' }} de este muelle</button>
+  </div>
 </section>
 {% endfor %}
 
