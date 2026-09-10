@@ -21,7 +21,7 @@ PORT = 8765
 _LOCK = threading.Lock()
 
 
-def compose_in_outlook(to: str, subject: str, html: str, cc: str = "") -> None:
+def compose_in_outlook(to: str, subject: str, html: str, cc: str = "", bcc: str = "") -> None:
     import pythoncom  # type: ignore
     import win32com.client  # type: ignore
 
@@ -33,6 +33,8 @@ def compose_in_outlook(to: str, subject: str, html: str, cc: str = "") -> None:
             mail.To = to.replace(",", ";")
         if cc:
             mail.CC = cc.replace(",", ";")
+        if bcc:
+            mail.BCC = bcc.replace(",", ";")
         mail.Subject = subject or ""
 
         # Accediendo al Inspector, Outlook precarga la firma por defecto.
@@ -93,6 +95,7 @@ class Handler(BaseHTTPRequestHandler):
                     str(data.get("subject", "")),
                     str(data.get("html", "")),
                     str(data.get("cc", "")),
+                    str(data.get("bcc", "")),
                 )
             self._json(200, {"ok": True})
         except Exception as exc:  # noqa: BLE001

@@ -103,6 +103,7 @@
               <span class="cnt">{{ call.extra_agencies|length }}</span> clientes ▾
             </button>
             <div class="extras-panel" hidden>
+              <div class="extras-title">Otras agencias (también reciben el mail)</div>
               {% for c in clients %}
               <label><input type="checkbox" value="{{ c.id }}"
                 {{ 'checked' if c.id in call.extra_agencies|map(attribute='client_id')|list }}>

@@ -111,18 +111,37 @@ document.querySelectorAll(".grid").forEach((grid) => {
   });
 });
 
-// --- panel de "otras agencias" -------------------------------------- //
+// --- panel de "otras agencias" (popup flotante, fuera del scroll) --- //
+function closeExtras() {
+  document.querySelectorAll(".extras-panel").forEach((p) => (p.hidden = true));
+}
+
 document.querySelectorAll(".extras-cell").forEach((cell) => {
   const toggle = cell.querySelector("[data-extras]");
   const panel = cell.querySelector(".extras-panel");
   const cnt = cell.querySelector(".cnt");
+  document.body.appendChild(panel); // sacarlo de la tabla para que no se recorte
+  panel.hidden = true;
 
-  toggle.addEventListener("click", () => {
-    document.querySelectorAll(".extras-panel").forEach((p) => {
-      if (p !== panel) p.hidden = true;
-    });
-    panel.hidden = !panel.hidden;
+  function open() {
+    closeExtras();
+    const r = toggle.getBoundingClientRect();
+    const w = 260;
+    let left = Math.min(Math.max(8, r.right - w), window.innerWidth - w - 8);
+    panel.style.width = w + "px";
+    panel.style.left = left + "px";
+    panel.hidden = false;
+    const h = panel.offsetHeight;
+    let top = r.bottom + 4;
+    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 4);
+    panel.style.top = top + "px";
+  }
+
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    panel.hidden ? open() : (panel.hidden = true);
   });
+  panel.addEventListener("click", (e) => e.stopPropagation());
 
   panel.addEventListener("change", async () => {
     const ids = [...panel.querySelectorAll("input:checked")].map((i) => i.value);
@@ -136,11 +155,9 @@ document.querySelectorAll(".extras-cell").forEach((cell) => {
   });
 });
 
-document.addEventListener("click", (ev) => {
-  if (!ev.target.closest(".extras-cell")) {
-    document.querySelectorAll(".extras-panel").forEach((p) => (p.hidden = true));
-  }
-});
+document.addEventListener("click", closeExtras);
+window.addEventListener("scroll", closeExtras, true);
+window.addEventListener("resize", closeExtras);
 
 // --- recalcular por muelle ----------------------------------------- //
 document.querySelectorAll("[data-recalc-term]").forEach((btn) => {

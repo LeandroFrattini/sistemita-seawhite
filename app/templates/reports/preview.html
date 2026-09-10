@@ -20,12 +20,12 @@ borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
   <header>
     <div><span class="badge fl">Line-up completo</span> <b>{{ full.subject }}</b></div>
     <div class="report-to">
+      TO {{ full.to }}
       {% if full.missing_list %}
-        <span class="warn">Falta cargar la lista fija en Admin → "Lista fija Flammable"</span>
+        <br><span class="warn">Falta cargar la lista fija en Admin → "Lista fija Flammable"</span>
       {% else %}
-        TO {{ full.to }}
+        <br>CCO (oculta) {{ full.bcc }}
       {% endif %}
-      {% if full.cc %}<br>CC {{ full.cc }}{% endif %}
     </div>
   </header>
   <div class="report-body"><pre>{{ full.text_body }}</pre></div>
@@ -37,7 +37,7 @@ borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
     <script type="application/json" class="payload">
       {"html": {{ full.html_body|tojson }}, "text": {{ full.text_body|tojson }},
        "subject": {{ full.subject|tojson }}, "to": {{ full.to|tojson }},
-       "cc": {{ full.cc|tojson }}, "isText": true}
+       "bcc": {{ full.bcc|tojson }}, "isText": true}
     </script>
   </footer>
 </article>
@@ -108,7 +108,7 @@ document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
       const res = await fetch(MAILER + "/compose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: data.to, cc: data.cc, subject: data.subject, html: data.html }),
+        body: JSON.stringify({ to: data.to, cc: data.cc || "", bcc: data.bcc || "", subject: data.subject, html: data.html }),
       });
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || "error de Outlook");

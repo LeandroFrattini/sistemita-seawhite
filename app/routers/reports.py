@@ -60,9 +60,12 @@ def _flammable_full(db: Session, *, with_signature: bool = False):
     grouped = group_by_terminal(terminals, calls_for_lineup(db, lineup.id))
     piers = [(t, grouped.get(t.id, [])) for t in terminals]
     subject, text_body, html_body = build_flammable_full(lineup, piers)
-    to_emails = split_emails(get_setting(db, FLAMMABLE_LIST_KEY, ""))
-    cc_emails = [e for e in split_emails(get_setting(db, CC_KEY, DEFAULT_CC)) if e not in to_emails]
-    return lineup, subject, text_body, html_body, to_emails, cc_emails
+    # La lista fija va en COPIA OCULTA (BCC) para no exponer las casillas
+    # entre si. El TO va a la casilla propia (operations@seawhite...).
+    bcc_emails = split_emails(get_setting(db, FLAMMABLE_LIST_KEY, ""))
+    to_emails = split_emails(get_setting(db, CC_KEY, DEFAULT_CC)) or ["operations@seawhite.com.ar"]
+    bcc_emails = [e for e in bcc_emails if e not in to_emails]
+    return lineup, subject, text_body, html_body, to_emails, bcc_emails
 
 
 @router.get("/reports")
@@ -88,23 +91,23 @@ def reports_page(request: Request, kind: str = "GRAIN", db: Session = Depends(ge
     ]
     ctx = {"user": user, "lineup": lineup, "items": items, "kind": kind}
     if kind == "FLAMMABLE":
-        _, subject, text_body, html_body, to_emails, cc_emails = _flammable_full(db)
+        _, subject, text_body, html_body, to_emails, bcc_emails = _flammable_full(db)
         ctx["full"] = {
             "subject": subject,
             "text_body": text_body,
             "html_body": html_body,
             "to": "; ".join(to_emails),
-            "cc": "; ".join(cc_emails),
-            "missing_list": not to_emails,
+            "bcc": "; ".join(bcc_emails),
+            "missing_list": not bcc_emails,
         }
     return templates.TemplateResponse(request, "reports/preview.html", ctx)
 
 
 @router.get("/reports/flammable-full.eml")
 def flammable_full_eml(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup, subject, text_body, html_body, to_emails, cc_emails = _flammable_full(db, with_signature=True)
+    lineup, subject, text_body, html_body, to_emails, bcc_emails = _flammable_full(db, with_signature=True)
     data = build_eml(
-        subject=subject, to_emails=to_emails, cc_emails=cc_emails,
+        subject=subject, to_emails=to_emails, bcc_emails=bcc_emails,
         html_body=html_body, text_body=text_body,
     )
     return Response(
