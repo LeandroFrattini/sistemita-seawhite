@@ -10,20 +10,29 @@ Ideal: una que no se apague ni suspenda (podés desactivar la suspensión en
 Configuración → Sistema → Energía). Si no hay una dedicada, puede ser la de
 Leandro mientras esté prendida.
 
-## 2. Instalar (una vez, en esa PC)
+## 2. Pasar la carpeta a esa PC
 
-1. Copiar la carpeta `lineup` a esa PC (ej. `C:\lineup`).
-2. Tener **Python** instalado (python.org, tildar "Add to PATH").
-3. Clic derecho en **`instalar-inicio.bat`** → **Ejecutar como administrador**.
-   - Prepara el entorno y crea una tarea de Windows que arranca la app **sola,
-     sin ventana**, cada vez que se inicia sesión en esa PC.
-4. Arrancarla ahora sin reiniciar: abrir una consola y correr
-   `schtasks /run /tn "Lineup Sea White"`  (o reiniciar la PC).
+1. En tu PC, copiá la carpeta **`C:\proyectos\lineup`** entera a un pendrive o
+   carpeta de red, y pegала en la PC-servidor (ej. `C:\lineup`).
+   - Incluí la subcarpeta **`data\`** (ahí está todo lo cargado: usuarios,
+     clientes, line-ups Grain y Flammable).
+   - **Borrá la carpeta `.venv`** en la copia (se rearma sola; la vieja no sirve
+     en otra PC).
+2. En la PC-servidor, instalá **Python** (python.org → tildar *"Add Python to PATH"*).
 
-## 3. Averiguar la dirección
+## 3. Instalar (una vez)
 
-En la PC-servidor, abrir consola y escribir `ipconfig`. Anotar la
-**Dirección IPv4** (ej. `192.168.1.50`).
+Clic derecho en **`instalar-inicio.bat`** → **Ejecutar como administrador**.
+Hace todo solo:
+- arma el entorno e instala lo que necesita,
+- **abre el puerto 8010 en el firewall** (para que entren las otras PC),
+- crea la tarea que arranca la app **sola y sin ventana** al iniciar sesión,
+- la arranca en el momento,
+- y te muestra la **dirección IP** para pasarle al resto.
+
+> Si la PC se reinicia y **nadie inicia sesión**, la app no arranca hasta que
+> alguien entre. Si querés que arranque aunque nadie loguee, avisá y lo cambio a
+> "al encender".
 
 ## 4. Los demás entran
 
