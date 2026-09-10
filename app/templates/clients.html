@@ -2,14 +2,18 @@
 {% block nav_clients %}active{% endblock %}
 {% block content %}
 <h1>Clientes</h1>
-<p class="muted">El nombre debe coincidir con lo que se carga en la columna PRINCIPAL / Otras agencias del line-up.
-Formato <b>Excel</b> = mail con la tabla pegada. Formato <b>WBL</b> = mail todo texto.</p>
+<div class="muted" style="max-width:820px">
+  <p><b>Nombre</b>: el de la agencia — el mismo texto que ponés en la columna PRINCIPAL / Otras agencias del line-up.</p>
+  <p><b>Nombre para "TO ..."</b>: el nombre que aparece arriba del reporte (<code>TO ....</code>). <u>No es un mail.</u> Si lo dejás vacío, usa el Nombre.</p>
+  <p><b>Mails</b>: acá van las direcciones a las que se envía el reporte, separadas por coma.</p>
+  <p>Formato <b>Excel</b> = mail con la tabla pegada · <b>WBL</b> = mail todo texto.</p>
+</div>
 
 <form class="card new-client" method="post" action="/clients">
   <h3>Nuevo cliente</h3>
   <div class="row">
-    <label>Nombre (= PRINCIPAL)<input name="name" required></label>
-    <label>TO en el mail<input name="to_name" placeholder="si difiere del nombre"></label>
+    <label>Nombre (= PRINCIPAL)<input name="name" required placeholder="AMI"></label>
+    <label>Nombre para "TO ..."<input name="to_name" placeholder="(vacío = usa el Nombre)"></label>
     <label>Formato
       <select name="report_format">
         <option value="EXCEL">Excel (tabla)</option>
@@ -17,7 +21,7 @@ Formato <b>Excel</b> = mail con la tabla pegada. Formato <b>WBL</b> = mail todo 
       </select>
     </label>
   </div>
-  <label>Mails (separados por coma)<input name="emails" placeholder="ops@cliente.com, chartering@cliente.com"></label>
+  <label>Mails (a dónde se envía, separados por coma)<input name="emails" placeholder="ops@cliente.com, chartering@cliente.com"></label>
   <button type="submit">Agregar</button>
 </form>
 
@@ -26,7 +30,7 @@ Formato <b>Excel</b> = mail con la tabla pegada. Formato <b>WBL</b> = mail todo 
   <form class="card client-row {{ 'inactive' if not c.active }}" method="post" action="/clients/{{ c.id }}">
     <div class="row">
       <label>Nombre<input name="name" value="{{ c.name }}" required></label>
-      <label>TO en el mail<input name="to_name" value="{{ c.to_name }}" placeholder="{{ c.name }}"></label>
+      <label>Nombre para "TO ..."<input name="to_name" value="{{ c.to_name }}" placeholder="(vacío = {{ c.name }})"></label>
       <label>Formato
         <select name="report_format">
           <option value="EXCEL" {{ 'selected' if c.report_format == 'EXCEL' }}>Excel (tabla)</option>
@@ -35,7 +39,7 @@ Formato <b>Excel</b> = mail con la tabla pegada. Formato <b>WBL</b> = mail todo 
       </label>
       <label class="check">Activo<input type="checkbox" name="active" {{ 'checked' if c.active }}></label>
     </div>
-    <label>Mails<input name="emails" value="{{ c.emails }}"></label>
+    <label>Mails (a dónde se envía)<input name="emails" value="{{ c.emails }}"></label>
     <div class="row end">
       <button type="submit">Guardar</button>
       <button type="submit" formaction="/clients/{{ c.id }}/delete" class="danger"
