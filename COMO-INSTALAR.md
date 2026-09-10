@@ -22,17 +22,31 @@ Leandro mientras esté prendida.
 
 ## 3. Instalar (una vez)
 
+### Si tenés admin en esa PC
 Clic derecho en **`instalar-inicio.bat`** → **Ejecutar como administrador**.
-Hace todo solo:
-- arma el entorno e instala lo que necesita,
-- **abre el puerto 8010 en el firewall** (para que entren las otras PC),
-- crea la tarea que arranca la app **sola y sin ventana** al iniciar sesión,
-- la arranca en el momento,
-- y te muestra la **dirección IP** para pasarle al resto.
+Hace todo: entorno, **abre el puerto 8010 en el firewall**, deja la app
+arrancando sola y sin ventana al iniciar sesión, la arranca, y te muestra la IP.
+
+### Si NO tenés admin en esa PC
+Doble clic normal en **`instalar-inicio-sin-admin.bat`**. Hace todo lo mismo
+**menos el firewall**. Al final te dice si pudo abrir el puerto o no.
+
+Si no pudo, el **único** paso que necesita admin es abrir el puerto **una vez**.
+Pedile a alguien de IT que corra en una consola (como admin):
+
+```
+netsh advfirewall firewall add rule name="Lineup Sea White 8010" dir=in action=allow protocol=TCP localport=8010
+```
+
+Hasta que eso pase, en esa PC la app ya funciona (`http://localhost:8010`), pero
+las otras PC no pueden entrar.
 
 > Si la PC se reinicia y **nadie inicia sesión**, la app no arranca hasta que
-> alguien entre. Si querés que arranque aunque nadie loguee, avisá y lo cambio a
-> "al encender".
+> alguien entre.
+
+> Si el firewall es un problema imposible: se puede poner la app en un servidor
+> en la nube (VPS) — entran de cualquier lado con el login, sin depender de una
+> PC prendida. Avisá y lo vemos.
 
 ## 4. Los demás entran
 
