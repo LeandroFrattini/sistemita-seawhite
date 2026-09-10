@@ -354,10 +354,11 @@ def build_flammable_full(lineup, piers: list[tuple]) -> tuple[str, str, str]:
 def build_flammable_report(call, client, lineup, terminal, term_calls, signature_html: str = "") -> BuiltReport:
     d = parse_date(lineup.lineup_date)
     date_tag = d.strftime("%d.%m.%y") if d else (lineup.lineup_date or "")
+    pfx = vessel_prefix(call.vessel_type)
     text_body = (
         f"TO {client.display_to.upper()}\n"
         f"FM {settings.mail_from_name}\n\n"
-        f"REF {call.vessel_name.upper()}\n"
+        f"REF {pfx} {call.vessel_name.upper()}\n\n"
         f"{date_tag}\n\n"
         f"GOOD DAY,\n\n"
         f"PLS FIND BELOW UPDATED LINE UPS:\n\n"
@@ -367,7 +368,7 @@ def build_flammable_report(call, client, lineup, terminal, term_calls, signature
     )
     _, html_body = _flammable_wrap(text_body, signature_html)
     return BuiltReport(
-        subject=f"{call.vessel_name.upper()} - FLAMMABLE LINE UP {date_tag}",
+        subject=build_subject(call, lineup),
         to_name=client.display_to,
         to_emails=client.email_list,
         report_format="FLAMMABLE",
