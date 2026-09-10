@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
 from ..database import get_db
-from ..models import Client, User, VesselCall, VesselExtraAgency
+from ..models import Client, OperatedVessel, User, VesselCall, VesselExtraAgency
 from ..recalc import recalc_lineup
 from ..service import (
     active_clients,
@@ -46,6 +46,39 @@ def lineup_page(request: Request, db: Session = Depends(get_db), user: User = De
             "ours_count": sum(1 for c in calls if c.is_ours),
         },
     )
+
+
+@router.get("/nuestros-barcos", response_class=HTMLResponse)
+def our_vessels_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    lineup = get_draft_lineup(db)
+    terminals = active_terminals(db)
+    calls = calls_for_lineup(db, lineup.id)
+    grouped = group_by_terminal(terminals, calls)
+    term_by_id = {t.id: t for t in terminals}
+
+    en_lineup = []
+    for t in terminals:
+        for c in grouped.get(t.id, []):
+            if c.is_ours:
+                en_lineup.append((term_by_id.get(c.terminal_id), c))
+
+    operados = list(
+        db.scalars(select(OperatedVessel).order_by(OperatedVessel.operated_at.desc()))
+    )
+    return templates.TemplateResponse(
+        request,
+        "nuestros_barcos.html",
+        {"user": user, "lineup": lineup, "en_lineup": en_lineup, "operados": operados},
+    )
+
+
+@router.post("/operados/{op_id}/delete")
+def delete_operated(op_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    row = db.get(OperatedVessel, op_id)
+    if row:
+        db.delete(row)
+        db.commit()
+    return RedirectResponse("/nuestros-barcos", status_code=302)
 
 
 @router.post("/api/lineup")
@@ -160,9 +193,37 @@ async def move_call(call_id: int, request: Request, db: Session = Depends(get_db
 def delete_call(call_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
     call = db.get(VesselCall, call_id)
     if call:
+        if call.is_ours:
+            _archive_operated(db, call, user)
         db.delete(call)
         db.commit()
     return {"ok": True}
+
+
+def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
+    term = call.terminal
+    db.add(
+        OperatedVessel(
+            removed_by=user.username,
+            lineup_date=call.lineup.lineup_date if call.lineup else "",
+            terminal_code=term.code if term else "",
+            berth_label=(term.berth_label or term.code) if term else "",
+            vessel_name=call.vessel_name,
+            vessel_type=call.vessel_type,
+            imo=call.imo,
+            eta=call.eta,
+            etb=call.etb,
+            etc=call.etc,
+            operation=call.operation,
+            quantity=call.quantity,
+            grade=call.grade,
+            shipper=call.shipper,
+            destination=call.destination,
+            local_agent=call.local_agent,
+            principal=call.principal_name,
+            extras=", ".join(l.client.name for l in call.extra_agencies if l.client),
+        )
+    )
 
 
 @router.post("/api/recalc")

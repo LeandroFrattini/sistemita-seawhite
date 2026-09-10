@@ -178,6 +178,36 @@ class ArchivedLineup(Base):
     payload_json: Mapped[str] = mapped_column(Text, default="{}")
 
 
+class OperatedVessel(Base):
+    """Snapshot de un barco propio cuando se lo saca del line-up (la X).
+    Queda como historico en la pantalla "Nuestros barcos" -> Operados."""
+
+    __tablename__ = "operated_vessels"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    operated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    removed_by: Mapped[str] = mapped_column(String(120), default="")
+    lineup_date: Mapped[str] = mapped_column(String(10), default="")
+
+    terminal_code: Mapped[str] = mapped_column(String(40), default="")
+    berth_label: Mapped[str] = mapped_column(String(120), default="")
+
+    vessel_name: Mapped[str] = mapped_column(String(120), default="")
+    vessel_type: Mapped[str] = mapped_column(String(40), default="")
+    imo: Mapped[str] = mapped_column(String(20), default="")
+    eta: Mapped[str] = mapped_column(String(40), default="")
+    etb: Mapped[str] = mapped_column(String(40), default="")
+    etc: Mapped[str] = mapped_column(String(40), default="")
+    operation: Mapped[str] = mapped_column(String(30), default="")
+    quantity: Mapped[str] = mapped_column(String(40), default="")
+    grade: Mapped[str] = mapped_column(String(60), default="")
+    shipper: Mapped[str] = mapped_column(String(60), default="")
+    destination: Mapped[str] = mapped_column(String(60), default="")
+    local_agent: Mapped[str] = mapped_column(String(80), default="")
+    principal: Mapped[str] = mapped_column(String(120), default="")
+    extras: Mapped[str] = mapped_column(String(255), default="")
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
 
