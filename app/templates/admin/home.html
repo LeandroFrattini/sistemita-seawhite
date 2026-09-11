@@ -12,15 +12,19 @@
 
 <section>
   <h2>Usuarios</h2>
+  <p class="muted">Por seguridad, las contraseñas no se pueden ver (quedan encriptadas) — ni vos ni nadie.
+  Para un usuario que se olvidó la suya, ponele una <b>nueva</b> abajo: va a tener que cambiarla apenas
+  entre, así queda una que solo sabe él.</p>
   <form class="card" method="post" action="/admin/users">
     <h3>Nuevo usuario</h3>
     <div class="row">
       <label>Usuario<input name="username" required></label>
       <label>Nombre<input name="full_name"></label>
-      <label>Contraseña<input name="password" required></label>
+      <label>Contraseña inicial<input name="password" placeholder="(vacío = igual al usuario)"></label>
       <label class="check">Admin<input type="checkbox" name="is_admin"></label>
     </div>
     <button type="submit">Crear</button>
+    <p class="muted" style="margin:8px 0 0">Va a tener que elegir su propia contraseña la primera vez que entre.</p>
   </form>
 
   <div class="client-list">
@@ -29,10 +33,13 @@
       <div class="row">
         <label>Usuario<input value="{{ u.username }}" disabled></label>
         <label>Nombre<input name="full_name" value="{{ u.full_name }}"></label>
-        <label>Nueva contraseña<input name="password" placeholder="(dejar vacío = sin cambio)"></label>
+        <label>Resetear contraseña<input name="password" placeholder="(vacío = no tocar)"></label>
         <label class="check">Admin<input type="checkbox" name="is_admin" {{ 'checked' if u.is_admin }}></label>
         <label class="check">Activo<input type="checkbox" name="is_active" {{ 'checked' if u.is_active }}></label>
       </div>
+      {% if u.must_change_password %}
+      <p class="muted" style="margin:4px 0 0">⏳ Tiene pendiente elegir su contraseña al entrar.</p>
+      {% endif %}
       <div class="row end"><button type="submit">Guardar</button></div>
     </form>
   {% endfor %}

@@ -11,6 +11,9 @@ from .models import User
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _serializer = URLSafeSerializer(settings.secret_key, salt="lineup-session")
 COOKIE_NAME = "lineup_session"
+# la sesion dura varios meses: es una app interna en PC de trabajo, no
+# tiene sentido pedir usuario/clave todo el tiempo. Se cierra con "salir".
+SESSION_MAX_AGE = 60 * 60 * 24 * 180
 
 
 def hash_password(raw: str) -> str:

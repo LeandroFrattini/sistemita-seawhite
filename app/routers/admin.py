@@ -67,18 +67,22 @@ def create_user(
     admin: User = Depends(admin_required),
     username: str = Form(...),
     full_name: str = Form(""),
-    password: str = Form(...),
+    password: str = Form(""),
     is_admin: str = Form(""),
 ):
     username = username.strip()
     if username and not db.query(User).filter(User.username == username).first():
+        # si no cargaste contraseña, arranca igual al usuario -- se le va a
+        # pedir que la cambie en el primer login
+        initial_pw = password.strip() or username
         db.add(
             User(
                 username=username,
                 full_name=full_name.strip(),
-                password_hash=hash_password(password),
+                password_hash=hash_password(initial_pw),
                 is_admin=is_admin == "on",
                 is_active=True,
+                must_change_password=True,
             )
         )
         db.commit()
@@ -101,7 +105,10 @@ def update_user(
         u.is_admin = is_admin == "on"
         u.is_active = is_active == "on"
         if password.strip():
+            # resetear la clave: no se puede "ver" la vieja, pero se pone una
+            # nueva y se le exige cambiarla apenas entre
             u.password_hash = hash_password(password.strip())
+            u.must_change_password = True
         db.commit()
     return RedirectResponse(f"/admin#usr-{user_id}", status_code=302)
 

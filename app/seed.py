@@ -46,6 +46,7 @@ _MIGRATIONS = [
     ("lineups", "kind", "TEXT DEFAULT 'GRAIN'"),
     ("vessel_calls", "second_call", "BOOLEAN DEFAULT 0"),
     ("operated_vessels", "period", "TEXT DEFAULT ''"),
+    ("users", "must_change_password", "BOOLEAN DEFAULT 0"),
 ]
 
 
