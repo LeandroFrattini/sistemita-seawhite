@@ -4,7 +4,19 @@ Hace que el botón **"Abrir en Outlook"** de la pantalla Reportes abra el mail
 **directamente en Outlook**, con la **firma normal de cada uno** al final y sin
 tocar ninguna configuración.
 
-## Instalación (una vez por PC que mande reportes)
+## Para los usuarios: instalar la versión .exe (recomendado)
+
+**No hace falta Python.** Desde la app → **Reportes**, hay un link
+**"⬇ Descargar ayudante de Outlook"** (o entrá directo a
+`/static/downloads/ayudante-outlook.zip` en el navegador). Descomprimir y
+doble clic en `instalar-helper.bat` — eso es todo. Ver `paquete-src/LEEME.md`
+para el detalle.
+
+## Para desarrollo: correr desde el código fuente (Python)
+
+Esta carpeta (`helper/`) es el código fuente de `lineup_mailer.py`, usado
+para compilar el `.exe` (`construir-exe.bat`). También se puede correr
+directo con Python, sin compilar:
 
 1. Esa PC tiene que tener **Outlook de escritorio** y **Python** instalados.
 2. Copiar esta carpeta `helper` a la PC.
@@ -13,6 +25,13 @@ tocar ninguna configuración.
    responder `{"ok": true, ...}`.
 
 Queda corriendo en segundo plano (sin ventana) y arranca solo al prender la PC.
+
+## Recompilar el .exe
+
+Con el `.venv` de esta carpeta armado (pywin32 instalado), correr
+**`construir-exe.bat`** — compila `lineup_mailer.exe` y arma de nuevo
+`app/static/downloads/ayudante-outlook.zip` con los `.bat` de
+`paquete-src/`.
 
 ## Uso
 

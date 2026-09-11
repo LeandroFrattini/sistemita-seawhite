@@ -6,3 +6,10 @@ data/*.db
 *.eml
 *.xlsx
 !app/static/template/*.xlsx
+
+# build del ayudante (binarios pesados y regenerables, no van al repo)
+helper/build/
+helper/dist/
+helper/paquete/
+helper/*.spec
+app/static/downloads/*.zip

@@ -59,6 +59,10 @@
 
 <section id="historial" class="card">
   <h2>Historial ({{ vf.reports|length }})</h2>
+  {% if vf.reports %}
+  <p class="muted" style="margin-top:-6px">¿"Abrir en Outlook" no anda en esta PC?
+    <a href="/static/downloads/ayudante-outlook.zip">⬇ Descargar el ayudante</a>.</p>
+  {% endif %}
   {% if not vf.reports %}
   <p class="muted">Todavía no se mandó ningún reporte de este barco.</p>
   {% endif %}
