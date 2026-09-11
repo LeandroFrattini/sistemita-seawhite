@@ -49,6 +49,7 @@ _MIGRATIONS = [
     ("users", "must_change_password", "BOOLEAN DEFAULT FALSE"),
     ("clients", "client_type", "TEXT DEFAULT 'AGENCY'"),
     ("vessel_reports", "shift_data", "TEXT DEFAULT ''"),
+    ("vessel_files", "statement_of_facts", "TEXT DEFAULT ''"),
 ]
 
 

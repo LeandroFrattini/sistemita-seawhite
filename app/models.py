@@ -255,6 +255,9 @@ class VesselFile(Base):
     closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     opened_by: Mapped[str] = mapped_column(String(120), default="")
     notes: Mapped[str] = mapped_column(Text, default="")
+    # historial acumulado (clientes WBL): se reimprime completo al pie de
+    # cada reporte que lo tilde -- se edita/completa a mano en el legajo
+    statement_of_facts: Mapped[str] = mapped_column(Text, default="")
 
     terminal: Mapped["Terminal | None"] = relationship()
     principal_client: Mapped["Client | None"] = relationship()

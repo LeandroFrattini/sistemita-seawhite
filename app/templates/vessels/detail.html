@@ -59,6 +59,18 @@
     </form>
   </details>
 
+  <details class="vf-cargo-box">
+    <summary>Statement of Facts{{ ' (cargado)' if vf.statement_of_facts else '' }}</summary>
+    <p class="muted" style="margin:4px 0 8px">Historial acumulado del barco (para clientes WBL). Se guarda
+    completo acá -- agregale las líneas nuevas al final y guardá; se va a reimprimir entero al pie de cada
+    reporte que tilde "Incluir Statement of Facts".</p>
+    <form method="post" action="/barcos/{{ vf.id }}/statement">
+      <textarea name="statement_of_facts" rows="6" style="width:100%;font-family:monospace;font-size:12.5px;"
+        placeholder="April, 2026&#10;25/1442 - E.O.S.P. Load berth was occupied by M/V LEDA C (Made all fast 24/04 1942 hrs).&#10;25/1442/2400 - Vessel remained anchored awaiting berthing instructions.">{{ vf.statement_of_facts }}</textarea>
+      <div class="row end" style="margin-top:8px"><button type="submit" class="mini primary">Guardar</button></div>
+    </form>
+  </details>
+
   <form method="post" action="/barcos/{{ vf.id }}/reportes" class="vf-report-form" id="report-form">
     <div class="type-picker">
       {% for code, label in report_types %}
@@ -115,6 +127,9 @@
     <label id="notes-label">Detalle (horarios / eventos, uno por línea)
       <textarea name="notes" id="notes-field" rows="8" placeholder="0906 HRS - PILOT BOARDED&#10;1218 HRS - FIRST LINE ASHORE&#10;1242 HRS - MADE ALL FAST ALONGSIDE AT ... TERMINAL"></textarea>
     </label>
+    {% if vf.statement_of_facts %}
+    <label class="check"><input type="checkbox" name="include_sof"> Incluir Statement of Facts al pie (clientes WBL)</label>
+    {% endif %}
     <button type="submit" class="btn primary vf-submit">Generar reporte</button>
   </form>
   <p class="muted vf-hint">El encabezado y la apertura de Berthing / Commenced Loading / Loading Shifts ya usan

@@ -138,6 +138,19 @@ def delete_cargo(
     return RedirectResponse(f"/barcos/{file_id}#reporte", status_code=302)
 
 
+@router.post("/barcos/{file_id}/statement")
+def save_statement_of_facts(
+    file_id: int,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+    statement_of_facts: str = Form(""),
+):
+    vf = db.get(VesselFile, file_id)
+    if vf:
+        vf.statement_of_facts = statement_of_facts.strip()
+        db.commit()
+    return RedirectResponse(f"/barcos/{file_id}#reporte", status_code=302)
+
+
 @router.post("/barcos/{file_id}/reportes")
 async def create_vessel_report(
     file_id: int, request: Request,
@@ -152,6 +165,7 @@ async def create_vessel_report(
     event_at = str(form.get("event_at", "")).strip()
     figure = str(form.get("figure", "")).strip()
     notes = str(form.get("notes", "")).strip()
+    sof = vf.statement_of_facts if form.get("include_sof") == "on" else ""
 
     if tipos == ["LOADING_SHIFTS"]:
         cargo_id = int(form.get("cargo_id") or 0)
@@ -183,24 +197,30 @@ async def create_vessel_report(
             "prospect": str(form.get("prospect", "")).strip(),
             "include_breakdown": form.get("include_breakdown") == "on",
         }
-        report = build_shift_report(vf, shift, notes)
-        cc_emails = [e for e in split_emails(get_setting(db, CC_KEY, DEFAULT_CC)) if e not in report.to_emails]
-        db.add(
-            VesselReport(
-                vessel_file_id=vf.id,
-                report_types="LOADING_SHIFTS",
-                event_at=event_at,
-                figure=figure,
-                notes=notes,
-                shift_data=json.dumps(shift),
-                subject=report.subject,
-                text_body=report.text_body,
-                html_body=report.html_body,
-                to_emails=", ".join(report.to_emails),
-                cc_emails=", ".join(cc_emails),
-                sent_by=user.username,
+        clients = vf.recipient_clients() or [None]
+        cc_setting = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
+        for i, client in enumerate(clients):
+            report = build_shift_report(vf, client, shift, notes, statement_of_facts=sof)
+            cc_emails = [e for e in cc_setting if e not in report.to_emails]
+            db.add(
+                VesselReport(
+                    vessel_file_id=vf.id,
+                    report_types="LOADING_SHIFTS",
+                    event_at=event_at,
+                    figure=figure,
+                    notes=notes,
+                    # el total acumulado solo se cuenta una vez por turno --
+                    # si hay varios clientes, solo el primer mail guarda el
+                    # shift_data "real" (los demas quedan vacios)
+                    shift_data=json.dumps(shift) if i == 0 else "",
+                    subject=report.subject,
+                    text_body=report.text_body,
+                    html_body=report.html_body,
+                    to_emails=", ".join(report.to_emails),
+                    cc_emails=", ".join(cc_emails),
+                    sent_by=user.username,
+                )
             )
-        )
         db.commit()
     elif tipos:
         live_call = db.scalar(
@@ -209,23 +229,28 @@ async def create_vessel_report(
             .order_by(VesselCall.id.desc())
         )
         operation = live_call.operation if live_call else "Load"
-        report = build_vessel_status_report(vf, tipos, event_at, figure, notes, operation=operation)
-        cc_emails = [e for e in split_emails(get_setting(db, CC_KEY, DEFAULT_CC)) if e not in report.to_emails]
-        db.add(
-            VesselReport(
-                vessel_file_id=vf.id,
-                report_types=",".join(tipos),
-                event_at=event_at,
-                figure=figure,
-                notes=notes,
-                subject=report.subject,
-                text_body=report.text_body,
-                html_body=report.html_body,
-                to_emails=", ".join(report.to_emails),
-                cc_emails=", ".join(cc_emails),
-                sent_by=user.username,
+        clients = vf.recipient_clients() or [None]
+        cc_setting = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
+        for client in clients:
+            report = build_vessel_status_report(
+                vf, client, tipos, event_at, figure, notes, operation=operation, statement_of_facts=sof,
             )
-        )
+            cc_emails = [e for e in cc_setting if e not in report.to_emails]
+            db.add(
+                VesselReport(
+                    vessel_file_id=vf.id,
+                    report_types=",".join(tipos),
+                    event_at=event_at,
+                    figure=figure,
+                    notes=notes,
+                    subject=report.subject,
+                    text_body=report.text_body,
+                    html_body=report.html_body,
+                    to_emails=", ".join(report.to_emails),
+                    cc_emails=", ".join(cc_emails),
+                    sent_by=user.username,
+                )
+            )
         if "SAILED" in tipos:
             vf.status = "closed"
             vf.closed_at = datetime.utcnow()

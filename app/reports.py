@@ -423,25 +423,26 @@ def _fmt_mt(value: float) -> str:
     return f"{value:,.3f}"
 
 
+def _append_statement_of_facts(text_body: str, statement_of_facts: str) -> str:
+    sof = (statement_of_facts or "").strip()
+    if not sof:
+        return text_body
+    return text_body + "\n\n\nStatement of Facts:\n\n" + sof
+
+
 def build_shift_report(
-    vf, shift: dict, notes: str, signature_html: str = "",
+    vf, client, shift: dict, notes: str, signature_html: str = "", statement_of_facts: str = "",
 ) -> BuiltReport:
     """Loading/Discharging Shift -- formato calcado de MV IONIC KIBOU (Atlas)
-    y MV DISCOVERER (Oceanway, con breakdown por bodega)."""
+    y MV DISCOVERER (Oceanway, con breakdown por bodega). Un mail por cliente
+    -- si el barco tiene varias agencias, se llama una vez por cada una."""
     pfx_slash = vessel_prefix(vf.vessel_type)
     pfx_slash = pfx_slash[0] + "/" + pfx_slash[1]
     terminal_name = (vf.terminal.name if vf.terminal else vf.terminal_code) or "TERMINAL"
     terminal_name = terminal_name.upper()
 
-    clients = vf.recipient_clients()
-    to_name = " / ".join(c.display_to.upper() for c in clients) or "(SIN CLIENTE)"
-    to_emails: list[str] = []
-    seen: set[str] = set()
-    for c in clients:
-        for e in c.email_list:
-            if e.lower() not in seen:
-                to_emails.append(e)
-                seen.add(e.lower())
+    to_name = client.display_to.upper() if client else "(SIN CLIENTE)"
+    to_emails = client.email_list if client else []
 
     d = parse_date(shift.get("date", "")) or _date.today()
     date_txt = f"{_MONTHS_FULL[d.month - 1]} {d.day}{_ordinal_suffix(d.day)}"
@@ -496,6 +497,7 @@ def build_shift_report(
         f"Terminal: {terminal_name}\n\n"
         + "\n".join(lines)
     )
+    text_body = _append_statement_of_facts(text_body, statement_of_facts)
     html_body = _wrap_body(
         f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>', signature_html
     )
@@ -534,9 +536,11 @@ def _status_phrase(types: set[str], op_word: str, labels: dict[str, str]) -> str
 
 
 def build_vessel_status_report(
-    vf, report_types: list[str], event_at: str, figure: str, notes: str,
-    signature_html: str = "", operation: str = "Load",
+    vf, client, report_types: list[str], event_at: str, figure: str, notes: str,
+    signature_html: str = "", operation: str = "Load", statement_of_facts: str = "",
 ) -> BuiltReport:
+    """Un mail por cliente -- si el barco tiene varias agencias, se llama una
+    vez por cada una (mismo patron que el line-up diario)."""
     labels = dict(VESSEL_REPORT_TYPES)
     types = set(report_types)
     pfx = vessel_prefix(vf.vessel_type)
@@ -562,15 +566,8 @@ def build_vessel_status_report(
     if len(body_lines) == 1:
         body_lines.append("(SIN DETALLE CARGADO)")
 
-    clients = vf.recipient_clients()
-    to_name = " / ".join(c.display_to.upper() for c in clients) or "(SIN CLIENTE)"
-    to_emails: list[str] = []
-    seen: set[str] = set()
-    for c in clients:
-        for e in c.email_list:
-            if e.lower() not in seen:
-                to_emails.append(e)
-                seen.add(e.lower())
+    to_name = client.display_to.upper() if client else "(SIN CLIENTE)"
+    to_emails = client.email_list if client else []
 
     text_body = (
         f"TO: {to_name}\n"
@@ -581,6 +578,7 @@ def build_vessel_status_report(
         f"DEAR ALL, GOOD DAY\n{opener}\n\n"
         + "\n".join(body_lines)
     )
+    text_body = _append_statement_of_facts(text_body, statement_of_facts)
     html_body = _wrap_body(
         f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>', signature_html
     )
