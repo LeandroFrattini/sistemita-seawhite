@@ -7,7 +7,7 @@ from .config import BASE_DIR
 from .routers import admin, auth, clients, exports, imports, lineup, reports, vessels
 from .seed import init_db
 
-app = FastAPI(title="Line-up Sea White")
+app = FastAPI(title="Sistemita SeaWhiters")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "app" / "static")), name="static")
 
 

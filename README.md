@@ -1,9 +1,10 @@
-# Line-up Sea White
+# Sistemita SeaWhiters
 
-App interna para cargar el line-up de las terminales de Bahía Blanca, exportarlo
-a Excel (interno y para clientes) y disparar los reportes por barco a cada
-cliente — con formato **Excel** (mail con la tabla pegada) o formato **WBL**
-(todo texto).
+App interna del equipo de Operaciones (carpeta del proyecto: `lineup`). Arrancó
+como el line-up de las terminales de Bahía Blanca (Grain y Flammable), export
+a Excel, reportes por barco a cada cliente y "Barcos (ID)" con reportes
+operativos (Berthing / Commenced Loading / Loading Shifts / Sailed) — y va a
+seguir sumando funciones del día a día del equipo.
 
 ## Correr
 

@@ -67,7 +67,7 @@ h2 { font-size: 16px; margin: 26px 0 10px; }
 .login-logo { width: 150px; max-width: 70%; height: auto; display: block; margin: 0 auto; }
 .login-tag { margin: 10px 0 0; color: #eafff8; font-size: 12.5px; font-style: italic; letter-spacing: .01em; opacity: .95; }
 .login-form { padding: 22px 30px 30px; }
-.login-card h1 { text-align: center; color: var(--green-dark); margin: 0 0 6px; font-size: 19px; }
+.login-card h1 { text-align: center; color: var(--green-dark); margin: 0 0 6px; font-size: 17px; text-wrap: balance; }
 .login-card label { display: block; margin: 12px 0; font-size: 13px; color: var(--muted); }
 .login-card input { width: 100%; padding: 9px; border: 1px solid var(--line); border-radius: 7px; font-size: 14px; }
 .login-card button { width: 100%; margin-top: 10px; }
