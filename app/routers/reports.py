@@ -48,6 +48,8 @@ def _collect(db: Session, *, kind: str = "GRAIN", with_signature: bool = False):
             continue
         term_calls = grouped.get(call.terminal_id, [])
         for client in call.recipient_clients():
+            if client.is_estiba:
+                continue
             report = builder(call, client, lineup, terminal, term_calls, signature_html)
             report.cc_emails = [e for e in cc_emails if e not in report.to_emails]
             out.append((call, client, report))

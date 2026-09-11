@@ -29,6 +29,7 @@ def create_client(
     to_name: str = Form(""),
     emails: str = Form(""),
     report_format: str = Form("EXCEL"),
+    client_type: str = Form("AGENCY"),
 ):
     name = name.strip()
     anchor = ""
@@ -38,6 +39,7 @@ def create_client(
             to_name=to_name.strip(),
             emails=emails.strip(),
             report_format=report_format if report_format in {"EXCEL", "WBL_TEXT"} else "EXCEL",
+            client_type=client_type if client_type in {"AGENCY", "ESTIBA"} else "AGENCY",
             active=True,
         )
         db.add(client)
@@ -55,6 +57,7 @@ def update_client(
     to_name: str = Form(""),
     emails: str = Form(""),
     report_format: str = Form("EXCEL"),
+    client_type: str = Form("AGENCY"),
     active: str = Form("on"),
 ):
     client = db.get(Client, client_id)
@@ -70,6 +73,7 @@ def update_client(
                 lower.add(e.lower())
         client.emails = ", ".join(merged)
         client.report_format = report_format if report_format in {"EXCEL", "WBL_TEXT"} else "EXCEL"
+        client.client_type = client_type if client_type in {"AGENCY", "ESTIBA"} else "AGENCY"
         if user.is_admin:
             # solo un admin puede desactivar un cliente desde el formulario de edicion
             client.active = active == "on"

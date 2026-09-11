@@ -107,7 +107,7 @@
               {% for c in clients %}
               <label><input type="checkbox" value="{{ c.id }}"
                 {{ 'checked' if c.id in call.extra_agencies|map(attribute='client_id')|list }}>
-                {{ c.name }} <em>{{ 'WBL' if c.report_format == 'WBL_TEXT' else 'Excel' }}</em></label>
+                {{ c.name }} <em>{{ 'WBL' if c.report_format == 'WBL_TEXT' else 'Excel' }}</em>{% if c.is_estiba %} <em>Estiba — no recibe line-up</em>{% endif %}</label>
               {% endfor %}
             </div>
           </td>

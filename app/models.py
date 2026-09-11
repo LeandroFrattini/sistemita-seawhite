@@ -64,12 +64,19 @@ class Client(Base):
     # Mails separados por coma o salto de linea
     emails: Mapped[str] = mapped_column(Text, default="")
     report_format: Mapped[str] = mapped_column(String(20), default="EXCEL")
+    # AGENCY (recibe line-up diario + reportes de Barcos) | ESTIBA (solo
+    # reportes de Barcos: Berthing/Commenced Loading/Loading Shifts/Sailed)
+    client_type: Mapped[str] = mapped_column(String(20), default="AGENCY")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str] = mapped_column(Text, default="")
 
     @property
     def display_to(self) -> str:
         return (self.to_name or self.name).strip()
+
+    @property
+    def is_estiba(self) -> bool:
+        return self.client_type == "ESTIBA"
 
     @property
     def email_list(self) -> list[str]:

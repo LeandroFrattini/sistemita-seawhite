@@ -7,6 +7,8 @@
   <p><b>Nombre para "TO ..."</b>: el nombre que aparece arriba del reporte (<code>TO ....</code>). <u>No es un mail.</u> Si lo dejás vacío, usa el Nombre.</p>
   <p><b>Mails</b>: acá van las direcciones a las que se envía el reporte, separadas por coma.</p>
   <p>Formato <b>Excel</b> = mail con la tabla pegada · <b>WBL</b> = mail todo texto.</p>
+  <p><b>Tipo</b> <i>Estiba</i>: no recibe el line-up diario (Grain/Flammable), solo los reportes
+  de Barcos (ID) — Berthing, Loading Shifts, etc. — de los buques a los que esté asignado.</p>
 </div>
 
 <form class="card new-client" method="post" action="/clients">
@@ -18,6 +20,12 @@
       <select name="report_format">
         <option value="EXCEL">Excel (tabla)</option>
         <option value="WBL_TEXT">WBL (texto)</option>
+      </select>
+    </label>
+    <label>Tipo
+      <select name="client_type">
+        <option value="AGENCY">Agencia</option>
+        <option value="ESTIBA">Estiba</option>
       </select>
     </label>
   </div>
@@ -37,12 +45,19 @@
           <option value="WBL_TEXT" {{ 'selected' if c.report_format == 'WBL_TEXT' }}>WBL (texto)</option>
         </select>
       </label>
+      <label>Tipo
+        <select name="client_type">
+          <option value="AGENCY" {{ 'selected' if c.client_type != 'ESTIBA' }}>Agencia</option>
+          <option value="ESTIBA" {{ 'selected' if c.client_type == 'ESTIBA' }}>Estiba</option>
+        </select>
+      </label>
       {% if user.is_admin %}
       <label class="check">Activo<input type="checkbox" name="active" {{ 'checked' if c.active }}></label>
       {% elif not c.active %}
       <span class="vf-badge closed">De baja</span>
       {% endif %}
     </div>
+    {% if c.is_estiba %}<p class="muted" style="margin:2px 0 0">⚓ Estiba — no recibe el line-up diario, solo reportes de Barcos (ID).</p>{% endif %}
     <label>Agregar mails (separados por coma)<input name="emails" value="" placeholder="ops@cliente.com, chartering@cliente.com"></label>
     {% if c.email_list %}
     <div class="mail-chips">
