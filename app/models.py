@@ -215,6 +215,112 @@ class OperatedVessel(Base):
     extras: Mapped[str] = mapped_column(String(255), default="")
 
 
+VESSEL_REPORT_TYPES = [
+    ("BERTHING", "Berthing"),
+    ("COMMENCED_LOADING", "Commenced Loading/Discharging"),
+    ("LOADING_SHIFTS", "Loading/Discharging Shift"),
+    ("SAILED", "Sailed"),
+]
+
+
+class VesselFile(Base):
+    """Legajo de un barco propio: se crea al marcarlo "Nuestro" y persiste
+    aunque el line-up se reimporte a diario. Se cierra al mandar el reporte
+    Sailed (o a mano); si el barco vuelve mas adelante, le toca un ID nuevo."""
+
+    __tablename__ = "vessel_files"
+
+    id: Mapped[int] = mapped_column(primary_key=True)  # el Nº 1, 2, 3... que ve el usuario
+    kind: Mapped[str] = mapped_column(String(20), default="GRAIN")
+    vessel_name: Mapped[str] = mapped_column(String(120), default="")
+    vessel_type: Mapped[str] = mapped_column(String(40), default="")
+
+    terminal_id: Mapped[int | None] = mapped_column(ForeignKey("terminals.id"), nullable=True)
+    terminal_code: Mapped[str] = mapped_column(String(60), default="")
+
+    principal_client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"), nullable=True)
+    principal_text: Mapped[str] = mapped_column(String(120), default="")
+
+    status: Mapped[str] = mapped_column(String(20), default="open")  # open | closed
+    opened_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    opened_by: Mapped[str] = mapped_column(String(120), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+
+    terminal: Mapped["Terminal | None"] = relationship()
+    principal_client: Mapped["Client | None"] = relationship()
+    agencies: Mapped[list["VesselFileAgency"]] = relationship(cascade="all, delete-orphan")
+    reports: Mapped[list["VesselReport"]] = relationship(
+        back_populates="vessel_file", cascade="all, delete-orphan",
+        order_by="VesselReport.sent_at.desc()",
+    )
+
+    @property
+    def principal_name(self) -> str:
+        return self.principal_client.name if self.principal_client else (self.principal_text or "")
+
+    def recipient_clients(self) -> list["Client"]:
+        out: list[Client] = []
+        seen: set[int] = set()
+        if self.principal_client and self.principal_client.active:
+            out.append(self.principal_client)
+            seen.add(self.principal_client.id)
+        for link in self.agencies:
+            c = link.client
+            if c and c.active and c.id not in seen:
+                out.append(c)
+                seen.add(c.id)
+        return out
+
+
+class VesselFileAgency(Base):
+    __tablename__ = "vessel_file_agencies"
+    __table_args__ = (UniqueConstraint("vessel_file_id", "client_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vessel_file_id: Mapped[int] = mapped_column(ForeignKey("vessel_files.id"), index=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), index=True)
+
+    client: Mapped["Client"] = relationship()
+
+
+class VesselReport(Base):
+    """Un reporte operativo mandado para un legajo (Berthing / Commenced
+    Loading / Loading Shifts / Sailed, combinables)."""
+
+    __tablename__ = "vessel_reports"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vessel_file_id: Mapped[int] = mapped_column(ForeignKey("vessel_files.id"), index=True)
+    report_types: Mapped[str] = mapped_column(String(120), default="")  # coma-separados
+    event_at: Mapped[str] = mapped_column(String(40), default="")
+    figure: Mapped[str] = mapped_column(String(120), default="")
+    notes: Mapped[str] = mapped_column(Text, default="")
+
+    subject: Mapped[str] = mapped_column(String(200), default="")
+    text_body: Mapped[str] = mapped_column(Text, default="")
+    html_body: Mapped[str] = mapped_column(Text, default="")
+    to_emails: Mapped[str] = mapped_column(Text, default="")
+    cc_emails: Mapped[str] = mapped_column(Text, default="")
+
+    sent_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    sent_by: Mapped[str] = mapped_column(String(120), default="")
+
+    vessel_file: Mapped["VesselFile"] = relationship(back_populates="reports")
+
+    @property
+    def type_list(self) -> list[str]:
+        return [t for t in self.report_types.split(",") if t]
+
+    @property
+    def to_list(self) -> list[str]:
+        return [e.strip() for e in self.to_emails.split(",") if e.strip()]
+
+    @property
+    def cc_list(self) -> list[str]:
+        return [e.strip() for e in self.cc_emails.split(",") if e.strip()]
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
 

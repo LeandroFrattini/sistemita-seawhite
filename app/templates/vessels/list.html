@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block nav_files %}active{% endblock %}
+{% block content %}
+<h1>Barcos</h1>
+<p class="muted">Cada barco marcado <b>Nuestro</b> en el line-up genera acá un legajo con ID. Se cierra solo
+al mandar el reporte <b>Sailed</b> (o a mano); si el barco vuelve más adelante, le toca un ID nuevo.</p>
+
+<div class="mes-tabs">
+  <a class="mes-tab {{ 'on' if estado == 'open' }}" href="/barcos?estado=open">Abiertos ({{ counts.open }})</a>
+  <a class="mes-tab {{ 'on' if estado == 'closed' }}" href="/barcos?estado=closed">Cerrados ({{ counts.closed }})</a>
+  <a class="mes-tab {{ 'on' if estado == 'todos' }}" href="/barcos?estado=todos">Todos</a>
+</div>
+
+{% if not files %}
+<p class="muted">No hay barcos acá todavía. Marcá uno como <b>Nuestro</b> en el line-up (Grain o Flammable).</p>
+{% endif %}
+
+<div class="vf-list">
+  {% for f in files %}
+  <a class="vf-card" href="/barcos/{{ f.id }}">
+    <span class="vf-id">#{{ f.id }}</span>
+    <span class="vf-main">
+      <b>{{ f.vessel_name }}</b>
+      <span class="vf-sub">{{ f.terminal.code if f.terminal else f.terminal_code }} · {{ f.principal_name or 'sin cliente' }}</span>
+    </span>
+    <span class="vf-badge {{ 'closed' if f.status == 'closed' }}">{{ 'Abierto' if f.status == 'open' else 'Cerrado' }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

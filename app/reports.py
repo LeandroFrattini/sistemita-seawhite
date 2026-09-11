@@ -11,9 +11,11 @@ from __future__ import annotations
 import html
 import re
 from dataclasses import dataclass, field
+from datetime import date as _date
 
 from .config import settings
 from .dates import fmt_dm, fmt_long, parse_date
+from .models import VESSEL_REPORT_TYPES
 
 ROADS_LABEL = "Bahia Blanca roads"
 MONO = "font-family:'Courier New',monospace;font-size:16px;"
@@ -376,4 +378,74 @@ def build_flammable_report(call, client, lineup, terminal, term_calls, signature
         text_body=text_body,
         vessel_name=call.vessel_name,
         client_name=client.name,
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Reportes operativos por legajo (Berthing / Commenced Loading / Loading
+# Shifts / Sailed, combinables). El wording de cada tipo es un PLACEHOLDER:
+# reemplazar por el texto real cuando se reciban los modelos.
+# --------------------------------------------------------------------------- #
+VESSEL_REPORT_FOOTER = "[PLACEHOLDER] Reemplazar por el wording real de este tipo de reporte."
+
+_STATUS_PLACEHOLDER = {
+    "BERTHING": "VSL BERTHED {ev}.",
+    "COMMENCED_LOADING": "OPERATIONS (LOAD/DISCH) COMMENCED {ev}.",
+    "LOADING_SHIFTS": "SHIFT REPORT AS OF {ev}.",
+    "SAILED": "VSL SAILED {ev}.",
+}
+
+
+def build_vessel_status_report(
+    vf, report_types: list[str], event_at: str, figure: str, notes: str,
+    signature_html: str = "",
+) -> BuiltReport:
+    labels = dict(VESSEL_REPORT_TYPES)
+    pfx = vessel_prefix(vf.vessel_type)
+    today = _date.today().strftime("%d.%m.%y")
+    ev = (event_at or "").strip() or "(fecha/hora a completar)"
+
+    lines: list[str] = []
+    for t in report_types:
+        tmpl = _STATUS_PLACEHOLDER.get(t)
+        if tmpl:
+            lines.append(tmpl.format(ev=ev).upper())
+    if (figure or "").strip():
+        lines.append(f"FIGURE: {figure.strip()}".upper())
+    if (notes or "").strip():
+        lines.append(notes.strip())
+    if not lines:
+        lines.append("(SIN DETALLE CARGADO)")
+
+    clients = vf.recipient_clients()
+    to_name = " / ".join(c.display_to.upper() for c in clients) or "(SIN CLIENTE)"
+    to_emails: list[str] = []
+    seen: set[str] = set()
+    for c in clients:
+        for e in c.email_list:
+            if e.lower() not in seen:
+                to_emails.append(e)
+                seen.add(e.lower())
+
+    type_labels = " + ".join(labels.get(t, t) for t in report_types) or "REPORTE"
+    text_body = (
+        f"TO {to_name}\n"
+        f"FM {settings.mail_from_name}\n\n"
+        f"REF {pfx} {vf.vessel_name.upper()}\n\n"
+        f"{today}\n\n"
+        + "\n".join(lines)
+        + f"\n\n{VESSEL_REPORT_FOOTER}"
+    )
+    html_body = _wrap_body(
+        f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>', signature_html
+    )
+    return BuiltReport(
+        subject=f"{pfx} {vf.vessel_name.upper()} - {type_labels.upper()}",
+        to_name=to_name,
+        to_emails=to_emails,
+        report_format="VESSEL_STATUS",
+        html_body=html_body,
+        text_body=text_body,
+        vessel_name=vf.vessel_name,
+        client_name=to_name,
     )

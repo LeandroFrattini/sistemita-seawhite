@@ -7,7 +7,7 @@ from ..auth import current_user
 from ..database import get_db
 from ..excel_import import ImportResult, parse_lineup_xlsx
 from ..models import Client, Terminal, User, VesselCall, VesselExtraAgency
-from ..service import get_draft_lineup, sync_is_ours
+from ..service import ensure_vessel_file, get_draft_lineup, sync_is_ours
 from ..templating import templates
 
 router = APIRouter()
@@ -94,6 +94,8 @@ def _apply(db: Session, user: User, result: ImportResult, *, replace: bool) -> d
             db.add(call)
             db.flush()
             _set_extras(db, call, ic.otras, clients, unmatched_clients)
+            if call.is_ours:
+                ensure_vessel_file(db, call, user)
             n_calls += 1
 
     lineup.updated_by = user.username

@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block nav_files %}active{% endblock %}
+{% block main_class %}wrap vf-detail{% endblock %}
+{% block content %}
+<div class="vf-top">
+  <a href="/barcos" class="back-link">← Barcos</a>
+  <span class="vf-badge {{ 'closed' if vf.status == 'closed' }}">{{ 'Abierto' if vf.status == 'open' else 'Cerrado' }}</span>
+</div>
+
+<h1 class="vf-title">#{{ vf.id }} · {{ vf.vessel_name }}</h1>
+<p class="muted">{{ 'Flammable' if vf.kind == 'FLAMMABLE' else 'Grain' }} ·
+  {{ vf.terminal.code if vf.terminal else vf.terminal_code }}
+  {% if vf.terminal and vf.terminal.berth_label %}· {{ vf.terminal.berth_label }}{% endif %}
+</p>
+
+<section class="card vf-info">
+  <div class="vf-info-row"><span>Cliente</span><b>{{ vf.principal_name or '—' }}</b></div>
+  {% if clients|length > 1 %}
+  <div class="vf-info-row"><span>Otras agencias</span><b>{{ clients[1:]|map(attribute='name')|join(', ') }}</b></div>
+  {% endif %}
+  {% if live_call %}
+  <div class="vf-info-row"><span>ETA / ETB / ETC actual</span>
+    <b>{{ live_call.eta or '—' }} / {{ live_call.etb or '—' }} / {{ live_call.etc or '—' }}</b></div>
+  <div class="vf-info-row"><span>Carga</span><b>{{ live_call.quantity }} {{ live_call.grade }}</b></div>
+  {% else %}
+  <div class="vf-info-row"><span class="muted">No está en el line-up actual (se ve el historial igual).</span></div>
+  {% endif %}
+  <div class="vf-info-row"><span>Abierto</span><b>{{ vf.opened_at.strftime("%d/%m/%Y") }} · {{ vf.opened_by }}</b></div>
+  <form method="post" action="/barcos/{{ vf.id }}/{{ 'reabrir' if vf.status == 'closed' else 'cerrar' }}" class="vf-close-form">
+    <button class="mini {{ '' if vf.status == 'closed' else 'danger' }}">
+      {{ 'Reabrir legajo' if vf.status == 'closed' else 'Cerrar legajo' }}
+    </button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Generar reporte</h2>
+  {% if not clients %}
+  <p class="warn">⚠ Este barco no tiene cliente/agencia cargado — cargá PRINCIPAL en el line-up para poder mandar.</p>
+  {% endif %}
+  <form method="post" action="/barcos/{{ vf.id }}/reportes" class="vf-report-form">
+    <div class="type-picker">
+      {% for code, label in report_types %}
+      <label class="type-chip">
+        <input type="checkbox" name="tipos" value="{{ code }}">
+        <span>{{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="vf-fields">
+      <label>Fecha y hora<input type="text" name="event_at" placeholder="ej. 11/09 14:30"></label>
+      <label>Cifra (opcional)<input type="text" name="figure" placeholder="ej. 22,000 MT"></label>
+    </div>
+    <label>Observaciones (opcional)<textarea name="notes" rows="2"></textarea></label>
+    <button type="submit" class="btn primary vf-submit">Generar reporte</button>
+  </form>
+  <p class="muted vf-hint">El texto de cada tipo es provisorio hasta cargar el wording definitivo.</p>
+</section>
+
+<section id="historial" class="card">
+  <h2>Historial ({{ vf.reports|length }})</h2>
+  {% if not vf.reports %}
+  <p class="muted">Todavía no se mandó ningún reporte de este barco.</p>
+  {% endif %}
+  {% for r in vf.reports %}
+  <article class="report-card vf-report">
+    <div class="rc-head">
+      <div class="rc-name">
+        {% for t in r.type_list %}<span class="badge fl">{{ type_labels.get(t, t) }}</span>{% endfor %}
+        <span class="rc-date">{{ r.sent_at.strftime("%d/%m %H:%M") }} · {{ r.sent_by }}</span>
+      </div>
+      <div class="rc-actions">
+        <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
+        <a class="btn" href="/barcos/{{ vf.id }}/reportes/{{ r.id }}.eml">⬇ .eml</a>
+        <button class="btn" data-copy>Copiar cuerpo</button>
+        <span class="hint" hidden></span>
+      </div>
+    </div>
+    <div class="rc-detail">
+      <details><summary>Destinatarios</summary>
+        <div class="rc-to">TO {{ r.to_emails or '(sin mail)' }}{% if r.cc_emails %}<br>CC {{ r.cc_emails }}{% endif %}</div>
+      </details>
+      <details><summary>Ver cuerpo del mail</summary>
+        <div class="report-body"><pre>{{ r.text_body }}</pre></div>
+      </details>
+    </div>
+    <script type="application/json" class="payload">
+      {"html": {{ r.html_body|tojson }}, "text": {{ r.text_body|tojson }}, "subject": {{ r.subject|tojson }},
+       "to": {{ r.to_emails|tojson }}, "cc": {{ r.cc_emails|tojson }}, "isText": true}
+    </script>
+  </article>
+  {% endfor %}
+</section>
+
+<script>
+const MAILER = "http://127.0.0.1:8765";
+const payloadOf = (btn) => JSON.parse(btn.closest(".report-card").querySelector(".payload").textContent);
+
+document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const data = payloadOf(btn);
+    const hint = btn.closest(".rc-actions").querySelector(".hint");
+    btn.disabled = true;
+    const orig = btn.textContent;
+    btn.textContent = "Abriendo…";
+    try {
+      const res = await fetch(MAILER + "/compose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: data.to, cc: data.cc || "", subject: data.subject, html: data.html }),
+      });
+      const j = await res.json();
+      if (!j.ok) throw new Error(j.error || "error de Outlook");
+      btn.textContent = "✓ Abierto en Outlook";
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+    } catch (e) {
+      btn.textContent = orig;
+      btn.disabled = false;
+      hint.hidden = false;
+      hint.textContent = "No se pudo. ¿Está el ayudante en esta PC? Mientras, usá el .eml.";
+    }
+  });
+});
+
+document.querySelectorAll(".report-card [data-copy]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const data = payloadOf(btn);
+    try {
+      await navigator.clipboard.writeText(data.text);
+      btn.textContent = "¡Copiado!";
+      setTimeout(() => (btn.textContent = "Copiar cuerpo"), 1500);
+    } catch (e) {
+      alert("No se pudo copiar: " + e.message);
+    }
+  });
+});
+</script>
+{% endblock %}

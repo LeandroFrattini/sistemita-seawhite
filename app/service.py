@@ -1,10 +1,20 @@
 """Helpers de dominio compartidos por los routers."""
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from .models import AppSetting, Client, Lineup, Terminal, VesselCall, VesselExtraAgency
+from .models import (
+    AppSetting,
+    Client,
+    Lineup,
+    Terminal,
+    User,
+    VesselCall,
+    VesselExtraAgency,
+    VesselFile,
+    VesselFileAgency,
+)
 
 SIGNATURE_KEY = "report_signature_html"
 CC_KEY = "report_cc"
@@ -97,3 +107,49 @@ def sync_is_ours(call: VesselCall) -> None:
     """Marca el barco como propio si el agente local es Sea White."""
     if (call.local_agent or "").strip().lower() in {"sea white", "seawhite", "sw"}:
         call.is_ours = True
+
+
+def ensure_vessel_file(db: Session, call: VesselCall, user: User | None) -> VesselFile | None:
+    """Crea (o reutiliza si ya hay uno abierto para ese barco+muelle) el
+    legajo con ID de un barco marcado "Nuestro", y sincroniza cliente y
+    otras agencias. No hace nada si el barco no es nuestro."""
+    if not call.is_ours or not (call.vessel_name or "").strip():
+        return None
+
+    vf = db.scalar(
+        select(VesselFile).where(
+            VesselFile.status == "open",
+            func.lower(VesselFile.vessel_name) == call.vessel_name.strip().lower(),
+            VesselFile.terminal_id == call.terminal_id,
+        )
+    )
+    if not vf:
+        term = call.terminal
+        vf = VesselFile(
+            kind=term.kind if term else "GRAIN",
+            vessel_name=call.vessel_name.strip(),
+            vessel_type=call.vessel_type,
+            terminal_id=call.terminal_id,
+            terminal_code=term.code if term else "",
+            opened_by=user.username if user else "",
+        )
+        db.add(vf)
+        db.flush()
+
+    vf.vessel_type = call.vessel_type or vf.vessel_type
+    vf.principal_client_id = call.principal_client_id
+    vf.principal_text = call.principal_text
+
+    current_ids = set(
+        db.scalars(
+            select(VesselExtraAgency.client_id).where(VesselExtraAgency.vessel_call_id == call.id)
+        )
+    )
+    existing_ids = {link.client_id for link in vf.agencies}
+    for cid in current_ids - existing_ids:
+        db.add(VesselFileAgency(vessel_file_id=vf.id, client_id=cid))
+    for link in list(vf.agencies):
+        if link.client_id not in current_ids:
+            db.delete(link)
+
+    return vf

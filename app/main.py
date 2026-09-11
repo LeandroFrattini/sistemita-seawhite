@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import BASE_DIR
-from .routers import admin, auth, clients, exports, imports, lineup, reports
+from .routers import admin, auth, clients, exports, imports, lineup, reports, vessels
 from .seed import init_db
 
 app = FastAPI(title="Line-up Sea White")
@@ -31,3 +31,4 @@ app.include_router(imports.router)
 app.include_router(admin.router)
 app.include_router(exports.router)
 app.include_router(reports.router)
+app.include_router(vessels.router)

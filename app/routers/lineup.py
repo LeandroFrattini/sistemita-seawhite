@@ -14,6 +14,7 @@ from ..service import (
     active_clients,
     active_terminals,
     calls_for_lineup,
+    ensure_vessel_file,
     get_draft_lineup,
     group_by_terminal,
     sync_is_ours,
@@ -193,12 +194,14 @@ async def update_call(call_id: int, request: Request, db: Session = Depends(get_
         return JSONResponse({"error": f"campo invalido: {field}"}, status_code=400)
 
     call.lineup.updated_by = user.username
+    vf = ensure_vessel_file(db, call, user) if call.is_ours else None
     db.commit()
     return {
         "ok": True,
         "is_ours": call.is_ours,
         "principal_name": call.principal_name,
         "linked": call.principal_client_id is not None,
+        "file_id": vf.id if vf else None,
     }
 
 
@@ -225,6 +228,9 @@ async def set_extras(call_id: int, request: Request, db: Session = Depends(get_d
     for cid in ids:
         if db.get(Client, cid):
             db.add(VesselExtraAgency(vessel_call_id=call.id, client_id=cid))
+    db.flush()
+    if call.is_ours:
+        ensure_vessel_file(db, call, user)
     db.commit()
     return {"ok": True}
 
