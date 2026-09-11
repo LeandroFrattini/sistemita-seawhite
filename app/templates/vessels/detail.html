@@ -48,13 +48,17 @@
       {% endfor %}
     </div>
     <div class="vf-fields">
-      <label>Fecha y hora<input type="text" name="event_at" placeholder="ej. 11/09 14:30"></label>
+      <label>Fecha del evento<input type="text" name="event_at" placeholder="ej. 08/09/2026"></label>
       <label>Cifra (opcional)<input type="text" name="figure" placeholder="ej. 22,000 MT"></label>
     </div>
-    <label>Observaciones (opcional)<textarea name="notes" rows="2"></textarea></label>
+    <label>Detalle (horarios / eventos, uno por línea)
+      <textarea name="notes" rows="8" placeholder="0906 HRS - PILOT BOARDED&#10;1218 HRS - FIRST LINE ASHORE&#10;1242 HRS - MADE ALL FAST ALONGSIDE AT ... TERMINAL"></textarea>
+    </label>
     <button type="submit" class="btn primary vf-submit">Generar reporte</button>
   </form>
-  <p class="muted vf-hint">El texto de cada tipo es provisorio hasta cargar el wording definitivo.</p>
+  <p class="muted vf-hint">El encabezado (TO/FM/REF/PORT/TERMINAL) y la apertura de Berthing / Commenced Loading
+  ya usan el wording real. Loading Shifts y Sailed todavía tienen una apertura genérica -- el detalle de
+  horarios lo completás vos en el cuadro de arriba.</p>
 </section>
 
 <section id="historial" class="card">

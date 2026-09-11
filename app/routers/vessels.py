@@ -83,7 +83,13 @@ async def create_vessel_report(
     notes = str(form.get("notes", "")).strip()
 
     if tipos:
-        report = build_vessel_status_report(vf, tipos, event_at, figure, notes)
+        live_call = db.scalar(
+            select(VesselCall)
+            .where(VesselCall.vessel_name == vf.vessel_name, VesselCall.terminal_id == vf.terminal_id)
+            .order_by(VesselCall.id.desc())
+        )
+        operation = live_call.operation if live_call else "Load"
+        report = build_vessel_status_report(vf, tipos, event_at, figure, notes, operation=operation)
         cc_emails = [e for e in split_emails(get_setting(db, CC_KEY, DEFAULT_CC)) if e not in report.to_emails]
         db.add(
             VesselReport(

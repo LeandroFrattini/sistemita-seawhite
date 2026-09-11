@@ -383,39 +383,76 @@ def build_flammable_report(call, client, lineup, terminal, term_calls, signature
 
 # --------------------------------------------------------------------------- #
 # Reportes operativos por legajo (Berthing / Commenced Loading / Loading
-# Shifts / Sailed, combinables). El wording de cada tipo es un PLACEHOLDER:
-# reemplazar por el texto real cuando se reciban los modelos.
+# Shifts / Sailed, combinables). Wording de Berthing y Commenced Loading
+# calcado de los modelos reales que paso Leandro (MV YM QUEST, MV SUBRA).
+# Loading Shifts y Sailed todavia no tienen modelo real -- quedan con una
+# apertura generica, el cuerpo lo completa quien carga el reporte.
 # --------------------------------------------------------------------------- #
-VESSEL_REPORT_FOOTER = "[PLACEHOLDER] Reemplazar por el wording real de este tipo de reporte."
+PORT_LABEL = "BAHÍA BLANCA"
 
-_STATUS_PLACEHOLDER = {
-    "BERTHING": "VSL BERTHED {ev}.",
-    "COMMENCED_LOADING": "OPERATIONS (LOAD/DISCH) COMMENCED {ev}.",
-    "LOADING_SHIFTS": "SHIFT REPORT AS OF {ev}.",
-    "SAILED": "VSL SAILED {ev}.",
-}
+_MONTHS_UP = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+
+
+def _event_date_header(event_at: str) -> str:
+    """'SEP 08TH, 2026' -- se intenta sacar la fecha de lo que se cargo en
+    "Fecha y hora"; si no se puede parsear (por ej. si tiene la hora
+    pegada), se usa la fecha de hoy."""
+    d = parse_date(event_at) or _date.today()
+    day = d.day
+    suffix = "TH" if 10 <= day % 100 <= 20 else {1: "ST", 2: "ND", 3: "RD"}.get(day % 10, "TH")
+    return f"{_MONTHS_UP[d.month - 1]} {day:02d}{suffix}, {d.year}"
+
+
+def _operation_word(operation: str) -> str:
+    return "DISCHARGING" if (operation or "").strip().lower().startswith("disch") else "LOADING"
+
+
+def _status_phrase(types: set[str], op_word: str, labels: dict[str, str]) -> str:
+    """Frase corta usada tanto en el asunto como en el cuerpo ('BERTHED AND
+    COMMENCED LOADING', 'BERTHED', 'SAILED', ...)."""
+    has_berth = "BERTHING" in types
+    has_load = "COMMENCED_LOADING" in types
+    if has_berth and has_load:
+        return f"BERTHED AND COMMENCED {op_word}"
+    if has_berth:
+        return "BERTHED"
+    if has_load:
+        return f"COMMENCED {op_word}"
+    if "SAILED" in types:
+        return "SAILED"
+    if "LOADING_SHIFTS" in types:
+        return "SHIFT REPORT"
+    return " + ".join(labels.get(t, t) for t in types).upper() or "REPORT"
 
 
 def build_vessel_status_report(
     vf, report_types: list[str], event_at: str, figure: str, notes: str,
-    signature_html: str = "",
+    signature_html: str = "", operation: str = "Load",
 ) -> BuiltReport:
     labels = dict(VESSEL_REPORT_TYPES)
+    types = set(report_types)
     pfx = vessel_prefix(vf.vessel_type)
-    today = _date.today().strftime("%d.%m.%y")
-    ev = (event_at or "").strip() or "(fecha/hora a completar)"
+    op_word = _operation_word(operation)
+    terminal_name = (vf.terminal.name if vf.terminal else vf.terminal_code) or ""
+    terminal_name = terminal_name.upper() or "TERMINAL"
 
-    lines: list[str] = []
-    for t in report_types:
-        tmpl = _STATUS_PLACEHOLDER.get(t)
-        if tmpl:
-            lines.append(tmpl.format(ev=ev).upper())
-    if (figure or "").strip():
-        lines.append(f"FIGURE: {figure.strip()}".upper())
+    phrase = _status_phrase(types, op_word, labels)
+    if types & {"BERTHING", "COMMENCED_LOADING"}:
+        opener = f"PLS NOTE {phrase} OPS AT {terminal_name} TERMINAL"
+    elif "SAILED" in types:
+        opener = f"PLS NOTE VSL SAILED FROM {terminal_name} TERMINAL"
+    elif "LOADING_SHIFTS" in types:
+        opener = "PLS NOTE FOLLOWING SHIFT REPORT:"
+    else:
+        opener = "PLS NOTE:"
+
+    body_lines = [_event_date_header(event_at)]
     if (notes or "").strip():
-        lines.append(notes.strip())
-    if not lines:
-        lines.append("(SIN DETALLE CARGADO)")
+        body_lines.append(notes.strip())
+    if (figure or "").strip():
+        body_lines.append(f"FIGURE: {figure.strip()}".upper())
+    if len(body_lines) == 1:
+        body_lines.append("(SIN DETALLE CARGADO)")
 
     clients = vf.recipient_clients()
     to_name = " / ".join(c.display_to.upper() for c in clients) or "(SIN CLIENTE)"
@@ -427,20 +464,26 @@ def build_vessel_status_report(
                 to_emails.append(e)
                 seen.add(e.lower())
 
-    type_labels = " + ".join(labels.get(t, t) for t in report_types) or "REPORTE"
     text_body = (
-        f"TO {to_name}\n"
-        f"FM {settings.mail_from_name}\n\n"
-        f"REF {pfx} {vf.vessel_name.upper()}\n\n"
-        f"{today}\n\n"
-        + "\n".join(lines)
-        + f"\n\n{VESSEL_REPORT_FOOTER}"
+        f"TO: {to_name}\n"
+        f"FM: {settings.mail_from_name}\n"
+        f"REF: {pfx} {vf.vessel_name.upper()}\n\n"
+        f"PORT: {PORT_LABEL}\n"
+        f"TERMINAL: {terminal_name}\n\n"
+        f"DEAR ALL, GOOD DAY\n{opener}\n\n"
+        + "\n".join(body_lines)
     )
     html_body = _wrap_body(
         f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>', signature_html
     )
+    if "SAILED" in types:
+        subject_terminal = f" FROM {terminal_name} TERMINAL"
+    elif types & {"BERTHING", "COMMENCED_LOADING"}:
+        subject_terminal = f" AT {terminal_name} TERMINAL"
+    else:
+        subject_terminal = ""
     return BuiltReport(
-        subject=f"{pfx} {vf.vessel_name.upper()} - {type_labels.upper()}",
+        subject=f"{pfx} {vf.vessel_name.upper()} - {phrase}{subject_terminal}",
         to_name=to_name,
         to_emails=to_emails,
         report_format="VESSEL_STATUS",
