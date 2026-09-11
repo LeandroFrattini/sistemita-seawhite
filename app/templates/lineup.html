@@ -103,12 +103,21 @@
               <span class="cnt">{{ call.extra_agencies|length }}</span> clientes ▾
             </button>
             <div class="extras-panel" hidden>
-              <div class="extras-title">Otras agencias (también reciben el mail)</div>
-              {% for c in clients %}
+              <div class="extras-title">Agencias (también reciben el mail)</div>
+              {% for c in clients if not c.is_estiba %}
               <label><input type="checkbox" value="{{ c.id }}"
                 {{ 'checked' if c.id in call.extra_agencies|map(attribute='client_id')|list }}>
-                {{ c.name }} <em>{{ 'WBL' if c.report_format == 'WBL_TEXT' else 'Excel' }}</em>{% if c.is_estiba %} <em>Estiba — no recibe line-up</em>{% endif %}</label>
+                {{ c.name }} <em>{{ 'WBL' if c.report_format == 'WBL_TEXT' else 'Excel' }}</em></label>
               {% endfor %}
+              {% set estibas = clients|selectattr('is_estiba')|list %}
+              {% if estibas %}
+              <div class="extras-title extras-title-2">Estiba (no recibe el line-up)</div>
+              {% for c in estibas %}
+              <label><input type="checkbox" value="{{ c.id }}"
+                {{ 'checked' if c.id in call.extra_agencies|map(attribute='client_id')|list }}>
+                {{ c.name }}</label>
+              {% endfor %}
+              {% endif %}
             </div>
           </td>
         </tr>

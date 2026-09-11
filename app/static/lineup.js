@@ -156,7 +156,17 @@ document.querySelectorAll(".extras-cell").forEach((cell) => {
 });
 
 document.addEventListener("click", closeExtras);
-window.addEventListener("scroll", closeExtras, true);
+window.addEventListener(
+  "scroll",
+  (e) => {
+    // no cerrar si el scroll pasa DENTRO del propio panel (la ruedita
+    // sobre la lista de agencias) -- solo cerrar si scrollea la pagina
+    // o algun contenedor por fuera del popup.
+    if (e.target && e.target.closest && e.target.closest(".extras-panel")) return;
+    closeExtras();
+  },
+  true
+);
 window.addEventListener("resize", closeExtras);
 
 // --- recalcular por muelle ----------------------------------------- //

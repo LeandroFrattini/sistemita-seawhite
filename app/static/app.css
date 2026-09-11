@@ -120,6 +120,7 @@ table.grid tr.is-ours td { background: #f0faf5; }
 .chip-btn { font-size: 12px; padding: 4px 8px; white-space: nowrap; }
 .extras-panel { position: fixed; z-index: 1000; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.22); padding: 6px; max-height: 320px; overflow: auto; }
 .extras-title { font-size: 11.5px; color: var(--muted); padding: 4px 6px 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.extras-title-2 { margin-top: 6px; }
 .extras-panel label { display: flex; align-items: center; gap: 8px; padding: 5px 6px; font-size: 13px; white-space: nowrap; border-radius: 5px; }
 .extras-panel label:hover { background: #eef7f3; }
 .extras-panel label input { width: auto; margin: 0; }
@@ -145,6 +146,20 @@ table.grid tr.is-ours td { background: #f0faf5; }
 .mail-chip { display: inline-flex; align-items: center; gap: 6px; background: #eef2f0; border: 1px solid var(--line); border-radius: 14px; padding: 3px 6px 3px 10px; font-size: 12.5px; }
 .mail-chip .chip-x { border: none; background: #d8534f; color: #fff; width: 18px; height: 18px; min-width: 18px; border-radius: 50%; padding: 0; font-size: 13px; line-height: 1; cursor: pointer; font-weight: 700; }
 .mail-chip .chip-x:hover { background: #c0392b; }
+
+/* clients: tarjetas colapsables (nombre + click para editar/mails) */
+.client-card { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 8px; background: #fff; overflow: hidden; }
+.client-card.inactive { opacity: .6; }
+.client-card:target, .client-card[open]:target { box-shadow: 0 0 0 2px var(--green); }
+.client-card, section[id] { scroll-margin-top: 16px; }
+.client-card > summary { list-style: none; cursor: pointer; padding: 11px 16px; display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.client-card > summary::-webkit-details-marker { display: none; }
+.client-card > summary:hover { background: #f7faf9; }
+.client-card .cc-name { font-weight: 600; }
+.client-card .cc-chev { margin-left: auto; color: var(--muted); font-size: 12px; transition: transform .15s; }
+.client-card[open] .cc-chev { transform: rotate(180deg); }
+.client-card .type-tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: #fdf1e0; color: #a15c00; }
+.client-card .client-row { border-top: 1px solid var(--line); border-radius: 0; margin: 0; }
 
 /* lists */
 table.list { border-collapse: collapse; width: 100%; background: #fff; font-size: 13px; }

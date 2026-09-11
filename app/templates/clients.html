@@ -35,50 +35,66 @@
 
 <div class="client-list">
 {% for c in clients %}
-  <form id="cli-{{ c.id }}" class="card client-row {{ 'inactive' if not c.active }}" method="post" action="/clients/{{ c.id }}">
-    <div class="row">
-      <label>Nombre<input name="name" value="{{ c.name }}" required></label>
-      <label>Nombre para "TO ..."<input name="to_name" value="{{ c.to_name }}" placeholder="(vacío = {{ c.name }})"></label>
-      <label>Formato
-        <select name="report_format">
-          <option value="EXCEL" {{ 'selected' if c.report_format == 'EXCEL' }}>Excel (tabla)</option>
-          <option value="WBL_TEXT" {{ 'selected' if c.report_format == 'WBL_TEXT' }}>WBL (texto)</option>
-        </select>
-      </label>
-      <label>Tipo
-        <select name="client_type">
-          <option value="AGENCY" {{ 'selected' if c.client_type != 'ESTIBA' }}>Agencia</option>
-          <option value="ESTIBA" {{ 'selected' if c.client_type == 'ESTIBA' }}>Estiba</option>
-        </select>
-      </label>
-      {% if user.is_admin %}
-      <label class="check">Activo<input type="checkbox" name="active" {{ 'checked' if c.active }}></label>
-      {% elif not c.active %}
-      <span class="vf-badge closed">De baja</span>
+  <details id="cli-{{ c.id }}" class="client-card {{ 'inactive' if not c.active }}">
+    <summary>
+      <span class="cc-name">{{ c.name }}</span>
+      {% if c.is_estiba %}<span class="type-tag estiba">Estiba</span>{% endif %}
+      <span class="muted">{{ c.email_list|length }} mail{{ '' if c.email_list|length == 1 else 's' }}</span>
+      {% if not c.active %}<span class="vf-badge closed">De baja</span>{% endif %}
+      <span class="cc-chev">▾</span>
+    </summary>
+    <form class="card client-row" method="post" action="/clients/{{ c.id }}">
+      <div class="row">
+        <label>Nombre<input name="name" value="{{ c.name }}" required></label>
+        <label>Nombre para "TO ..."<input name="to_name" value="{{ c.to_name }}" placeholder="(vacío = {{ c.name }})"></label>
+        <label>Formato
+          <select name="report_format">
+            <option value="EXCEL" {{ 'selected' if c.report_format == 'EXCEL' }}>Excel (tabla)</option>
+            <option value="WBL_TEXT" {{ 'selected' if c.report_format == 'WBL_TEXT' }}>WBL (texto)</option>
+          </select>
+        </label>
+        <label>Tipo
+          <select name="client_type">
+            <option value="AGENCY" {{ 'selected' if c.client_type != 'ESTIBA' }}>Agencia</option>
+            <option value="ESTIBA" {{ 'selected' if c.client_type == 'ESTIBA' }}>Estiba</option>
+          </select>
+        </label>
+        {% if user.is_admin %}
+        <label class="check">Activo<input type="checkbox" name="active" {{ 'checked' if c.active }}></label>
+        {% endif %}
+      </div>
+      {% if c.is_estiba %}<p class="muted" style="margin:2px 0 0">⚓ Estiba — no recibe el line-up diario, solo reportes de Barcos (ID).</p>{% endif %}
+      <label>Agregar mails (separados por coma)<input name="emails" value="" placeholder="ops@cliente.com, chartering@cliente.com"></label>
+      {% if c.email_list %}
+      <div class="mail-chips">
+        {% for m in c.email_list %}
+        <span class="mail-chip">{{ m }}<button type="submit" class="chip-x" title="Quitar"
+          formaction="/clients/{{ c.id }}/mail-remove?email={{ m|urlencode }}" formnovalidate>×</button></span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="muted" style="margin:2px 0 0">Sin mails cargados.</p>
       {% endif %}
-    </div>
-    {% if c.is_estiba %}<p class="muted" style="margin:2px 0 0">⚓ Estiba — no recibe el line-up diario, solo reportes de Barcos (ID).</p>{% endif %}
-    <label>Agregar mails (separados por coma)<input name="emails" value="" placeholder="ops@cliente.com, chartering@cliente.com"></label>
-    {% if c.email_list %}
-    <div class="mail-chips">
-      {% for m in c.email_list %}
-      <span class="mail-chip">{{ m }}<button type="submit" class="chip-x" title="Quitar"
-        formaction="/clients/{{ c.id }}/mail-remove?email={{ m|urlencode }}" formnovalidate>×</button></span>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="muted" style="margin:2px 0 0">Sin mails cargados.</p>
-    {% endif %}
-    <div class="row end">
-      <button type="submit">Guardar</button>
-      {% if user.is_admin %}
-      <button type="submit" formaction="/clients/{{ c.id }}/delete" class="danger"
-              formnovalidate onclick="return confirm('¿Dar de baja el cliente? (se puede reactivar)')">Dar de baja</button>
-      <button type="submit" formaction="/clients/{{ c.id }}/borrar" class="danger"
-              formnovalidate onclick="return confirm('¿BORRAR el cliente {{ c.name }} de forma PERMANENTE? No se puede deshacer.')">Borrar</button>
-      {% endif %}
-    </div>
-  </form>
+      <div class="row end">
+        <button type="submit">Guardar</button>
+        {% if user.is_admin %}
+        <button type="submit" formaction="/clients/{{ c.id }}/delete" class="danger"
+                formnovalidate onclick="return confirm('¿Dar de baja el cliente? (se puede reactivar)')">Dar de baja</button>
+        <button type="submit" formaction="/clients/{{ c.id }}/borrar" class="danger"
+                formnovalidate onclick="return confirm('¿BORRAR el cliente {{ c.name }} de forma PERMANENTE? No se puede deshacer.')">Borrar</button>
+        {% endif %}
+      </div>
+    </form>
+  </details>
 {% endfor %}
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // si venimos de un guardado (redirect a #cli-N), abrir esa tarjeta
+  if (location.hash) {
+    const d = document.querySelector(location.hash);
+    if (d && d.tagName === "DETAILS") d.open = true;
+  }
+</script>
 {% endblock %}
