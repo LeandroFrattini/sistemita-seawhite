@@ -7,9 +7,10 @@ data/*.db
 *.xlsx
 !app/static/template/*.xlsx
 
-# build del ayudante (binarios pesados y regenerables, no van al repo)
+# build del ayudante: carpetas de trabajo de PyInstaller, no van al repo.
+# El .zip final (app/static/downloads/) SI va al repo -- lo sirve la app
+# por link, tiene que viajar con el codigo a donde se despliegue.
 helper/build/
 helper/dist/
 helper/paquete/
 helper/*.spec
-app/static/downloads/*.zip
