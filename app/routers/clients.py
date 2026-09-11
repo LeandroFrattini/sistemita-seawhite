@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..auth import current_user
+from ..auth import admin_required, current_user
 from ..database import get_db
 from ..models import Client, User, VesselCall, VesselExtraAgency
 from ..service import all_clients, split_emails
@@ -70,13 +70,15 @@ def update_client(
                 lower.add(e.lower())
         client.emails = ", ".join(merged)
         client.report_format = report_format if report_format in {"EXCEL", "WBL_TEXT"} else "EXCEL"
-        client.active = active == "on"
+        if user.is_admin:
+            # solo un admin puede desactivar un cliente desde el formulario de edicion
+            client.active = active == "on"
         db.commit()
     return RedirectResponse(f"/clients#cli-{client_id}", status_code=302)
 
 
 @router.post("/clients/{client_id}/delete")
-def deactivate_client(client_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def deactivate_client(client_id: int, db: Session = Depends(get_db), user: User = Depends(admin_required)):
     client = db.get(Client, client_id)
     if client:
         client.active = False
@@ -101,7 +103,7 @@ def remove_client_mail(
 
 
 @router.post("/clients/{client_id}/borrar")
-def delete_client(client_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def delete_client(client_id: int, db: Session = Depends(get_db), user: User = Depends(admin_required)):
     """Borrado permanente. Suelta las referencias del line-up:
     - PRINCIPAL vinculado -> pasa a texto libre con el nombre del cliente
     - Otras agencias -> se quita el vínculo

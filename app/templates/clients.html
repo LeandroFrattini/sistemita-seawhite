@@ -37,7 +37,11 @@
           <option value="WBL_TEXT" {{ 'selected' if c.report_format == 'WBL_TEXT' }}>WBL (texto)</option>
         </select>
       </label>
+      {% if user.is_admin %}
       <label class="check">Activo<input type="checkbox" name="active" {{ 'checked' if c.active }}></label>
+      {% elif not c.active %}
+      <span class="vf-badge closed">De baja</span>
+      {% endif %}
     </div>
     <label>Agregar mails (separados por coma)<input name="emails" value="" placeholder="ops@cliente.com, chartering@cliente.com"></label>
     {% if c.email_list %}
@@ -52,10 +56,12 @@
     {% endif %}
     <div class="row end">
       <button type="submit">Guardar</button>
+      {% if user.is_admin %}
       <button type="submit" formaction="/clients/{{ c.id }}/delete" class="danger"
               formnovalidate onclick="return confirm('¿Dar de baja el cliente? (se puede reactivar)')">Dar de baja</button>
       <button type="submit" formaction="/clients/{{ c.id }}/borrar" class="danger"
               formnovalidate onclick="return confirm('¿BORRAR el cliente {{ c.name }} de forma PERMANENTE? No se puede deshacer.')">Borrar</button>
+      {% endif %}
     </div>
   </form>
 {% endfor %}

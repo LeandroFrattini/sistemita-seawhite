@@ -1,11 +1,17 @@
 {% extends "base.html" %}
 {% block main_class %}login-wrap{% endblock %}
 {% block content %}
-<form class="login-card" method="post" action="/login">
-  <h1>⚓ Line-up Sea White</h1>
-  {% if error %}<p class="error">{{ error }}</p>{% endif %}
-  <label>Usuario<input name="username" autofocus autocomplete="username"></label>
-  <label>Contraseña<input name="password" type="password" autocomplete="current-password"></label>
-  <button type="submit">Entrar</button>
-</form>
+<div class="login-card">
+  <div class="login-brand">
+    <img src="/static/img/logo-seawhite.png" alt="Sea White" class="login-logo">
+    <p class="login-tag">⚓ La mejor agencia del país</p>
+  </div>
+  <form method="post" action="/login" class="login-form">
+    <h1>Line-up</h1>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <label>Usuario<input name="username" autofocus autocomplete="username"></label>
+    <label>Contraseña<input name="password" type="password" autocomplete="current-password"></label>
+    <button type="submit">Entrar</button>
+  </form>
+</div>
 {% endblock %}
