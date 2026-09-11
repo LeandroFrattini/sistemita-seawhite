@@ -157,6 +157,10 @@
       <div class="rc-actions">
         <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
         <button class="btn" data-copy>Copiar cuerpo</button>
+        <form method="post" action="/barcos/{{ vf.id }}/reportes/{{ r.id }}/borrar" style="display:inline">
+          <button type="submit" class="btn danger"
+                  onclick="return confirm('¿Borrar este reporte? Si se mandó a varias agencias, se borran todas las copias juntas (es el mismo envío).')">Borrar</button>
+        </form>
         <span class="hint" hidden></span>
       </div>
     </div>

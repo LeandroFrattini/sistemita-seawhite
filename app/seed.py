@@ -50,6 +50,7 @@ _MIGRATIONS = [
     ("clients", "client_type", "TEXT DEFAULT 'AGENCY'"),
     ("vessel_reports", "shift_data", "TEXT DEFAULT ''"),
     ("vessel_files", "statement_of_facts", "TEXT DEFAULT ''"),
+    ("vessel_reports", "batch_id", "TEXT DEFAULT ''"),
 ]
 
 

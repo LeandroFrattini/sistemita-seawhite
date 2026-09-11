@@ -3,6 +3,7 @@ operativos (Berthing / Commenced Loading / Loading Shifts / Sailed)."""
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -218,12 +219,14 @@ async def create_vessel_report(
         }
         clients = vf.recipient_clients() or [None]
         cc_setting = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
+        batch_id = uuid.uuid4().hex
         for i, client in enumerate(clients):
             report = build_shift_report(vf, client, shift, notes, statement_of_facts=sof)
             cc_emails = [e for e in cc_setting if e not in report.to_emails]
             db.add(
                 VesselReport(
                     vessel_file_id=vf.id,
+                    batch_id=batch_id,
                     report_types="LOADING_SHIFTS",
                     event_at=event_at,
                     figure=figure,
@@ -250,6 +253,7 @@ async def create_vessel_report(
         operation = live_call.operation if live_call else "Load"
         clients = vf.recipient_clients() or [None]
         cc_setting = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
+        batch_id = uuid.uuid4().hex
         for client in clients:
             report = build_vessel_status_report(
                 vf, client, tipos, event_at, figure, notes, operation=operation, statement_of_facts=sof,
@@ -258,6 +262,7 @@ async def create_vessel_report(
             db.add(
                 VesselReport(
                     vessel_file_id=vf.id,
+                    batch_id=batch_id,
                     report_types=",".join(tipos),
                     event_at=event_at,
                     figure=figure,
@@ -273,6 +278,29 @@ async def create_vessel_report(
         if "SAILED" in tipos:
             vf.status = "closed"
             vf.closed_at = datetime.utcnow()
+        db.commit()
+    return RedirectResponse(f"/barcos/{file_id}#historial", status_code=302)
+
+
+@router.post("/barcos/{file_id}/reportes/{report_id}/borrar")
+def delete_vessel_report(
+    file_id: int, report_id: int,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+):
+    """Borra un reporte cargado por error. Como un mismo "Generar reporte"
+    arma un mail por cliente, borra TODOS los del mismo batch_id (son el
+    mismo evento) -- asi no queda un destinatario con el mail viejo y los
+    demas sin el. Si era un Loading Shift, el "Total loaded" / breakdown
+    por bodega de los siguientes se recalcula solo."""
+    r = db.get(VesselReport, report_id)
+    if r and r.vessel_file_id == file_id:
+        if r.batch_id:
+            db.query(VesselReport).filter(
+                VesselReport.vessel_file_id == file_id,
+                VesselReport.batch_id == r.batch_id,
+            ).delete()
+        else:
+            db.delete(r)
         db.commit()
     return RedirectResponse(f"/barcos/{file_id}#historial", status_code=302)
 

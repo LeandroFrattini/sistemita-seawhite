@@ -321,6 +321,9 @@ class VesselReport(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     vessel_file_id: Mapped[int] = mapped_column(ForeignKey("vessel_files.id"), index=True)
+    # un mismo "Generar reporte" arma un mail por cliente -- todos comparten
+    # este id para poder borrarlos/identificarlos juntos (son el mismo evento)
+    batch_id: Mapped[str] = mapped_column(String(40), default="", index=True)
     report_types: Mapped[str] = mapped_column(String(120), default="")  # coma-separados
     event_at: Mapped[str] = mapped_column(String(40), default="")
     figure: Mapped[str] = mapped_column(String(120), default="")
