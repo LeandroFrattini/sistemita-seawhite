@@ -1,6 +1,8 @@
 """Helpers de dominio compartidos por los routers."""
 from __future__ import annotations
 
+from datetime import date
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -41,14 +43,21 @@ def set_setting(db: Session, key: str, value: str) -> None:
 
 
 def get_draft_lineup(db: Session, kind: str = "GRAIN") -> Lineup:
+    """El line-up en borrador (Grain o Flammable). La fecha se pisa sola con
+    la de hoy en cada acceso -- asi no depende de que alguien se acuerde de
+    moverla a mano (y de paso, evita mandar un reporte con fecha vieja)."""
+    today = date.today().strftime("%d/%m/%y")
     lineup = db.scalar(
         select(Lineup)
         .where(Lineup.status == "draft", Lineup.kind == kind)
         .order_by(Lineup.id.desc())
     )
     if not lineup:
-        lineup = Lineup(kind=kind, status="draft", lineup_date="", port_name="")
+        lineup = Lineup(kind=kind, status="draft", lineup_date=today, port_name="")
         db.add(lineup)
+        db.commit()
+    elif lineup.lineup_date != today:
+        lineup.lineup_date = today
         db.commit()
     return lineup
 

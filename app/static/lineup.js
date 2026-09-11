@@ -51,14 +51,13 @@ document.querySelectorAll(".grid [data-f]").forEach((input) => {
   });
 });
 
-// --- fecha / puerto del line-up ---------------------------------------- //
-["lineup-date", "lineup-port"].forEach((id) => {
+// --- puerto del line-up (la fecha ya no se edita a mano) ---------------- //
+["lineup-port"].forEach((id) => {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener("change", async () => {
-    const key = id === "lineup-date" ? "lineup_date" : "port_name";
     try {
-      await api("/api/lineup", "POST", { kind: el.dataset.kind || "GRAIN", [key]: el.value });
+      await api("/api/lineup", "POST", { kind: el.dataset.kind || "GRAIN", port_name: el.value });
       flash("Guardado");
     } catch (e) {
       flash("Error: " + e.message, false);

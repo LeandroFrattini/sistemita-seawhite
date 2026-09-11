@@ -5,9 +5,7 @@
 <div class="page-head">
   <div class="lineup-meta">
     <h1 style="margin:0">{{ 'Line-up Flammable' if flammable else 'Line-up Grain' }}</h1>
-    <label>Fecha
-      <input id="lineup-date" data-kind="{{ kind }}" value="{{ lineup.lineup_date }}" placeholder="dd/mm/aa" size="9">
-    </label>
+    <span class="lineup-date-fixed">Fecha: <b>{{ lineup.lineup_date }}</b> <span class="muted">(hoy, automático)</span></span>
     <label>Puerto
       <input id="lineup-port" data-kind="{{ kind }}" value="{{ lineup.port_name }}" size="28">
     </label>

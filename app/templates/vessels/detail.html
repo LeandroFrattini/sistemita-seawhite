@@ -75,7 +75,6 @@
       </div>
       <div class="rc-actions">
         <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
-        <a class="btn" href="/barcos/{{ vf.id }}/reportes/{{ r.id }}.eml">⬇ .eml</a>
         <button class="btn" data-copy>Copiar cuerpo</button>
         <span class="hint" hidden></span>
       </div>
@@ -121,7 +120,7 @@ document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
       btn.textContent = orig;
       btn.disabled = false;
       hint.hidden = false;
-      hint.textContent = "No se pudo. ¿Está el ayudante en esta PC? Mientras, usá el .eml.";
+      hint.textContent = "No se pudo. ¿Está el ayudante instalado en esta PC?";
     }
   });
 });

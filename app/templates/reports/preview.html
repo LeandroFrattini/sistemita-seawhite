@@ -6,13 +6,12 @@
   <div class="actions">
     <a class="btn {{ '' if kind == 'FLAMMABLE' else 'primary' }}" href="/reports?kind=GRAIN">Grain</a>
     <a class="btn {{ 'primary' if kind == 'FLAMMABLE' else '' }}" href="/reports?kind=FLAMMABLE">Flammable</a>
-    {% if items %}<a class="btn" href="/reports/all.zip?kind={{ kind }}">⬇ Todos (.eml zip)</a>{% endif %}
   </div>
 </div>
 
-<p class="muted"><b>Abrir en Outlook</b> arma el mail directo (con tu firma). El <b>.eml</b> lo abre como
-borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo. Para que "Abrir en Outlook" funcione en esta PC hace
-falta el ayudante instalado: <a href="/static/downloads/ayudante-outlook.zip">⬇ Descargar ayudante de Outlook (.zip)</a>.</p>
+<p class="muted"><b>Abrir en Outlook</b> arma el mail directo (con tu firma). <b>Copiar</b> pega el cuerpo en
+un mail nuevo. Para que "Abrir en Outlook" funcione en esta PC hace falta el ayudante instalado:
+<a href="/static/downloads/ayudante-outlook.zip">⬇ Descargar ayudante de Outlook (.zip)</a>.</p>
 
 {% if items|length > 1 %}
 <div class="bulk-bar">
@@ -39,7 +38,6 @@ falta el ayudante instalado: <a href="/static/downloads/ayudante-outlook.zip">�
     </div>
     <div class="rc-actions">
       <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
-      <a class="btn" href="/reports/flammable-full.eml">⬇ .eml</a>
       <button class="btn" data-copy>Copiar cuerpo</button>
       <span class="hint" hidden></span>
     </div>
@@ -78,7 +76,6 @@ falta el ayudante instalado: <a href="/static/downloads/ayudante-outlook.zip">�
     </div>
     <div class="rc-actions">
       <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
-      <a class="btn" href="/reports/{{ it.call_id }}/client/{{ it.client_id }}.eml?kind={{ kind }}">⬇ .eml</a>
       <button class="btn" data-copy>Copiar cuerpo</button>
       <span class="hint" hidden></span>
     </div>
@@ -147,7 +144,7 @@ document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
       hint.hidden = false;
       hint.textContent = e.message && e.message.includes("destinatario")
         ? e.message
-        : "No se pudo. ¿Está el ayudante en esta PC? Mientras, usá el .eml.";
+        : "No se pudo. ¿Está el ayudante instalado en esta PC?";
     }
   });
 });

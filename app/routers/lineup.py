@@ -139,8 +139,7 @@ def delete_operated(op_id: int, volver: str = Form(""), db: Session = Depends(ge
 async def update_lineup(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
     data = await request.json()
     lineup = get_draft_lineup(db, str(data.get("kind", "GRAIN")))
-    if "lineup_date" in data:
-        lineup.lineup_date = str(data["lineup_date"]).strip()
+    # la fecha ya no se toca a mano -- get_draft_lineup la pisa sola con hoy
     if "port_name" in data:
         lineup.port_name = str(data["port_name"]).strip()
     lineup.updated_by = user.username
