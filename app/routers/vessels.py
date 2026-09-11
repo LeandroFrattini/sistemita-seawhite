@@ -14,7 +14,7 @@ from ..database import get_db
 from ..eml import build_eml, safe_filename
 from ..models import User, VesselCall, VesselFile, VesselReport, VESSEL_REPORT_TYPES
 from ..reports import build_vessel_status_report
-from ..service import CC_KEY, DEFAULT_CC, SIGNATURE_KEY, get_setting, split_emails
+from ..service import CC_KEY, DEFAULT_CC, get_setting, split_emails
 from ..templating import templates
 
 router = APIRouter()
@@ -135,15 +135,11 @@ def vessel_report_eml(
     r = db.get(VesselReport, report_id)
     if not r or r.vessel_file_id != file_id:
         return Response(status_code=404)
-    # se reconstruye (en vez de usar el html guardado) para poder agregar la
-    # firma de respaldo, igual que el resto de los .eml
-    signature_html = get_setting(db, SIGNATURE_KEY, "")
-    report = build_vessel_status_report(
-        r.vessel_file, r.type_list, r.event_at, r.figure, r.notes, signature_html
-    )
+    # sin firma de la app: la pone Outlook (ver nota en reports.py sobre
+    # por que se saco la firma de respaldo de los .eml)
     data = build_eml(
         subject=r.subject, to_emails=r.to_list, cc_emails=r.cc_list,
-        html_body=report.html_body, text_body=report.text_body,
+        html_body=r.html_body, text_body=r.text_body,
     )
     fname = safe_filename(r.subject) + ".eml"
     return Response(

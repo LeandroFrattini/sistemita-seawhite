@@ -105,7 +105,7 @@ def reports_page(request: Request, kind: str = "GRAIN", db: Session = Depends(ge
 
 @router.get("/reports/flammable-full.eml")
 def flammable_full_eml(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lineup, subject, text_body, html_body, to_emails, bcc_emails = _flammable_full(db, with_signature=True)
+    lineup, subject, text_body, html_body, to_emails, bcc_emails = _flammable_full(db, with_signature=False)
     data = build_eml(
         subject=subject, to_emails=to_emails, bcc_emails=bcc_emails,
         html_body=html_body, text_body=text_body,
@@ -120,7 +120,7 @@ def flammable_full_eml(db: Session = Depends(get_db), user: User = Depends(curre
 @router.get("/reports/{call_id}/client/{client_id}.eml")
 def one_eml(call_id: int, client_id: int, kind: str = "GRAIN", db: Session = Depends(get_db), user: User = Depends(current_user)):
     kind = "FLAMMABLE" if kind.upper() == "FLAMMABLE" else "GRAIN"
-    lineup, rows = _collect(db, kind=kind, with_signature=True)
+    lineup, rows = _collect(db, kind=kind, with_signature=False)
     for call, client, report in rows:
         if call.id == call_id and client.id == client_id:
             data = build_eml(
@@ -143,7 +143,7 @@ def one_eml(call_id: int, client_id: int, kind: str = "GRAIN", db: Session = Dep
 @router.get("/reports/all.zip")
 def all_zip(kind: str = "GRAIN", db: Session = Depends(get_db), user: User = Depends(current_user)):
     kind = "FLAMMABLE" if kind.upper() == "FLAMMABLE" else "GRAIN"
-    lineup, rows = _collect(db, kind=kind, with_signature=True)
+    lineup, rows = _collect(db, kind=kind, with_signature=False)
     if not rows:
         return JSONResponse({"error": "no hay reportes para generar"}, status_code=400)
     buf = io.BytesIO()
