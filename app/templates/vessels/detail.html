@@ -124,9 +124,11 @@
       <label class="check"><input type="checkbox" name="include_breakdown"> Incluir breakdown acumulado por bodega (ej. Oceanway)</label>
     </div>
 
-    <label id="notes-label">Detalle (horarios / eventos, uno por línea)
-      <textarea name="notes" id="notes-field" rows="8" placeholder="0906 HRS - PILOT BOARDED&#10;1218 HRS - FIRST LINE ASHORE&#10;1242 HRS - MADE ALL FAST ALONGSIDE AT ... TERMINAL"></textarea>
-    </label>
+    <div class="vf-notes-head">
+      <label id="notes-label" for="notes-field">Detalle (plantilla ya armada -- editala como quieras)</label>
+      <button type="button" id="load-template" class="mini" data-vf-id="{{ vf.id }}">↻ Cargar plantilla</button>
+    </div>
+    <textarea name="notes" id="notes-field" rows="8" placeholder="Tildá un tipo arriba y una fecha, y apretá &quot;Cargar plantilla&quot;."></textarea>
     {% if vf.statement_of_facts %}
     <label class="check"><input type="checkbox" name="include_sof"> Incluir Statement of Facts al pie (clientes WBL)</label>
     {% endif %}
@@ -223,6 +225,7 @@ const shiftFields = document.getElementById("shift-fields");
 const notesLabel = document.getElementById("notes-label");
 const eventAtLabel = document.getElementById("event-at-label");
 const figureField = document.getElementById("figure-field");
+const loadTemplateBtn = document.getElementById("load-template");
 const otherTipos = [...document.querySelectorAll('input[name="tipos"]')].filter((cb) => cb !== shiftToggle);
 
 if (shiftToggle) {
@@ -230,13 +233,14 @@ if (shiftToggle) {
     const on = shiftToggle.checked;
     shiftFields.hidden = !on;
     figureField.hidden = on;
+    loadTemplateBtn.hidden = on;
     otherTipos.forEach((cb) => {
       cb.disabled = on;
       if (on) cb.checked = false;
     });
-    notesLabel.firstChild.textContent = on
+    notesLabel.textContent = on
       ? "Remarks (opcional)"
-      : "Detalle (horarios / eventos, uno por línea)";
+      : "Detalle (plantilla ya armada -- editala como quieras)";
     eventAtLabel.firstChild.textContent = on ? "Fecha del turno" : "Fecha del evento";
   });
 }
@@ -248,6 +252,30 @@ document.getElementById("add-hold-row")?.addEventListener("click", () => {
     '<input type="text" name="hold_label" placeholder="H3">' +
     '<input type="text" name="hold_qty" placeholder="0.000">';
   document.getElementById("hold-rows").appendChild(row);
+});
+
+// --- cargar plantilla prearmada en el cuadro de detalle -------------- //
+loadTemplateBtn?.addEventListener("click", async () => {
+  const notesField = document.getElementById("notes-field");
+  const tipos = otherTipos.filter((cb) => cb.checked).map((cb) => cb.value);
+  if (!tipos.length) {
+    alert('Tildá primero un tipo de reporte (Berthing, Commenced Loading, etc.).');
+    return;
+  }
+  if (notesField.value.trim() && !confirm("Esto reemplaza lo que ya escribiste en el cuadro. ¿Seguir?")) {
+    return;
+  }
+  const params = new URLSearchParams();
+  tipos.forEach((t) => params.append("tipos", t));
+  params.set("event_at", document.getElementById("event-at").value);
+  try {
+    const res = await fetch(`/barcos/${loadTemplateBtn.dataset.vfId}/plantilla?` + params.toString());
+    const data = await res.json();
+    notesField.value = data.template || "";
+    notesField.focus();
+  } catch (e) {
+    alert("No se pudo cargar la plantilla: " + e.message);
+  }
 });
 </script>
 {% endblock %}

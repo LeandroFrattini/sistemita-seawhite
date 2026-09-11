@@ -14,7 +14,7 @@ from ..auth import current_user
 from ..database import get_db
 from ..eml import build_eml, safe_filename
 from ..models import User, VesselCall, VesselCargo, VesselFile, VesselReport, VESSEL_REPORT_TYPES
-from ..reports import _parse_qty, build_shift_report, build_vessel_status_report
+from ..reports import _parse_qty, build_shift_report, build_vessel_status_report, status_template
 from ..service import CC_KEY, DEFAULT_CC, get_setting, split_emails
 from ..templating import templates
 
@@ -92,6 +92,25 @@ def vessel_file_page(
             "cargos": vf.cargos,
         },
     )
+
+
+@router.get("/barcos/{file_id}/plantilla")
+def report_template(
+    file_id: int, request: Request,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+):
+    vf = db.get(VesselFile, file_id)
+    if not vf:
+        return {"template": ""}
+    tipos = [t for t in request.query_params.getlist("tipos") if t in dict(VESSEL_REPORT_TYPES)]
+    event_at = request.query_params.get("event_at", "")
+    live_call = db.scalar(
+        select(VesselCall)
+        .where(VesselCall.vessel_name == vf.vessel_name, VesselCall.terminal_id == vf.terminal_id)
+        .order_by(VesselCall.id.desc())
+    )
+    operation = live_call.operation if live_call else "Load"
+    return {"template": status_template(vf, tipos, event_at, operation)}
 
 
 @router.post("/barcos/{file_id}/cargos")

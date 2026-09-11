@@ -535,15 +535,12 @@ def _status_phrase(types: set[str], op_word: str, labels: dict[str, str]) -> str
     return " + ".join(labels.get(t, t) for t in types).upper() or "REPORT"
 
 
-def build_vessel_status_report(
-    vf, client, report_types: list[str], event_at: str, figure: str, notes: str,
-    signature_html: str = "", operation: str = "Load", statement_of_facts: str = "",
-) -> BuiltReport:
-    """Un mail por cliente -- si el barco tiene varias agencias, se llama una
-    vez por cada una (mismo patron que el line-up diario)."""
+def status_template(vf, report_types: list[str], event_at: str, operation: str = "Load") -> str:
+    """Plantilla prearmada (apertura + fecha) para que se cargue en el cuadro
+    de texto del formulario y se pueda ir editando de a una linea, en vez de
+    completar campos sueltos a ciegas."""
     labels = dict(VESSEL_REPORT_TYPES)
     types = set(report_types)
-    pfx = vessel_prefix(vf.vessel_type)
     op_word = _operation_word(operation)
     terminal_name = (vf.terminal.name if vf.terminal else vf.terminal_code) or ""
     terminal_name = terminal_name.upper() or "TERMINAL"
@@ -557,14 +554,29 @@ def build_vessel_status_report(
         opener = "PLS NOTE FOLLOWING SHIFT REPORT:"
     else:
         opener = "PLS NOTE:"
+    return f"DEAR ALL, GOOD DAY\n{opener}\n\n{_event_date_header(event_at)}\n"
 
-    body_lines = [_event_date_header(event_at)]
-    if (notes or "").strip():
-        body_lines.append(notes.strip())
+
+def build_vessel_status_report(
+    vf, client, report_types: list[str], event_at: str, figure: str, notes: str,
+    signature_html: str = "", operation: str = "Load", statement_of_facts: str = "",
+) -> BuiltReport:
+    """Un mail por cliente -- si el barco tiene varias agencias, se llama una
+    vez por cada una (mismo patron que el line-up diario).
+
+    "notes" es el cuerpo completo tal cual quedo en el cuadro de texto del
+    formulario (normalmente la plantilla de status_template() + los cambios
+    que se le hicieron a mano); si vino vacio se usa la plantilla sola."""
+    labels = dict(VESSEL_REPORT_TYPES)
+    types = set(report_types)
+    pfx = vessel_prefix(vf.vessel_type)
+    terminal_name = (vf.terminal.name if vf.terminal else vf.terminal_code) or ""
+    terminal_name = terminal_name.upper() or "TERMINAL"
+    phrase = _status_phrase(types, _operation_word(operation), labels)
+
+    body = (notes or "").strip() or status_template(vf, report_types, event_at, operation)
     if (figure or "").strip():
-        body_lines.append(f"FIGURE: {figure.strip()}".upper())
-    if len(body_lines) == 1:
-        body_lines.append("(SIN DETALLE CARGADO)")
+        body += f"\n\nFIGURE: {figure.strip()}".upper()
 
     to_name = client.display_to.upper() if client else "(SIN CLIENTE)"
     to_emails = client.email_list if client else []
@@ -575,8 +587,7 @@ def build_vessel_status_report(
         f"REF: {pfx} {vf.vessel_name.upper()}\n\n"
         f"PORT: {PORT_LABEL}\n"
         f"TERMINAL: {terminal_name}\n\n"
-        f"DEAR ALL, GOOD DAY\n{opener}\n\n"
-        + "\n".join(body_lines)
+        + body
     )
     text_body = _append_statement_of_facts(text_body, statement_of_facts)
     html_body = _wrap_body(
