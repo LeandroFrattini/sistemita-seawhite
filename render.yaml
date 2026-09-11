@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: sistemita-seawhiters
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: SECRET_KEY
+        generateValue: true
+      - key: BOOTSTRAP_ADMIN_USER
+        value: admin
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sistemita-seawhiters-db
+          property: connectionString
+
+databases:
+  - name: sistemita-seawhiters-db
+    plan: starter

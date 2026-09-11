@@ -44,25 +44,37 @@ _MIGRATIONS = [
     ("terminals", "kind", "TEXT DEFAULT 'GRAIN'"),
     ("terminals", "status_note", "TEXT DEFAULT ''"),
     ("lineups", "kind", "TEXT DEFAULT 'GRAIN'"),
-    ("vessel_calls", "second_call", "BOOLEAN DEFAULT 0"),
+    ("vessel_calls", "second_call", "BOOLEAN DEFAULT FALSE"),
     ("operated_vessels", "period", "TEXT DEFAULT ''"),
-    ("users", "must_change_password", "BOOLEAN DEFAULT 0"),
+    ("users", "must_change_password", "BOOLEAN DEFAULT FALSE"),
     ("clients", "client_type", "TEXT DEFAULT 'AGENCY'"),
 ]
 
 
 def _migrate(db: Session) -> None:
+    dialect = db.bind.dialect.name
     for table, column, decl in _MIGRATIONS:
-        cols = {r[1] for r in db.execute(text(f"PRAGMA table_info({table})"))}
+        if dialect == "sqlite":
+            cols = {r[1] for r in db.execute(text(f"PRAGMA table_info({table})"))}
+        else:
+            cols = {
+                r[0]
+                for r in db.execute(
+                    text("SELECT column_name FROM information_schema.columns WHERE table_name = :t"),
+                    {"t": table},
+                )
+            }
         if column not in cols:
             db.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {decl}"))
-    # backfill period de barcos operados viejos, desde operated_at
-    db.execute(
-        text(
-            "UPDATE operated_vessels SET period = strftime('%Y-%m', operated_at) "
-            "WHERE period IS NULL OR period = ''"
+    if dialect == "sqlite":
+        # backfill period de barcos operados viejos, desde operated_at
+        # (strftime es de SQLite -- en Postgres la base arranca vacia, no hace falta)
+        db.execute(
+            text(
+                "UPDATE operated_vessels SET period = strftime('%Y-%m', operated_at) "
+                "WHERE period IS NULL OR period = ''"
+            )
         )
-    )
     db.commit()
 
 # Clientes de arranque tomados de la columna PRINCIPAL del Excel.
