@@ -13,10 +13,23 @@
   <nav>
     <a href="/" class="{% block nav_lineup %}{% endblock %}">Grain</a>
     <a href="/flammable" class="{% block nav_flammable %}{% endblock %}">Flammable</a>
-    <a href="/nuestros-barcos" class="{% block nav_ours %}{% endblock %}">Nuestros barcos</a>
-    <a href="/barcos" class="{% block nav_files %}{% endblock %}">Barcos (ID)</a>
-    <a href="/reports" class="{% block nav_reports %}{% endblock %}">Reportes</a>
-    <a href="/finalize" class="{% block nav_finalize %}{% endblock %}">Exportar</a>
+
+    <div class="nav-group">
+      <button type="button" class="nav-drop-btn {{ self.nav_ours() }} {{ self.nav_files() }}">Barcos ▾</button>
+      <div class="nav-drop-panel">
+        <a href="/nuestros-barcos" class="{% block nav_ours %}{% endblock %}">Nuestros barcos</a>
+        <a href="/barcos" class="{% block nav_files %}{% endblock %}">Barcos (ID)</a>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <button type="button" class="nav-drop-btn {{ self.nav_reports() }} {{ self.nav_finalize() }}">Reportes ▾</button>
+      <div class="nav-drop-panel">
+        <a href="/reports" class="{% block nav_reports %}{% endblock %}">Reportes</a>
+        <a href="/finalize" class="{% block nav_finalize %}{% endblock %}">Exportar Excel</a>
+      </div>
+    </div>
+
     <a href="/clients" class="{% block nav_clients %}{% endblock %}">Clientes</a>
     {% if user.is_admin %}<a href="/admin" class="{% block nav_admin %}{% endblock %}">Admin</a>{% endif %}
   </nav>
@@ -26,6 +39,7 @@
 <main class="{% block main_class %}wrap{% endblock %}">
   {% block content %}{% endblock %}
 </main>
+{% if user %}<script src="/static/nav.js" defer></script>{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

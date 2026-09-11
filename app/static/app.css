@@ -37,6 +37,21 @@ a { color: var(--green-dark); }
   .topbar .user { order: 2; margin-left: auto; }
 }
 
+.nav-group { display: inline-flex; flex: none; }
+.nav-drop-btn {
+  background: none; border: none; color: #fff; font: inherit; cursor: pointer;
+  padding: 6px 12px; border-radius: 6px; opacity: .9; white-space: nowrap;
+}
+.nav-drop-btn:hover { background: rgba(255,255,255,.15); }
+.nav-drop-btn.active { background: rgba(255,255,255,.22); opacity: 1; font-weight: 600; }
+.nav-drop-panel {
+  position: fixed; z-index: 1000; background: #fff; border: 1px solid var(--line);
+  border-radius: 8px; box-shadow: 0 10px 28px rgba(0,0,0,.22); padding: 6px; min-width: 190px;
+}
+.nav-drop-panel a { display: block; padding: 9px 12px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 13.5px; }
+.nav-drop-panel a:hover { background: #eef7f3; }
+.nav-drop-panel a.active { color: var(--green-dark); font-weight: 600; }
+
 .wrap { max-width: 1100px; margin: 22px auto; padding: 0 18px; }
 .wide { max-width: 1600px; margin: 18px auto; padding: 0 18px; }
 
