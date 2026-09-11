@@ -181,3 +181,28 @@ def _log(db: Session, user: User, lineup, report: BuiltReport) -> None:
         )
     )
     db.commit()
+
+
+@router.post("/reports/log-open")
+async def log_opened_in_outlook(
+    request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)
+):
+    """El navegador avisa acá cuando 'Abrir en Outlook' abrió la ventana con
+    exito, asi queda una checklist en Admin (esto NO confirma que se haya
+    mandado -- eso solo lo sabe Outlook -- pero permite cruzar que barco ya
+    se proceso)."""
+    data = await request.json()
+    lineup = get_draft_lineup(db, str(data.get("kind", "GRAIN")))
+    db.add(
+        ReportLog(
+            generated_by=user.username,
+            lineup_date=lineup.lineup_date,
+            vessel_name=str(data.get("vessel", ""))[:120],
+            client_name=str(data.get("client", ""))[:120],
+            to_emails=str(data.get("to", ""))[:500],
+            report_format=str(data.get("format", ""))[:20],
+            status="abierto_outlook",
+        )
+    )
+    db.commit()
+    return {"ok": True}

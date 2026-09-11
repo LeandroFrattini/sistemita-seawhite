@@ -21,10 +21,11 @@ borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
 </div>
 {% endif %}
 
-{% macro payload(html, text, subject, to, cc='', bcc='', isText='false') -%}
+{% macro payload(html, text, subject, to, cc='', bcc='', isText='false', vessel='', client='', format='') -%}
 <script type="application/json" class="payload">
 {"html": {{ html|tojson }}, "text": {{ text|tojson }}, "subject": {{ subject|tojson }},
- "to": {{ to|tojson }}, "cc": {{ cc|tojson }}, "bcc": {{ bcc|tojson }}, "isText": {{ isText }}}
+ "to": {{ to|tojson }}, "cc": {{ cc|tojson }}, "bcc": {{ bcc|tojson }}, "isText": {{ isText }},
+ "vessel": {{ vessel|tojson }}, "client": {{ client|tojson }}, "format": {{ format|tojson }}}
 </script>
 {%- endmacro %}
 
@@ -53,7 +54,8 @@ borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
       <div class="report-body"><pre>{{ full.text_body }}</pre></div>
     </details>
   </div>
-  {{ payload(full.html_body, full.text_body, full.subject, full.to, bcc=full.bcc, isText='true') }}
+  {{ payload(full.html_body, full.text_body, full.subject, full.to, bcc=full.bcc, isText='true',
+             vessel='(line-up completo)', client='lista fija', format='FLAMMABLE_FULL') }}
 </article>
 {% endif %}
 
@@ -94,7 +96,8 @@ borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
     </details>
   </div>
   {{ payload(it.html_body, it.text_body, it.subject, it.emails|join('; '),
-             cc=it.cc_emails|join('; '), isText=('false' if it.format == 'EXCEL' else 'true')) }}
+             cc=it.cc_emails|join('; '), isText=('false' if it.format == 'EXCEL' else 'true'),
+             vessel=it.vessel, client=it.client, format=it.format) }}
 </article>
 {% endfor %}
 
@@ -103,6 +106,9 @@ const MAILER = "http://127.0.0.1:8765";
 const payloadOf = (btn) => JSON.parse(btn.closest(".report-card").querySelector(".payload").textContent);
 
 async function openInOutlook(data) {
+  if (!data.to || !data.to.trim()) {
+    throw new Error("Sin destinatario cargado — no se abrió. Cargale el mail al cliente en Clientes.");
+  }
   const res = await fetch(MAILER + "/compose", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -110,6 +116,18 @@ async function openInOutlook(data) {
   });
   const j = await res.json();
   if (!j.ok) throw new Error(j.error || "error de Outlook");
+  // deja constancia en Admin -> Ultimos reportes generados (no confirma el
+  // envio, solo que la ventana se abrio) para poder cruzar despues
+  try {
+    await fetch("/reports/log-open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "{{ kind }}", vessel: data.vessel || "", client: data.client || "",
+        to: data.to || "", format: data.format || "",
+      }),
+    });
+  } catch (e) { /* no bloquea el flujo si falla el log */ }
 }
 
 document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
@@ -126,7 +144,9 @@ document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
       btn.textContent = orig;
       btn.disabled = false;
       hint.hidden = false;
-      hint.textContent = "No se pudo. ¿Está el ayudante en esta PC? Mientras, usá el .eml.";
+      hint.textContent = e.message && e.message.includes("destinatario")
+        ? e.message
+        : "No se pudo. ¿Está el ayudante en esta PC? Mientras, usá el .eml.";
     }
   });
 });

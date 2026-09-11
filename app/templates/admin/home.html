@@ -117,16 +117,17 @@
 <section>
   <h2>Últimos reportes generados</h2>
   <table class="list">
-    <thead><tr><th>Fecha</th><th>Line-up</th><th>Barco</th><th>Cliente</th><th>Mails</th><th>Formato</th><th>Por</th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Cómo</th><th>Line-up</th><th>Barco</th><th>Cliente</th><th>Mails</th><th>Formato</th><th>Por</th></tr></thead>
     <tbody>
     {% for l in logs %}
       <tr>
         <td class="nowrap">{{ l.generated_at.strftime("%d/%m %H:%M") }}</td>
+        <td>{{ '✉ Outlook' if l.status == 'abierto_outlook' else '⬇ .eml' }}</td>
         <td>{{ l.lineup_date }}</td><td>{{ l.vessel_name }}</td><td>{{ l.client_name }}</td>
         <td>{{ l.to_emails }}</td><td>{{ l.report_format }}</td><td>{{ l.generated_by }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="7" class="muted">Todavía no se generó ningún reporte.</td></tr>
+      <tr><td colspan="8" class="muted">Todavía no se generó ningún reporte.</td></tr>
     {% endfor %}
     </tbody>
   </table>
