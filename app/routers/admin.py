@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from ..auth import admin_required, hash_password
 from ..database import get_db
 from ..models import ReportLog, Terminal, User
-from ..service import CC_KEY, DEFAULT_CC, SIGNATURE_KEY, all_terminals, get_setting, set_setting
+from ..service import CC_KEY, DEFAULT_CC, SIGNATURE_KEY, all_terminals, get_setting, set_setting, split_emails
+
+FLAMMABLE_LIST_KEY = "flammable_list_emails"
 from ..templating import templates
 
 router = APIRouter(prefix="/admin")
@@ -25,7 +27,7 @@ def admin_home(request: Request, db: Session = Depends(get_db), user: User = Dep
             "logs": logs,
             "signature_html": get_setting(db, SIGNATURE_KEY, ""),
             "report_cc": get_setting(db, CC_KEY, DEFAULT_CC),
-            "flammable_list": get_setting(db, "flammable_list_emails", ""),
+            "flammable_list_emails": split_emails(get_setting(db, FLAMMABLE_LIST_KEY, "")),
         },
     )
 
@@ -36,7 +38,26 @@ def save_flammable_list(
     admin: User = Depends(admin_required),
     flammable_list: str = Form(""),
 ):
-    set_setting(db, "flammable_list_emails", flammable_list.strip())
+    # se suma a lo que ya habia cargado (igual que "Agregar mails" en Clientes)
+    existing = split_emails(get_setting(db, FLAMMABLE_LIST_KEY, ""))
+    lower = {e.lower() for e in existing}
+    for e in split_emails(flammable_list):
+        if e.lower() not in lower:
+            existing.append(e)
+            lower.add(e.lower())
+    set_setting(db, FLAMMABLE_LIST_KEY, ", ".join(existing))
+    return RedirectResponse("/admin#sec-flam", status_code=302)
+
+
+@router.post("/flammable-list/mail-remove")
+def remove_flammable_mail(
+    email: str = "",
+    db: Session = Depends(get_db),
+    admin: User = Depends(admin_required),
+):
+    target = email.strip().lower()
+    remaining = [e for e in split_emails(get_setting(db, FLAMMABLE_LIST_KEY, "")) if e.lower() != target]
+    set_setting(db, FLAMMABLE_LIST_KEY, ", ".join(remaining))
     return RedirectResponse("/admin#sec-flam", status_code=302)
 
 

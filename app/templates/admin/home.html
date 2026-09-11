@@ -99,12 +99,22 @@
 <section id="sec-flam">
   <h2>Lista fija Flammable</h2>
   <p class="muted">Direcciones a las que se manda el <b>line-up completo</b> de Flammable
-  (además, cada barco se manda a su cliente por separado). Separar por coma.</p>
+  (además, cada barco se manda a su cliente por separado).</p>
   <form class="card" method="post" action="/admin/flammable-list">
-    <label>Lista fija
-      <input name="flammable_list" value="{{ flammable_list }}" style="min-width:340px;">
+    <label>Agregar mails (separados por coma)
+      <input name="flammable_list" placeholder="ops@cliente.com, chartering@cliente.com" style="min-width:340px;">
     </label>
-    <div class="row end"><button type="submit">Guardar lista</button></div>
+    {% if flammable_list_emails %}
+    <div class="mail-chips">
+      {% for m in flammable_list_emails %}
+      <span class="mail-chip">{{ m }}<button type="submit" class="chip-x" title="Quitar"
+        formaction="/admin/flammable-list/mail-remove?email={{ m|urlencode }}" formnovalidate>×</button></span>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted" style="margin:2px 0 0">Sin mails cargados.</p>
+    {% endif %}
+    <div class="row end"><button type="submit">Agregar</button></div>
   </form>
 </section>
 
