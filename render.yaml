@@ -21,4 +21,4 @@ services:
 
 databases:
   - name: sistemita-seawhiters-db
-    plan: starter
+    plan: basic-256mb
