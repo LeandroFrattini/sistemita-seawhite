@@ -383,14 +383,25 @@ def build_flammable_report(call, client, lineup, terminal, term_calls, signature
 
 # --------------------------------------------------------------------------- #
 # Reportes operativos por legajo (Berthing / Commenced Loading / Loading
-# Shifts / Sailed, combinables). Wording de Berthing y Commenced Loading
-# calcado de los modelos reales que paso Leandro (MV YM QUEST, MV SUBRA).
-# Loading Shifts y Sailed todavia no tienen modelo real -- quedan con una
-# apertura generica, el cuerpo lo completa quien carga el reporte.
+# Shifts / Sailed, combinables). Wording de Berthing, Commenced Loading y
+# Loading Shifts calcado de los modelos reales que paso Leandro (MV YM
+# QUEST, MV SUBRA, MV IONIC KIBOU, MV DISCOVERER). Sailed todavia no tiene
+# modelo real -- queda con una apertura generica.
 # --------------------------------------------------------------------------- #
 PORT_LABEL = "BAHÍA BLANCA"
+PORT_LABEL_TITLE = "Bahía Blanca"
 
 _MONTHS_UP = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+_MONTHS_FULL = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+]
+
+
+def _ordinal_suffix(day: int) -> str:
+    if 10 <= day % 100 <= 20:
+        return "th"
+    return {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
 
 
 def _event_date_header(event_at: str) -> str:
@@ -398,9 +409,106 @@ def _event_date_header(event_at: str) -> str:
     "Fecha y hora"; si no se puede parsear (por ej. si tiene la hora
     pegada), se usa la fecha de hoy."""
     d = parse_date(event_at) or _date.today()
-    day = d.day
-    suffix = "TH" if 10 <= day % 100 <= 20 else {1: "ST", 2: "ND", 3: "RD"}.get(day % 10, "TH")
-    return f"{_MONTHS_UP[d.month - 1]} {day:02d}{suffix}, {d.year}"
+    return f"{_MONTHS_UP[d.month - 1]} {d.day:02d}{_ordinal_suffix(d.day).upper()}, {d.year}"
+
+
+def _parse_qty(raw) -> float:
+    try:
+        return float(str(raw).replace(",", "").strip() or 0)
+    except ValueError:
+        return 0.0
+
+
+def _fmt_mt(value: float) -> str:
+    return f"{value:,.3f}"
+
+
+def build_shift_report(
+    vf, shift: dict, notes: str, signature_html: str = "",
+) -> BuiltReport:
+    """Loading/Discharging Shift -- formato calcado de MV IONIC KIBOU (Atlas)
+    y MV DISCOVERER (Oceanway, con breakdown por bodega)."""
+    pfx_slash = vessel_prefix(vf.vessel_type)
+    pfx_slash = pfx_slash[0] + "/" + pfx_slash[1]
+    terminal_name = (vf.terminal.name if vf.terminal else vf.terminal_code) or "TERMINAL"
+    terminal_name = terminal_name.upper()
+
+    clients = vf.recipient_clients()
+    to_name = " / ".join(c.display_to.upper() for c in clients) or "(SIN CLIENTE)"
+    to_emails: list[str] = []
+    seen: set[str] = set()
+    for c in clients:
+        for e in c.email_list:
+            if e.lower() not in seen:
+                to_emails.append(e)
+                seen.add(e.lower())
+
+    d = parse_date(shift.get("date", "")) or _date.today()
+    date_txt = f"{_MONTHS_FULL[d.month - 1]} {d.day}{_ordinal_suffix(d.day)}"
+    grade = (shift.get("cargo_grade") or "").strip() or "(SIN MERCADERIA CARGADA)"
+    holds: list[tuple[str, float]] = shift.get("holds") or []
+    shift_total = sum(q for _, q in holds)
+    prior_total = float(shift.get("prior_total") or 0)
+    total_loaded = prior_total + shift_total
+    stowage_plan = float(shift.get("stowage_plan") or 0)
+    balance = stowage_plan - total_loaded
+
+    lines = [
+        f"Dear all, {shift.get('greeting') or 'Good day'}",
+        "Pls note,",
+        "",
+        f"Shift {date_txt} / {shift.get('time_from', '')} - {shift.get('time_to', '')} hrs"
+        f" ({shift.get('gangs_text') or 'gangs appointed'}):",
+        "",
+    ]
+    for label, qty in holds:
+        lines.append(f"{label}/\t{_fmt_mt(qty)} MT – {grade}")
+    lines += [
+        "",
+        f"Total shift =\t{_fmt_mt(shift_total)} MT – {grade}",
+        f"Total loaded =\t{_fmt_mt(total_loaded)} MT – {grade}",
+        f"Stowage Plan =\t{_fmt_mt(stowage_plan)} MT – {grade} (As per declared by master)",
+        f"Balance to go =\t{_fmt_mt(balance)} MT – {grade}",
+        "",
+        f"Delays: {(shift.get('delays') or '-').strip()}",
+    ]
+    if (notes or "").strip():
+        lines += ["", "Remarks:", notes.strip()]
+
+    if shift.get("include_breakdown"):
+        prior_holds: dict[str, float] = dict(shift.get("prior_holds") or {})
+        cumulative: dict[str, float] = dict(prior_holds)
+        for label, qty in holds:
+            cumulative[label] = cumulative.get(label, 0.0) + qty
+        lines += ["", "Breakdown by Holds:"]
+        for label, qty in cumulative.items():
+            lines.append(f"{label} = {_fmt_mt(qty)} Mt")
+
+    prospect = (shift.get("prospect") or "").strip()
+    if prospect:
+        lines += ["", "====================", "Tentative prospect (AGW WP UCE):", prospect]
+
+    text_body = (
+        f"TO {to_name}\n"
+        f"FM {settings.mail_from_name}\n\n"
+        f"Ref: {pfx_slash} {vf.vessel_name.upper()}\n"
+        f"Port: {PORT_LABEL_TITLE}\n"
+        f"Terminal: {terminal_name}\n\n"
+        + "\n".join(lines)
+    )
+    html_body = _wrap_body(
+        f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>', signature_html
+    )
+    return BuiltReport(
+        subject=f"{pfx_slash} {vf.vessel_name.upper()} - LOADING SHIFT {date_txt.upper()}",
+        to_name=to_name,
+        to_emails=to_emails,
+        report_format="VESSEL_STATUS",
+        html_body=html_body,
+        text_body=text_body,
+        vessel_name=vf.vessel_name,
+        client_name=to_name,
+    )
 
 
 def _operation_word(operation: str) -> str:

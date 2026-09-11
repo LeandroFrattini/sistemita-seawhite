@@ -48,6 +48,7 @@ _MIGRATIONS = [
     ("operated_vessels", "period", "TEXT DEFAULT ''"),
     ("users", "must_change_password", "BOOLEAN DEFAULT FALSE"),
     ("clients", "client_type", "TEXT DEFAULT 'AGENCY'"),
+    ("vessel_reports", "shift_data", "TEXT DEFAULT ''"),
 ]
 
 

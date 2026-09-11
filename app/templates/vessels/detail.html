@@ -33,32 +33,92 @@
   </form>
 </section>
 
-<section class="card">
+<section id="reporte" class="card">
   <h2>Generar reporte</h2>
   {% if not clients %}
   <p class="warn">⚠ Este barco no tiene cliente/agencia cargado — cargá PRINCIPAL en el line-up para poder mandar.</p>
   {% endif %}
-  <form method="post" action="/barcos/{{ vf.id }}/reportes" class="vf-report-form">
+
+  <details class="vf-cargo-box" {{ 'open' if not cargos }}>
+    <summary>Mercadería{{ ' (' ~ cargos|length ~ ')' if cargos else '' }}</summary>
+    <p class="muted" style="margin:4px 0 8px">Se carga una vez por barco (podés agregar más de una si lleva varios
+    grados) y se reusa en todos los Loading Shifts -- el "Stowage Plan" es el total declarado por el master.</p>
+    {% for c in cargos %}
+    <form class="cargo-row" method="post" action="/barcos/{{ vf.id }}/cargos/{{ c.id }}">
+      <input name="grade" value="{{ c.grade }}" placeholder="ej. CORN in Bulk" required>
+      <input name="stowage_plan" value="{{ '%.3f'|format(c.stowage_plan) }}" placeholder="Stowage Plan (MT)">
+      <button type="submit" class="mini">Guardar</button>
+      <button type="submit" formaction="/barcos/{{ vf.id }}/cargos/{{ c.id }}/borrar" formnovalidate
+              class="mini danger" onclick="return confirm('¿Borrar esta mercadería?')">Borrar</button>
+    </form>
+    {% endfor %}
+    <form class="cargo-row" method="post" action="/barcos/{{ vf.id }}/cargos">
+      <input name="grade" placeholder="ej. CORN in Bulk" required>
+      <input name="stowage_plan" placeholder="Stowage Plan (MT)">
+      <button type="submit" class="mini primary">+ Agregar mercadería</button>
+    </form>
+  </details>
+
+  <form method="post" action="/barcos/{{ vf.id }}/reportes" class="vf-report-form" id="report-form">
     <div class="type-picker">
       {% for code, label in report_types %}
       <label class="type-chip">
-        <input type="checkbox" name="tipos" value="{{ code }}">
+        <input type="checkbox" name="tipos" value="{{ code }}" {{ 'data-shift-toggle' if code == 'LOADING_SHIFTS' }}>
         <span>{{ label }}</span>
       </label>
       {% endfor %}
     </div>
+
     <div class="vf-fields">
-      <label>Fecha del evento<input type="text" name="event_at" placeholder="ej. 08/09/2026"></label>
-      <label>Cifra (opcional)<input type="text" name="figure" placeholder="ej. 22,000 MT"></label>
+      <label id="event-at-label">Fecha del evento<input type="text" name="event_at" id="event-at" placeholder="ej. 08/09/2026"></label>
+      <label id="figure-field">Cifra (opcional)<input type="text" name="figure" placeholder="ej. 22,000 MT"></label>
     </div>
-    <label>Detalle (horarios / eventos, uno por línea)
-      <textarea name="notes" rows="8" placeholder="0906 HRS - PILOT BOARDED&#10;1218 HRS - FIRST LINE ASHORE&#10;1242 HRS - MADE ALL FAST ALONGSIDE AT ... TERMINAL"></textarea>
+
+    <div id="shift-fields" hidden>
+      {% if not cargos %}
+      <p class="warn">⚠ Cargá primero la mercadería arriba para poder generar un Loading Shift.</p>
+      {% endif %}
+      <div class="vf-fields">
+        <label>Mercadería
+          <select name="cargo_id">
+            {% for c in cargos %}
+            <option value="{{ c.id }}">{{ c.grade }} (Stowage {{ '%.3f'|format(c.stowage_plan) }} MT)</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Desde<input type="text" name="shift_from" placeholder="07:00"></label>
+        <label>Hasta<input type="text" name="shift_to" placeholder="13:00"></label>
+        <label>Gangs<input type="text" name="gangs_text" placeholder="two lines appointed"></label>
+        <label>Saludo
+          <select name="greeting">
+            <option>Good day</option><option>Good morning</option><option>Good afternoon</option><option>Good evening</option>
+          </select>
+        </label>
+      </div>
+      <label class="vf-holds-label">Bodegas cargadas en este turno</label>
+      <div id="hold-rows">
+        <div class="hold-row">
+          <input type="text" name="hold_label" placeholder="H2">
+          <input type="text" name="hold_qty" placeholder="3,200.000">
+        </div>
+      </div>
+      <button type="button" id="add-hold-row" class="mini">+ Agregar bodega</button>
+      <div class="vf-fields">
+        <label>Delays (opcional)<input type="text" name="delays" placeholder="1030/1300 hrs no loading due to strong winds"></label>
+      </div>
+      <label>Tentative prospect (opcional)
+        <textarea name="prospect" rows="2" placeholder="ETF: 12/0000 hrs&#10;ETS: 12/0400 hrs"></textarea>
+      </label>
+      <label class="check"><input type="checkbox" name="include_breakdown"> Incluir breakdown acumulado por bodega (ej. Oceanway)</label>
+    </div>
+
+    <label id="notes-label">Detalle (horarios / eventos, uno por línea)
+      <textarea name="notes" id="notes-field" rows="8" placeholder="0906 HRS - PILOT BOARDED&#10;1218 HRS - FIRST LINE ASHORE&#10;1242 HRS - MADE ALL FAST ALONGSIDE AT ... TERMINAL"></textarea>
     </label>
     <button type="submit" class="btn primary vf-submit">Generar reporte</button>
   </form>
-  <p class="muted vf-hint">El encabezado (TO/FM/REF/PORT/TERMINAL) y la apertura de Berthing / Commenced Loading
-  ya usan el wording real. Loading Shifts y Sailed todavía tienen una apertura genérica -- el detalle de
-  horarios lo completás vos en el cuadro de arriba.</p>
+  <p class="muted vf-hint">El encabezado y la apertura de Berthing / Commenced Loading / Loading Shifts ya usan
+  el wording real. Sailed todavía tiene una apertura genérica.</p>
 </section>
 
 <section id="historial" class="card">
@@ -140,6 +200,39 @@ document.querySelectorAll(".report-card [data-copy]").forEach((btn) => {
       alert("No se pudo copiar: " + e.message);
     }
   });
+});
+
+// --- toggle campos de Loading Shift ---------------------------------- //
+const shiftToggle = document.querySelector("[data-shift-toggle]");
+const shiftFields = document.getElementById("shift-fields");
+const notesLabel = document.getElementById("notes-label");
+const eventAtLabel = document.getElementById("event-at-label");
+const figureField = document.getElementById("figure-field");
+const otherTipos = [...document.querySelectorAll('input[name="tipos"]')].filter((cb) => cb !== shiftToggle);
+
+if (shiftToggle) {
+  shiftToggle.addEventListener("change", () => {
+    const on = shiftToggle.checked;
+    shiftFields.hidden = !on;
+    figureField.hidden = on;
+    otherTipos.forEach((cb) => {
+      cb.disabled = on;
+      if (on) cb.checked = false;
+    });
+    notesLabel.firstChild.textContent = on
+      ? "Remarks (opcional)"
+      : "Detalle (horarios / eventos, uno por línea)";
+    eventAtLabel.firstChild.textContent = on ? "Fecha del turno" : "Fecha del evento";
+  });
+}
+
+document.getElementById("add-hold-row")?.addEventListener("click", () => {
+  const row = document.createElement("div");
+  row.className = "hold-row";
+  row.innerHTML =
+    '<input type="text" name="hold_label" placeholder="H3">' +
+    '<input type="text" name="hold_qty" placeholder="0.000">';
+  document.getElementById("hold-rows").appendChild(row);
 });
 </script>
 {% endblock %}

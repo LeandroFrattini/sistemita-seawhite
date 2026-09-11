@@ -215,6 +215,21 @@ table.list th { background: #eef2f0; }
 .vf-submit { width: 100%; padding: 12px; font-size: 14.5px; }
 .vf-hint { margin-top: 8px; font-size: 12px; }
 
+.vf-cargo-box { margin-bottom: 14px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px 12px; }
+.vf-cargo-box > summary { cursor: pointer; padding: 8px 0; font-weight: 600; font-size: 13.5px; }
+.cargo-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.cargo-row input { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; }
+.cargo-row input[name=grade] { flex: 2; min-width: 160px; }
+.cargo-row input[name=stowage_plan] { flex: 1; min-width: 120px; }
+.vf-holds-label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+#hold-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.hold-row { display: flex; gap: 8px; }
+.hold-row input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; }
+.hold-row input[name=hold_label] { width: 70px; flex: none; }
+.hold-row input[name=hold_qty] { flex: 1; }
+#add-hold-row { margin-bottom: 12px; }
+#shift-fields { border-top: 1px dashed var(--line); padding-top: 10px; margin-bottom: 4px; }
+
 @media (max-width: 480px) {
   .vf-card { flex-wrap: wrap; }
   .report-card .rc-actions { width: 100%; }

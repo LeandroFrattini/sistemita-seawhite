@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import (
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -258,6 +259,9 @@ class VesselFile(Base):
     terminal: Mapped["Terminal | None"] = relationship()
     principal_client: Mapped["Client | None"] = relationship()
     agencies: Mapped[list["VesselFileAgency"]] = relationship(cascade="all, delete-orphan")
+    cargos: Mapped[list["VesselCargo"]] = relationship(
+        cascade="all, delete-orphan", order_by="VesselCargo.sort_order, VesselCargo.id"
+    )
     reports: Mapped[list["VesselReport"]] = relationship(
         back_populates="vessel_file", cascade="all, delete-orphan",
         order_by="VesselReport.sent_at.desc()",
@@ -279,6 +283,20 @@ class VesselFile(Base):
                 out.append(c)
                 seen.add(c.id)
         return out
+
+
+class VesselCargo(Base):
+    """Mercaderia de un legajo (grado + Stowage Plan declarado por el
+    master). Se carga una vez y se reusa en todos los Loading Shifts de
+    ese barco; algunos barcos llevan mas de una (multi-grado)."""
+
+    __tablename__ = "vessel_cargos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vessel_file_id: Mapped[int] = mapped_column(ForeignKey("vessel_files.id"), index=True)
+    grade: Mapped[str] = mapped_column(String(80), default="")  # ej. "CORN in Bulk"
+    stowage_plan: Mapped[float] = mapped_column(Float, default=0)  # MT, "as per declared by master"
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class VesselFileAgency(Base):
@@ -304,6 +322,9 @@ class VesselReport(Base):
     event_at: Mapped[str] = mapped_column(String(40), default="")
     figure: Mapped[str] = mapped_column(String(120), default="")
     notes: Mapped[str] = mapped_column(Text, default="")
+    # datos estructurados del turno (Loading Shifts): cargo, horario, bodegas
+    # cargadas en ESTE turno, etc. -- JSON, ver reports.py:_ShiftInput
+    shift_data: Mapped[str] = mapped_column(Text, default="")
 
     subject: Mapped[str] = mapped_column(String(200), default="")
     text_body: Mapped[str] = mapped_column(Text, default="")
