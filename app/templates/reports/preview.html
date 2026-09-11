@@ -13,6 +13,14 @@
 <p class="muted"><b>Abrir en Outlook</b> arma el mail directo (con tu firma). El <b>.eml</b> lo abre como
 borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
 
+{% if items|length > 1 %}
+<div class="bulk-bar">
+  <label class="bulk-all"><input type="checkbox" id="select-all" checked> Seleccionar todos</label>
+  <button id="btn-bulk-outlook" class="btn primary">✉ Abrir seleccionados en Outlook (<span id="bulk-count">0</span>)</button>
+  <span id="bulk-status" class="muted"></span>
+</div>
+{% endif %}
+
 {% macro payload(html, text, subject, to, cc='', bcc='', isText='false') -%}
 <script type="application/json" class="payload">
 {"html": {{ html|tojson }}, "text": {{ text|tojson }}, "subject": {{ subject|tojson }},
@@ -58,6 +66,7 @@ borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
 <article class="report-card">
   <div class="rc-head">
     <div class="rc-name">
+      {% if items|length > 1 %}<input type="checkbox" class="rc-select" checked>{% endif %}
       <span class="badge {{ 'fl' if it.format == 'FLAMMABLE' else ('wbl' if it.format == 'WBL_TEXT' else 'xls') }}">
         {{ 'Flammable' if it.format == 'FLAMMABLE' else ('WBL' if it.format == 'WBL_TEXT' else 'Excel') }}</span>
       <b>{{ it.subject.rsplit(' - ', 1)[0] }}</b>
@@ -93,21 +102,24 @@ borrador. <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
 const MAILER = "http://127.0.0.1:8765";
 const payloadOf = (btn) => JSON.parse(btn.closest(".report-card").querySelector(".payload").textContent);
 
+async function openInOutlook(data) {
+  const res = await fetch(MAILER + "/compose", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ to: data.to, cc: data.cc || "", bcc: data.bcc || "", subject: data.subject, html: data.html }),
+  });
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || "error de Outlook");
+}
+
 document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
   btn.addEventListener("click", async () => {
-    const data = payloadOf(btn);
     const hint = btn.closest(".rc-actions").querySelector(".hint");
     btn.disabled = true;
     const orig = btn.textContent;
     btn.textContent = "Abriendo…";
     try {
-      const res = await fetch(MAILER + "/compose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: data.to, cc: data.cc || "", bcc: data.bcc || "", subject: data.subject, html: data.html }),
-      });
-      const j = await res.json();
-      if (!j.ok) throw new Error(j.error || "error de Outlook");
+      await openInOutlook(payloadOf(btn));
       btn.textContent = "✓ Abierto en Outlook";
       setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
     } catch (e) {
@@ -118,6 +130,58 @@ document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
     }
   });
 });
+
+// --- abrir varios seleccionados de una ------------------------------- //
+const selectAll = document.getElementById("select-all");
+const bulkBtn = document.getElementById("btn-bulk-outlook");
+const bulkCount = document.getElementById("bulk-count");
+const bulkStatus = document.getElementById("bulk-status");
+
+function selectedCards() {
+  return [...document.querySelectorAll(".report-card")].filter((card) => {
+    const cb = card.querySelector(".rc-select");
+    return cb && cb.checked;
+  });
+}
+function refreshBulk() {
+  if (!bulkBtn) return;
+  const n = selectedCards().length;
+  bulkCount.textContent = n;
+  bulkBtn.disabled = n === 0;
+}
+document.querySelectorAll(".rc-select").forEach((cb) => cb.addEventListener("change", refreshBulk));
+if (selectAll) {
+  selectAll.addEventListener("change", () => {
+    document.querySelectorAll(".rc-select").forEach((cb) => (cb.checked = selectAll.checked));
+    refreshBulk();
+  });
+}
+refreshBulk();
+
+if (bulkBtn) {
+  bulkBtn.addEventListener("click", async () => {
+    const cards = selectedCards();
+    bulkBtn.disabled = true;
+    let ok = 0, fail = 0;
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i];
+      const outlookBtn = card.querySelector("[data-outlook]");
+      bulkStatus.textContent = `Abriendo ${i + 1}/${cards.length}…`;
+      try {
+        await openInOutlook(payloadOf(outlookBtn));
+        ok++;
+        outlookBtn.textContent = "✓ Abierto en Outlook";
+      } catch (e) {
+        fail++;
+      }
+      await new Promise((r) => setTimeout(r, 350));
+    }
+    bulkStatus.textContent = fail
+      ? `${ok} abiertos, ${fail} fallaron (¿ayudante instalado?)`
+      : `${ok} abiertos en Outlook ✓`;
+    refreshBulk();
+  });
+}
 
 document.querySelectorAll(".report-card [data-copy]").forEach((btn) => {
   btn.addEventListener("click", async () => {
