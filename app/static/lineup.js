@@ -27,11 +27,32 @@ function callId(el) {
   return el.closest("tr[data-call]").dataset.call;
 }
 
+// --- autocompletar fechas cortas (ETA/ETB/ETC) --------------------------- //
+// "14-9", "14.9", "14 9" o "14/9" -> "14/09/26". Si no matchea un patron de
+// fecha corta (por ej. texto libre como "At roads"), se deja tal cual.
+const DATE_FIELDS = new Set(["eta", "etb", "etc"]);
+function normalizeShortDate(raw) {
+  const s = (raw || "").trim();
+  const m = s.match(/^(\d{1,2})[/\-. ](\d{1,2})(?:[/\-. ](\d{2,4}))?$/);
+  if (!m) return s;
+  let [, d, mo, y] = m;
+  const dn = +d, mn = +mo;
+  if (dn < 1 || dn > 31 || mn < 1 || mn > 12) return s;
+  d = d.padStart(2, "0");
+  mo = mo.padStart(2, "0");
+  y = y ? y.slice(-2).padStart(2, "0") : String(new Date().getFullYear()).slice(-2);
+  return `${d}/${mo}/${y}`;
+}
+
 // --- edicion de celdas ---------------------------------------------------- //
 document.querySelectorAll(".grid [data-f]").forEach((input) => {
   const evt = input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "change";
   input.addEventListener(evt, async () => {
     const field = input.dataset.f;
+    if (DATE_FIELDS.has(field)) {
+      const normalized = normalizeShortDate(input.value);
+      if (normalized !== input.value) input.value = normalized;
+    }
     const value = input.type === "checkbox" ? input.checked : input.value;
     try {
       const r = await api(`/api/calls/${callId(input)}`, "PATCH", { field, value });
