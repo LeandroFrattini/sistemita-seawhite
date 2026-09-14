@@ -271,7 +271,7 @@ table.list th { background: #eef2f0; }
 .hold-row input[name=hold_qty] { flex: 1; }
 #add-hold-row { margin-bottom: 12px; }
 #shift-fields { border-top: 1px dashed var(--line); padding-top: 10px; margin-bottom: 4px; }
-.hold-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.hold-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .hold-row-label { width: 28px; flex: none; font-size: 13px; font-weight: 600; color: var(--muted); }
 
 .event-picker { position: relative; margin-bottom: 6px; }
