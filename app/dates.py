@@ -83,3 +83,21 @@ def as_date_or_text(value: str | None) -> tuple[date | None, str]:
 
 def add_days(d: date, n: int) -> date:
     return d + timedelta(days=n)
+
+
+def eta_sort_key(primary: str, fallback: str = "") -> tuple:
+    """Clave para ordenar barcos por fecha estimada (ETA o ETB, el que se
+    pase como "primary", con el otro de respaldo si esta vacio o no
+    parsea). "Alongside" y "At roads" no son fecha pero significan que el
+    barco ya llego o esta al lado del puerto -- van primero que cualquier
+    fecha, Alongside antes que At roads. Sin nada cargado, al final."""
+    raw = (primary or "").strip() or (fallback or "").strip()
+    low = raw.lower()
+    if "alongside" in low:
+        return (0, 0, date.min)
+    if "roads" in low:
+        return (0, 1, date.min)
+    d = parse_date(primary) or parse_date(fallback)
+    if d:
+        return (1, 0, d)
+    return (2, 0, date.max)

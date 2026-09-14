@@ -7,7 +7,7 @@ from ..auth import current_user
 from ..database import get_db
 from datetime import date, datetime
 
-from ..dates import parse_date
+from ..dates import eta_sort_key, parse_date
 from ..models import Client, OperatedVessel, Terminal, User, VesselCall, VesselExtraAgency, VesselFile
 from ..recalc import recalc_lineup, recalc_terminal
 from ..service import (
@@ -75,23 +75,6 @@ def _period_label(p: str) -> str:
         return p or "sin mes"
 
 
-def _eta_sort_key(call: VesselCall) -> tuple:
-    """Para "En el line-up": ordena por ETA (ETB si no hay ETA). "Alongside"
-    y "At roads" no son fecha pero significan que el barco ya esta ahi o al
-    lado del puerto -- van primero que cualquier fecha, Alongside antes que
-    At roads."""
-    raw = (call.eta or "").strip() or (call.etb or "").strip()
-    low = raw.lower()
-    if "alongside" in low:
-        return (0, 0, date.min)
-    if "roads" in low:
-        return (0, 1, date.min)
-    d = parse_date(call.eta) or parse_date(call.etb)
-    if d:
-        return (1, 0, d)
-    return (2, 0, date.max)
-
-
 @router.get("/nuestros-barcos", response_class=HTMLResponse)
 def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(current_user)):
     en_lineup = []
@@ -104,7 +87,7 @@ def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_
             for c in grouped.get(t.id, []):
                 if c.is_ours:
                     en_lineup.append((kind, term_by_id.get(c.terminal_id), c))
-    en_lineup.sort(key=lambda row: _eta_sort_key(row[2]))
+    en_lineup.sort(key=lambda row: eta_sort_key(row[2].eta, row[2].etb))
 
     todos = list(db.scalars(select(OperatedVessel).order_by(OperatedVessel.period.desc(),
                                                             OperatedVessel.operated_at.desc())))
