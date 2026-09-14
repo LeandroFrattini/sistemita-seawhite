@@ -74,19 +74,28 @@
     "Incluir Statement of Facts".</p>
     <button type="button" class="mini primary" id="open-sof-modal">+ Agregar evento</button>
     <button type="button" class="mini" id="open-bd-modal">+ Agregar Brob/Draft</button>
-    <div class="sof-list" id="sof-list">
-      {% for e in vf.sof_entries %}
-      <div class="sof-row" data-id="{{ e.id }}"
-           data-entry='{{ {"id": e.id, "event_date": e.event_date, "time_from": e.time_from, "time_to": e.time_to, "category": e.category, "location": e.location, "text": e.text}|tojson }}'>
-        <span class="sof-when">{{ e.event_date }}{% if e.time_from %} {{ e.time_from }}{% endif %}{% if e.time_to %}-{{ e.time_to }}{% endif %}</span>
-        {% if e.location %}<span class="sof-loc">{{ e.location }}</span>{% endif %}
-        <span class="sof-text">{{ e.text }}</span>
-        <button type="button" class="sof-edit" title="Editar">✎</button>
-        <button type="button" class="sof-del" title="Borrar">🗑</button>
-      </div>
-      {% else %}
-      <p class="muted sof-empty">Sin eventos cargados todavía.</p>
-      {% endfor %}
+    <div class="sof-table-wrap">
+      <table class="sof-table">
+        <thead>
+          <tr><th>Fecha / Hora</th><th>Locación</th><th>Evento</th><th></th></tr>
+        </thead>
+        <tbody id="sof-list">
+          {% for e in vf.sof_entries %}
+          <tr class="sof-row" data-id="{{ e.id }}"
+              data-entry='{{ {"id": e.id, "event_date": e.event_date, "time_from": e.time_from, "time_to": e.time_to, "category": e.category, "location": e.location, "text": e.text}|tojson }}'>
+            <td class="sof-when">{{ e.event_date }}{% if e.time_from %} {{ e.time_from }}{% endif %}{% if e.time_to %}-{{ e.time_to }}{% endif %}</td>
+            <td class="sof-loc">{{ e.location or '—' }}</td>
+            <td class="sof-text">{{ e.text }}</td>
+            <td class="sof-actions">
+              <button type="button" class="sof-edit" title="Editar">✎</button>
+              <button type="button" class="sof-del" title="Borrar">🗑</button>
+            </td>
+          </tr>
+          {% else %}
+          <tr class="sof-empty"><td colspan="4" class="muted">Sin eventos cargados todavía.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </details>
 
@@ -496,16 +505,18 @@ function sofWhenText(entry) {
 }
 
 function renderSofRow(entry) {
-  const row = document.createElement("div");
+  const row = document.createElement("tr");
   row.className = "sof-row";
   row.dataset.id = entry.id;
   row.dataset.entry = JSON.stringify(entry);
   row.innerHTML =
-    `<span class="sof-when">${escapeHtml(sofWhenText(entry))}</span>` +
-    (entry.location ? `<span class="sof-loc">${escapeHtml(entry.location)}</span>` : "") +
-    `<span class="sof-text">${escapeHtml(entry.text)}</span>` +
+    `<td class="sof-when">${escapeHtml(sofWhenText(entry))}</td>` +
+    `<td class="sof-loc">${escapeHtml(entry.location || "—")}</td>` +
+    `<td class="sof-text">${escapeHtml(entry.text)}</td>` +
+    `<td class="sof-actions">` +
     `<button type="button" class="sof-edit" title="Editar">✎</button>` +
-    `<button type="button" class="sof-del" title="Borrar">🗑</button>`;
+    `<button type="button" class="sof-del" title="Borrar">🗑</button>` +
+    `</td>`;
   return row;
 }
 
@@ -662,10 +673,10 @@ sofList?.addEventListener("click", async (ev) => {
       const n = sofList.querySelectorAll(".sof-row").length;
       sofSummary.textContent = n ? `Statement of Facts (${n})` : "Statement of Facts";
       if (!n && !sofList.querySelector(".sof-empty")) {
-        const p = document.createElement("p");
-        p.className = "muted sof-empty";
-        p.textContent = "Sin eventos cargados todavía.";
-        sofList.appendChild(p);
+        const tr = document.createElement("tr");
+        tr.className = "sof-empty";
+        tr.innerHTML = '<td colspan="4" class="muted">Sin eventos cargados todavía.</td>';
+        sofList.appendChild(tr);
       }
     }
   } else if (editBtn && row) {
