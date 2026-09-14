@@ -323,7 +323,9 @@
     </div>
     <script type="application/json" class="payload">
       {"html": {{ r.html_body|tojson }}, "text": {{ r.text_body|tojson }}, "subject": {{ r.subject|tojson }},
-       "to": {{ r.to_emails|tojson }}, "cc": {{ r.cc_emails|tojson }}, "isText": true}
+       "to": {{ r.to_emails|tojson }}, "cc": {{ r.cc_emails|tojson }}, "isText": true,
+       "vessel": {{ vf.vessel_name|tojson }},
+       "format": {{ (r.type_list|join(',') or 'Update')|tojson }}}
     </script>
   </article>
   {% endfor %}
@@ -341,6 +343,18 @@ async function openInOutlook(data) {
   });
   const j = await res.json();
   if (!j.ok) throw new Error(j.error || "error de Outlook");
+  // deja constancia en Admin -> Registros (mismo mecanismo que /reports),
+  // asi los reportes de Barcos tambien quedan en esa checklist
+  try {
+    await fetch("/reports/log-open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind: "{{ vf.kind }}", vessel: data.vessel || "", client: data.to || "",
+        to: data.to || "", format: data.format || "",
+      }),
+    });
+  } catch (e) { /* no bloquea el flujo si falla el log */ }
 }
 
 document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
