@@ -509,19 +509,23 @@ function nowHM() {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
-function openSofModal(entry) {
-  document.getElementById("sof-entry-id").value = entry ? entry.id : "";
-  document.getElementById("sof-date").value = entry ? entry.event_date : todayDMY();
-  document.getElementById("sof-time-from").value = entry ? entry.time_from : nowHM();
-  document.getElementById("sof-time-to").value = entry ? entry.time_to : "";
-  document.getElementById("sof-category").value = entry ? entry.category : "";
-  document.getElementById("sof-location").value = entry ? entry.location : "";
-  document.getElementById("sof-text").value = entry ? entry.text : "";
-  document.getElementById("sof-modal-title").textContent = entry ? "Editar evento" : "Nuevo evento";
+// "prefill" trae fecha/hora (y el resto si es edicion); "isEdit" dice si
+// hay que guardar sobre ese id (editar) o crear uno nuevo con esa fecha
+// de arranque (asi "Save & Add Event" sigue cargando desde el mismo
+// horario en que estabas, no salta al reloj real).
+function openSofModal(prefill, isEdit) {
+  document.getElementById("sof-entry-id").value = isEdit ? prefill.id : "";
+  document.getElementById("sof-date").value = prefill ? prefill.event_date : todayDMY();
+  document.getElementById("sof-time-from").value = prefill ? prefill.time_from : nowHM();
+  document.getElementById("sof-time-to").value = (isEdit && prefill.time_to) ? prefill.time_to : "";
+  document.getElementById("sof-category").value = isEdit ? prefill.category : "";
+  document.getElementById("sof-location").value = isEdit ? prefill.location : "";
+  document.getElementById("sof-text").value = isEdit ? prefill.text : "";
+  document.getElementById("sof-modal-title").textContent = isEdit ? "Editar evento" : "Nuevo evento";
   sofModal.showModal();
 }
 
-document.getElementById("open-sof-modal")?.addEventListener("click", () => openSofModal(null));
+document.getElementById("open-sof-modal")?.addEventListener("click", () => openSofModal(null, false));
 document.getElementById("close-sof-modal")?.addEventListener("click", () => sofModal.close());
 document.getElementById("sof-exit")?.addEventListener("click", () => sofModal.close());
 sofModal?.addEventListener("click", (ev) => { if (ev.target === sofModal) sofModal.close(); });
@@ -561,8 +565,12 @@ async function saveSofEntry(closeAfter) {
     if (existingRow) existingRow.replaceWith(newRow);
     else sofList.appendChild(newRow);
     if (sofSummary) sofSummary.textContent = `Statement of Facts (${sofList.querySelectorAll(".sof-row").length})`;
-    if (closeAfter) sofModal.close();
-    else openSofModal(null);
+    if (closeAfter) {
+      sofModal.close();
+    } else {
+      // sigue cargando desde la misma fecha/hora que se acaba de guardar
+      openSofModal({ event_date: data.entry.event_date, time_from: data.entry.time_from }, false);
+    }
   } catch (e) {
     alert("No se pudo guardar: " + e.message);
   }
@@ -590,7 +598,7 @@ sofList?.addEventListener("click", async (ev) => {
       }
     }
   } else if (editBtn && row) {
-    openSofModal(JSON.parse(row.dataset.entry));
+    openSofModal(JSON.parse(row.dataset.entry), true);
   }
 });
 </script>
