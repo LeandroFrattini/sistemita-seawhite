@@ -15,8 +15,15 @@ from ..templating import templates
 router = APIRouter(prefix="/admin")
 
 
+ADMIN_TABS = {"usuarios", "terminales", "wordings", "mails", "clientes", "registros"}
+
+
 @router.get("", response_class=HTMLResponse)
-def admin_home(request: Request, db: Session = Depends(get_db), user: User = Depends(admin_required)):
+def admin_home(
+    request: Request, tab: str = "usuarios",
+    db: Session = Depends(get_db), user: User = Depends(admin_required),
+):
+    tab = tab if tab in ADMIN_TABS else "usuarios"
     users = db.query(User).order_by(User.username).all()
     logs = db.query(ReportLog).order_by(ReportLog.generated_at.desc()).limit(50).all()
     events = db.scalars(select(EventTemplate).order_by(EventTemplate.category, EventTemplate.sort_order, EventTemplate.id))
@@ -25,6 +32,7 @@ def admin_home(request: Request, db: Session = Depends(get_db), user: User = Dep
         "admin/home.html",
         {
             "user": user,
+            "tab": tab,
             "users": users,
             "terminals": all_terminals(db),
             "logs": logs,
@@ -50,7 +58,7 @@ def save_flammable_list(
             existing.append(e)
             lower.add(e.lower())
     set_setting(db, FLAMMABLE_LIST_KEY, ", ".join(existing))
-    return RedirectResponse("/admin#sec-flam", status_code=302)
+    return RedirectResponse("/admin?tab=mails#sec-flam", status_code=302)
 
 
 @router.post("/flammable-list/mail-remove")
@@ -62,7 +70,7 @@ def remove_flammable_mail(
     target = email.strip().lower()
     remaining = [e for e in split_emails(get_setting(db, FLAMMABLE_LIST_KEY, "")) if e.lower() != target]
     set_setting(db, FLAMMABLE_LIST_KEY, ", ".join(remaining))
-    return RedirectResponse("/admin#sec-flam", status_code=302)
+    return RedirectResponse("/admin?tab=mails#sec-flam", status_code=302)
 
 
 @router.post("/signature")
@@ -72,7 +80,7 @@ def save_signature(
     signature_html: str = Form(""),
 ):
     set_setting(db, SIGNATURE_KEY, signature_html.strip())
-    return RedirectResponse("/admin#sec-firma", status_code=302)
+    return RedirectResponse("/admin?tab=mails#sec-firma", status_code=302)
 
 
 @router.post("/report-cc")
@@ -82,7 +90,7 @@ def save_report_cc(
     report_cc: str = Form(""),
 ):
     set_setting(db, CC_KEY, report_cc.strip())
-    return RedirectResponse("/admin#sec-cc", status_code=302)
+    return RedirectResponse("/admin?tab=mails#sec-cc", status_code=302)
 
 
 # --- Usuarios ------------------------------------------------------------- #
@@ -111,7 +119,7 @@ def create_user(
             )
         )
         db.commit()
-    return RedirectResponse("/admin", status_code=302)
+    return RedirectResponse("/admin?tab=usuarios", status_code=302)
 
 
 @router.post("/users/{user_id}")
@@ -135,7 +143,7 @@ def update_user(
             u.password_hash = hash_password(password.strip())
             u.must_change_password = True
         db.commit()
-    return RedirectResponse(f"/admin#usr-{user_id}", status_code=302)
+    return RedirectResponse(f"/admin?tab=usuarios#usr-{user_id}", status_code=302)
 
 
 # --- Terminales --------------------------------------------------------- #
@@ -160,7 +168,7 @@ def create_terminal(
         )
     )
     db.commit()
-    return RedirectResponse("/admin", status_code=302)
+    return RedirectResponse("/admin?tab=terminales", status_code=302)
 
 
 @router.post("/terminals/{terminal_id}")
@@ -184,7 +192,7 @@ def update_terminal(
         t.sort_order = sort_order
         t.active = active == "on"
         db.commit()
-    return RedirectResponse(f"/admin#trm-{terminal_id}", status_code=302)
+    return RedirectResponse(f"/admin?tab=terminales#trm-{terminal_id}", status_code=302)
 
 
 # --- Eventos (biblioteca) ------------------------------------------------ #
@@ -198,7 +206,7 @@ def create_event_template(
     if text.strip():
         db.add(EventTemplate(category=category.strip().upper() or "GENERAL", text=text.strip(), active=True))
         db.commit()
-    return RedirectResponse("/admin#sec-events", status_code=302)
+    return RedirectResponse("/admin?tab=wordings#sec-events", status_code=302)
 
 
 @router.post("/events/{event_id}")
@@ -216,7 +224,7 @@ def update_event_template(
         e.text = text.strip()
         e.active = active == "on"
         db.commit()
-    return RedirectResponse("/admin#sec-events", status_code=302)
+    return RedirectResponse("/admin?tab=wordings#sec-events", status_code=302)
 
 
 @router.post("/events/{event_id}/borrar")
@@ -229,4 +237,4 @@ def delete_event_template(
     if e:
         db.delete(e)
         db.commit()
-    return RedirectResponse("/admin#sec-events", status_code=302)
+    return RedirectResponse("/admin?tab=wordings#sec-events", status_code=302)
