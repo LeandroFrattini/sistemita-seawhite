@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import current_user
 from ..database import get_db
+from ..dates import parse_date
 from ..eml import build_eml, safe_filename
 from ..models import (
     EventTemplate,
@@ -121,7 +122,14 @@ def vessel_files_page(
             "next_status": _next_status(f, live_call),
             "operation": live_call.operation if live_call else "",
             "load_orders": f"{live_call.quantity} {live_call.grade}".strip() if live_call else "",
+            "eta_sort": (
+                (parse_date(live_call.etb) or parse_date(live_call.eta)) if live_call else None
+            ),
         })
+
+    # ordenados por ETB (o ETA si no hay ETB) estimado -- el que llega antes
+    # arriba; los que no tienen fecha cargada quedan al final
+    rows.sort(key=lambda r: (r["eta_sort"] is None, r["eta_sort"] or date.max))
 
     return templates.TemplateResponse(
         request, "vessels/list.html",

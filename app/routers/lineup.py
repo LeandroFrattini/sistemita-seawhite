@@ -5,10 +5,10 @@ from sqlalchemy.orm import Session
 
 from ..auth import current_user
 from ..database import get_db
-from datetime import date
+from datetime import date, datetime
 
 from ..dates import parse_date
-from ..models import Client, OperatedVessel, Terminal, User, VesselCall, VesselExtraAgency
+from ..models import Client, OperatedVessel, Terminal, User, VesselCall, VesselExtraAgency, VesselFile
 from ..recalc import recalc_lineup, recalc_terminal
 from ..service import (
     active_clients,
@@ -266,6 +266,19 @@ def delete_call(call_id: int, db: Session = Depends(get_db), user: User = Depend
     if call:
         if call.is_ours:
             _archive_operated(db, call, user)
+            # se saco del line-up (X) -- si tenia legajo abierto en Barcos
+            # (ID), se cierra tambien: si no, queda "abierto" para siempre
+            # aunque el barco ya se fue (sumando de mas en Abiertos).
+            vf = db.scalar(
+                select(VesselFile).where(
+                    VesselFile.status == "open",
+                    func.lower(VesselFile.vessel_name) == call.vessel_name.strip().lower(),
+                    VesselFile.terminal_id == call.terminal_id,
+                )
+            )
+            if vf:
+                vf.status = "closed"
+                vf.closed_at = datetime.utcnow()
         db.delete(call)
         db.commit()
     return {"ok": True}
