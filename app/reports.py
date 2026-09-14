@@ -454,12 +454,20 @@ def build_sof_text(entries: list) -> str:
     return "\n".join(lines)
 
 
+def _wbl_hold_label(label: str) -> str:
+    """"H2" -> "Hold 2" (formato WBL); si no matchea el patron, se deja tal cual."""
+    m = re.match(r"^[Hh](\d+)$", label.strip())
+    return f"Hold {m.group(1)}" if m else label
+
+
 def build_shift_report(
     vf, client, shift: dict, notes: str, signature_html: str = "", statement_of_facts: str = "",
 ) -> BuiltReport:
     """Loading/Discharging Shift -- formato calcado de MV IONIC KIBOU (Atlas)
-    y MV DISCOVERER (Oceanway, con breakdown por bodega). Un mail por cliente
-    -- si el barco tiene varias agencias, se llama una vez por cada una."""
+    y MV DISCOVERER (Oceanway, con breakdown por bodega), o el de MV DOVER
+    si el cliente es WBL (report_format WBL_TEXT). Un mail por cliente -- si
+    el barco tiene varias agencias, se llama una vez por cada una, cada
+    quien con su propio wording."""
     pfx_slash = vessel_prefix(vf.vessel_type)
     pfx_slash = pfx_slash[0] + "/" + pfx_slash[1]
     terminal_name = (vf.terminal.name if vf.terminal else vf.terminal_code) or "TERMINAL"
@@ -467,6 +475,7 @@ def build_shift_report(
 
     to_name = client.display_to.upper() if client else "(SIN CLIENTE)"
     to_emails = client.email_list if client else []
+    is_wbl = bool(client and client.report_format == "WBL_TEXT")
 
     d = parse_date(shift.get("date", "")) or _date.today()
     date_txt = f"{_MONTHS_FULL[d.month - 1]} {d.day}{_ordinal_suffix(d.day)}"
@@ -477,56 +486,95 @@ def build_shift_report(
     total_loaded = prior_total + shift_total
     stowage_plan = float(shift.get("stowage_plan") or 0)
     balance = stowage_plan - total_loaded
+    gangs_text = shift.get("gangs_text") or "gangs appointed"
+    time_from = shift.get("time_from", "")
+    time_to = shift.get("time_to", "")
 
-    lines = [
-        f"Dear all, {shift.get('greeting') or 'Good day'}",
-        "Pls note,",
-        "",
-        f"Shift {date_txt} / {shift.get('time_from', '')} - {shift.get('time_to', '')} hrs"
-        f" ({shift.get('gangs_text') or 'gangs appointed'}):",
-        "",
-    ]
-    for label, qty in holds:
-        lines.append(f"{label}/\t{_fmt_mt(qty)} MT – {grade}")
-    lines += [
-        "",
-        f"Total shift =\t{_fmt_mt(shift_total)} MT – {grade}",
-        f"Total loaded =\t{_fmt_mt(total_loaded)} MT – {grade}",
-        f"Stowage Plan =\t{_fmt_mt(stowage_plan)} MT – {grade} (As per declared by master)",
-        f"Balance to go =\t{_fmt_mt(balance)} MT – {grade}",
-        "",
-        f"Delays: {(shift.get('delays') or '-').strip()}",
-    ]
-    if (notes or "").strip():
-        lines += ["", "Remarks:", notes.strip()]
-
-    if shift.get("include_breakdown"):
-        prior_holds: dict[str, float] = dict(shift.get("prior_holds") or {})
-        cumulative: dict[str, float] = dict(prior_holds)
+    if is_wbl:
+        tf_nc = time_from.replace(":", "")
+        tt_nc = time_to.replace(":", "")
+        lines = [
+            f"Dear All, {shift.get('greeting') or 'Good day'}",
+            "Pls note",
+            "",
+            "",
+            f"Loading report: Loading operations by {gangs_text} ({date_txt})",
+            "",
+            f"Cargo loaded shift {tf_nc}-{tt_nc} – Loading shift – {gangs_text}",
+        ]
         for label, qty in holds:
-            cumulative[label] = cumulative.get(label, 0.0) + qty
-        lines += ["", "Breakdown by Holds:"]
-        for label, qty in cumulative.items():
-            lines.append(f"{label} = {_fmt_mt(qty)} Mt")
+            lines.append(f"{_wbl_hold_label(label)}: {_fmt_mt(qty)} mt {grade}")
+        lines += [
+            "",
+            "",
+            f"Ttl shift:\t{_fmt_mt(shift_total)} mt",
+            f"Ttl on board:\t{_fmt_mt(total_loaded)} mt",
+            f"Stowage plan:\t{_fmt_mt(stowage_plan)} mt (as per pre-stowage plan)",
+            f"Balance to go:\t{_fmt_mt(balance)} mt",
+            "",
+            f"Delays: {(shift.get('delays') or 'NIL').strip()}",
+        ]
+        if (notes or "").strip():
+            lines += ["", "Remarks:", notes.strip()]
+        prospect = (shift.get("prospect") or "").strip()
+        if prospect:
+            lines += ["", "Prospects:", prospect]
+        text_body = (
+            f"TO {to_name}\n"
+            f"FM {settings.mail_from_name}\n\n"
+            f"Ref: {pfx_slash} {vf.vessel_name.upper()}\n"
+            f"Berth: {terminal_name}\n\n"
+            + "\n".join(lines)
+        )
+        subject = f"{pfx_slash} {vf.vessel_name.upper()} - {d.day:02d}/{tt_nc or tf_nc} Hrs"
+    else:
+        lines = [
+            f"Dear all, {shift.get('greeting') or 'Good day'}",
+            "Pls note,",
+            "",
+            f"Shift {date_txt} / {time_from} - {time_to} hrs ({gangs_text}):",
+            "",
+        ]
+        for label, qty in holds:
+            lines.append(f"{label}/\t{_fmt_mt(qty)} MT – {grade}")
+        lines += [
+            "",
+            f"Total shift =\t{_fmt_mt(shift_total)} MT – {grade}",
+            f"Total loaded =\t{_fmt_mt(total_loaded)} MT – {grade}",
+            f"Stowage Plan =\t{_fmt_mt(stowage_plan)} MT – {grade} (As per declared by master)",
+            f"Balance to go =\t{_fmt_mt(balance)} MT – {grade}",
+            "",
+            f"Delays: {(shift.get('delays') or '-').strip()}",
+        ]
+        if (notes or "").strip():
+            lines += ["", "Remarks:", notes.strip()]
+        if shift.get("include_breakdown"):
+            prior_holds: dict[str, float] = dict(shift.get("prior_holds") or {})
+            cumulative: dict[str, float] = dict(prior_holds)
+            for label, qty in holds:
+                cumulative[label] = cumulative.get(label, 0.0) + qty
+            lines += ["", "Breakdown by Holds:"]
+            for label, qty in cumulative.items():
+                lines.append(f"{label} = {_fmt_mt(qty)} Mt")
+        prospect = (shift.get("prospect") or "").strip()
+        if prospect:
+            lines += ["", "====================", "Tentative prospect (AGW WP UCE):", prospect]
+        text_body = (
+            f"TO {to_name}\n"
+            f"FM {settings.mail_from_name}\n\n"
+            f"Ref: {pfx_slash} {vf.vessel_name.upper()}\n"
+            f"Port: {PORT_LABEL_TITLE}\n"
+            f"Terminal: {terminal_name}\n\n"
+            + "\n".join(lines)
+        )
+        subject = f"{pfx_slash} {vf.vessel_name.upper()} - LOADING SHIFT {date_txt.upper()}"
 
-    prospect = (shift.get("prospect") or "").strip()
-    if prospect:
-        lines += ["", "====================", "Tentative prospect (AGW WP UCE):", prospect]
-
-    text_body = (
-        f"TO {to_name}\n"
-        f"FM {settings.mail_from_name}\n\n"
-        f"Ref: {pfx_slash} {vf.vessel_name.upper()}\n"
-        f"Port: {PORT_LABEL_TITLE}\n"
-        f"Terminal: {terminal_name}\n\n"
-        + "\n".join(lines)
-    )
     text_body = _append_statement_of_facts(text_body, statement_of_facts)
     html_body = _wrap_body(
         f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>', signature_html
     )
     return BuiltReport(
-        subject=f"{pfx_slash} {vf.vessel_name.upper()} - LOADING SHIFT {date_txt.upper()}",
+        subject=subject,
         to_name=to_name,
         to_emails=to_emails,
         report_format="VESSEL_STATUS",
