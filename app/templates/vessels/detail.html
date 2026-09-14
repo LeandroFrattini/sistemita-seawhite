@@ -7,7 +7,7 @@
   <span class="vf-badge {{ 'closed' if vf.status == 'closed' }}">{{ 'Abierto' if vf.status == 'open' else 'Cerrado' }}</span>
 </div>
 
-<h1 class="vf-title">#{{ vf.id }} · {{ vf.vessel_name }}</h1>
+<h1 class="vf-title">#{{ vf.id }} · {{ vf.vessel_name|upper }}</h1>
 <p class="muted">{{ 'Flammable' if vf.kind == 'FLAMMABLE' else 'Grain' }} ·
   {{ vf.terminal.code if vf.terminal else vf.terminal_code }}
   {% if vf.terminal and vf.terminal.berth_label %}· {{ vf.terminal.berth_label }}{% endif %}

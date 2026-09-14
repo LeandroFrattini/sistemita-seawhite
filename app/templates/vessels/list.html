@@ -31,7 +31,7 @@ al mandar el reporte <b>Sailed</b> (o a mano); si el barco vuelve más adelante,
     <tbody>
       {% for r in rows %}
       <tr class="{{ 'closed' if r.vf.status == 'closed' }}" onclick="location.href='/barcos/{{ r.vf.id }}'">
-        <td><span class="vf-id">#{{ r.vf.id }}</span> <b>{{ r.vf.vessel_name }}</b></td>
+        <td><span class="vf-id">#{{ r.vf.id }}</span> <b>{{ r.vf.vessel_name|upper }}</b></td>
         <td>
           <span class="status-chip {{ 'sailed' if 'Sailed' in r.status_label }}">{{ r.status_label }}</span>
           {% if r.status_at %}<span class="muted vf-status-date">{{ r.status_at.strftime("%d/%m %H:%M") }}</span>{% endif %}
