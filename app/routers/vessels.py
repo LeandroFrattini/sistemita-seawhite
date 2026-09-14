@@ -41,7 +41,10 @@ router = APIRouter()
 
 def _prior_shift_totals(db: Session, vessel_file_id: int, cargo_id: int) -> tuple[float, dict[str, float]]:
     """Suma lo cargado en Loading Shifts anteriores de esta misma mercaderia
-    (para "Total loaded" y el breakdown acumulado por bodega)."""
+    (para "Total loaded" y el breakdown acumulado por bodega). "holds" en
+    shift_data es [label, qty, cargo_id] -- un turno puede tener bodegas de
+    mas de una mercaderia a la vez, por eso se filtra por bodega y no por
+    turno entero."""
     total = 0.0
     holds: dict[str, float] = {}
     rows = db.scalars(
@@ -55,10 +58,10 @@ def _prior_shift_totals(db: Session, vessel_file_id: int, cargo_id: int) -> tupl
             data = json.loads(r.shift_data or "{}")
         except ValueError:
             continue
-        if data.get("cargo_id") != cargo_id:
-            continue
-        for label, qty in data.get("holds") or []:
-            qty = float(qty)
+        for entry in data.get("holds") or []:
+            if len(entry) < 3 or entry[2] != cargo_id:
+                continue
+            label, qty = entry[0], float(entry[1])
             total += qty
             holds[label] = holds.get(label, 0.0) + qty
     return total, holds
@@ -340,31 +343,41 @@ async def create_vessel_report(
     sof = build_sof_text(vf.sof_entries) if form.get("include_sof") == "on" else ""
 
     if tipos == ["LOADING_SHIFTS"]:
-        cargo_id = int(form.get("cargo_id") or 0)
-        cargo = db.get(VesselCargo, cargo_id)
-        if not cargo or cargo.vessel_file_id != vf.id:
+        cargos_by_id = {c.id: c for c in vf.cargos}
+        if not cargos_by_id:
             return RedirectResponse(f"/barcos/{file_id}#reporte", status_code=302)
 
         labels = form.getlist("hold_label")
         qtys = form.getlist("hold_qty")
-        holds = [
-            (lbl.strip(), _parse_qty(qty))
-            for lbl, qty in zip(labels, qtys)
-            if lbl.strip() and _parse_qty(qty) > 0
-        ]
-        prior_total, prior_holds = _prior_shift_totals(db, vf.id, cargo.id)
+        hold_cargo_ids = form.getlist("hold_cargo_id")
+        holds = []
+        for lbl, qty, cid in zip(labels, qtys, hold_cargo_ids):
+            q = _parse_qty(qty)
+            cid_int = int(cid) if cid.strip().isdigit() else 0
+            if lbl.strip() and q > 0 and cid_int in cargos_by_id:
+                holds.append([lbl.strip(), q, cid_int])
+
+        # Stowage Plan / Balance to go siempre muestran el panorama completo
+        # del barco -- una entrada por CADA mercaderia cargada (no solo las
+        # tocadas en este turno), para que se vea bien aunque el turno solo
+        # haya cargado una de las dos.
+        cargo_summaries = []
+        for c in vf.cargos:
+            shift_qty = sum(h[1] for h in holds if h[2] == c.id)
+            prior_total, prior_holds = _prior_shift_totals(db, vf.id, c.id)
+            cargo_summaries.append({
+                "cargo_id": c.id, "grade": c.grade, "stowage_plan": c.stowage_plan,
+                "shift_qty": shift_qty, "prior_total": prior_total, "prior_holds": prior_holds,
+            })
+
         shift = {
-            "cargo_id": cargo.id,
-            "cargo_grade": cargo.grade,
-            "stowage_plan": cargo.stowage_plan,
             "date": event_at,
             "time_from": str(form.get("shift_from", "")).strip(),
             "time_to": str(form.get("shift_to", "")).strip(),
             "gangs_text": str(form.get("gangs_text", "")).strip(),
             "greeting": str(form.get("greeting", "")).strip() or "Good day",
             "holds": holds,
-            "prior_total": prior_total,
-            "prior_holds": prior_holds,
+            "cargos": cargo_summaries,
             "delays": str(form.get("delays", "")).strip(),
             "prospect": str(form.get("prospect", "")).strip(),
             "include_breakdown": form.get("include_breakdown") == "on",

@@ -178,16 +178,7 @@
     <form method="post" action="/barcos/{{ vf.id }}/reportes" class="vf-report-form">
       <input type="hidden" name="tipos" value="LOADING_SHIFTS">
       <div class="vf-fields">
-        <label>Mercadería
-          <select name="cargo_id">
-            {% for c in cargos %}
-            <option value="{{ c.id }}">{{ c.grade }} (Stowage {{ '%.3f'|format(c.stowage_plan) }} MT)</option>
-            {% endfor %}
-          </select>
-        </label>
         <label>Fecha del turno<input type="text" name="event_at" placeholder="ej. 08/09/2026"></label>
-      </div>
-      <div class="vf-fields">
         <label>Desde<input type="text" name="shift_from" placeholder="07:00"></label>
         <label>Hasta<input type="text" name="shift_to" placeholder="13:00"></label>
         <label>Gangs<input type="text" name="gangs_text" placeholder="two lines appointed"></label>
@@ -197,13 +188,26 @@
           </select>
         </label>
       </div>
-      <label class="vf-holds-label">Bodegas cargadas en este turno (dejá en blanco las que no cargaron)</label>
+      <label class="vf-holds-label">
+        Bodegas cargadas en este turno (dejá en blanco las que no cargaron)
+        {% if cargos|length > 1 %}-- elegí la mercadería de cada una, el barco tiene más de una{% endif %}
+      </label>
       <div id="shift-hold-rows" class="hold-grid">
         {% for n in range(1, 8) %}
         <div class="hold-row">
           <input type="hidden" name="hold_label" value="H{{ n }}">
           <span class="hold-row-label">H{{ n }}</span>
           <input type="text" name="hold_qty" placeholder="0.000">
+          {% if cargos|length > 1 %}
+          <select name="hold_cargo_id">
+            <option value="">Mercadería...</option>
+            {% for c in cargos %}
+            <option value="{{ c.id }}">{{ c.grade }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
+          <input type="hidden" name="hold_cargo_id" value="{{ cargos[0].id if cargos else '' }}">
+          {% endif %}
         </div>
         {% endfor %}
       </div>

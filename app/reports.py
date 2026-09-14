@@ -479,16 +479,38 @@ def build_shift_report(
 
     d = parse_date(shift.get("date", "")) or _date.today()
     date_txt = f"{_MONTHS_FULL[d.month - 1]} {d.day}{_ordinal_suffix(d.day)}"
-    grade = (shift.get("cargo_grade") or "").strip() or "(SIN MERCADERIA CARGADA)"
-    holds: list[tuple[str, float]] = shift.get("holds") or []
-    shift_total = sum(q for _, q in holds)
-    prior_total = float(shift.get("prior_total") or 0)
-    total_loaded = prior_total + shift_total
-    stowage_plan = float(shift.get("stowage_plan") or 0)
-    balance = stowage_plan - total_loaded
     gangs_text = shift.get("gangs_text") or "gangs appointed"
     time_from = shift.get("time_from", "")
     time_to = shift.get("time_to", "")
+
+    # "holds" es [label, qty, cargo_id] -- puede haber mas de una mercaderia
+    # cargando a la vez (bodegas distintas, grano distinto). "cargos" trae
+    # UNA entrada por cada mercaderia del barco (no solo las tocadas en este
+    # turno), con su stowage plan y lo acumulado hasta este turno, para que
+    # Stowage Plan / Balance to go siempre muestren el panorama completo.
+    holds: list = shift.get("holds") or []
+    cargos: list = shift.get("cargos") or []
+    grade_by_id = {
+        c["cargo_id"]: (c.get("grade") or "").strip() or "(SIN MERCADERIA CARGADA)" for c in cargos
+    }
+    shift_total = sum(h[1] for h in holds)
+    per_cargo = []
+    for c in cargos:
+        prior_total = float(c.get("prior_total") or 0)
+        total_loaded = prior_total + float(c.get("shift_qty") or 0)
+        stowage_plan = float(c.get("stowage_plan") or 0)
+        per_cargo.append({
+            "grade": grade_by_id[c["cargo_id"]],
+            "stowage_plan": stowage_plan,
+            "total_loaded": total_loaded,
+            "balance": stowage_plan - total_loaded,
+        })
+    # con una sola mercaderia se mantiene el formato de siempre (una linea,
+    # con el grado al lado); con dos o mas, Total shift/Total loaded quedan
+    # sin grado (no aplica a un combinado) y Stowage Plan/Balance to go
+    # se desglosan, una linea por mercaderia
+    single = per_cargo[0] if len(per_cargo) == 1 else None
+    combined_loaded = sum(pc["total_loaded"] for pc in per_cargo)
 
     if is_wbl:
         tf_nc = time_from.replace(":", "")
@@ -502,18 +524,22 @@ def build_shift_report(
             "",
             f"Cargo loaded shift {tf_nc}-{tt_nc} – Loading shift – {gangs_text}",
         ]
-        for label, qty in holds:
-            lines.append(f"{_wbl_hold_label(label)}: {_fmt_mt(qty)} mt {grade}")
-        lines += [
-            "",
-            "",
-            f"Ttl shift:\t{_fmt_mt(shift_total)} mt",
-            f"Ttl on board:\t{_fmt_mt(total_loaded)} mt",
-            f"Stowage plan:\t{_fmt_mt(stowage_plan)} mt (as per pre-stowage plan)",
-            f"Balance to go:\t{_fmt_mt(balance)} mt",
-            "",
-            f"Delays: {(shift.get('delays') or 'NIL').strip()}",
-        ]
+        for label, qty, cid in holds:
+            lines.append(f"{_wbl_hold_label(label)}: {_fmt_mt(qty)} mt {grade_by_id.get(cid, '')}")
+        lines += ["", "", f"Ttl shift:\t{_fmt_mt(shift_total)} mt"]
+        if single:
+            lines.append(f"Ttl on board:\t{_fmt_mt(single['total_loaded'])} mt")
+            lines.append(f"Stowage plan:\t{_fmt_mt(single['stowage_plan'])} mt (as per pre-stowage plan)")
+            lines.append(f"Balance to go:\t{_fmt_mt(single['balance'])} mt")
+        else:
+            lines.append(f"Ttl on board:\t{_fmt_mt(combined_loaded)} mt")
+            for i, pc in enumerate(per_cargo):
+                prefix = "Stowage plan:\t" if i == 0 else "\t\t"
+                lines.append(f"{prefix}{_fmt_mt(pc['stowage_plan'])} mt {pc['grade']} (as per pre-stowage plan)")
+            for i, pc in enumerate(per_cargo):
+                prefix = "Balance to go:\t" if i == 0 else "\t\t"
+                lines.append(f"{prefix}{_fmt_mt(pc['balance'])} mt {pc['grade']}")
+        lines += ["", f"Delays: {(shift.get('delays') or 'NIL').strip()}"]
         if (notes or "").strip():
             lines += ["", "Remarks:", notes.strip()]
         prospect = (shift.get("prospect") or "").strip()
@@ -535,23 +561,35 @@ def build_shift_report(
             f"Shift {date_txt} / {time_from} - {time_to} hrs ({gangs_text}):",
             "",
         ]
-        for label, qty in holds:
-            lines.append(f"{label}/\t{_fmt_mt(qty)} MT – {grade}")
-        lines += [
-            "",
-            f"Total shift =\t{_fmt_mt(shift_total)} MT – {grade}",
-            f"Total loaded =\t{_fmt_mt(total_loaded)} MT – {grade}",
-            f"Stowage Plan =\t{_fmt_mt(stowage_plan)} MT – {grade} (As per declared by master)",
-            f"Balance to go =\t{_fmt_mt(balance)} MT – {grade}",
-            "",
-            f"Delays: {(shift.get('delays') or '-').strip()}",
-        ]
+        for label, qty, cid in holds:
+            lines.append(f"{label}/\t{_fmt_mt(qty)} MT – {grade_by_id.get(cid, '')}")
+        lines.append("")
+        if single:
+            lines.append(f"Total shift =\t{_fmt_mt(shift_total)} MT – {single['grade']}")
+            lines.append(f"Total loaded =\t{_fmt_mt(single['total_loaded'])} MT – {single['grade']}")
+            lines.append(
+                f"Stowage Plan =\t{_fmt_mt(single['stowage_plan'])} MT – {single['grade']} "
+                "(As per declared by master)"
+            )
+            lines.append(f"Balance to go =\t{_fmt_mt(single['balance'])} MT – {single['grade']}")
+        else:
+            lines.append(f"Total shift =\t{_fmt_mt(shift_total)} MT – ")
+            lines.append(f"Total loaded =\t{_fmt_mt(combined_loaded)} MT – ")
+            for i, pc in enumerate(per_cargo):
+                prefix = "Stowage Plan =\t" if i == 0 else "\t\t"
+                lines.append(f"{prefix}{_fmt_mt(pc['stowage_plan'])} MT – {pc['grade']} (as per Stowage Plan)")
+            for i, pc in enumerate(per_cargo):
+                prefix = "Balance to go =\t" if i == 0 else "\t\t"
+                lines.append(f"{prefix}{_fmt_mt(pc['balance'])} MT – {pc['grade']}")
+        lines += ["", f"Delays: {(shift.get('delays') or '-').strip()}"]
         if (notes or "").strip():
             lines += ["", "Remarks:", notes.strip()]
         if shift.get("include_breakdown"):
-            prior_holds: dict[str, float] = dict(shift.get("prior_holds") or {})
-            cumulative: dict[str, float] = dict(prior_holds)
-            for label, qty in holds:
+            cumulative: dict[str, float] = {}
+            for c in cargos:
+                for label, qty in (c.get("prior_holds") or {}).items():
+                    cumulative[label] = cumulative.get(label, 0.0) + qty
+            for label, qty, cid in holds:
                 cumulative[label] = cumulative.get(label, 0.0) + qty
             lines += ["", "Breakdown by Holds:"]
             for label, qty in cumulative.items():

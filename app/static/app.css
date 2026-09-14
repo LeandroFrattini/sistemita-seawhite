@@ -279,6 +279,9 @@ table.list th { background: #eef2f0; }
 #shift-fields { border-top: 1px dashed var(--line); padding-top: 10px; margin-bottom: 4px; }
 .hold-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .hold-row-label { width: 28px; flex: none; font-size: 13px; font-weight: 600; color: var(--muted); }
+.hold-row select {
+  padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; flex: 1;
+}
 
 .event-picker { position: relative; margin-bottom: 6px; }
 .event-search { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
