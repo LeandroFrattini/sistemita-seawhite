@@ -131,13 +131,8 @@
         <label class="type-chip"><input type="radio" name="bd_kind" value="arrival" checked><span>Arrival Conditions</span></label>
         <label class="type-chip"><input type="radio" name="bd_kind" value="departure"><span>Departure Conditions</span></label>
       </div>
-      <p class="muted" style="margin:2px 0 10px">Poné la misma fecha/hora del evento que le sigue en el
-      itinerario (ej. "Made all fast" para Arrival, "Sailed" para Departure) para que quede pegado justo
-      después en el Statement of Facts.</p>
-      <div class="vf-fields">
-        <label>Fecha<input type="text" id="bd-date"></label>
-        <label>Hora<input type="time" id="bd-time"></label>
-      </div>
+      <p class="muted" style="margin:2px 0 10px">Se pega solo justo después de "Made all fast" (Arrival) o
+      "Sailed" (Departure) -- tiene que estar ya cargado ese evento en el Statement of Facts.</p>
       <div class="vf-fields">
         <label>VLSFO (mt)<input type="text" id="bd-vlsfo"></label>
         <label>DO (mt)<input type="text" id="bd-do"></label>
@@ -146,6 +141,13 @@
       <div class="vf-fields">
         <label>Draft Fwd<input type="text" id="bd-fwd"></label>
         <label>Draft Aft<input type="text" id="bd-aft"></label>
+      </div>
+      <div id="bd-eta-box" hidden>
+        <label class="vf-holds-label">ETA Next Country (opcional)</label>
+        <div class="vf-fields">
+          <label>País<input type="text" id="bd-eta-country" placeholder="ej. Bangladesh"></label>
+          <label>Fecha<input type="date" id="bd-eta-date"></label>
+        </div>
       </div>
       <div class="row end" style="gap:8px;margin-top:10px">
         <button type="button" class="btn" id="bd-exit">Exit</button>
@@ -212,38 +214,17 @@
       <label class="check"><input type="checkbox" name="include_breakdown"> Incluir breakdown acumulado por bodega (ej. Oceanway)</label>
     </div>
 
-    <details class="vf-cargo-box vf-bc-box">
-      <summary>+ Agregar Berthing Conditions (draft / ROB)</summary>
-      <p class="muted" style="margin:4px 0 8px">Se arma el bloque tal como en los modelos reales y se inserta en el
-      cuadro de Detalle, en el punto donde tengas el cursor.</p>
-      <div class="vf-fields">
-        <label>Draft FWD (MTS)<input type="text" id="bc-fwd" placeholder="10.18"></label>
-        <label>Draft AFT (MTS)<input type="text" id="bc-aft" placeholder="10.20"></label>
+    <div class="vf-header-preview">
+      <label class="vf-holds-label">Encabezado (automático según cliente -- solo referencia, no se edita)</label>
+      {% for hp in header_previews %}
+      <div class="header-preview-block">
+        <div class="header-preview-client">{{ hp.client }}</div>
+        <pre class="header-preview-text">{{ hp.header }}</pre>
       </div>
-      <div class="vf-fields">
-        <label>ROB VLFO<input type="text" id="bc-vlfo" placeholder="718.67"></label>
-        <label>ROB DO<input type="text" id="bc-do" placeholder="206.10"></label>
-        <label>ROB FW<input type="text" id="bc-fw" placeholder="243.00"></label>
-        <label>ROB LO<input type="text" id="bc-lo" placeholder="46,567"></label>
-      </div>
-      <button type="button" class="mini primary" id="bc-insert">Insertar en el Detalle</button>
-    </details>
-
-    <details class="vf-cargo-box vf-bc-box">
-      <summary>+ Agregar Arrival Conditions (WBL)</summary>
-      <p class="muted" style="margin:4px 0 8px">Formato distinto al de arriba, para cuando el destinatario es WBL
-      (calcado de los modelos reales) -- se inserta en el cuadro de Detalle, en el punto donde tengas el cursor.</p>
-      <div class="vf-fields">
-        <label>Robs IFO (mt)<input type="text" id="ac-ifo" placeholder="502.29"></label>
-        <label>Robs MDO (mt)<input type="text" id="ac-mdo" placeholder="175.85"></label>
-        <label>Robs FW (mt, opcional)<input type="text" id="ac-fw" placeholder="185"></label>
-      </div>
-      <div class="vf-fields">
-        <label>Draft FWD (m)<input type="text" id="ac-fwd" placeholder="8.70"></label>
-        <label>Draft AFT (m)<input type="text" id="ac-aft" placeholder="9.00"></label>
-      </div>
-      <button type="button" class="mini primary" id="ac-insert">Insertar en el Detalle</button>
-    </details>
+      {% else %}
+      <p class="muted">Este barco no tiene clientes destinatarios configurados.</p>
+      {% endfor %}
+    </div>
 
     <div class="vf-notes-head">
       <label id="notes-label" for="notes-field">Detalle (plantilla ya armada -- editala como quieras)</label>
@@ -429,56 +410,6 @@ function insertAtCursor(textarea, text) {
   textarea.setSelectionRange(pos, pos);
 }
 
-// --- Berthing Conditions: arma el bloque draft/ROB y lo inserta ------ //
-document.getElementById("bc-insert")?.addEventListener("click", () => {
-  const fwd = document.getElementById("bc-fwd").value.trim();
-  const aft = document.getElementById("bc-aft").value.trim();
-  const vlfo = document.getElementById("bc-vlfo").value.trim();
-  const doo = document.getElementById("bc-do").value.trim();
-  const fw = document.getElementById("bc-fw").value.trim();
-  const lo = document.getElementById("bc-lo").value.trim();
-
-  const lines = ["BERTHING CONDITIONS:", ""];
-  if (fwd || aft) {
-    lines.push(`            DRAFT: FWD: ${fwd || "-"} MTS / AFT: ${aft || "-"} MTS`);
-  }
-  const robParts = [];
-  if (vlfo) robParts.push(`VLFO: ${vlfo}`);
-  if (doo) robParts.push(`DO ${doo}`);
-  if (fw) robParts.push(`FW: ${fw}`);
-  if (lo) robParts.push(`LO: ${lo}`);
-  if (robParts.length) lines.push(`            ROB:   ${robParts.join(" / ")}`);
-
-  if (lines.length === 2) {
-    alert("Cargá al menos un dato (draft o ROB) para armar el bloque.");
-    return;
-  }
-  insertAtCursor(document.getElementById("notes-field"), lines.join("\n"));
-});
-
-// --- Arrival Conditions (WBL): arma el bloque Robs/Drafts y lo inserta - //
-document.getElementById("ac-insert")?.addEventListener("click", () => {
-  const ifo = document.getElementById("ac-ifo").value.trim();
-  const mdo = document.getElementById("ac-mdo").value.trim();
-  const fw = document.getElementById("ac-fw").value.trim();
-  const fwd = document.getElementById("ac-fwd").value.trim();
-  const aft = document.getElementById("ac-aft").value.trim();
-
-  const lines = ["Arrival Conditions:"];
-  const robParts = [];
-  if (ifo) robParts.push(`ifo ${ifo} mt`);
-  if (mdo) robParts.push(`mdo ${mdo} mt`);
-  if (fw) robParts.push(`fw ${fw} mt`);
-  if (robParts.length) lines.push(`Robs; ${robParts.join(" – ")}`);
-  if (fwd || aft) lines.push(`Drafts; fwd ${fwd || "-"} m – aft ${aft || "-"} m`);
-
-  if (lines.length === 1) {
-    alert("Cargá al menos un dato (Robs o Drafts) para armar el bloque.");
-    return;
-  }
-  insertAtCursor(document.getElementById("notes-field"), lines.join("\n"));
-});
-
 function escapeHtml(s) {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
@@ -616,13 +547,40 @@ async function saveSofEntry(closeAfter) {
 }
 
 // --- Brob/Draft: arma Arrival/Departure Conditions y lo guarda como
-// un evento mas del Statement of Facts ------------------------------- //
+// un evento mas del Statement of Facts, pegado justo despues del evento
+// que le corresponde en el itinerario (busca el ultimo "made all fast" o
+// "sailed" ya cargado y usa esa misma fecha/hora, sin pedirla a mano) --- //
 const bdModal = document.getElementById("bd-modal");
+const bdEtaBox = document.getElementById("bd-eta-box");
+const ETA_MONTHS = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE",
+  "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+
+function bdOrdinalSuffix(n) {
+  const r = n % 100;
+  if (r >= 11 && r <= 13) return "TH";
+  return { 1: "ST", 2: "ND", 3: "RD" }[n % 10] || "TH";
+}
+
+function findAnchorEntry(keyword) {
+  const rows = [...sofList.querySelectorAll(".sof-row")];
+  const matches = rows
+    .map((r) => JSON.parse(r.dataset.entry))
+    .filter((e) => (e.text || "").toLowerCase().includes(keyword));
+  return matches.length ? matches[matches.length - 1] : null;
+}
+
+function toggleBdKind() {
+  const kind = document.querySelector('input[name="bd_kind"]:checked').value;
+  bdEtaBox.hidden = kind !== "departure";
+}
+document.querySelectorAll('input[name="bd_kind"]').forEach((r) => r.addEventListener("change", toggleBdKind));
+
 document.getElementById("open-bd-modal")?.addEventListener("click", () => {
-  // sin auto-completar fecha/hora: tiene que quedar pegado justo despues
-  // del evento que corresponda (Made all fast / Sailed), no en "ahora"
-  ["bd-date", "bd-time", "bd-vlsfo", "bd-do", "bd-fw", "bd-fwd", "bd-aft"].forEach((id) => (document.getElementById(id).value = ""));
+  ["bd-vlsfo", "bd-do", "bd-fw", "bd-fwd", "bd-aft", "bd-eta-country", "bd-eta-date"].forEach(
+    (id) => (document.getElementById(id).value = "")
+  );
   document.querySelector('input[name="bd_kind"][value="arrival"]').checked = true;
+  toggleBdKind();
   bdModal.showModal();
 });
 document.getElementById("close-bd-modal")?.addEventListener("click", () => bdModal.close());
@@ -636,6 +594,8 @@ document.getElementById("bd-save")?.addEventListener("click", async () => {
   const fw = document.getElementById("bd-fw").value.trim();
   const fwd = document.getElementById("bd-fwd").value.trim();
   const aft = document.getElementById("bd-aft").value.trim();
+  const etaCountry = document.getElementById("bd-eta-country").value.trim();
+  const etaDateIso = document.getElementById("bd-eta-date").value;
 
   const bunkerParts = [];
   if (vlsfo) bunkerParts.push(`VLSFO: ${vlsfo} mt`);
@@ -643,8 +603,18 @@ document.getElementById("bd-save")?.addEventListener("click", async () => {
   if (fw) bunkerParts.push(`FW: ${fw} mt`);
   const hasDraft = fwd || aft;
 
-  if (!bunkerParts.length && !hasDraft) {
-    alert("Cargá al menos un dato (VLSFO/DO/FW o Draft) para armar el bloque.");
+  if (!bunkerParts.length && !hasDraft && !(etaCountry && etaDateIso)) {
+    alert("Cargá al menos un dato (VLSFO/DO/FW, Draft o ETA Next Country) para armar el bloque.");
+    return;
+  }
+
+  const anchor = findAnchorEntry(kind === "arrival" ? "made all fast" : "sailed");
+  if (!anchor) {
+    alert(
+      kind === "arrival"
+        ? 'No encontré ningún evento "Made all fast" cargado todavía en el Statement of Facts -- agregalo primero.'
+        : 'No encontré ningún evento "Sailed" cargado todavía en el Statement of Facts -- agregalo primero.'
+    );
     return;
   }
 
@@ -658,12 +628,17 @@ document.getElementById("bd-save")?.addEventListener("click", async () => {
     const lines = ["Departure Conditions:"];
     if (hasDraft) lines.push(`Draft: Fwd: ${fwd || "-"} mts // Aft: ${aft || "-"} mts`);
     if (bunkerParts.length) lines.push(`Brob: ${bunkerParts.join(" // ")}`);
+    if (etaCountry && etaDateIso) {
+      const [y, m, d] = etaDateIso.split("-").map(Number);
+      const etaTxt = `${d}${bdOrdinalSuffix(d)} ${ETA_MONTHS[m - 1]},${y}`;
+      lines.push("", `AS INFORMED BY MASTER. ETA ${etaCountry.toUpperCase()}: ${etaTxt}`);
+    }
     text = lines.join("\n");
   }
 
   const body = new URLSearchParams({
-    event_date: document.getElementById("bd-date").value,
-    time_from: document.getElementById("bd-time").value,
+    event_date: anchor.event_date,
+    time_from: anchor.time_from,
     category: "OPERATION",
     location: "",
     text,

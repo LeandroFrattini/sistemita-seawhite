@@ -25,7 +25,14 @@ from ..models import (
     VesselReport,
     VESSEL_REPORT_TYPES,
 )
-from ..reports import _parse_qty, build_shift_report, build_sof_text, build_vessel_status_report, status_template
+from ..reports import (
+    _parse_qty,
+    build_shift_report,
+    build_sof_text,
+    build_vessel_status_report,
+    status_header,
+    status_template,
+)
 from ..service import CC_KEY, DEFAULT_CC, get_setting, split_emails
 from ..templating import templates
 
@@ -154,6 +161,10 @@ def vessel_file_page(
         )
         if c
     ]
+    header_previews = [
+        {"client": c.name, "header": status_header(vf, c)[0]}
+        for c in vf.recipient_clients()
+    ]
     return templates.TemplateResponse(
         request, "vessels/detail.html",
         {
@@ -165,6 +176,7 @@ def vessel_file_page(
             "clients": vf.recipient_clients(),
             "cargos": vf.cargos,
             "event_categories": event_categories,
+            "header_previews": header_previews,
         },
     )
 

@@ -640,6 +640,35 @@ def status_template(
     return f"DEAR ALL, GOOD DAY\n{opener}\n\n{_event_date_header(event_at)}\n"
 
 
+def status_header(vf, client) -> tuple[str, bool]:
+    """Header TO/FM/REF + (PORT/TERMINAL o Berth), armado distinto segun el
+    formato del cliente (WBL_TEXT vs EXCEL) -- lo usa tanto el reporte real
+    como la vista previa de arriba del cuadro de Detalle. Devuelve
+    (header_sin_salto_final, is_wbl)."""
+    pfx = vessel_prefix(vf.vessel_type)
+    terminal_name = (vf.terminal.name if vf.terminal else vf.terminal_code) or ""
+    terminal_name = terminal_name.upper() or "TERMINAL"
+    to_name = client.display_to.upper() if client else "(SIN CLIENTE)"
+    is_wbl = bool(client and client.report_format == "WBL_TEXT")
+    if is_wbl:
+        pfx_slash = pfx[0] + "/" + pfx[1]
+        header = (
+            f"TO {to_name}\n"
+            f"FM {settings.mail_from_name}\n\n"
+            f"Ref: {pfx_slash} {vf.vessel_name.upper()}\n"
+            f"Berth: {terminal_name}"
+        )
+    else:
+        header = (
+            f"TO: {to_name}\n"
+            f"FM: {settings.mail_from_name}\n"
+            f"REF: {pfx} {vf.vessel_name.upper()}\n\n"
+            f"PORT: {PORT_LABEL}\n"
+            f"TERMINAL: {terminal_name}"
+        )
+    return header, is_wbl
+
+
 def build_vessel_status_report(
     vf, client, report_types: list[str], event_at: str, figure: str, notes: str,
     signature_html: str = "", operation: str = "Load", statement_of_facts: str = "",
@@ -652,39 +681,21 @@ def build_vessel_status_report(
     que se le hicieron a mano); si vino vacio se usa la plantilla sola."""
     labels = dict(VESSEL_REPORT_TYPES)
     types = set(report_types)
-    pfx = vessel_prefix(vf.vessel_type)
-    terminal_name = (vf.terminal.name if vf.terminal else vf.terminal_code) or ""
-    terminal_name = terminal_name.upper() or "TERMINAL"
     phrase = _status_phrase(types, _operation_word(operation), labels)
 
     to_name = client.display_to.upper() if client else "(SIN CLIENTE)"
     to_emails = client.email_list if client else []
-    is_wbl = bool(client and client.report_format == "WBL_TEXT")
+    header, is_wbl = status_header(vf, client)
+    pfx = vessel_prefix(vf.vessel_type)
+    terminal_name = (vf.terminal.name if vf.terminal else vf.terminal_code) or ""
+    terminal_name = terminal_name.upper() or "TERMINAL"
 
     body = (notes or "").strip() or status_template(vf, report_types, event_at, operation, is_wbl=is_wbl)
     if (figure or "").strip():
         body += f"\n\nFIGURE: {figure.strip()}".upper()
 
-    if is_wbl:
-        pfx_slash = pfx[0] + "/" + pfx[1]
-        text_body = (
-            f"TO {to_name}\n"
-            f"FM {settings.mail_from_name}\n\n"
-            f"Ref: {pfx_slash} {vf.vessel_name.upper()}\n"
-            f"Berth: {terminal_name}\n\n"
-            + body
-        )
-        subject_suffix = "BERTH"
-    else:
-        text_body = (
-            f"TO: {to_name}\n"
-            f"FM: {settings.mail_from_name}\n"
-            f"REF: {pfx} {vf.vessel_name.upper()}\n\n"
-            f"PORT: {PORT_LABEL}\n"
-            f"TERMINAL: {terminal_name}\n\n"
-            + body
-        )
-        subject_suffix = "TERMINAL"
+    text_body = header + "\n\n" + body
+    subject_suffix = "BERTH" if is_wbl else "TERMINAL"
     text_body = _append_statement_of_facts(text_body, statement_of_facts)
     html_body = _wrap_body(
         f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>', signature_html
