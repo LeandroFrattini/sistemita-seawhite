@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from .auth import hash_password
@@ -95,29 +95,56 @@ DEFAULT_CLIENTS = [
 
 # Punto de partida de la biblioteca de eventos (Admin -> Eventos la sigue
 # completando). Los {PLACEHOLDER} entre llaves se dejan para editar a mano
-# al insertar (nombre de terminal, barcaza, etc).
+# al insertar (terminal, surveyor, barcaza, cantidad de bodegas, etc).
+# Sacados de los .eml reales que paso Leandro (MV ANAHITA, MV PHAEDRA, MV
+# BAI GUAN, MV FLORA) + la biblioteca de referencia que mostro (DELAYS PORT /
+# OPERATION PORT / BUNKERS PORT), deduplicados y reagrupados.
 DEFAULT_EVENT_TEMPLATES = [
-    ("STATUS", "Arrived and Anchored at Bahia Blanca roads."),
-    ("STATUS", "Made all fast alongside to {TERMINAL} terminal."),
-    ("STATUS", "Commenced Loading."),
-    ("STATUS", "Commenced Discharging."),
-    ("STATUS", "Loading completed."),
-    ("STATUS", "Discharging completed."),
+    ("ARRIVED", "Anchor aweigh and proceeded to Buoy 11 P/S as per Coast Guard instructions."),
+    ("ARRIVED", "Arrived and anchored at Bahia Blanca roads."),
+    ("ARRIVED", "Arrived and anchored at outer anchorage."),
+    ("ARRIVED", "Arrived at Buoy 11 P/S, pilot boarded and continued navigation towards berth."),
+    ("ARRIVED", "Arrived at inner roads and two tugs made fast."),
+    ("ARRIVED", "End of sea passage. Load berth was free."),
+    ("ARRIVED", "First line ashore."),
+    ("ARRIVED", "Gangway placed / Pilot off / Agent and authorities on board."),
+    ("ARRIVED", "Inward clearance granted by Port Authorities."),
+    ("ARRIVED", "Made all fast alongside {TERMINAL} terminal."),
+    ("ARRIVED", "Notice of readiness tendered by Master."),
+    ("ARRIVED", "Notice of readiness re-tendered by Master."),
+    ("ARRIVED", "Pilots boarded and passed Buoy 11."),
+    ("ARRIVED", "Tugs cast off / released."),
+    ("ARRIVED", "Vessel remained anchored awaiting berthing instructions."),
+    ("BUNKERING", "Bunker barge {BARGE} away."),
+    ("BUNKERING", "Desloping barge away."),
+    ("BUNKERING", "Fresh water barge away."),
     ("DELAYS", "Awaiting Customs and terminal surveyors in order to perform final Draft Survey."),
     ("DELAYS", "Awaiting Customs' authorization to start loading."),
     ("DELAYS", "Awaiting Master to sign cargo documents."),
     ("DELAYS", "Awaiting Master to sign mate's receipt."),
     ("DELAYS", "Awaiting Shippers to present cargo documents."),
     ("DELAYS", "Delay due to adverse weather conditions."),
+    ("DELAYS", "Delay due to draft check."),
     ("DELAYS", "Delay due to strong winds."),
+    ("DELAYS", "Stevedores not appointed by Shippers."),
     ("OPERATION", "Awaiting SeNaSA's green light to commence loading operations."),
     ("OPERATION", "Awaiting shore readiness."),
     ("OPERATION", "Cargo holds inspected and approved by {SURVEYOR} surveyors."),
-    ("OPERATION", "Initial draft survey carried out by {SURVEYOR} surveyors."),
+    ("OPERATION", "Commenced discharging operations."),
+    ("OPERATION", "Commenced loading operations by {N} gangs into holds {HOLDS}."),
+    ("OPERATION", "Completed loading operations."),
+    ("OPERATION", "Discharging completed."),
     ("OPERATION", "Final draft survey carried out by {SURVEYOR} surveyors."),
-    ("BUNKERS", "Bunker barge {BARGE} away."),
-    ("BUNKERS", "Desloping barge away."),
-    ("BUNKERS", "Fresh water barge away."),
+    ("OPERATION", "Fumigation of cargo holds carried out by {COMPANY}."),
+    ("OPERATION", "Holds sealing carried out by {COMPANY}."),
+    ("OPERATION", "Initial draft survey carried out by {SURVEYOR} surveyors."),
+    ("OPERATION", "Preparing works ashore."),
+    ("OPERATION", "Senasa gave OK to load."),
+    ("SAILING", "Outward clearance granted by Port Authorities."),
+    ("SAILING", "Pilot on board and tugs made fast for sailing."),
+    ("SAILING", "Sailed to Buoy {N}."),
+    ("SAILING", "Sailed to destination (as per VTS times)."),
+    ("SAILING", "Vessel alongside awaiting favourable tide for sailing."),
 ]
 
 
@@ -193,7 +220,28 @@ def _seed_signature(db: Session) -> None:
 
 
 def _seed_event_templates(db: Session) -> None:
-    if db.scalar(select(EventTemplate).limit(1)):
-        return
+    """Agrega los wordings de DEFAULT_EVENT_TEMPLATES que todavia no esten
+    cargados (por texto exacto) -- no solo la primera vez, asi una base que
+    ya tenia algunos wordings recibe los nuevos que se van sumando a la
+    lista sin duplicar los que el usuario ya edito o agrego el mismo."""
+    # "BUNKERS" (nombre viejo) -> "BUNKERING", para las bases que ya lo
+    # tenian sembrado con el nombre anterior
+    db.query(EventTemplate).filter(EventTemplate.category == "BUNKERS").update(
+        {EventTemplate.category: "BUNKERING"}
+    )
+    # la categoria vieja "STATUS" quedo duplicada/superada por ARRIVED y
+    # OPERATION (frases mas completas) -- se borra, salvo la version corta
+    # de "Commenced Loading." que se conserva reubicada en OPERATION
+    for e in db.scalars(select(EventTemplate).where(EventTemplate.category == "STATUS")):
+        if e.text.strip() == "Commenced Loading.":
+            e.category = "OPERATION"
+        else:
+            db.delete(e)
+    db.flush()
+    existing = {(e.category, e.text) for e in db.scalars(select(EventTemplate))}
+    max_order = db.scalar(select(func.max(EventTemplate.sort_order))) or 0
     for i, (category, text_) in enumerate(DEFAULT_EVENT_TEMPLATES):
-        db.add(EventTemplate(category=category, text=text_, sort_order=i, active=True))
+        if (category, text_) in existing:
+            continue
+        max_order += 1
+        db.add(EventTemplate(category=category, text=text_, sort_order=max_order, active=True))

@@ -206,7 +206,7 @@ def search_event_templates(
     q = q.strip()
     if q:
         stmt = stmt.where(EventTemplate.text.ilike(f"%{q}%"))
-    stmt = stmt.order_by(EventTemplate.category, EventTemplate.sort_order, EventTemplate.id).limit(30)
+    stmt = stmt.order_by(EventTemplate.category, EventTemplate.text).limit(30)
     return [{"id": e.id, "category": e.category, "text": e.text} for e in db.scalars(stmt)]
 
 

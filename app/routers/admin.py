@@ -26,7 +26,7 @@ def admin_home(
     tab = tab if tab in ADMIN_TABS else "usuarios"
     users = db.query(User).order_by(User.username).all()
     logs = db.query(ReportLog).order_by(ReportLog.generated_at.desc()).limit(50).all()
-    events = db.scalars(select(EventTemplate).order_by(EventTemplate.category, EventTemplate.sort_order, EventTemplate.id))
+    events = db.scalars(select(EventTemplate).order_by(EventTemplate.category, EventTemplate.text))
     return templates.TemplateResponse(
         request,
         "admin/home.html",

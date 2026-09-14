@@ -121,7 +121,7 @@
   </details>
 
   {% for cat, items in events|groupby('category') %}
-  <details class="vf-cargo-box" open>
+  <details class="vf-cargo-box">
     <summary>{{ cat or 'Sin categoría' }} ({{ items|length }})</summary>
     <div class="client-list">
     {% for e in items %}
