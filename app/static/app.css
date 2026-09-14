@@ -212,6 +212,7 @@ table.list th { background: #eef2f0; }
 .type-chip:has(input:checked) { background: var(--green); border-color: var(--green); color: #fff; font-weight: 600; }
 .vf-fields { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
 .vf-fields label, .vf-report-form > label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); flex: 1; min-width: 160px; }
+.vf-report-form > label.check { flex-direction: row; align-items: flex-start; flex: none; min-width: 0; gap: 6px; }
 .vf-fields input, .vf-report-form textarea {
   padding: 10px 11px; border: 1px solid var(--line); border-radius: 8px; font-size: 14px; font-family: inherit;
 }

@@ -118,14 +118,14 @@ def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_
 def add_our_vessel(
     db: Session = Depends(get_db), user: User = Depends(current_user),
     vessel_name: str = Form(...), ubicacion: str = Form(...),
-    principal: str = Form(""), eta: str = Form(""),
+    principal: str = Form(""), eta: str = Form(""), lleva_reporte: str = Form(""),
 ):
     """Alta rapida para barcos que no pasan por el line-up "oficial" (ej.
     vienen solo a tomar bunker, en Boya 11) -- se escribe la ubicacion a
     mano y si no existe un muelle con ese nombre se crea uno nuevo (GRAIN,
     excluido del Excel), asi la proxima vez que se repita esa ubicacion se
-    reusa el mismo. Queda marcado "Nuestro" y abre legajo en Barcos (ID)
-    igual que cualquier otro barco nuestro."""
+    reusa el mismo. Queda marcado "Nuestro" siempre (para el recuento);
+    el legajo en Barcos (ID) solo se abre si se tildo "Lleva reporte"."""
     ubicacion = ubicacion.strip()
     if not vessel_name.strip() or not ubicacion:
         return RedirectResponse("/nuestros-barcos", status_code=302)
@@ -151,13 +151,14 @@ def add_our_vessel(
     call = VesselCall(
         lineup_id=lineup.id, terminal_id=terminal.id, sort_order=(max_order or 0) + 10,
         vessel_name=vessel_name.strip(), vessel_type="Bulk Carrier", operation="Load",
-        eta=eta.strip(), is_ours=True,
+        eta=eta.strip(), is_ours=True, needs_report=lleva_reporte == "on",
     )
     db.add(call)
     db.flush()
     _set_principal(db, call, principal.strip())
     lineup.updated_by = user.username
-    ensure_vessel_file(db, call, user)
+    if call.needs_report:
+        ensure_vessel_file(db, call, user)
     db.commit()
     return RedirectResponse("/nuestros-barcos", status_code=302)
 
@@ -243,7 +244,7 @@ async def update_call(call_id: int, request: Request, db: Session = Depends(get_
         return JSONResponse({"error": f"campo invalido: {field}"}, status_code=400)
 
     call.lineup.updated_by = user.username
-    vf = ensure_vessel_file(db, call, user) if call.is_ours else None
+    vf = ensure_vessel_file(db, call, user) if call.is_ours and call.needs_report else None
     db.commit()
     return {
         "ok": True,
@@ -278,7 +279,7 @@ async def set_extras(call_id: int, request: Request, db: Session = Depends(get_d
         if db.get(Client, cid):
             db.add(VesselExtraAgency(vessel_call_id=call.id, client_id=cid))
     db.flush()
-    if call.is_ours:
+    if call.is_ours and call.needs_report:
         ensure_vessel_file(db, call, user)
     db.commit()
     return {"ok": True}

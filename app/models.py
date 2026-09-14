@@ -140,6 +140,9 @@ class VesselCall(Base):
 
     is_ours: Mapped[bool] = mapped_column(Boolean, default=False)
     second_call: Mapped[bool] = mapped_column(Boolean, default=False)  # flammable "2ND CALL"
+    # False para barcos que solo cuentan para el recuento (ej. bunker en
+    # Boya 11) y no necesitan legajo/reportes en Barcos (ID)
+    needs_report: Mapped[bool] = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

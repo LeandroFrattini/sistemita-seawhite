@@ -9,15 +9,15 @@
     <h2>En el line-up ({{ en_lineup|length }})</h2>
     <button type="button" class="btn primary" id="open-add-vessel-modal">+ Agregar buque</button>
   </div>
-  <p class="muted" style="margin-top:-6px">Para barcos que no pasan por el line-up de Grain/Flammable
-  (ej. vienen solo a tomar bunker) -- escribí la ubicación tal cual (ej. "Boya 11"); si ya la usaste antes
-  se reusa sola.</p>
 
   <dialog id="add-vessel-modal">
     <div class="modal-head">
       <h2>Agregar buque</h2>
       <button type="button" class="modal-close" id="close-add-vessel-modal" aria-label="Cerrar">×</button>
     </div>
+    <p class="muted" style="margin:-4px 0 14px">Para barcos que no pasan por el line-up de Grain/Flammable
+    (ej. vienen solo a tomar bunker). Escribí la ubicación tal cual (ej. "Boya 11") -- si ya la usaste antes,
+    se reusa sola.</p>
     <form method="post" action="/nuestros-barcos/agregar" class="vf-report-form">
       <label>Buque<input type="text" name="vessel_name" placeholder="ej. MV EXAMPLE" required></label>
       <div class="vf-fields">
@@ -31,6 +31,10 @@
           <option value="{{ c.name }}">{{ c.name }}</option>
           {% endfor %}
         </select>
+      </label>
+      <label class="check" style="margin-top:10px">
+        <input type="checkbox" name="lleva_reporte">
+        ¿Lleva reporte? (destildado = solo cuenta para el recuento, no abre legajo en Barcos)
       </label>
       <button type="submit" class="btn primary vf-submit">Agregar</button>
     </form>
