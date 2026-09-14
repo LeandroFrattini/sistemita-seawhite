@@ -288,10 +288,18 @@
   {% if not vf.reports %}
   <p class="muted">Todavía no se mandó ningún reporte de este barco.</p>
   {% endif %}
+  {% if vf.reports|length > 1 %}
+  <div class="bulk-bar">
+    <label class="bulk-all"><input type="checkbox" id="hist-select-all"> Seleccionar todos</label>
+    <button id="hist-bulk-outlook" class="btn primary" disabled>✉ Abrir seleccionados en Outlook (<span id="hist-bulk-count">0</span>)</button>
+    <span id="hist-bulk-status" class="muted"></span>
+  </div>
+  {% endif %}
   {% for r in vf.reports %}
   <article class="report-card vf-report">
     <div class="rc-head">
       <div class="rc-name">
+        {% if vf.reports|length > 1 %}<input type="checkbox" class="rc-select">{% endif %}
         {% for t in r.type_list %}<span class="badge fl">{{ type_labels.get(t, t) }}</span>{% else %}<span class="badge fl">Update</span>{% endfor %}
         <span class="rc-date">{{ r.sent_at.strftime("%d/%m %H:%M") }} · {{ r.sent_by }}</span>
       </div>
@@ -325,21 +333,24 @@
 const MAILER = "http://127.0.0.1:8765";
 const payloadOf = (btn) => JSON.parse(btn.closest(".report-card").querySelector(".payload").textContent);
 
+async function openInOutlook(data) {
+  const res = await fetch(MAILER + "/compose", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ to: data.to, cc: data.cc || "", subject: data.subject, html: data.html }),
+  });
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || "error de Outlook");
+}
+
 document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
   btn.addEventListener("click", async () => {
-    const data = payloadOf(btn);
     const hint = btn.closest(".rc-actions").querySelector(".hint");
     btn.disabled = true;
     const orig = btn.textContent;
     btn.textContent = "Abriendo…";
     try {
-      const res = await fetch(MAILER + "/compose", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: data.to, cc: data.cc || "", subject: data.subject, html: data.html }),
-      });
-      const j = await res.json();
-      if (!j.ok) throw new Error(j.error || "error de Outlook");
+      await openInOutlook(payloadOf(btn));
       btn.textContent = "✓ Abierto en Outlook";
       setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
     } catch (e) {
@@ -349,6 +360,58 @@ document.querySelectorAll(".report-card [data-outlook]").forEach((btn) => {
       hint.textContent = "No se pudo. ¿Está el ayudante instalado en esta PC?";
     }
   });
+});
+
+// --- Historial: abrir varios reportes seleccionados de una sola vez --- //
+// (mismo patron que /reports, pero arranca sin nada tildado -- aca se
+// eligen a mano cuales, no es "todo el line-up del dia")
+const histSelectAll = document.getElementById("hist-select-all");
+const histBulkBtn = document.getElementById("hist-bulk-outlook");
+const histBulkCount = document.getElementById("hist-bulk-count");
+const histBulkStatus = document.getElementById("hist-bulk-status");
+
+function selectedReportCards() {
+  return [...document.querySelectorAll("#historial .report-card")].filter((card) => {
+    const cb = card.querySelector(".rc-select");
+    return cb && cb.checked;
+  });
+}
+function refreshHistBulk() {
+  if (!histBulkBtn) return;
+  histBulkCount.textContent = selectedReportCards().length;
+  histBulkBtn.disabled = selectedReportCards().length === 0;
+}
+document.querySelectorAll("#historial .rc-select").forEach((cb) => {
+  cb.addEventListener("change", () => {
+    if (histSelectAll && !cb.checked) histSelectAll.checked = false;
+    refreshHistBulk();
+  });
+});
+histSelectAll?.addEventListener("change", () => {
+  document.querySelectorAll("#historial .rc-select").forEach((cb) => (cb.checked = histSelectAll.checked));
+  refreshHistBulk();
+});
+
+histBulkBtn?.addEventListener("click", async () => {
+  const cards = selectedReportCards();
+  histBulkBtn.disabled = true;
+  let ok = 0, fail = 0;
+  for (let i = 0; i < cards.length; i++) {
+    const outlookBtn = cards[i].querySelector("[data-outlook]");
+    histBulkStatus.textContent = `Abriendo ${i + 1}/${cards.length}…`;
+    try {
+      await openInOutlook(payloadOf(outlookBtn));
+      ok++;
+      outlookBtn.textContent = "✓ Abierto en Outlook";
+    } catch (e) {
+      fail++;
+    }
+    await new Promise((r) => setTimeout(r, 350));
+  }
+  histBulkStatus.textContent = fail
+    ? `${ok} abiertos, ${fail} fallaron (¿ayudante instalado?)`
+    : `${ok} abiertos en Outlook ✓`;
+  refreshHistBulk();
 });
 
 document.querySelectorAll(".report-card [data-copy]").forEach((btn) => {
