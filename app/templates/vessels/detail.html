@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block nav_files %}active{% endblock %}
-{% block main_class %}wrap vf-detail{% endblock %}
+{% block main_class %}wide{% endblock %}
 {% block content %}
 <div class="vf-top">
   <a href="/barcos" class="back-link">← Barcos</a>
@@ -476,6 +476,19 @@ function nowHM() {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 }
 
+// La locacion de un evento nuevo arranca en la ultima que se cargo para
+// este barco (asi no hay que retipear "Bahia Blanca" en cada evento) --
+// si nunca se cargo ninguna, arranca en "Bahia Blanca" por default. Sigue
+// siendo editable por evento (para el caso Puerto Rosales, etc).
+function lastSofLocation() {
+  const rows = [...sofList.querySelectorAll(".sof-row")];
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const loc = (JSON.parse(rows[i].dataset.entry).location || "").trim();
+    if (loc) return loc;
+  }
+  return "Bahía Blanca";
+}
+
 // "prefill" trae fecha/hora (y el resto si es edicion); "isEdit" dice si
 // hay que guardar sobre ese id (editar) o crear uno nuevo con esa fecha
 // de arranque (asi "Save & Add Event" sigue cargando desde el mismo
@@ -486,7 +499,7 @@ function openSofModal(prefill, isEdit) {
   document.getElementById("sof-time-from").value = prefill ? prefill.time_from : nowHM();
   document.getElementById("sof-time-to").value = (isEdit && prefill.time_to) ? prefill.time_to : "";
   document.getElementById("sof-category").value = isEdit ? prefill.category : "";
-  document.getElementById("sof-location").value = isEdit ? prefill.location : "";
+  document.getElementById("sof-location").value = isEdit ? prefill.location : lastSofLocation();
   document.getElementById("sof-text").value = isEdit ? prefill.text : "";
   document.getElementById("sof-modal-title").textContent = isEdit ? "Editar evento" : "Nuevo evento";
   sofModal.showModal();
@@ -644,7 +657,7 @@ document.getElementById("bd-save")?.addEventListener("click", async () => {
     event_date: anchor.event_date,
     time_from: anchor.time_from,
     category: "OPERATION",
-    location: "",
+    location: lastSofLocation(),
     text,
   });
   try {

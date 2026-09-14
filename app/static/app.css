@@ -194,10 +194,10 @@ table.list th { background: #eef2f0; }
 .status-chip.sailed { background: #eef2f0; color: var(--muted); }
 .vf-status-date { display: block; font-size: 11px; margin-top: 2px; }
 
-.vf-detail { max-width: 720px; }
 .vf-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
 .back-link { color: var(--green-dark); text-decoration: none; font-size: 13px; }
 .vf-title { margin: 4px 0 2px; font-size: 22px; }
+.vf-info { max-width: 640px; }
 .vf-info-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
 .vf-info-row:last-of-type { border-bottom: none; }
 .vf-info-row span:first-child { color: var(--muted); }
