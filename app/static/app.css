@@ -177,18 +177,22 @@ table.list th { background: #eef2f0; }
 .inline-form input[type=month] { font-size: 12px; padding: 2px 4px; border: 1px solid var(--line); border-radius: 5px; }
 
 /* barcos (legajos) */
-.vf-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-.vf-card {
-  display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid var(--line);
-  border-radius: 10px; padding: 12px 14px; text-decoration: none; color: var(--ink);
-}
-.vf-card:hover { border-color: var(--green); }
-.vf-id { font-family: "Courier New", monospace; font-weight: 700; color: var(--green-dark); font-size: 14px; min-width: 2.6em; }
-.vf-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.vf-main b { font-size: 15px; }
-.vf-sub { font-size: 12.5px; color: var(--muted); }
+.vf-id { font-family: "Courier New", monospace; font-weight: 700; color: var(--green-dark); font-size: 13px; }
 .vf-badge { font-size: 11.5px; font-weight: 700; padding: 3px 10px; border-radius: 12px; background: #dcfce7; color: #166534; white-space: nowrap; }
 .vf-badge.closed { background: #eef2f0; color: var(--muted); }
+
+.vf-table { border-collapse: collapse; width: 100%; background: #fff; font-size: 13px; margin-top: 10px; }
+.vf-table th, .vf-table td { border-bottom: 1px solid var(--line); padding: 10px 12px; text-align: left; white-space: nowrap; }
+.vf-table th { background: #eef2f0; font-size: 11.5px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+.vf-table tbody tr { cursor: pointer; }
+.vf-table tbody tr:hover { background: #f7faf9; }
+.vf-table tbody tr.closed { opacity: .6; }
+.status-chip {
+  display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 12px;
+  background: #eef7f3; color: var(--green-dark);
+}
+.status-chip.sailed { background: #eef2f0; color: var(--muted); }
+.vf-status-date { display: block; font-size: 11px; margin-top: 2px; }
 
 .vf-detail { max-width: 720px; }
 .vf-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -217,6 +221,22 @@ table.list th { background: #eef2f0; }
 #notes-field { width: 100%; font-family: 'Courier New', monospace; font-size: 13px; line-height: 1.4; }
 .vf-submit { width: 100%; padding: 12px; font-size: 14.5px; }
 .vf-hint { margin-top: 8px; font-size: 12px; }
+
+.vf-reporte-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.vf-reporte-head h2 { margin: 0; }
+
+#report-modal {
+  border: none; border-radius: 12px; padding: 18px 20px 20px; width: min(640px, 92vw);
+  max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+#report-modal::backdrop { background: rgba(15, 30, 25, .45); }
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.modal-head h2 { margin: 0; font-size: 17px; }
+.modal-close {
+  border: none; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--muted);
+  padding: 2px 6px; border-radius: 6px;
+}
+.modal-close:hover { background: #eef2f0; color: var(--ink); }
 
 .vf-cargo-box { margin-bottom: 14px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px 12px; }
 .vf-cargo-box > summary { cursor: pointer; padding: 8px 0; font-weight: 600; font-size: 13.5px; }

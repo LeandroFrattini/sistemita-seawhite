@@ -34,7 +34,10 @@
 </section>
 
 <section id="reporte" class="card">
-  <h2>Generar reporte</h2>
+  <div class="vf-reporte-head">
+    <h2>Reportes</h2>
+    <button type="button" class="btn primary" id="open-report-modal">+ Nuevo reporte</button>
+  </div>
   {% if not clients %}
   <p class="warn">⚠ Este barco no tiene cliente/agencia cargado — cargá PRINCIPAL en el line-up para poder mandar.</p>
   {% endif %}
@@ -75,6 +78,11 @@
     </form>
   </details>
 
+  <dialog id="report-modal">
+    <div class="modal-head">
+      <h2>Nuevo reporte</h2>
+      <button type="button" class="modal-close" id="close-report-modal" aria-label="Cerrar">×</button>
+    </div>
   <form method="post" action="/barcos/{{ vf.id }}/reportes" class="vf-report-form" id="report-form">
     <div class="type-picker">
       {% for code, label in report_types %}
@@ -141,9 +149,10 @@
     <label class="check"><input type="checkbox" name="include_sof"> Incluir Statement of Facts al pie (clientes WBL)</label>
     {% endif %}
     <button type="submit" class="btn primary vf-submit">Generar reporte</button>
+    <p class="muted vf-hint">El encabezado y la apertura de Berthing / Commenced Loading / Loading Shifts ya usan
+    el wording real. Sailed todavía tiene una apertura genérica.</p>
   </form>
-  <p class="muted vf-hint">El encabezado y la apertura de Berthing / Commenced Loading / Loading Shifts ya usan
-  el wording real. Sailed todavía tiene una apertura genérica.</p>
+  </dialog>
 </section>
 
 <section id="historial" class="card">
@@ -229,6 +238,14 @@ document.querySelectorAll(".report-card [data-copy]").forEach((btn) => {
       alert("No se pudo copiar: " + e.message);
     }
   });
+});
+
+// --- popup de "Nuevo reporte" ----------------------------------------- //
+const reportModal = document.getElementById("report-modal");
+document.getElementById("open-report-modal")?.addEventListener("click", () => reportModal.showModal());
+document.getElementById("close-report-modal")?.addEventListener("click", () => reportModal.close());
+reportModal?.addEventListener("click", (ev) => {
+  if (ev.target === reportModal) reportModal.close();
 });
 
 // --- toggle campos de Loading Shift ---------------------------------- //

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block nav_files %}active{% endblock %}
+{% block main_class %}wide{% endblock %}
 {% block content %}
 <h1>Barcos</h1>
 <p class="muted">Cada barco marcado <b>Nuestro</b> en el line-up genera acá un legajo con ID. Se cierra solo
@@ -11,20 +12,39 @@ al mandar el reporte <b>Sailed</b> (o a mano); si el barco vuelve más adelante,
   <a class="mes-tab {{ 'on' if estado == 'todos' }}" href="/barcos?estado=todos">Todos</a>
 </div>
 
-{% if not files %}
+{% if not rows %}
 <p class="muted">No hay barcos acá todavía. Marcá uno como <b>Nuestro</b> en el line-up (Grain o Flammable).</p>
-{% endif %}
-
-<div class="vf-list">
-  {% for f in files %}
-  <a class="vf-card" href="/barcos/{{ f.id }}">
-    <span class="vf-id">#{{ f.id }}</span>
-    <span class="vf-main">
-      <b>{{ f.vessel_name }}</b>
-      <span class="vf-sub">{{ f.terminal.code if f.terminal else f.terminal_code }} · {{ f.principal_name or 'sin cliente' }}</span>
-    </span>
-    <span class="vf-badge {{ 'closed' if f.status == 'closed' }}">{{ 'Abierto' if f.status == 'open' else 'Cerrado' }}</span>
-  </a>
-  {% endfor %}
+{% else %}
+<div class="table-scroll">
+  <table class="vf-table">
+    <thead>
+      <tr>
+        <th>Barco</th>
+        <th>Estado actual</th>
+        <th>Muelle · Cliente</th>
+        <th>Próximo</th>
+        <th>Op.</th>
+        <th>Carga</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr class="{{ 'closed' if r.vf.status == 'closed' }}" onclick="location.href='/barcos/{{ r.vf.id }}'">
+        <td><span class="vf-id">#{{ r.vf.id }}</span> <b>{{ r.vf.vessel_name }}</b></td>
+        <td>
+          <span class="status-chip {{ 'sailed' if 'Sailed' in r.status_label }}">{{ r.status_label }}</span>
+          {% if r.status_at %}<span class="muted vf-status-date">{{ r.status_at.strftime("%d/%m %H:%M") }}</span>{% endif %}
+        </td>
+        <td>{{ r.vf.terminal.code if r.vf.terminal else r.vf.terminal_code }} · {{ r.vf.principal_name or 'sin cliente' }}</td>
+        <td class="muted">{{ r.next_status or '—' }}</td>
+        <td class="muted">{{ r.operation or '—' }}</td>
+        <td class="muted">{{ r.load_orders or '—' }}</td>
+        <td><span class="vf-badge {{ 'closed' if r.vf.status == 'closed' }}">{{ 'Abierto' if r.vf.status == 'open' else 'Cerrado' }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
+{% endif %}
 {% endblock %}

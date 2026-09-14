@@ -47,6 +47,40 @@ def _prior_shift_totals(db: Session, vessel_file_id: int, cargo_id: int) -> tupl
     return total, holds
 
 
+_STATUS_SHORT = {
+    "BERTHING": "Berthed",
+    "COMMENCED_LOADING": "Ldg Commenced",
+    "LOADING_SHIFTS": "Loading Shift",
+    "SAILED": "Sailed",
+}
+
+
+def _current_status(vf: VesselFile) -> tuple[str, datetime | None]:
+    """Ultimo evento del legajo (los reportes ya vienen ordenados por fecha
+    desc), para mostrar de un vistazo en el listado -- igual que la columna
+    "Current Status" del sistema que paso Leandro de referencia."""
+    if not vf.reports:
+        return ("Sin reportes", None)
+    last = vf.reports[0]
+    label = " + ".join(_STATUS_SHORT.get(t, t) for t in last.type_list) or "Reporte"
+    return (label, last.sent_at)
+
+
+def _next_status(vf: VesselFile, live_call: VesselCall | None) -> str:
+    if not live_call:
+        return ""
+    last_types = set(vf.reports[0].type_list) if vf.reports else set()
+    if "SAILED" in last_types:
+        return ""
+    if last_types & {"BERTHING", "COMMENCED_LOADING", "LOADING_SHIFTS"}:
+        return f"ETC {live_call.etc}" if live_call.etc else ""
+    if live_call.etb:
+        return f"ETB {live_call.etb}"
+    if live_call.eta:
+        return f"ETA {live_call.eta}"
+    return ""
+
+
 @router.get("/barcos", response_class=HTMLResponse)
 def vessel_files_page(
     request: Request, estado: str = "open",
@@ -62,9 +96,27 @@ def vessel_files_page(
     }
     counts.setdefault("open", 0)
     counts.setdefault("closed", 0)
+
+    rows = []
+    for f in files:
+        live_call = db.scalar(
+            select(VesselCall)
+            .where(VesselCall.vessel_name == f.vessel_name, VesselCall.terminal_id == f.terminal_id)
+            .order_by(VesselCall.id.desc())
+        )
+        status_label, status_at = _current_status(f)
+        rows.append({
+            "vf": f,
+            "status_label": status_label,
+            "status_at": status_at,
+            "next_status": _next_status(f, live_call),
+            "operation": live_call.operation if live_call else "",
+            "load_orders": f"{live_call.quantity} {live_call.grade}".strip() if live_call else "",
+        })
+
     return templates.TemplateResponse(
         request, "vessels/list.html",
-        {"user": user, "files": files, "estado": estado, "counts": counts},
+        {"user": user, "rows": rows, "estado": estado, "counts": counts},
     )
 
 
