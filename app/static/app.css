@@ -225,11 +225,11 @@ table.list th { background: #eef2f0; }
 .vf-reporte-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
 .vf-reporte-head h2 { margin: 0; }
 
-#report-modal {
+#report-modal, #sof-modal {
   border: none; border-radius: 12px; padding: 18px 20px 20px; width: min(640px, 92vw);
   max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25);
 }
-#report-modal::backdrop { background: rgba(15, 30, 25, .45); }
+#report-modal::backdrop, #sof-modal::backdrop { background: rgba(15, 30, 25, .45); }
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .modal-head h2 { margin: 0; font-size: 17px; }
 .modal-close {
@@ -240,6 +240,20 @@ table.list th { background: #eef2f0; }
 
 .vf-cargo-box { margin-bottom: 14px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 12px 12px; }
 .vf-cargo-box > summary { cursor: pointer; padding: 8px 0; font-weight: 600; font-size: 13.5px; }
+
+.sof-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.sof-row {
+  display: flex; align-items: center; gap: 10px; padding: 7px 9px; border: 1px solid var(--line);
+  border-radius: 7px; font-size: 12.5px; flex-wrap: wrap;
+}
+.sof-when { font-family: "Courier New", monospace; font-weight: 700; color: var(--green-dark); white-space: nowrap; }
+.sof-loc { font-size: 11px; font-weight: 700; color: var(--muted); background: #eef2f0; border-radius: 8px; padding: 1px 7px; }
+.sof-text { flex: 1; min-width: 160px; }
+.sof-edit, .sof-del {
+  border: none; background: none; cursor: pointer; font-size: 13px; padding: 2px 5px; border-radius: 5px; color: var(--muted);
+}
+.sof-edit:hover, .sof-del:hover { background: #eef2f0; color: var(--ink); }
+.sof-empty { margin-top: 8px; }
 .cargo-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
 .cargo-row input { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; }
 .cargo-row input[name=grade] { flex: 2; min-width: 160px; }

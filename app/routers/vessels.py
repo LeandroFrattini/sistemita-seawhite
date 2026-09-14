@@ -7,15 +7,24 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
 from ..database import get_db
 from ..eml import build_eml, safe_filename
-from ..models import EventTemplate, User, VesselCall, VesselCargo, VesselFile, VesselReport, VESSEL_REPORT_TYPES
-from ..reports import _parse_qty, build_shift_report, build_vessel_status_report, status_template
+from ..models import (
+    EventTemplate,
+    SofEntry,
+    User,
+    VesselCall,
+    VesselCargo,
+    VesselFile,
+    VesselReport,
+    VESSEL_REPORT_TYPES,
+)
+from ..reports import _parse_qty, build_shift_report, build_sof_text, build_vessel_status_report, status_template
 from ..service import CC_KEY, DEFAULT_CC, get_setting, split_emails
 from ..templating import templates
 
@@ -133,6 +142,12 @@ def vessel_file_page(
         .where(VesselCall.vessel_name == vf.vessel_name, VesselCall.terminal_id == vf.terminal_id)
         .order_by(VesselCall.id.desc())
     )
+    event_categories = [
+        c for (c,) in db.execute(
+            select(EventTemplate.category).distinct().order_by(EventTemplate.category)
+        )
+        if c
+    ]
     return templates.TemplateResponse(
         request, "vessels/detail.html",
         {
@@ -143,6 +158,7 @@ def vessel_file_page(
             "type_labels": dict(VESSEL_REPORT_TYPES),
             "clients": vf.recipient_clients(),
             "cargos": vf.cargos,
+            "event_categories": event_categories,
         },
     )
 
@@ -224,17 +240,63 @@ def delete_cargo(
     return RedirectResponse(f"/barcos/{file_id}#reporte", status_code=302)
 
 
-@router.post("/barcos/{file_id}/statement")
-def save_statement_of_facts(
+def _sof_entry_json(e: SofEntry) -> dict:
+    return {
+        "id": e.id, "event_date": e.event_date, "time_from": e.time_from, "time_to": e.time_to,
+        "category": e.category, "location": e.location, "text": e.text,
+    }
+
+
+@router.post("/barcos/{file_id}/sof")
+def create_sof_entry(
     file_id: int,
     db: Session = Depends(get_db), user: User = Depends(current_user),
-    statement_of_facts: str = Form(""),
+    event_date: str = Form(""), time_from: str = Form(""), time_to: str = Form(""),
+    category: str = Form(""), location: str = Form(""), text: str = Form(...),
 ):
     vf = db.get(VesselFile, file_id)
-    if vf:
-        vf.statement_of_facts = statement_of_facts.strip()
+    if not vf or not text.strip():
+        return JSONResponse({"ok": False, "error": "falta el barco o el texto"}, status_code=400)
+    e = SofEntry(
+        vessel_file_id=vf.id, event_date=event_date.strip(), time_from=time_from.strip(),
+        time_to=time_to.strip(), category=category.strip(), location=location.strip(),
+        text=text.strip(), created_by=user.username,
+    )
+    db.add(e)
+    db.commit()
+    return {"ok": True, "entry": _sof_entry_json(e)}
+
+
+@router.post("/barcos/{file_id}/sof/{entry_id}")
+def update_sof_entry(
+    file_id: int, entry_id: int,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+    event_date: str = Form(""), time_from: str = Form(""), time_to: str = Form(""),
+    category: str = Form(""), location: str = Form(""), text: str = Form(...),
+):
+    e = db.get(SofEntry, entry_id)
+    if not e or e.vessel_file_id != file_id:
+        return JSONResponse({"ok": False, "error": "no encontrado"}, status_code=404)
+    e.event_date = event_date.strip()
+    e.time_from = time_from.strip()
+    e.time_to = time_to.strip()
+    e.category = category.strip()
+    e.location = location.strip()
+    e.text = text.strip()
+    db.commit()
+    return {"ok": True, "entry": _sof_entry_json(e)}
+
+
+@router.post("/barcos/{file_id}/sof/{entry_id}/borrar")
+def delete_sof_entry(
+    file_id: int, entry_id: int,
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+):
+    e = db.get(SofEntry, entry_id)
+    if e and e.vessel_file_id == file_id:
+        db.delete(e)
         db.commit()
-    return RedirectResponse(f"/barcos/{file_id}#reporte", status_code=302)
+    return {"ok": True}
 
 
 @router.post("/barcos/{file_id}/reportes")
@@ -251,7 +313,7 @@ async def create_vessel_report(
     event_at = str(form.get("event_at", "")).strip()
     figure = str(form.get("figure", "")).strip()
     notes = str(form.get("notes", "")).strip()
-    sof = vf.statement_of_facts if form.get("include_sof") == "on" else ""
+    sof = build_sof_text(vf.sof_entries) if form.get("include_sof") == "on" else ""
 
     if tipos == ["LOADING_SHIFTS"]:
         cargo_id = int(form.get("cargo_id") or 0)

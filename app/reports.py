@@ -430,6 +430,30 @@ def _append_statement_of_facts(text_body: str, statement_of_facts: str) -> str:
     return text_body + "\n\n\nStatement of Facts:\n\n" + sof
 
 
+def build_sof_text(entries: list) -> str:
+    """Arma el Statement of Facts (formato calcado de MV DOVER: "25/1442 -
+    texto", agrupado por mes) a partir de las entradas cargadas una por una
+    en el popup del legajo. Las entradas ya vienen ordenadas por fecha/hora
+    (ver VesselFile.sof_entries)."""
+    lines: list[str] = []
+    current_month: tuple[int, int] | None = None
+    for e in entries:
+        d = parse_date(e.event_date)
+        if d and (d.year, d.month) != current_month:
+            current_month = (d.year, d.month)
+            if lines:
+                lines.append("")
+            lines.append(f"{_MONTHS_FULL[d.month - 1]}, {d.year}")
+        day = f"{d.day:02d}" if d else (e.event_date or "")
+        tf = (e.time_from or "").replace(":", "")
+        tt = (e.time_to or "").replace(":", "")
+        time_part = f"{day}/{tf}" if tf else day
+        if tt:
+            time_part += f"/{tt}"
+        lines.append(f"{time_part} - {e.text}" if time_part else e.text)
+    return "\n".join(lines)
+
+
 def build_shift_report(
     vf, client, shift: dict, notes: str, signature_html: str = "", statement_of_facts: str = "",
 ) -> BuiltReport:

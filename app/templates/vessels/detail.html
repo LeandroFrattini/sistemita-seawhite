@@ -62,21 +62,63 @@
     </form>
   </details>
 
-  <details class="vf-cargo-box">
-    <summary>Statement of Facts{{ ' (cargado)' if vf.statement_of_facts else '' }}</summary>
-    <p class="muted" style="margin:4px 0 8px">Historial acumulado del barco (para clientes WBL). Se guarda
-    completo acá -- agregale las líneas nuevas al final y guardá; se va a reimprimir entero al pie de cada
-    reporte que tilde "Incluir Statement of Facts".</p>
-    <form method="post" action="/barcos/{{ vf.id }}/statement">
-      <div class="event-picker">
-        <input type="text" class="event-search" data-target="sof-field" placeholder="🔍 Buscar evento para agregar (ej. surveyor, delays, bunker)...">
-        <div class="event-results" hidden></div>
+  <details class="vf-cargo-box" id="sof-details" open>
+    <summary>Statement of Facts{{ ' (' ~ vf.sof_entries|length ~ ')' if vf.sof_entries else '' }}</summary>
+    <p class="muted" style="margin:4px 0 8px">Historial acumulado del barco (para clientes WBL) -- se carga
+    un evento por vez y queda guardado solo; se reimprime completo al pie de cada reporte que tilde
+    "Incluir Statement of Facts".</p>
+    <button type="button" class="mini primary" id="open-sof-modal">+ Agregar evento</button>
+    <div class="sof-list" id="sof-list">
+      {% for e in vf.sof_entries %}
+      <div class="sof-row" data-id="{{ e.id }}"
+           data-entry='{{ {"id": e.id, "event_date": e.event_date, "time_from": e.time_from, "time_to": e.time_to, "category": e.category, "location": e.location, "text": e.text}|tojson }}'>
+        <span class="sof-when">{{ e.event_date }}{% if e.time_from %} {{ e.time_from }}{% endif %}{% if e.time_to %}-{{ e.time_to }}{% endif %}</span>
+        {% if e.location %}<span class="sof-loc">{{ e.location }}</span>{% endif %}
+        <span class="sof-text">{{ e.text }}</span>
+        <button type="button" class="sof-edit" title="Editar">✎</button>
+        <button type="button" class="sof-del" title="Borrar">🗑</button>
       </div>
-      <textarea name="statement_of_facts" id="sof-field" rows="6" style="width:100%;font-family:monospace;font-size:12.5px;"
-        placeholder="April, 2026&#10;25/1442 - E.O.S.P. Load berth was occupied by M/V LEDA C (Made all fast 24/04 1942 hrs).&#10;25/1442/2400 - Vessel remained anchored awaiting berthing instructions.">{{ vf.statement_of_facts }}</textarea>
-      <div class="row end" style="margin-top:8px"><button type="submit" class="mini primary">Guardar</button></div>
-    </form>
+      {% else %}
+      <p class="muted sof-empty">Sin eventos cargados todavía.</p>
+      {% endfor %}
+    </div>
   </details>
+
+  <dialog id="sof-modal">
+    <div class="modal-head">
+      <h2 id="sof-modal-title">Nuevo evento</h2>
+      <button type="button" class="modal-close" id="close-sof-modal" aria-label="Cerrar">×</button>
+    </div>
+    <form id="sof-form">
+      <input type="hidden" id="sof-entry-id">
+      <div class="vf-fields">
+        <label>Fecha<input type="text" id="sof-date" name="event_date" placeholder="14/09/2026"></label>
+        <label>Desde<input type="time" id="sof-time-from" name="time_from"></label>
+        <label>Hasta (opcional)<input type="time" id="sof-time-to" name="time_to"></label>
+        <label>Tipo
+          <select id="sof-category" name="category">
+            <option value="">Select...</option>
+            {% for c in event_categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <label>Evento
+        <div class="event-picker">
+          <input type="text" class="event-search" id="sof-event-search" data-target="sof-text" data-category-target="sof-category" placeholder="🔍 Buscar en la biblioteca...">
+          <div class="event-results" hidden></div>
+        </div>
+      </label>
+      <label>Locación (opcional)<input type="text" id="sof-location" name="location" placeholder="ej. San Lorenzo"></label>
+      <label>Texto (editá lo que haga falta)
+        <textarea id="sof-text" name="text" rows="4" required></textarea>
+      </label>
+      <div class="row end" style="gap:8px;margin-top:10px">
+        <button type="button" class="btn" id="sof-exit">Exit</button>
+        <button type="button" class="btn" id="sof-save-add">Save &amp; Add Event</button>
+        <button type="button" class="btn primary" id="sof-save">Save</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="report-modal">
     <div class="modal-head">
@@ -145,7 +187,7 @@
       <div class="event-results" hidden></div>
     </div>
     <textarea name="notes" id="notes-field" rows="8" placeholder="Tildá un tipo arriba y una fecha, y apretá &quot;Cargar plantilla&quot;."></textarea>
-    {% if vf.statement_of_facts %}
+    {% if vf.sof_entries %}
     <label class="check"><input type="checkbox" name="include_sof"> Incluir Statement of Facts al pie (clientes WBL)</label>
     {% endif %}
     <button type="submit" class="btn primary vf-submit">Generar reporte</button>
@@ -351,7 +393,13 @@ document.querySelectorAll(".event-search").forEach((input) => {
     const btn = ev.target.closest(".event-result");
     if (!btn) return;
     const picked = (resultsEl._items || [])[Number(btn.dataset.i)];
-    if (picked) insertAtCursor(target, picked.text);
+    if (picked) {
+      insertAtCursor(target, picked.text);
+      if (input.dataset.categoryTarget) {
+        const catSelect = document.getElementById(input.dataset.categoryTarget);
+        if (catSelect && picked.category) catSelect.value = picked.category;
+      }
+    }
     input.value = "";
     resultsEl.hidden = true;
     resultsEl.innerHTML = "";
@@ -359,6 +407,108 @@ document.querySelectorAll(".event-search").forEach((input) => {
   document.addEventListener("click", (ev) => {
     if (!input.contains(ev.target) && !resultsEl.contains(ev.target)) resultsEl.hidden = true;
   });
+});
+
+// --- popup de Statement of Facts: cargar eventos de a uno ------------ //
+const SOF_URL = "/barcos/{{ vf.id }}/sof";
+const sofModal = document.getElementById("sof-modal");
+const sofList = document.getElementById("sof-list");
+const sofEmpty = sofList?.querySelector(".sof-empty");
+const sofSummary = document.querySelector("#sof-details > summary");
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+function todayDMY() {
+  const d = new Date();
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+function nowHM() {
+  const d = new Date();
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+function openSofModal(entry) {
+  document.getElementById("sof-entry-id").value = entry ? entry.id : "";
+  document.getElementById("sof-date").value = entry ? entry.event_date : todayDMY();
+  document.getElementById("sof-time-from").value = entry ? entry.time_from : nowHM();
+  document.getElementById("sof-time-to").value = entry ? entry.time_to : "";
+  document.getElementById("sof-category").value = entry ? entry.category : "";
+  document.getElementById("sof-location").value = entry ? entry.location : "";
+  document.getElementById("sof-text").value = entry ? entry.text : "";
+  document.getElementById("sof-modal-title").textContent = entry ? "Editar evento" : "Nuevo evento";
+  sofModal.showModal();
+}
+
+document.getElementById("open-sof-modal")?.addEventListener("click", () => openSofModal(null));
+document.getElementById("close-sof-modal")?.addEventListener("click", () => sofModal.close());
+document.getElementById("sof-exit")?.addEventListener("click", () => sofModal.close());
+sofModal?.addEventListener("click", (ev) => { if (ev.target === sofModal) sofModal.close(); });
+
+function sofWhenText(entry) {
+  let w = entry.event_date || "";
+  if (entry.time_from) w += " " + entry.time_from;
+  if (entry.time_to) w += "-" + entry.time_to;
+  return w;
+}
+
+function renderSofRow(entry) {
+  const row = document.createElement("div");
+  row.className = "sof-row";
+  row.dataset.id = entry.id;
+  row.dataset.entry = JSON.stringify(entry);
+  row.innerHTML =
+    `<span class="sof-when">${escapeHtml(sofWhenText(entry))}</span>` +
+    (entry.location ? `<span class="sof-loc">${escapeHtml(entry.location)}</span>` : "") +
+    `<span class="sof-text">${escapeHtml(entry.text)}</span>` +
+    `<button type="button" class="sof-edit" title="Editar">✎</button>` +
+    `<button type="button" class="sof-del" title="Borrar">🗑</button>`;
+  return row;
+}
+
+async function saveSofEntry(closeAfter) {
+  const id = document.getElementById("sof-entry-id").value;
+  const url = id ? `${SOF_URL}/${id}` : SOF_URL;
+  const body = new URLSearchParams(new FormData(document.getElementById("sof-form")));
+  try {
+    const res = await fetch(url, { method: "POST", body });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "error al guardar");
+    if (sofEmpty) sofEmpty.remove();
+    const existingRow = sofList.querySelector(`[data-id="${data.entry.id}"]`);
+    const newRow = renderSofRow(data.entry);
+    if (existingRow) existingRow.replaceWith(newRow);
+    else sofList.appendChild(newRow);
+    if (sofSummary) sofSummary.textContent = `Statement of Facts (${sofList.querySelectorAll(".sof-row").length})`;
+    if (closeAfter) sofModal.close();
+    else openSofModal(null);
+  } catch (e) {
+    alert("No se pudo guardar: " + e.message);
+  }
+}
+
+document.getElementById("sof-save")?.addEventListener("click", () => saveSofEntry(true));
+document.getElementById("sof-save-add")?.addEventListener("click", () => saveSofEntry(false));
+
+sofList?.addEventListener("click", async (ev) => {
+  const delBtn = ev.target.closest(".sof-del");
+  const editBtn = ev.target.closest(".sof-edit");
+  const row = ev.target.closest(".sof-row");
+  if (delBtn && row) {
+    if (!confirm("¿Borrar este evento del Statement of Facts?")) return;
+    await fetch(`${SOF_URL}/${row.dataset.id}/borrar`, { method: "POST" });
+    row.remove();
+    if (sofSummary) {
+      const n = sofList.querySelectorAll(".sof-row").length;
+      sofSummary.textContent = n ? `Statement of Facts (${n})` : "Statement of Facts";
+      if (!n && !sofList.querySelector(".sof-empty")) {
+        const p = document.createElement("p");
+        p.className = "muted sof-empty";
+        p.textContent = "Sin eventos cargados todavía.";
+        sofList.appendChild(p);
+      }
+    }
+  } else if (editBtn && row) {
+    openSofModal(JSON.parse(row.dataset.entry));
+  }
 });
 </script>
 {% endblock %}

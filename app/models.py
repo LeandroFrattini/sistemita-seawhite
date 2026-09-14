@@ -265,6 +265,9 @@ class VesselFile(Base):
     cargos: Mapped[list["VesselCargo"]] = relationship(
         cascade="all, delete-orphan", order_by="VesselCargo.sort_order, VesselCargo.id"
     )
+    sof_entries: Mapped[list["SofEntry"]] = relationship(
+        cascade="all, delete-orphan", order_by="SofEntry.event_date, SofEntry.time_from, SofEntry.id"
+    )
     reports: Mapped[list["VesselReport"]] = relationship(
         back_populates="vessel_file", cascade="all, delete-orphan",
         order_by="VesselReport.sent_at.desc()",
@@ -300,6 +303,26 @@ class VesselCargo(Base):
     grade: Mapped[str] = mapped_column(String(80), default="")  # ej. "CORN in Bulk"
     stowage_plan: Mapped[float] = mapped_column(Float, default=0)  # MT, "as per declared by master"
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class SofEntry(Base):
+    """Un evento del Statement of Facts (clientes WBL), cargado uno por uno
+    desde el popup del legajo -- fecha, horario y texto. Se van acumulando
+    solos y se reimprimen completos al pie del reporte cuando se tilda
+    "Incluir Statement of Facts"."""
+
+    __tablename__ = "sof_entries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vessel_file_id: Mapped[int] = mapped_column(ForeignKey("vessel_files.id"), index=True)
+    event_date: Mapped[str] = mapped_column(String(10), default="")  # dd/mm/yy
+    time_from: Mapped[str] = mapped_column(String(10), default="")
+    time_to: Mapped[str] = mapped_column(String(10), default="")
+    category: Mapped[str] = mapped_column(String(40), default="")
+    location: Mapped[str] = mapped_column(String(80), default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 class VesselFileAgency(Base):
