@@ -131,18 +131,21 @@
         <label class="type-chip"><input type="radio" name="bd_kind" value="arrival" checked><span>Arrival Conditions</span></label>
         <label class="type-chip"><input type="radio" name="bd_kind" value="departure"><span>Departure Conditions</span></label>
       </div>
+      <p class="muted" style="margin:2px 0 10px">Poné la misma fecha/hora del evento que le sigue en el
+      itinerario (ej. "Made all fast" para Arrival, "Sailed" para Departure) para que quede pegado justo
+      después en el Statement of Facts.</p>
       <div class="vf-fields">
-        <label>Fecha<input type="text" id="bd-date" placeholder="14/09/2026"></label>
+        <label>Fecha<input type="text" id="bd-date"></label>
         <label>Hora<input type="time" id="bd-time"></label>
       </div>
       <div class="vf-fields">
-        <label>VLSFO (mt)<input type="text" id="bd-vlsfo" placeholder="502.29"></label>
-        <label>DO (mt)<input type="text" id="bd-do" placeholder="175.85"></label>
-        <label>FW (mt)<input type="text" id="bd-fw" placeholder="185"></label>
+        <label>VLSFO (mt)<input type="text" id="bd-vlsfo"></label>
+        <label>DO (mt)<input type="text" id="bd-do"></label>
+        <label>FW (mt)<input type="text" id="bd-fw"></label>
       </div>
       <div class="vf-fields">
-        <label>Draft Fwd<input type="text" id="bd-fwd" placeholder="8.70"></label>
-        <label>Draft Aft<input type="text" id="bd-aft" placeholder="9.00"></label>
+        <label>Draft Fwd<input type="text" id="bd-fwd"></label>
+        <label>Draft Aft<input type="text" id="bd-aft"></label>
       </div>
       <div class="row end" style="gap:8px;margin-top:10px">
         <button type="button" class="btn" id="bd-exit">Exit</button>
@@ -616,9 +619,9 @@ async function saveSofEntry(closeAfter) {
 // un evento mas del Statement of Facts ------------------------------- //
 const bdModal = document.getElementById("bd-modal");
 document.getElementById("open-bd-modal")?.addEventListener("click", () => {
-  document.getElementById("bd-date").value = todayDMY();
-  document.getElementById("bd-time").value = nowHM();
-  ["bd-vlsfo", "bd-do", "bd-fw", "bd-fwd", "bd-aft"].forEach((id) => (document.getElementById(id).value = ""));
+  // sin auto-completar fecha/hora: tiene que quedar pegado justo despues
+  // del evento que corresponda (Made all fast / Sailed), no en "ahora"
+  ["bd-date", "bd-time", "bd-vlsfo", "bd-do", "bd-fw", "bd-fwd", "bd-aft"].forEach((id) => (document.getElementById(id).value = ""));
   document.querySelector('input[name="bd_kind"][value="arrival"]').checked = true;
   bdModal.showModal();
 });
