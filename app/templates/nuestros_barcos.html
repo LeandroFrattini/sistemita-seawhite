@@ -17,7 +17,7 @@
     {% for kind, term, c in en_lineup %}
       <tr>
         <td>{{ 'Flammable' if kind == 'FLAMMABLE' else 'Grain' }}</td>
-        <td><b>{{ c.vessel_name }}</b></td>
+        <td><b>{{ c.vessel_name|upper }}</b></td>
         <td>{{ term.code if term }}</td>
         <td>{{ (term.berth_label or term.code) if term }}</td>
         <td>{{ c.eta }}</td><td>{{ c.etb }}</td><td>{{ c.etc }}</td>
@@ -58,7 +58,7 @@
     <tbody>
     {% for o in operados %}
       <tr>
-        <td><b>{{ o.vessel_name }}</b></td>
+        <td><b>{{ o.vessel_name|upper }}</b></td>
         <td>{{ o.terminal_code }}</td><td>{{ o.berth_label }}</td>
         <td>{{ o.eta }}</td><td>{{ o.etb }}</td><td>{{ o.etc }}</td>
         <td>{{ o.quantity }}</td><td>{{ o.grade }}</td>
