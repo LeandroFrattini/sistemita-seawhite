@@ -605,7 +605,9 @@ def build_shift_report(
             f"Terminal: {terminal_name}\n\n"
             + "\n".join(lines)
         )
-        subject = f"{pfx_slash} {vf.vessel_name.upper()} - LOADING SHIFT {date_txt.upper()}"
+        tf_nc = time_from.replace(":", "")
+        tt_nc = time_to.replace(":", "")
+        subject = f"{pfx_slash} {vf.vessel_name.upper()} - {d.day:02d}/{tt_nc or tf_nc} HRS"
 
     text_body = _append_statement_of_facts(text_body, statement_of_facts)
     html_body = _wrap_body(
