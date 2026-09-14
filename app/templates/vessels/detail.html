@@ -178,6 +178,23 @@
       <label class="check"><input type="checkbox" name="include_breakdown"> Incluir breakdown acumulado por bodega (ej. Oceanway)</label>
     </div>
 
+    <details class="vf-cargo-box vf-bc-box">
+      <summary>+ Agregar Berthing Conditions (draft / ROB)</summary>
+      <p class="muted" style="margin:4px 0 8px">Se arma el bloque tal como en los modelos reales y se inserta en el
+      cuadro de Detalle, en el punto donde tengas el cursor.</p>
+      <div class="vf-fields">
+        <label>Draft FWD (MTS)<input type="text" id="bc-fwd" placeholder="10.18"></label>
+        <label>Draft AFT (MTS)<input type="text" id="bc-aft" placeholder="10.20"></label>
+      </div>
+      <div class="vf-fields">
+        <label>ROB VLFO<input type="text" id="bc-vlfo" placeholder="718.67"></label>
+        <label>ROB DO<input type="text" id="bc-do" placeholder="206.10"></label>
+        <label>ROB FW<input type="text" id="bc-fw" placeholder="243.00"></label>
+        <label>ROB LO<input type="text" id="bc-lo" placeholder="46,567"></label>
+      </div>
+      <button type="button" class="mini primary" id="bc-insert">Insertar en el Detalle</button>
+    </details>
+
     <div class="vf-notes-head">
       <label id="notes-label" for="notes-field">Detalle (plantilla ya armada -- editala como quieras)</label>
       <button type="button" id="load-template" class="mini" data-vf-id="{{ vf.id }}">↻ Cargar plantilla</button>
@@ -361,6 +378,33 @@ function insertAtCursor(textarea, text) {
   const pos = (before + insertion).length;
   textarea.setSelectionRange(pos, pos);
 }
+
+// --- Berthing Conditions: arma el bloque draft/ROB y lo inserta ------ //
+document.getElementById("bc-insert")?.addEventListener("click", () => {
+  const fwd = document.getElementById("bc-fwd").value.trim();
+  const aft = document.getElementById("bc-aft").value.trim();
+  const vlfo = document.getElementById("bc-vlfo").value.trim();
+  const doo = document.getElementById("bc-do").value.trim();
+  const fw = document.getElementById("bc-fw").value.trim();
+  const lo = document.getElementById("bc-lo").value.trim();
+
+  const lines = ["BERTHING CONDITIONS:", ""];
+  if (fwd || aft) {
+    lines.push(`            DRAFT: FWD: ${fwd || "-"} MTS / AFT: ${aft || "-"} MTS`);
+  }
+  const robParts = [];
+  if (vlfo) robParts.push(`VLFO: ${vlfo}`);
+  if (doo) robParts.push(`DO ${doo}`);
+  if (fw) robParts.push(`FW: ${fw}`);
+  if (lo) robParts.push(`LO: ${lo}`);
+  if (robParts.length) lines.push(`            ROB:   ${robParts.join(" / ")}`);
+
+  if (lines.length === 2) {
+    alert("Cargá al menos un dato (draft o ROB) para armar el bloque.");
+    return;
+  }
+  insertAtCursor(document.getElementById("notes-field"), lines.join("\n"));
+});
 
 function escapeHtml(s) {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
