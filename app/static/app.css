@@ -230,11 +230,11 @@ table.list th { background: #eef2f0; }
 .vf-reporte-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
 .vf-reporte-head h2 { margin: 0; }
 
-#report-modal, #sof-modal, #bd-modal {
+#report-modal, #sof-modal, #bd-modal, #shift-modal {
   border: none; border-radius: 12px; padding: 18px 20px 20px; width: min(640px, 92vw);
   max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25);
 }
-#report-modal::backdrop, #sof-modal::backdrop, #bd-modal::backdrop { background: rgba(15, 30, 25, .45); }
+#report-modal::backdrop, #sof-modal::backdrop, #bd-modal::backdrop, #shift-modal::backdrop { background: rgba(15, 30, 25, .45); }
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .modal-head h2 { margin: 0; font-size: 17px; }
 .modal-close {
@@ -265,12 +265,14 @@ table.list th { background: #eef2f0; }
 .cargo-row input[name=stowage_plan] { flex: 1; min-width: 120px; }
 .vf-holds-label { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
 #hold-rows { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-.hold-row { display: flex; gap: 8px; }
+.hold-row { display: flex; align-items: center; gap: 8px; }
 .hold-row input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; }
 .hold-row input[name=hold_label] { width: 70px; flex: none; }
 .hold-row input[name=hold_qty] { flex: 1; }
 #add-hold-row { margin-bottom: 12px; }
 #shift-fields { border-top: 1px dashed var(--line); padding-top: 10px; margin-bottom: 4px; }
+.hold-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.hold-row-label { width: 28px; flex: none; font-size: 13px; font-weight: 600; color: var(--muted); }
 
 .event-picker { position: relative; margin-bottom: 6px; }
 .event-search { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }

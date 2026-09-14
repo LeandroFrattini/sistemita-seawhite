@@ -396,7 +396,10 @@ async def create_vessel_report(
                 )
             )
         db.commit()
-    elif tipos:
+    else:
+        # Sin tipos tildados (ni Berthing ni Sailed ni nada) igual se puede
+        # mandar el estado actual como chequeo -- status_template/status_phrase
+        # ya tienen un fallback generico ("PLS NOTE:" / "REPORT") para ese caso.
         live_call = db.scalar(
             select(VesselCall)
             .where(VesselCall.vessel_name == vf.vessel_name, VesselCall.terminal_id == vf.terminal_id)

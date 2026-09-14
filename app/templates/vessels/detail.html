@@ -60,6 +60,11 @@
       <input name="stowage_plan" placeholder="Stowage Plan (MT)">
       <button type="submit" class="mini primary">+ Agregar mercadería</button>
     </form>
+    {% if cargos %}
+    <button type="button" class="mini primary" id="open-shift-modal" style="margin-top:8px">+ Agregar Shift</button>
+    {% else %}
+    <p class="muted" style="margin-top:8px">Cargá primero la mercadería para poder agregar un Loading Shift.</p>
+    {% endif %}
   </details>
 
   <details class="vf-cargo-box" id="sof-details" open>
@@ -156,30 +161,13 @@
     </form>
   </dialog>
 
-  <dialog id="report-modal">
+  <dialog id="shift-modal">
     <div class="modal-head">
-      <h2>Nuevo reporte</h2>
-      <button type="button" class="modal-close" id="close-report-modal" aria-label="Cerrar">×</button>
+      <h2>Agregar Shift</h2>
+      <button type="button" class="modal-close" id="close-shift-modal" aria-label="Cerrar">×</button>
     </div>
-  <form method="post" action="/barcos/{{ vf.id }}/reportes" class="vf-report-form" id="report-form">
-    <div class="type-picker">
-      {% for code, label in report_types %}
-      <label class="type-chip">
-        <input type="checkbox" name="tipos" value="{{ code }}" {{ 'data-shift-toggle' if code == 'LOADING_SHIFTS' }}>
-        <span>{{ label }}</span>
-      </label>
-      {% endfor %}
-    </div>
-
-    <div class="vf-fields">
-      <label id="event-at-label">Fecha del evento<input type="text" name="event_at" id="event-at" placeholder="ej. 08/09/2026"></label>
-      <label id="figure-field">Cifra (opcional)<input type="text" name="figure" placeholder="ej. 22,000 MT"></label>
-    </div>
-
-    <div id="shift-fields" hidden>
-      {% if not cargos %}
-      <p class="warn">⚠ Cargá primero la mercadería arriba para poder generar un Loading Shift.</p>
-      {% endif %}
+    <form method="post" action="/barcos/{{ vf.id }}/reportes" class="vf-report-form">
+      <input type="hidden" name="tipos" value="LOADING_SHIFTS">
       <div class="vf-fields">
         <label>Mercadería
           <select name="cargo_id">
@@ -188,6 +176,9 @@
             {% endfor %}
           </select>
         </label>
+        <label>Fecha del turno<input type="text" name="event_at" placeholder="ej. 08/09/2026"></label>
+      </div>
+      <div class="vf-fields">
         <label>Desde<input type="text" name="shift_from" placeholder="07:00"></label>
         <label>Hasta<input type="text" name="shift_to" placeholder="13:00"></label>
         <label>Gangs<input type="text" name="gangs_text" placeholder="two lines appointed"></label>
@@ -197,14 +188,16 @@
           </select>
         </label>
       </div>
-      <label class="vf-holds-label">Bodegas cargadas en este turno</label>
-      <div id="hold-rows">
+      <label class="vf-holds-label">Bodegas cargadas en este turno (dejá en blanco las que no cargaron)</label>
+      <div id="shift-hold-rows" class="hold-grid">
+        {% for n in range(1, 8) %}
         <div class="hold-row">
-          <input type="text" name="hold_label" placeholder="H2">
-          <input type="text" name="hold_qty" placeholder="3,200.000">
+          <input type="hidden" name="hold_label" value="H{{ n }}">
+          <span class="hold-row-label">H{{ n }}</span>
+          <input type="text" name="hold_qty" placeholder="0.000">
         </div>
+        {% endfor %}
       </div>
-      <button type="button" id="add-hold-row" class="mini">+ Agregar bodega</button>
       <div class="vf-fields">
         <label>Delays (opcional)<input type="text" name="delays" placeholder="1030/1300 hrs no loading due to strong winds"></label>
       </div>
@@ -212,6 +205,34 @@
         <textarea name="prospect" rows="2" placeholder="ETF: 12/0000 hrs&#10;ETS: 12/0400 hrs"></textarea>
       </label>
       <label class="check"><input type="checkbox" name="include_breakdown"> Incluir breakdown acumulado por bodega (ej. Oceanway)</label>
+      <label>Remarks (opcional)<textarea name="notes" rows="3"></textarea></label>
+      {% if vf.sof_entries %}
+      <label class="check"><input type="checkbox" name="include_sof"> Incluir Statement of Facts al pie (clientes WBL)</label>
+      {% endif %}
+      <button type="submit" class="btn primary vf-submit">Generar Shift Report</button>
+    </form>
+  </dialog>
+
+  <dialog id="report-modal">
+    <div class="modal-head">
+      <h2>Nuevo reporte</h2>
+      <button type="button" class="modal-close" id="close-report-modal" aria-label="Cerrar">×</button>
+    </div>
+  <form method="post" action="/barcos/{{ vf.id }}/reportes" class="vf-report-form" id="report-form">
+    <div class="type-picker">
+      {% for code, label in report_types if code != 'LOADING_SHIFTS' %}
+      <label class="type-chip">
+        <input type="checkbox" name="tipos" value="{{ code }}">
+        <span>{{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <p class="muted" style="margin:0 0 10px">Podés no tildar ninguno y mandar el estado actual tal cual (doble
+    check) -- no hace falta esperar al Berthing o al Sailed.</p>
+
+    <div class="vf-fields">
+      <label id="event-at-label">Fecha del evento<input type="text" name="event_at" id="event-at" placeholder="ej. 08/09/2026"></label>
+      <label id="figure-field">Cifra (opcional)<input type="text" name="figure" placeholder="ej. 22,000 MT"></label>
     </div>
 
     <div class="vf-header-preview">
@@ -258,7 +279,7 @@
   <article class="report-card vf-report">
     <div class="rc-head">
       <div class="rc-name">
-        {% for t in r.type_list %}<span class="badge fl">{{ type_labels.get(t, t) }}</span>{% endfor %}
+        {% for t in r.type_list %}<span class="badge fl">{{ type_labels.get(t, t) }}</span>{% else %}<span class="badge fl">Update</span>{% endfor %}
         <span class="rc-date">{{ r.sent_at.strftime("%d/%m %H:%M") }} · {{ r.sent_by }}</span>
       </div>
       <div class="rc-actions">
@@ -338,49 +359,21 @@ reportModal?.addEventListener("click", (ev) => {
   if (ev.target === reportModal) reportModal.close();
 });
 
-// --- toggle campos de Loading Shift ---------------------------------- //
-const shiftToggle = document.querySelector("[data-shift-toggle]");
-const shiftFields = document.getElementById("shift-fields");
-const notesLabel = document.getElementById("notes-label");
-const eventAtLabel = document.getElementById("event-at-label");
-const figureField = document.getElementById("figure-field");
-const loadTemplateBtn = document.getElementById("load-template");
-const otherTipos = [...document.querySelectorAll('input[name="tipos"]')].filter((cb) => cb !== shiftToggle);
-
-if (shiftToggle) {
-  shiftToggle.addEventListener("change", () => {
-    const on = shiftToggle.checked;
-    shiftFields.hidden = !on;
-    figureField.hidden = on;
-    loadTemplateBtn.hidden = on;
-    otherTipos.forEach((cb) => {
-      cb.disabled = on;
-      if (on) cb.checked = false;
-    });
-    notesLabel.textContent = on
-      ? "Remarks (opcional)"
-      : "Detalle (plantilla ya armada -- editala como quieras)";
-    eventAtLabel.firstChild.textContent = on ? "Fecha del turno" : "Fecha del evento";
-  });
-}
-
-document.getElementById("add-hold-row")?.addEventListener("click", () => {
-  const row = document.createElement("div");
-  row.className = "hold-row";
-  row.innerHTML =
-    '<input type="text" name="hold_label" placeholder="H3">' +
-    '<input type="text" name="hold_qty" placeholder="0.000">';
-  document.getElementById("hold-rows").appendChild(row);
+// --- popup de "Agregar Shift" ------------------------------------------ //
+const shiftModal = document.getElementById("shift-modal");
+document.getElementById("open-shift-modal")?.addEventListener("click", () => shiftModal.showModal());
+document.getElementById("close-shift-modal")?.addEventListener("click", () => shiftModal.close());
+shiftModal?.addEventListener("click", (ev) => {
+  if (ev.target === shiftModal) shiftModal.close();
 });
+
+const loadTemplateBtn = document.getElementById("load-template");
+const reportTipos = [...document.querySelectorAll('#report-form input[name="tipos"]')];
 
 // --- cargar plantilla prearmada en el cuadro de detalle -------------- //
 loadTemplateBtn?.addEventListener("click", async () => {
   const notesField = document.getElementById("notes-field");
-  const tipos = otherTipos.filter((cb) => cb.checked).map((cb) => cb.value);
-  if (!tipos.length) {
-    alert('Tildá primero un tipo de reporte (Berthing, Commenced Loading, etc.).');
-    return;
-  }
+  const tipos = reportTipos.filter((cb) => cb.checked).map((cb) => cb.value);
   if (notesField.value.trim() && !confirm("Esto reemplaza lo que ya escribiste en el cuadro. ¿Seguir?")) {
     return;
   }
