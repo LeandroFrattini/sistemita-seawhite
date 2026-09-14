@@ -26,6 +26,7 @@ from ..models import (
     VESSEL_REPORT_TYPES,
 )
 from ..reports import (
+    _fmt_mt,
     _parse_qty,
     build_shift_report,
     build_sof_text,
@@ -65,6 +66,18 @@ def _prior_shift_totals(db: Session, vessel_file_id: int, cargo_id: int) -> tupl
             total += qty
             holds[label] = holds.get(label, 0.0) + qty
     return total, holds
+
+
+def _last_sof_location(db: Session, vessel_file_id: int) -> str:
+    """Misma logica que lastSofLocation() en el front -- la ultima locacion
+    cargada para este barco, o "Bahia Blanca" si todavia no hay ninguna."""
+    e = db.scalar(
+        select(SofEntry)
+        .where(SofEntry.vessel_file_id == vessel_file_id, SofEntry.location != "")
+        .order_by(SofEntry.id.desc())
+        .limit(1)
+    )
+    return e.location if e else "Bahía Blanca"
 
 
 _STATUS_SHORT = {
@@ -382,6 +395,43 @@ async def create_vessel_report(
             "prospect": str(form.get("prospect", "")).strip(),
             "include_breakdown": form.get("include_breakdown") == "on",
         }
+
+        # El turno tiene que quedar como evento del Statement of Facts --
+        # sino en el historial de eventos parece que no paso nada entre un
+        # Commenced Loading y el siguiente. Si hubo demora, esa va aparte
+        # (categoria DELAYS) para que se vea reflejada como tal.
+        sof_location = _last_sof_location(db, vf.id)
+        touched = [c for c in cargo_summaries if c["shift_qty"] > 0]
+        gangs_text = shift["gangs_text"] or "gangs appointed"
+        if touched:
+            parts = [
+                f"{_fmt_mt(c['prior_total'] + c['shift_qty'])} MT – {c['grade']}"
+                for c in touched
+            ]
+            loading_text = f"Loading shift ({gangs_text}). Total loaded: " + "; ".join(parts) + "."
+        else:
+            loading_text = f"Loading shift ({gangs_text})."
+        loading_entry = SofEntry(
+            vessel_file_id=vf.id, event_date=event_at, time_from=shift["time_from"],
+            time_to=shift["time_to"], category="OPERATION", location=sof_location,
+            text=loading_text, created_by=user.username,
+        )
+        db.add(loading_entry)
+        sof_entries = [loading_entry]
+        delays_text = shift["delays"]
+        if delays_text and delays_text.strip("-").strip().upper() not in ("", "NIL"):
+            delays_entry = SofEntry(
+                vessel_file_id=vf.id, event_date=event_at, time_from=shift["time_from"],
+                time_to=shift["time_to"], category="DELAYS", location=sof_location,
+                text=delays_text, created_by=user.username,
+            )
+            db.add(delays_entry)
+            sof_entries.append(delays_entry)
+        db.flush()
+        # se guardan los ids para que "Borrar" (si se cargo el turno por
+        # error) pueda sacar tambien estos eventos del Statement of Facts
+        shift["sof_entry_ids"] = [e.id for e in sof_entries]
+
         clients = vf.recipient_clients() or [None]
         cc_setting = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
         batch_id = uuid.uuid4().hex
@@ -459,9 +509,29 @@ def delete_vessel_report(
     arma un mail por cliente, borra TODOS los del mismo batch_id (son el
     mismo evento) -- asi no queda un destinatario con el mail viejo y los
     demas sin el. Si era un Loading Shift, el "Total loaded" / breakdown
-    por bodega de los siguientes se recalcula solo."""
+    por bodega de los siguientes se recalcula solo, y tambien se borran
+    los eventos que ese turno habia agregado al Statement of Facts."""
     r = db.get(VesselReport, report_id)
     if r and r.vessel_file_id == file_id:
+        if r.report_types == "LOADING_SHIFTS":
+            # el shift_data (con los ids de SOF a borrar) solo se guarda en
+            # el primer mail del batch -- si se borra desde otra tarjeta
+            # hay que ir a buscarlo ahi
+            data_holder = r
+            if not r.shift_data and r.batch_id:
+                data_holder = db.scalar(
+                    select(VesselReport).where(
+                        VesselReport.batch_id == r.batch_id, VesselReport.shift_data != "",
+                    )
+                )
+            try:
+                sof_ids = json.loads(data_holder.shift_data).get("sof_entry_ids") or [] if data_holder else []
+            except ValueError:
+                sof_ids = []
+            if sof_ids:
+                db.query(SofEntry).filter(
+                    SofEntry.vessel_file_id == file_id, SofEntry.id.in_(sof_ids)
+                ).delete(synchronize_session=False)
         if r.batch_id:
             db.query(VesselReport).filter(
                 VesselReport.vessel_file_id == file_id,
