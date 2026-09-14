@@ -25,7 +25,7 @@
   {% else %}
   <div class="vf-info-row"><span class="muted">No está en el line-up actual (se ve el historial igual).</span></div>
   {% endif %}
-  <div class="vf-info-row"><span>Abierto</span><b>{{ vf.opened_at.strftime("%d/%m/%Y") }} · {{ vf.opened_by }}</b></div>
+  <div class="vf-info-row"><span>Abierto</span><b>{{ vf.opened_at|localdt("%d/%m/%Y") }} · {{ vf.opened_by }}</b></div>
   <form method="post" action="/barcos/{{ vf.id }}/{{ 'reabrir' if vf.status == 'closed' else 'cerrar' }}" class="vf-close-form">
     <button class="mini {{ '' if vf.status == 'closed' else 'danger' }}">
       {{ 'Reabrir legajo' if vf.status == 'closed' else 'Cerrar legajo' }}
@@ -301,7 +301,7 @@
       <div class="rc-name">
         {% if vf.reports|length > 1 %}<input type="checkbox" class="rc-select">{% endif %}
         {% for t in r.type_list %}<span class="badge fl">{{ type_labels.get(t, t) }}</span>{% else %}<span class="badge fl">Update</span>{% endfor %}
-        <span class="rc-date">{{ r.sent_at.strftime("%d/%m %H:%M") }} · {{ r.sent_by }}</span>
+        <span class="rc-date">{{ r.sent_at|localdt("%d/%m %H:%M") }} · {{ r.sent_by }}</span>
       </div>
       <div class="rc-actions">
         <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>

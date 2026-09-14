@@ -50,7 +50,7 @@
     <tbody>
     {% for a in archives %}
       <tr><td>{{ a.lineup_date }}</td>
-          <td class="nowrap">{{ a.archived_at.strftime("%d/%m/%Y %H:%M") }}</td>
+          <td class="nowrap">{{ a.archived_at|localdt("%d/%m/%Y %H:%M") }}</td>
           <td>{{ a.archived_by }}</td></tr>
     {% endfor %}
     </tbody>

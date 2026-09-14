@@ -34,7 +34,7 @@ al mandar el reporte <b>Sailed</b> (o a mano); si el barco vuelve más adelante,
         <td><span class="vf-id">#{{ r.vf.id }}</span> <b>{{ r.vf.vessel_name|upper }}</b></td>
         <td>
           <span class="status-chip {{ 'sailed' if 'Sailed' in r.status_label }}">{{ r.status_label }}</span>
-          {% if r.status_at %}<span class="muted vf-status-date">{{ r.status_at.strftime("%d/%m %H:%M") }}</span>{% endif %}
+          {% if r.status_at %}<span class="muted vf-status-date">{{ r.status_at|localdt("%d/%m %H:%M") }}</span>{% endif %}
         </td>
         {% set clients = r.vf.recipient_clients() %}
         <td>{{ r.vf.terminal.code if r.vf.terminal else r.vf.terminal_code }} · {{ r.vf.principal_name or 'sin cliente' }}

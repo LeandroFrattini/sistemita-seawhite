@@ -1,5 +1,23 @@
+from datetime import timedelta, timezone
+
 from fastapi.templating import Jinja2Templates
 
 from .config import BASE_DIR
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
+
+# Todos los timestamps se guardan en UTC (server_default=func.now(), hora
+# del servidor) -- Argentina es UTC-3 fijo (sin horario de verano desde
+# 2009), asi que alcanza con un offset fijo en vez de zoneinfo/tzdata.
+_AR_TZ = timezone(timedelta(hours=-3), name="ART")
+
+
+def localdt(value, fmt: str = "%d/%m/%Y %H:%M") -> str:
+    if value is None:
+        return ""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(_AR_TZ).strftime(fmt)
+
+
+templates.env.filters["localdt"] = localdt

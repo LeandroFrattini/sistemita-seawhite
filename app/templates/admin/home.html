@@ -205,7 +205,7 @@
     <tbody>
     {% for l in logs %}
       <tr>
-        <td class="nowrap">{{ l.generated_at.strftime("%d/%m %H:%M") }}</td>
+        <td class="nowrap">{{ l.generated_at|localdt("%d/%m %H:%M") }}</td>
         <td>{{ '✉ Outlook' if l.status == 'abierto_outlook' else '⬇ .eml' }}</td>
         <td>{{ l.lineup_date }}</td><td>{{ l.vessel_name }}</td><td>{{ l.client_name }}</td>
         <td>{{ l.to_emails }}</td><td>{{ l.report_format }}</td><td>{{ l.generated_by }}</td>

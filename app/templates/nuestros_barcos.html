@@ -97,7 +97,7 @@
         <td>{{ o.eta }}</td><td>{{ o.etb }}</td><td>{{ o.etc }}</td>
         <td>{{ o.quantity }}</td><td>{{ o.grade }}</td>
         <td>{{ o.principal }}</td><td>{{ o.destination }}</td>
-        <td class="nowrap">{{ o.operated_at.strftime("%d/%m/%Y") }}</td>
+        <td class="nowrap">{{ o.operated_at|localdt("%d/%m/%Y") }}</td>
         <td>{{ o.removed_by }}</td>
         <td class="nowrap">
           <form method="post" action="/operados/{{ o.id }}/mes" class="inline-form">
