@@ -84,6 +84,39 @@
   </div>
 </section>
 
+<section id="sec-events">
+  <h2>Eventos (biblioteca)</h2>
+  <p class="muted">Frases reutilizables para armar reportes de Barcos (ID) y el Statement of Facts sin
+  tipear todo de cero -- se buscan desde el legajo del barco. Los <code>{PLACEHOLDER}</code> entre llaves
+  quedan para completar a mano al insertar (terminal, barcaza, etc).</p>
+  <form class="card" method="post" action="/admin/events">
+    <div class="row">
+      <label>Categoría<input name="category" placeholder="ej. DELAYS" list="event-categories" style="min-width:140px;"></label>
+      <label style="flex:2">Texto<input name="text" required placeholder="ej. Awaiting shore readiness."></label>
+    </div>
+    <datalist id="event-categories">
+      {% for cat in events|map(attribute='category')|unique %}<option value="{{ cat }}">{% endfor %}
+    </datalist>
+    <button type="submit">Agregar evento</button>
+  </form>
+  <div class="client-list">
+  {% for e in events %}
+    <form id="evt-{{ e.id }}" class="card client-row {{ 'inactive' if not e.active }}" method="post" action="/admin/events/{{ e.id }}">
+      <div class="row">
+        <label>Categoría<input name="category" value="{{ e.category }}" style="min-width:140px;"></label>
+        <label style="flex:2">Texto<input name="text" value="{{ e.text }}" required></label>
+        <label class="check">Activo<input type="checkbox" name="active" {{ 'checked' if e.active }}></label>
+      </div>
+      <div class="row end">
+        <button type="submit">Guardar</button>
+        <button type="submit" formaction="/admin/events/{{ e.id }}/borrar" class="danger"
+                formnovalidate onclick="return confirm('¿Borrar este evento de la biblioteca?')">Borrar</button>
+      </div>
+    </form>
+  {% endfor %}
+  </div>
+</section>
+
 <section id="sec-cc">
   <h2>Copia (CC) en todos los reportes</h2>
   <p class="muted">Estas direcciones van en copia en <b>todos</b> los mails que se envían.

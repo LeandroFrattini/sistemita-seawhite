@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from sqlalchemy import select
+
 from ..auth import admin_required, hash_password
 from ..database import get_db
-from ..models import ReportLog, Terminal, User
+from ..models import EventTemplate, ReportLog, Terminal, User
 from ..service import CC_KEY, DEFAULT_CC, SIGNATURE_KEY, all_terminals, get_setting, set_setting, split_emails
 
 FLAMMABLE_LIST_KEY = "flammable_list_emails"
@@ -17,6 +19,7 @@ router = APIRouter(prefix="/admin")
 def admin_home(request: Request, db: Session = Depends(get_db), user: User = Depends(admin_required)):
     users = db.query(User).order_by(User.username).all()
     logs = db.query(ReportLog).order_by(ReportLog.generated_at.desc()).limit(50).all()
+    events = db.scalars(select(EventTemplate).order_by(EventTemplate.category, EventTemplate.sort_order, EventTemplate.id))
     return templates.TemplateResponse(
         request,
         "admin/home.html",
@@ -25,6 +28,7 @@ def admin_home(request: Request, db: Session = Depends(get_db), user: User = Dep
             "users": users,
             "terminals": all_terminals(db),
             "logs": logs,
+            "events": list(events),
             "signature_html": get_setting(db, SIGNATURE_KEY, ""),
             "report_cc": get_setting(db, CC_KEY, DEFAULT_CC),
             "flammable_list_emails": split_emails(get_setting(db, FLAMMABLE_LIST_KEY, "")),
@@ -181,3 +185,48 @@ def update_terminal(
         t.active = active == "on"
         db.commit()
     return RedirectResponse(f"/admin#trm-{terminal_id}", status_code=302)
+
+
+# --- Eventos (biblioteca) ------------------------------------------------ #
+@router.post("/events")
+def create_event_template(
+    db: Session = Depends(get_db),
+    admin: User = Depends(admin_required),
+    category: str = Form(""),
+    text: str = Form(...),
+):
+    if text.strip():
+        db.add(EventTemplate(category=category.strip().upper() or "GENERAL", text=text.strip(), active=True))
+        db.commit()
+    return RedirectResponse("/admin#sec-events", status_code=302)
+
+
+@router.post("/events/{event_id}")
+def update_event_template(
+    event_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(admin_required),
+    category: str = Form(""),
+    text: str = Form(...),
+    active: str = Form(""),
+):
+    e = db.get(EventTemplate, event_id)
+    if e:
+        e.category = category.strip().upper() or "GENERAL"
+        e.text = text.strip()
+        e.active = active == "on"
+        db.commit()
+    return RedirectResponse("/admin#sec-events", status_code=302)
+
+
+@router.post("/events/{event_id}/borrar")
+def delete_event_template(
+    event_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(admin_required),
+):
+    e = db.get(EventTemplate, event_id)
+    if e:
+        db.delete(e)
+        db.commit()
+    return RedirectResponse("/admin#sec-events", status_code=302)

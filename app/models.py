@@ -363,6 +363,21 @@ class AppSetting(Base):
     value: Mapped[str] = mapped_column(Text, default="")
 
 
+class EventTemplate(Base):
+    """Frase reutilizable para armar Statement of Facts / reportes de
+    Barcos (ID) (ej. "Awaiting shore readiness." - categoria DELAYS). Se
+    busca desde el legajo del barco y se inserta en el cuadro de texto,
+    despues se edita a mano lo que haga falta (fechas, nombres, etc)."""
+
+    __tablename__ = "event_templates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    category: Mapped[str] = mapped_column(String(40), default="")  # DELAYS | OPERATION | BUNKERS | STATUS | ...
+    text: Mapped[str] = mapped_column(Text, default="")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
 class ReportLog(Base):
     __tablename__ = "report_logs"
 

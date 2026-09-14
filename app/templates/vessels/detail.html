@@ -65,7 +65,11 @@
     completo acá -- agregale las líneas nuevas al final y guardá; se va a reimprimir entero al pie de cada
     reporte que tilde "Incluir Statement of Facts".</p>
     <form method="post" action="/barcos/{{ vf.id }}/statement">
-      <textarea name="statement_of_facts" rows="6" style="width:100%;font-family:monospace;font-size:12.5px;"
+      <div class="event-picker">
+        <input type="text" class="event-search" data-target="sof-field" placeholder="🔍 Buscar evento para agregar (ej. surveyor, delays, bunker)...">
+        <div class="event-results" hidden></div>
+      </div>
+      <textarea name="statement_of_facts" id="sof-field" rows="6" style="width:100%;font-family:monospace;font-size:12.5px;"
         placeholder="April, 2026&#10;25/1442 - E.O.S.P. Load berth was occupied by M/V LEDA C (Made all fast 24/04 1942 hrs).&#10;25/1442/2400 - Vessel remained anchored awaiting berthing instructions.">{{ vf.statement_of_facts }}</textarea>
       <div class="row end" style="margin-top:8px"><button type="submit" class="mini primary">Guardar</button></div>
     </form>
@@ -127,6 +131,10 @@
     <div class="vf-notes-head">
       <label id="notes-label" for="notes-field">Detalle (plantilla ya armada -- editala como quieras)</label>
       <button type="button" id="load-template" class="mini" data-vf-id="{{ vf.id }}">↻ Cargar plantilla</button>
+    </div>
+    <div class="event-picker">
+      <input type="text" class="event-search" data-target="notes-field" placeholder="🔍 Buscar evento para agregar (ej. surveyor, delays, bunker)...">
+      <div class="event-results" hidden></div>
     </div>
     <textarea name="notes" id="notes-field" rows="8" placeholder="Tildá un tipo arriba y una fecha, y apretá &quot;Cargar plantilla&quot;."></textarea>
     {% if vf.statement_of_facts %}
@@ -280,6 +288,60 @@ loadTemplateBtn?.addEventListener("click", async () => {
   } catch (e) {
     alert("No se pudo cargar la plantilla: " + e.message);
   }
+});
+
+// --- biblioteca de eventos: buscar e insertar en el cuadro elegido --- //
+function insertAtCursor(textarea, text) {
+  textarea.focus();
+  const start = textarea.selectionStart ?? textarea.value.length;
+  const end = textarea.selectionEnd ?? textarea.value.length;
+  const before = textarea.value.slice(0, start);
+  const after = textarea.value.slice(end);
+  const insertion = (before && !before.endsWith("\n") ? "\n" : "") + text;
+  textarea.value = before + insertion + after;
+  const pos = (before + insertion).length;
+  textarea.setSelectionRange(pos, pos);
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+document.querySelectorAll(".event-search").forEach((input) => {
+  const resultsEl = input.nextElementSibling;
+  const target = document.getElementById(input.dataset.target);
+  let timer;
+  input.addEventListener("input", () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (!q) { resultsEl.hidden = true; resultsEl.innerHTML = ""; return; }
+    timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/eventos?q=" + encodeURIComponent(q));
+        const items = await res.json();
+        resultsEl.innerHTML = items.length
+          ? items.map((e, i) =>
+              `<button type="button" class="event-result" data-i="${i}">` +
+              `<span class="event-cat">${escapeHtml(e.category)}</span>${escapeHtml(e.text)}</button>`
+            ).join("")
+          : '<div class="event-result-empty">Sin resultados</div>';
+        resultsEl._items = items;
+        resultsEl.hidden = false;
+      } catch (e) { /* silencioso */ }
+    }, 250);
+  });
+  resultsEl.addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".event-result");
+    if (!btn) return;
+    const picked = (resultsEl._items || [])[Number(btn.dataset.i)];
+    if (picked) insertAtCursor(target, picked.text);
+    input.value = "";
+    resultsEl.hidden = true;
+    resultsEl.innerHTML = "";
+  });
+  document.addEventListener("click", (ev) => {
+    if (!input.contains(ev.target) && !resultsEl.contains(ev.target)) resultsEl.hidden = true;
+  });
 });
 </script>
 {% endblock %}

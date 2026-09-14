@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from ..auth import current_user
 from ..database import get_db
 from ..eml import build_eml, safe_filename
-from ..models import User, VesselCall, VesselCargo, VesselFile, VesselReport, VESSEL_REPORT_TYPES
+from ..models import EventTemplate, User, VesselCall, VesselCargo, VesselFile, VesselReport, VESSEL_REPORT_TYPES
 from ..reports import _parse_qty, build_shift_report, build_vessel_status_report, status_template
 from ..service import CC_KEY, DEFAULT_CC, get_setting, split_emails
 from ..templating import templates
@@ -112,6 +112,20 @@ def report_template(
     )
     operation = live_call.operation if live_call else "Load"
     return {"template": status_template(vf, tipos, event_at, operation)}
+
+
+@router.get("/api/eventos")
+def search_event_templates(
+    q: str = "", db: Session = Depends(get_db), user: User = Depends(current_user),
+):
+    """Biblioteca de frases reutilizables (Admin -> Eventos) para insertar en
+    el Detalle / Statement of Facts sin tipear todo de cero."""
+    stmt = select(EventTemplate).where(EventTemplate.active)
+    q = q.strip()
+    if q:
+        stmt = stmt.where(EventTemplate.text.ilike(f"%{q}%"))
+    stmt = stmt.order_by(EventTemplate.category, EventTemplate.sort_order, EventTemplate.id).limit(30)
+    return [{"id": e.id, "category": e.category, "text": e.text} for e in db.scalars(stmt)]
 
 
 @router.post("/barcos/{file_id}/cargos")

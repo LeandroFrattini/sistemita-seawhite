@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .auth import hash_password
 from .config import settings
 from .database import Base, SessionLocal, engine
-from .models import AppSetting, Client, Lineup, Terminal, User
+from .models import AppSetting, Client, EventTemplate, Lineup, Terminal, User
 
 DEFAULT_SIGNATURE_HTML = """<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#333333;">
   <div style="font-weight:bold;">Saludos / Regards</div>
@@ -93,6 +93,33 @@ DEFAULT_CLIENTS = [
     ("ISA", "", "EXCEL"),
 ]
 
+# Punto de partida de la biblioteca de eventos (Admin -> Eventos la sigue
+# completando). Los {PLACEHOLDER} entre llaves se dejan para editar a mano
+# al insertar (nombre de terminal, barcaza, etc).
+DEFAULT_EVENT_TEMPLATES = [
+    ("STATUS", "Arrived and Anchored at Bahia Blanca roads."),
+    ("STATUS", "Made all fast alongside to {TERMINAL} terminal."),
+    ("STATUS", "Commenced Loading."),
+    ("STATUS", "Commenced Discharging."),
+    ("STATUS", "Loading completed."),
+    ("STATUS", "Discharging completed."),
+    ("DELAYS", "Awaiting Customs and terminal surveyors in order to perform final Draft Survey."),
+    ("DELAYS", "Awaiting Customs' authorization to start loading."),
+    ("DELAYS", "Awaiting Master to sign cargo documents."),
+    ("DELAYS", "Awaiting Master to sign mate's receipt."),
+    ("DELAYS", "Awaiting Shippers to present cargo documents."),
+    ("DELAYS", "Delay due to adverse weather conditions."),
+    ("DELAYS", "Delay due to strong winds."),
+    ("OPERATION", "Awaiting SeNaSA's green light to commence loading operations."),
+    ("OPERATION", "Awaiting shore readiness."),
+    ("OPERATION", "Cargo holds inspected and approved by {SURVEYOR} surveyors."),
+    ("OPERATION", "Initial draft survey carried out by {SURVEYOR} surveyors."),
+    ("OPERATION", "Final draft survey carried out by {SURVEYOR} surveyors."),
+    ("BUNKERS", "Bunker barge {BARGE} away."),
+    ("BUNKERS", "Desloping barge away."),
+    ("BUNKERS", "Fresh water barge away."),
+]
+
 
 def init_db() -> None:
     Base.metadata.create_all(engine)
@@ -105,6 +132,7 @@ def init_db() -> None:
         _seed_clients(db)
         _seed_lineup(db)
         _seed_signature(db)
+        _seed_event_templates(db)
         db.commit()
     finally:
         db.close()
@@ -162,3 +190,10 @@ def _seed_signature(db: Session) -> None:
         db.add(AppSetting(key="report_cc", value="operations@seawhite.com.ar"))
     if not db.get(AppSetting, "flammable_list_emails"):
         db.add(AppSetting(key="flammable_list_emails", value=""))
+
+
+def _seed_event_templates(db: Session) -> None:
+    if db.scalar(select(EventTemplate).limit(1)):
+        return
+    for i, (category, text_) in enumerate(DEFAULT_EVENT_TEMPLATES):
+        db.add(EventTemplate(category=category, text=text_, sort_order=i, active=True))
