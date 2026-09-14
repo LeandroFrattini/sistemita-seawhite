@@ -48,6 +48,10 @@ class Terminal(Base):
     status_note: Mapped[str] = mapped_column(String(255), default="")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # muelles/ubicaciones que se usan para armar legajos y mandar reportes
+    # propios (ej. Otamerica, Boyas) pero no forman parte del line-up
+    # "oficial" -- no van en el Excel ni en el line-up finalizado del dia
+    exclude_from_excel: Mapped[bool] = mapped_column(Boolean, default=False)
 
     calls: Mapped[list["VesselCall"]] = relationship(
         back_populates="terminal", order_by="VesselCall.sort_order"

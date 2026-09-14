@@ -109,8 +109,57 @@ def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_
             "mes": mes,
             "meses": [(m, _period_label(m), counts[m]) for m in meses],
             "period_label": _period_label,
+            "clients": active_clients(db),
         },
     )
+
+
+@router.post("/nuestros-barcos/agregar")
+def add_our_vessel(
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+    vessel_name: str = Form(...), ubicacion: str = Form(...),
+    principal: str = Form(""), eta: str = Form(""),
+):
+    """Alta rapida para barcos que no pasan por el line-up "oficial" (ej.
+    vienen solo a tomar bunker, en Boya 11) -- se escribe la ubicacion a
+    mano y si no existe un muelle con ese nombre se crea uno nuevo (GRAIN,
+    excluido del Excel), asi la proxima vez que se repita esa ubicacion se
+    reusa el mismo. Queda marcado "Nuestro" y abre legajo en Barcos (ID)
+    igual que cualquier otro barco nuestro."""
+    ubicacion = ubicacion.strip()
+    if not vessel_name.strip() or not ubicacion:
+        return RedirectResponse("/nuestros-barcos", status_code=302)
+
+    terminal = db.scalar(
+        select(Terminal).where(Terminal.kind == "GRAIN", func.lower(Terminal.code) == ubicacion.lower())
+    )
+    if not terminal:
+        max_order = db.scalar(select(func.coalesce(func.max(Terminal.sort_order), 0)).where(Terminal.kind == "GRAIN"))
+        terminal = Terminal(
+            kind="GRAIN", code=ubicacion, name=ubicacion, berth_label=ubicacion,
+            sort_order=max(max_order or 0, 890) + 10, active=True, exclude_from_excel=True,
+        )
+        db.add(terminal)
+        db.flush()
+
+    lineup = get_draft_lineup(db, "GRAIN")
+    max_order = db.scalar(
+        select(func.coalesce(func.max(VesselCall.sort_order), 0)).where(
+            VesselCall.lineup_id == lineup.id, VesselCall.terminal_id == terminal.id
+        )
+    )
+    call = VesselCall(
+        lineup_id=lineup.id, terminal_id=terminal.id, sort_order=(max_order or 0) + 10,
+        vessel_name=vessel_name.strip(), vessel_type="Bulk Carrier", operation="Load",
+        eta=eta.strip(), is_ours=True,
+    )
+    db.add(call)
+    db.flush()
+    _set_principal(db, call, principal.strip())
+    lineup.updated_by = user.username
+    ensure_vessel_file(db, call, user)
+    db.commit()
+    return RedirectResponse("/nuestros-barcos", status_code=302)
 
 
 @router.post("/operados/{op_id}/mes")

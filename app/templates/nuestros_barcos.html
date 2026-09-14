@@ -5,7 +5,37 @@
 <h1>Nuestros barcos</h1>
 
 <section>
-  <h2>En el line-up ({{ en_lineup|length }})</h2>
+  <div class="vf-reporte-head">
+    <h2>En el line-up ({{ en_lineup|length }})</h2>
+    <button type="button" class="btn primary" id="open-add-vessel-modal">+ Agregar buque</button>
+  </div>
+  <p class="muted" style="margin-top:-6px">Para barcos que no pasan por el line-up de Grain/Flammable
+  (ej. vienen solo a tomar bunker) -- escribí la ubicación tal cual (ej. "Boya 11"); si ya la usaste antes
+  se reusa sola.</p>
+
+  <dialog id="add-vessel-modal">
+    <div class="modal-head">
+      <h2>Agregar buque</h2>
+      <button type="button" class="modal-close" id="close-add-vessel-modal" aria-label="Cerrar">×</button>
+    </div>
+    <form method="post" action="/nuestros-barcos/agregar" class="vf-report-form">
+      <label>Buque<input type="text" name="vessel_name" placeholder="ej. MV EXAMPLE" required></label>
+      <div class="vf-fields">
+        <label>Ubicación<input type="text" name="ubicacion" placeholder="ej. Boya 11" required></label>
+        <label>ETA (opcional)<input type="text" name="eta" placeholder="ej. 20/09/2026"></label>
+      </div>
+      <label>Cliente
+        <select name="principal">
+          <option value="">Sin cliente</option>
+          {% for c in clients %}
+          <option value="{{ c.name }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button type="submit" class="btn primary vf-submit">Agregar</button>
+    </form>
+  </dialog>
+
   {% if en_lineup %}
   <table class="list">
     <thead><tr>
@@ -87,4 +117,13 @@
   <p class="muted">{{ 'No hay barcos operados en ese mes.' if mes else 'Todavía no hay barcos operados.' }}</p>
   {% endif %}
 </section>
+
+<script>
+const addVesselModal = document.getElementById("add-vessel-modal");
+document.getElementById("open-add-vessel-modal")?.addEventListener("click", () => addVesselModal.showModal());
+document.getElementById("close-add-vessel-modal")?.addEventListener("click", () => addVesselModal.close());
+addVesselModal?.addEventListener("click", (ev) => {
+  if (ev.target === addVesselModal) addVesselModal.close();
+});
+</script>
 {% endblock %}

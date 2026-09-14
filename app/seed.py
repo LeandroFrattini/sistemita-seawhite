@@ -39,6 +39,15 @@ DEFAULT_FLAMMABLE_TERMINALS = [
     ("PROFERTIL", "Profertil", "Profertil", 50),
 ]
 
+# Muelles propios -- van al pie del line-up Grain (sort_order alto) y NUNCA
+# al Excel (interno ni de clientes) ni al line-up finalizado del dia; solo
+# sirven para poder armar el legajo en Barcos (ID) y mandar los reportes de
+# ese barco a nuestros clientes.
+DEFAULT_EXTRA_TERMINALS = [
+    ("OTAMERICA SITIO 1", "Otamerica Sitio 1", "Otamerica Sitio 1 berth", 900),
+    ("OTAMERICA SITIO 2", "Otamerica Sitio 2", "Otamerica Sitio 2 berth", 910),
+]
+
 # ALTER TABLE ... ADD COLUMN para bases creadas antes de agregar estas columnas
 _MIGRATIONS = [
     ("terminals", "kind", "TEXT DEFAULT 'GRAIN'"),
@@ -51,6 +60,7 @@ _MIGRATIONS = [
     ("vessel_reports", "shift_data", "TEXT DEFAULT ''"),
     ("vessel_files", "statement_of_facts", "TEXT DEFAULT ''"),
     ("vessel_reports", "batch_id", "TEXT DEFAULT ''"),
+    ("terminals", "exclude_from_excel", "BOOLEAN DEFAULT FALSE"),
 ]
 
 
@@ -162,6 +172,7 @@ def init_db() -> None:
         _seed_admin(db)
         _seed_terminals(db)
         _seed_flammable_terminals(db)
+        _seed_extra_terminals(db)
         _seed_clients(db)
         _seed_lineup(db)
         _seed_signature(db)
@@ -199,6 +210,17 @@ def _seed_flammable_terminals(db: Session) -> None:
     for code, name, berth, order in DEFAULT_FLAMMABLE_TERMINALS:
         db.add(Terminal(kind="FLAMMABLE", code=code, name=name, berth_label=berth,
                         sort_order=order, active=True))
+
+
+def _seed_extra_terminals(db: Session) -> None:
+    """Aditivo (corre siempre, no solo si la tabla esta vacia) -- asi si se
+    suma un muelle propio nuevo a DEFAULT_EXTRA_TERMINALS llega solo a las
+    bases que ya tenian datos, igual que _seed_event_templates."""
+    existing = {c for (c,) in db.execute(select(Terminal.code).where(Terminal.kind == "GRAIN"))}
+    for code, name, berth, order in DEFAULT_EXTRA_TERMINALS:
+        if code not in existing:
+            db.add(Terminal(kind="GRAIN", code=code, name=name, berth_label=berth,
+                            sort_order=order, active=True, exclude_from_excel=True))
 
 
 def _seed_clients(db: Session) -> None:

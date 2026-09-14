@@ -23,7 +23,7 @@ XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 def _xlsx_response(db: Session, *, internal: bool) -> StreamingResponse:
     lineup = get_draft_lineup(db)
-    terminals = active_terminals(db)
+    terminals = [t for t in active_terminals(db) if not t.exclude_from_excel]
     calls = calls_for_lineup(db, lineup.id)
     grouped = group_by_terminal(terminals, calls)
     bio, filename = build_lineup_xlsx(lineup, terminals, grouped, internal=internal)
@@ -47,8 +47,9 @@ def export_clients(db: Session = Depends(get_db), user: User = Depends(current_u
 @router.get("/finalize")
 def finalize_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
     lineup = get_draft_lineup(db)
-    terminals = active_terminals(db)
-    calls = calls_for_lineup(db, lineup.id)
+    terminals = [t for t in active_terminals(db) if not t.exclude_from_excel]
+    terminal_ids = {t.id for t in terminals}
+    calls = [c for c in calls_for_lineup(db, lineup.id) if c.terminal_id in terminal_ids]
     grouped = group_by_terminal(terminals, calls)
     archives = (
         db.query(ArchivedLineup).order_by(ArchivedLineup.archived_at.desc()).limit(30).all()
@@ -74,7 +75,7 @@ def finalize_page(request: Request, db: Session = Depends(get_db), user: User = 
 @router.post("/finalize")
 def finalize_submit(db: Session = Depends(get_db), user: User = Depends(current_user)):
     lineup = get_draft_lineup(db)
-    terminals = active_terminals(db)
+    terminals = [t for t in active_terminals(db) if not t.exclude_from_excel]
     calls = calls_for_lineup(db, lineup.id)
     grouped = group_by_terminal(terminals, calls)
 
