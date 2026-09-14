@@ -36,7 +36,9 @@ al mandar el reporte <b>Sailed</b> (o a mano); si el barco vuelve más adelante,
           <span class="status-chip {{ 'sailed' if 'Sailed' in r.status_label }}">{{ r.status_label }}</span>
           {% if r.status_at %}<span class="muted vf-status-date">{{ r.status_at.strftime("%d/%m %H:%M") }}</span>{% endif %}
         </td>
-        <td>{{ r.vf.terminal.code if r.vf.terminal else r.vf.terminal_code }} · {{ r.vf.principal_name or 'sin cliente' }}</td>
+        {% set clients = r.vf.recipient_clients() %}
+        <td>{{ r.vf.terminal.code if r.vf.terminal else r.vf.terminal_code }} · {{ r.vf.principal_name or 'sin cliente' }}
+          {%- if clients|length > 1 %} <span class="muted" title="{{ clients[1:]|map(attribute='name')|join(', ') }}">+{{ clients|length - 1 }}</span>{% endif %}</td>
         <td class="muted">{{ r.next_status or '—' }}</td>
         <td class="muted">{{ r.operation or '—' }}</td>
         <td class="muted">{{ r.load_orders or '—' }}</td>

@@ -335,31 +335,37 @@ def delete_call(call_id: int, db: Session = Depends(get_db), user: User = Depend
 
 
 def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
+    """Una fila por CADA cliente (principal + otras agencias) -- si el barco
+    tenia 3 clientes cuenta como 3 barcos operados para el recuento mensual,
+    no como uno solo con los otros dos pegados en un campo de texto aparte."""
     term = call.terminal
     d = parse_date(call.etc) or parse_date(call.etb) or date.today()
-    db.add(
-        OperatedVessel(
-            removed_by=user.username,
-            period=d.strftime("%Y-%m"),
-            lineup_date=call.lineup.lineup_date if call.lineup else "",
-            terminal_code=term.code if term else "",
-            berth_label=(term.berth_label or term.code) if term else "",
-            vessel_name=call.vessel_name,
-            vessel_type=call.vessel_type,
-            imo=call.imo,
-            eta=call.eta,
-            etb=call.etb,
-            etc=call.etc,
-            operation=call.operation,
-            quantity=call.quantity,
-            grade=call.grade,
-            shipper=call.shipper,
-            destination=call.destination,
-            local_agent=call.local_agent,
-            principal=call.principal_name,
-            extras=", ".join(l.client.name for l in call.extra_agencies if l.client),
+    clients = call.recipient_clients()
+    names = [c.name for c in clients] if clients else [call.principal_name]
+    for name in names:
+        db.add(
+            OperatedVessel(
+                removed_by=user.username,
+                period=d.strftime("%Y-%m"),
+                lineup_date=call.lineup.lineup_date if call.lineup else "",
+                terminal_code=term.code if term else "",
+                berth_label=(term.berth_label or term.code) if term else "",
+                vessel_name=call.vessel_name,
+                vessel_type=call.vessel_type,
+                imo=call.imo,
+                eta=call.eta,
+                etb=call.etb,
+                etc=call.etc,
+                operation=call.operation,
+                quantity=call.quantity,
+                grade=call.grade,
+                shipper=call.shipper,
+                destination=call.destination,
+                local_agent=call.local_agent,
+                principal=name,
+                extras="",
+            )
         )
-    )
 
 
 def _changes_payload(changes) -> dict:
