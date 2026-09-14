@@ -195,6 +195,22 @@
       <button type="button" class="mini primary" id="bc-insert">Insertar en el Detalle</button>
     </details>
 
+    <details class="vf-cargo-box vf-bc-box">
+      <summary>+ Agregar Arrival Conditions (WBL)</summary>
+      <p class="muted" style="margin:4px 0 8px">Formato distinto al de arriba, para cuando el destinatario es WBL
+      (calcado de los modelos reales) -- se inserta en el cuadro de Detalle, en el punto donde tengas el cursor.</p>
+      <div class="vf-fields">
+        <label>Robs IFO (mt)<input type="text" id="ac-ifo" placeholder="502.29"></label>
+        <label>Robs MDO (mt)<input type="text" id="ac-mdo" placeholder="175.85"></label>
+        <label>Robs FW (mt, opcional)<input type="text" id="ac-fw" placeholder="185"></label>
+      </div>
+      <div class="vf-fields">
+        <label>Draft FWD (m)<input type="text" id="ac-fwd" placeholder="8.70"></label>
+        <label>Draft AFT (m)<input type="text" id="ac-aft" placeholder="9.00"></label>
+      </div>
+      <button type="button" class="mini primary" id="ac-insert">Insertar en el Detalle</button>
+    </details>
+
     <div class="vf-notes-head">
       <label id="notes-label" for="notes-field">Detalle (plantilla ya armada -- editala como quieras)</label>
       <button type="button" id="load-template" class="mini" data-vf-id="{{ vf.id }}">↻ Cargar plantilla</button>
@@ -401,6 +417,29 @@ document.getElementById("bc-insert")?.addEventListener("click", () => {
 
   if (lines.length === 2) {
     alert("Cargá al menos un dato (draft o ROB) para armar el bloque.");
+    return;
+  }
+  insertAtCursor(document.getElementById("notes-field"), lines.join("\n"));
+});
+
+// --- Arrival Conditions (WBL): arma el bloque Robs/Drafts y lo inserta - //
+document.getElementById("ac-insert")?.addEventListener("click", () => {
+  const ifo = document.getElementById("ac-ifo").value.trim();
+  const mdo = document.getElementById("ac-mdo").value.trim();
+  const fw = document.getElementById("ac-fw").value.trim();
+  const fwd = document.getElementById("ac-fwd").value.trim();
+  const aft = document.getElementById("ac-aft").value.trim();
+
+  const lines = ["Arrival Conditions:"];
+  const robParts = [];
+  if (ifo) robParts.push(`ifo ${ifo} mt`);
+  if (mdo) robParts.push(`mdo ${mdo} mt`);
+  if (fw) robParts.push(`fw ${fw} mt`);
+  if (robParts.length) lines.push(`Robs; ${robParts.join(" – ")}`);
+  if (fwd || aft) lines.push(`Drafts; fwd ${fwd || "-"} m – aft ${aft || "-"} m`);
+
+  if (lines.length === 1) {
+    alert("Cargá al menos un dato (Robs o Drafts) para armar el bloque.");
     return;
   }
   insertAtCursor(document.getElementById("notes-field"), lines.join("\n"));

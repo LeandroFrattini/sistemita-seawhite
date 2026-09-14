@@ -187,7 +187,13 @@ def report_template(
         .order_by(VesselCall.id.desc())
     )
     operation = live_call.operation if live_call else "Load"
-    return {"template": status_template(vf, tipos, event_at, operation)}
+    # si TODOS los destinatarios son WBL, se prearma directamente en ese
+    # estilo (Statement of Facts en vez de "PLS NOTE..."); si hay una mezcla
+    # de formatos se usa el generico -- el mail final igual sale bien para
+    # cada cliente, esto es solo lo que se ve en el cuadro antes de editar
+    recipients = vf.recipient_clients()
+    is_wbl = bool(recipients) and all(c.report_format == "WBL_TEXT" for c in recipients)
+    return {"template": status_template(vf, tipos, event_at, operation, is_wbl=is_wbl)}
 
 
 @router.get("/api/eventos")

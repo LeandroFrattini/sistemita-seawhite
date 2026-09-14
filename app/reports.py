@@ -607,10 +607,21 @@ def _status_phrase(types: set[str], op_word: str, labels: dict[str, str]) -> str
     return " + ".join(labels.get(t, t) for t in types).upper() or "REPORT"
 
 
-def status_template(vf, report_types: list[str], event_at: str, operation: str = "Load") -> str:
+def status_template(
+    vf, report_types: list[str], event_at: str, operation: str = "Load",
+    is_wbl: bool = False, greeting: str = "good day",
+) -> str:
     """Plantilla prearmada (apertura + fecha) para que se cargue en el cuadro
     de texto del formulario y se pueda ir editando de a una linea, en vez de
-    completar campos sueltos a ciegas."""
+    completar campos sueltos a ciegas.
+
+    Para WBL (calcado de MV BAI GUAN / MV ANAHITA) no hay una frase de
+    apertura tipo "PLS NOTE BERTHED..." ni fecha aparte -- se va directo a
+    "Pls note" y el detalle es el propio Statement of Facts (agregalo con
+    el boton "+ Agregar evento" y tildá "Incluir Statement of Facts")."""
+    if is_wbl:
+        return f"Dear All, {greeting}\nPls note\n"
+
     labels = dict(VESSEL_REPORT_TYPES)
     types = set(report_types)
     op_word = _operation_word(operation)
@@ -646,29 +657,42 @@ def build_vessel_status_report(
     terminal_name = terminal_name.upper() or "TERMINAL"
     phrase = _status_phrase(types, _operation_word(operation), labels)
 
-    body = (notes or "").strip() or status_template(vf, report_types, event_at, operation)
+    to_name = client.display_to.upper() if client else "(SIN CLIENTE)"
+    to_emails = client.email_list if client else []
+    is_wbl = bool(client and client.report_format == "WBL_TEXT")
+
+    body = (notes or "").strip() or status_template(vf, report_types, event_at, operation, is_wbl=is_wbl)
     if (figure or "").strip():
         body += f"\n\nFIGURE: {figure.strip()}".upper()
 
-    to_name = client.display_to.upper() if client else "(SIN CLIENTE)"
-    to_emails = client.email_list if client else []
-
-    text_body = (
-        f"TO: {to_name}\n"
-        f"FM: {settings.mail_from_name}\n"
-        f"REF: {pfx} {vf.vessel_name.upper()}\n\n"
-        f"PORT: {PORT_LABEL}\n"
-        f"TERMINAL: {terminal_name}\n\n"
-        + body
-    )
+    if is_wbl:
+        pfx_slash = pfx[0] + "/" + pfx[1]
+        text_body = (
+            f"TO {to_name}\n"
+            f"FM {settings.mail_from_name}\n\n"
+            f"Ref: {pfx_slash} {vf.vessel_name.upper()}\n"
+            f"Berth: {terminal_name}\n\n"
+            + body
+        )
+        subject_suffix = "BERTH"
+    else:
+        text_body = (
+            f"TO: {to_name}\n"
+            f"FM: {settings.mail_from_name}\n"
+            f"REF: {pfx} {vf.vessel_name.upper()}\n\n"
+            f"PORT: {PORT_LABEL}\n"
+            f"TERMINAL: {terminal_name}\n\n"
+            + body
+        )
+        subject_suffix = "TERMINAL"
     text_body = _append_statement_of_facts(text_body, statement_of_facts)
     html_body = _wrap_body(
         f'<div style="line-height:1.35;">{_text_to_html(text_body)}</div>', signature_html
     )
     if "SAILED" in types:
-        subject_terminal = f" FROM {terminal_name} TERMINAL"
+        subject_terminal = f" FROM {terminal_name} {subject_suffix}"
     elif types & {"BERTHING", "COMMENCED_LOADING"}:
-        subject_terminal = f" AT {terminal_name} TERMINAL"
+        subject_terminal = f" AT {terminal_name} {subject_suffix}"
     else:
         subject_terminal = ""
     return BuiltReport(
