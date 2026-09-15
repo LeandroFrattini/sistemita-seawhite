@@ -35,6 +35,7 @@
       <label>Nombre<input name="full_name"></label>
       <label>Contraseña inicial<input name="password" placeholder="(vacío = igual al usuario)"></label>
       <label class="check">Admin<input type="checkbox" name="is_admin"></label>
+      <label class="check">Admin PDA<input type="checkbox" name="is_pda_admin"></label>
     </div>
     <button type="submit">Crear</button>
     <p class="muted" style="margin:8px 0 0">Va a tener que elegir su propia contraseña la primera vez que entre.</p>
@@ -48,6 +49,7 @@
         <label>Nombre<input name="full_name" value="{{ u.full_name }}"></label>
         <label>Resetear contraseña<input name="password" placeholder="(vacío = no tocar)"></label>
         <label class="check">Admin<input type="checkbox" name="is_admin" {{ 'checked' if u.is_admin }}></label>
+        <label class="check">Admin PDA<input type="checkbox" name="is_pda_admin" {{ 'checked' if u.is_pda_admin }}></label>
         <label class="check">Activo<input type="checkbox" name="is_active" {{ 'checked' if u.is_active }}></label>
       </div>
       {% if u.must_change_password %}

@@ -7,7 +7,7 @@ from .auth import COOKIE_NAME, read_session_cookie
 from .config import BASE_DIR
 from .database import SessionLocal
 from .models import User
-from .routers import admin, auth, clients, exports, imports, lineup, reports, vessels
+from .routers import admin, auth, clients, exports, imports, lineup, proformador, reports, vessels
 from .seed import init_db
 
 app = FastAPI(title="Sistemita SeaWhiters")
@@ -53,3 +53,4 @@ app.include_router(admin.router)
 app.include_router(exports.router)
 app.include_router(reports.router)
 app.include_router(vessels.router)
+app.include_router(proformador.router)

@@ -6,7 +6,19 @@ from sqlalchemy.orm import Session
 from .auth import hash_password
 from .config import settings
 from .database import Base, SessionLocal, engine
-from .models import AppSetting, Client, EventTemplate, Lineup, Terminal, User
+from .models import (
+    AppSetting,
+    Client,
+    EventTemplate,
+    Lineup,
+    ProformaCoefTramo,
+    ProformaConceptoFijo,
+    ProformaParametro,
+    ProformaTarifaTurno,
+    ProformaTugTarifa,
+    Terminal,
+    User,
+)
 
 DEFAULT_SIGNATURE_HTML = """<div style="font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#333333;">
   <div style="font-weight:bold;">Saludos / Regards</div>
@@ -63,6 +75,7 @@ _MIGRATIONS = [
     ("terminals", "exclude_from_excel", "BOOLEAN DEFAULT FALSE"),
     ("vessel_calls", "needs_report", "BOOLEAN DEFAULT TRUE"),
     ("lineups", "notice", "TEXT DEFAULT ''"),
+    ("users", "is_pda_admin", "BOOLEAN DEFAULT FALSE"),
 ]
 
 
@@ -104,6 +117,64 @@ DEFAULT_CLIENTS = [
     ("Fertimport", "", "EXCEL"),
     ("ISA", "", "EXCEL"),
 ]
+
+# --- Proformador: formulas confirmadas contra PDAs reales de Blue Star ---
+PROFORMA_PARAMETROS = [
+    ("wharfage_usd_trn_dia", "Uso de muelle (USD x TRN x dia)", 0.46),
+    ("channel_toll_usd_tn", "Vias navegables (USD x tonelada x coef)", 2.05),
+    ("fondeadero_usd_trn_dia", "Uso de fondeadero (USD x TRN x dia) -- usado en Bunker", 0.15),
+    ("libre_platica_coef", "Free Pratique -- coeficiente (x TRN/1000)", 6942.9),
+    ("libre_platica_base", "Free Pratique -- base fija ARS", 416574.0),
+    ("libre_platica_resta_trn", "Free Pratique -- TRN de referencia a restar", 1001.0),
+]
+
+# Evidencia real (PDAs Blue Star): 16000tn, 20000tn y 25000tn cobraron todos
+# coef 1.15 -> 3 tramos en vez de 4 (el tramo "10k-17k: 1" del memo original
+# no aparece reflejado en ninguna factura real)
+PROFORMA_COEF_TRAMOS = [
+    (5000, 0.60),
+    (10000, 0.85),
+    (None, 1.15),
+]
+
+PROFORMA_TUG_TARIFAS = [
+    (150, 7500.0),
+    (180, 9800.0),
+    (200, 12270.0),
+    (None, 14750.0),
+]
+
+PROFORMA_CONCEPTOS_FIJOS = [
+    ("immigration_in", "IMMIGRATION IN", 1250.0, "Si el barco procede del exterior"),
+    ("immigration_out", "IMMIGRATION OUT", 1250.0, "Si el barco se dirige al exterior"),
+    (None, "LINE HANDLERS IN", 4050.0, "Basis normal hours and tariff with service provider"),
+    (None, "LINE HANDLERS OUT", 1900.0, "Basis normal hours and tariff with service provider"),
+    (None, "TRANSPORT", 100.0, "Port authorities in/out"),
+    (None, "CUSTOMS", 300.0, "Give entrance if berthed in overtime"),
+    (None, "MARITIME CENTRE", 80.0, ""),
+    (None, "SENASA GARBAGE INSPECTION", 150.0, ""),
+    (None, "CUSTOMS FOR LOADING/DISCH IN O/T", 300.0, "Cada shift en O/T (a pedido del agente, obligatorio)"),
+    (None, "CUSTOM FOR PERMANENCE", 300.0, "Cada shift de 6hs alongside sin O/T ordenado"),
+]
+
+# TALLY (Encargado): valor ARS por dia, por tipo de carga
+PROFORMA_TARIFAS_TALLY = {
+    "ACEITE": (3959402.33, 4807845.69, 5656289.05),
+    "CEREAL": (4638157.02, 5486600.38, 6335043.75),
+    "BOLSONES": (5090660.18, 5939103.54, 6787546.91),
+    "FERTILIZANTE": (5769414.87, 6617858.24, 7466301.60),
+}
+
+# WATCHMEN (Sereno): valor ARS por dia, por categoria propia (no coincide
+# 1 a 1 con las de Tally -- INSALUBRE agrupa cereal/fertilizante, PELIGROSO
+# es por operar en posta, no por tipo de carga)
+PROFORMA_TARIFAS_SERENO = {
+    "NORMAL": (2678628.27, 2935005.12, 4216304.87),
+    "INSALUBRE": (3960429.67, 4345007.74, 6267746.40),
+    "PELIGROSO": (4730186.77, 5191782.46, 7499153.70),
+}
+
+PROFORMA_DIAS_TIPO = ["SEMANA", "SABADO", "DOMINGO_FERIADO"]
 
 # Punto de partida de la biblioteca de eventos (Admin -> Eventos la sigue
 # completando). Los {PLACEHOLDER} entre llaves se dejan para editar a mano
@@ -179,6 +250,7 @@ def init_db() -> None:
         _seed_lineup(db)
         _seed_signature(db)
         _seed_event_templates(db)
+        _seed_proformador(db)
         db.commit()
     finally:
         db.close()
@@ -230,6 +302,37 @@ def _seed_clients(db: Session) -> None:
         return
     for name, to_name, fmt in DEFAULT_CLIENTS:
         db.add(Client(name=name, to_name=to_name, emails="", report_format=fmt, active=True))
+
+
+def _seed_proformador(db: Session) -> None:
+    if not db.scalar(select(ProformaParametro).limit(1)):
+        for i, (clave, etiqueta, valor) in enumerate(PROFORMA_PARAMETROS):
+            db.add(ProformaParametro(clave=clave, etiqueta=etiqueta, valor=valor, orden=i))
+
+    if not db.scalar(select(ProformaCoefTramo).limit(1)):
+        for i, (hasta, coef) in enumerate(PROFORMA_COEF_TRAMOS):
+            db.add(ProformaCoefTramo(hasta_toneladas=hasta, coeficiente=coef, orden=i))
+
+    if not db.scalar(select(ProformaTugTarifa).limit(1)):
+        for i, (hasta, valor) in enumerate(PROFORMA_TUG_TARIFAS):
+            db.add(ProformaTugTarifa(hasta_loa=hasta, valor_usd=valor, orden=i))
+
+    if not db.scalar(select(ProformaConceptoFijo).limit(1)):
+        for i, (clave, nombre, valor, cond) in enumerate(PROFORMA_CONCEPTOS_FIJOS):
+            db.add(ProformaConceptoFijo(clave=clave, nombre=nombre, valor_usd=valor, condicion=cond, orden=i))
+
+    if not db.scalar(select(ProformaTarifaTurno).limit(1)):
+        orden = 0
+        for categoria, valores in PROFORMA_TARIFAS_TALLY.items():
+            for dia_tipo, valor in zip(PROFORMA_DIAS_TIPO, valores):
+                db.add(ProformaTarifaTurno(servicio="TALLY", categoria=categoria, dia_tipo=dia_tipo,
+                                            valor_ars_dia=valor, orden=orden))
+                orden += 1
+        for categoria, valores in PROFORMA_TARIFAS_SERENO.items():
+            for dia_tipo, valor in zip(PROFORMA_DIAS_TIPO, valores):
+                db.add(ProformaTarifaTurno(servicio="SERENO", categoria=categoria, dia_tipo=dia_tipo,
+                                            valor_ars_dia=valor, orden=orden))
+                orden += 1
 
 
 def _seed_lineup(db: Session) -> None:

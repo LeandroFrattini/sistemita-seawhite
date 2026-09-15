@@ -56,6 +56,14 @@ def admin_required(user: User = Depends(current_user)) -> User:
     return user
 
 
+def pda_admin_required(user: User = Depends(current_user)) -> User:
+    """Permiso especifico para editar el tarifario del Proformador -- se
+    activa por perfil (checkbox en Admin -> Usuarios), no por is_admin."""
+    if not user.is_admin and not user.is_pda_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere permiso de Administrador de PDA")
+    return user
+
+
 def optional_user(request: Request, db: Session = Depends(get_db)) -> User | None:
     data = read_session_cookie(request.cookies.get(COOKIE_NAME))
     if not data:

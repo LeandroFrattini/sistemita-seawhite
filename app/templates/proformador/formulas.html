@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block nav_proformador %}active{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Fórmulas del Proformador</h1>
+    <span class="muted">{% if puede_editar %}Podés editar los valores de abajo.{% else %}Solo lectura — pedile a un Administrador de PDA que actualice estos valores.{% endif %}</span>
+  </div>
+</div>
+
+<p class="muted">Pilotaje / prácticos no está acá: va por calado, es un tarifario aparte.</p>
+
+{% if error == "password" %}
+<p class="flash err" style="position:static;display:inline-block">Contraseña incorrecta, no se guardaron los cambios.</p>
+{% endif %}
+
+<form method="post" action="/proformador/config/formulas/guardar" id="formulas-form">
+<input type="hidden" name="confirm_password" id="confirm_password">
+
+<div class="card">
+  <h3>Parámetros generales</h3>
+  <table class="list">
+    <thead><tr><th>Fórmula</th><th style="width:140px">Valor</th></tr></thead>
+    <tbody>
+    {% for p in parametros %}
+      <tr>
+        <td>{{ p.etiqueta }}</td>
+        <td><input type="number" step="any" name="param_{{ p.id }}" value="{{ p.valor }}" {{ 'disabled' if not puede_editar }}></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Channel Toll — coeficiente por tramo de carga (tn)</h3>
+  <table class="list">
+    <thead><tr><th>Hasta (tn) — vacío = sin tope</th><th>Coeficiente</th></tr></thead>
+    <tbody>
+    {% for t in coef_tramos %}
+      <tr>
+        <td><input type="number" step="any" name="tramo_hasta_{{ t.id }}" value="{{ t.hasta_toneladas if t.hasta_toneladas is not none else '' }}" {{ 'disabled' if not puede_editar }}></td>
+        <td><input type="number" step="any" name="tramo_coef_{{ t.id }}" value="{{ t.coeficiente }}" {{ 'disabled' if not puede_editar }}></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Tugs — valor por remolcador según LOA (informativo)</h3>
+  <table class="list">
+    <thead><tr><th>Hasta LOA (m) — vacío = sin tope</th><th>Valor USD por remolcador</th></tr></thead>
+    <tbody>
+    {% for t in tug_tarifas %}
+      <tr>
+        <td><input type="number" step="any" name="tug_hasta_{{ t.id }}" value="{{ t.hasta_loa if t.hasta_loa is not none else '' }}" {{ 'disabled' if not puede_editar }}></td>
+        <td><input type="number" step="any" name="tug_valor_{{ t.id }}" value="{{ t.valor_usd }}" {{ 'disabled' if not puede_editar }}></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Serenos / Tally — tarifa por día (ARS), se divide entre 4 turnos</h3>
+  <table class="list">
+    <thead><tr><th>Servicio</th><th>Categoría</th><th>Día</th><th>Valor ARS / día</th></tr></thead>
+    <tbody>
+    {% for t in tarifas_turno %}
+      <tr>
+        <td>{{ t.servicio }}</td><td>{{ t.categoria }}</td><td>{{ t.dia_tipo }}</td>
+        <td><input type="number" step="any" name="turno_{{ t.id }}" value="{{ t.valor_ars_dia }}" {{ 'disabled' if not puede_editar }}></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted" style="margin-top:8px">El wizard (paso 4) elige la fila según el tipo de carga, la categoría de Watchmen y el día que se carguen ahí.</p>
+</div>
+
+<div class="card">
+  <h3>Conceptos fijos (editables a mano, sin fórmula)</h3>
+  <table class="list">
+    <thead><tr><th style="width:60px">Activo</th><th>Nombre</th><th style="width:140px">Valor USD</th><th>Condición</th></tr></thead>
+    <tbody>
+    {% for c in conceptos_fijos %}
+      <tr>
+        <td><input type="checkbox" name="fijo_activo_{{ c.id }}" {{ 'checked' if c.activo }} {{ 'disabled' if not puede_editar }}></td>
+        <td>{{ c.nombre }}</td>
+        <td><input type="number" step="any" name="fijo_valor_{{ c.id }}" value="{{ c.valor_usd }}" {{ 'disabled' if not puede_editar }}></td>
+        <td class="muted" style="font-size:11.5px">{{ c.condicion }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if puede_editar %}
+  <div class="row" style="margin-top:8px">
+    <label>Nombre del concepto nuevo<input type="text" name="fijo_nuevo_nombre"></label>
+    <label>Valor USD<input type="number" step="any" name="fijo_nuevo_valor"></label>
+  </div>
+  {% endif %}
+</div>
+
+{% if puede_editar %}
+<button type="button" class="primary" id="btn-guardar-formulas">Guardar cambios</button>
+{% endif %}
+</form>
+
+<dialog id="modal-confirm-password">
+  <div class="modal-head">
+    <h2>Confirmá tu contraseña</h2>
+    <button type="button" class="modal-close" id="close-modal-password" aria-label="Cerrar">×</button>
+  </div>
+  <p class="muted">Estás por modificar el tarifario del Proformador. Ingresá tu contraseña para confirmar.</p>
+  <input type="password" id="modal-password-input" placeholder="Contraseña" autocomplete="current-password" style="width:100%">
+  <div class="row end" style="margin-top:14px">
+    <button type="button" id="close-modal-password-2">Cancelar</button>
+    <button type="button" class="primary" id="btn-confirmar-password">Confirmar y guardar</button>
+  </div>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const pwModal = document.getElementById('modal-confirm-password');
+document.getElementById('btn-guardar-formulas')?.addEventListener('click', () => pwModal.showModal());
+document.getElementById('close-modal-password')?.addEventListener('click', () => pwModal.close());
+document.getElementById('close-modal-password-2')?.addEventListener('click', () => pwModal.close());
+pwModal?.addEventListener('click', (ev) => { if (ev.target === pwModal) pwModal.close(); });
+
+document.getElementById('btn-confirmar-password')?.addEventListener('click', () => {
+  const pass = document.getElementById('modal-password-input').value;
+  if (!pass) return;
+  document.getElementById('confirm_password').value = pass;
+  document.getElementById('formulas-form').submit();
+});
+document.getElementById('modal-password-input')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-confirmar-password').click(); }
+});
+</script>
+{% endblock %}

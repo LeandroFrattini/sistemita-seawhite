@@ -79,6 +79,9 @@ button, .btn {
   background: #fff; color: var(--blue-dark); border-radius: 7px; cursor: pointer;
   font-size: 13px; text-decoration: none; font-weight: 600;
 }
+/* el "display: inline-block" de arriba pisa el hidden nativo del navegador
+   -- sin esto, ocultar un boton con el.hidden = true no hace nada */
+button[hidden], .btn[hidden] { display: none; }
 button:hover, .btn:hover { background: #eaf2fb; }
 .btn.primary, button[type=submit].primary { background: var(--blue); color: #fff; border-color: var(--blue); }
 .btn.primary:hover { background: var(--blue-dark); }

@@ -31,6 +31,7 @@
     </div>
 
     <a href="/clients" class="{% block nav_clients %}{% endblock %}">Clientes</a>
+    <a href="/proformador" class="{% block nav_proformador %}{% endblock %}">Proformador</a>
     {% if user.is_admin %}<a href="/admin" class="{% block nav_admin %}{% endblock %}">Admin</a>{% endif %}
   </nav>
   <div class="user">{{ user.full_name or user.username }} ·

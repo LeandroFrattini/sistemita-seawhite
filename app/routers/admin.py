@@ -102,6 +102,7 @@ def create_user(
     full_name: str = Form(""),
     password: str = Form(""),
     is_admin: str = Form(""),
+    is_pda_admin: str = Form(""),
 ):
     username = username.strip()
     if username and not db.query(User).filter(User.username == username).first():
@@ -114,6 +115,7 @@ def create_user(
                 full_name=full_name.strip(),
                 password_hash=hash_password(initial_pw),
                 is_admin=is_admin == "on",
+                is_pda_admin=is_pda_admin == "on",
                 is_active=True,
                 must_change_password=True,
             )
@@ -130,12 +132,14 @@ def update_user(
     full_name: str = Form(""),
     password: str = Form(""),
     is_admin: str = Form(""),
+    is_pda_admin: str = Form(""),
     is_active: str = Form(""),
 ):
     u = db.get(User, user_id)
     if u:
         u.full_name = full_name.strip()
         u.is_admin = is_admin == "on"
+        u.is_pda_admin = is_pda_admin == "on"
         u.is_active = is_active == "on"
         if password.strip():
             # resetear la clave: no se puede "ver" la vieja, pero se pone una

@@ -30,6 +30,9 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=True)
+    # permiso especifico (independiente de is_admin) para editar el
+    # tarifario del Proformador -- se activa por perfil, no por rol
+    is_pda_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -411,6 +414,110 @@ class EventTemplate(Base):
     text: Mapped[str] = mapped_column(Text, default="")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Proforma(Base):
+    """Un PDA armado con el Proformador (wizard de 5 pasos). No depende de
+    una Escala/VesselCall -- se puede armar para un barco TBN antes de que
+    exista un call real en el line-up."""
+
+    __tablename__ = "proformas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dolar_venta: Mapped[float] = mapped_column(Float, default=0)
+    cliente: Mapped[str] = mapped_column(String(200), default="")
+    tipo_buque: Mapped[str] = mapped_column(String(30), default="Bulk Carrier")
+    tipo_operacion: Mapped[str] = mapped_column(String(20), default="Carga")
+    nombre_buque: Mapped[str] = mapped_column(String(150), default="MV TBN")
+    eslora: Mapped[float] = mapped_column(Float, default=0)
+    manga: Mapped[float] = mapped_column(Float, default=0)
+    puntal: Mapped[float] = mapped_column(Float, default=0)
+    fc: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trn: Mapped[float] = mapped_column(Float, default=0)
+    cantidad: Mapped[float] = mapped_column(Float, default=0)
+    dias_muelle: Mapped[float] = mapped_column(Float, default=0)
+    dias_fondeo: Mapped[float] = mapped_column(Float, default=0)
+    cantidad_remolques: Mapped[int] = mapped_column(Integer, default=0)
+    turnos: Mapped[float] = mapped_column(Float, default=0)
+    tipo_carga: Mapped[str] = mapped_column(String(30), default="ACEITE")
+    categoria_watchmen: Mapped[str] = mapped_column(String(30), default="NORMAL")
+    dia_tipo: Mapped[str] = mapped_column(String(20), default="SEMANA")
+    procede_exterior: Mapped[bool] = mapped_column(Boolean, default=True)
+    destino_exterior: Mapped[bool] = mapped_column(Boolean, default=True)
+    total_usd: Mapped[float] = mapped_column(Float, default=0)
+    creado_por: Mapped[str] = mapped_column(String(120), default="")
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    items: Mapped[list["ProformaLinea"]] = relationship(
+        back_populates="proforma", cascade="all, delete-orphan", order_by="ProformaLinea.orden"
+    )
+
+
+class ProformaLinea(Base):
+    __tablename__ = "proforma_lineas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proforma_id: Mapped[int] = mapped_column(ForeignKey("proformas.id"), index=True)
+    concepto: Mapped[str] = mapped_column(String(200), default="")
+    monto_usd: Mapped[float] = mapped_column(Float, default=0)
+    observacion: Mapped[str] = mapped_column(String(300), default="")
+    informativo: Mapped[bool] = mapped_column(Boolean, default=False)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+
+    proforma: Mapped["Proforma"] = relationship(back_populates="items")
+
+
+# --- formulas del Proformador: visibles a todos, editables solo admin o
+# usuarios con is_pda_admin (ver /proformador/formulas) --------------------
+class ProformaParametro(Base):
+    __tablename__ = "proforma_parametros"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clave: Mapped[str] = mapped_column(String(80), unique=True)
+    etiqueta: Mapped[str] = mapped_column(String(200), default="")
+    valor: Mapped[float] = mapped_column(Float, default=0)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ProformaCoefTramo(Base):
+    __tablename__ = "proforma_coef_tramos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hasta_toneladas: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = ultimo tramo
+    coeficiente: Mapped[float] = mapped_column(Float, default=1)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ProformaTugTarifa(Base):
+    __tablename__ = "proforma_tug_tarifas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hasta_loa: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = ultimo tramo
+    valor_usd: Mapped[float] = mapped_column(Float, default=0)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ProformaTarifaTurno(Base):
+    __tablename__ = "proforma_tarifas_turno"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    servicio: Mapped[str] = mapped_column(String(20), default="")  # SERENO | TALLY
+    categoria: Mapped[str] = mapped_column(String(30), default="")
+    dia_tipo: Mapped[str] = mapped_column(String(20), default="")  # SEMANA | SABADO | DOMINGO_FERIADO
+    valor_ars_dia: Mapped[float] = mapped_column(Float, default=0)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ProformaConceptoFijo(Base):
+    __tablename__ = "proforma_conceptos_fijos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    clave: Mapped[str | None] = mapped_column(String(60), nullable=True)  # ej "immigration_in"
+    nombre: Mapped[str] = mapped_column(String(200), default="")
+    valor_usd: Mapped[float] = mapped_column(Float, default=0)
+    condicion: Mapped[str] = mapped_column(String(200), default="")
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class ReportLog(Base):
