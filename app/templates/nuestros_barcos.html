@@ -49,12 +49,15 @@
     </tr></thead>
     <tbody>
     {% for kind, term, c in en_lineup %}
-      <tr>
+      {% set eta_disp = c.eta|etadisp %}
+      {% set etb_disp = c.etb|etadisp %}
+      {% set here = 'ALONGSIDE' in eta_disp or 'ROADS' in eta_disp or 'ALONGSIDE' in etb_disp or 'ROADS' in etb_disp %}
+      <tr class="{{ 'row-here' if here }}">
         <td>{{ 'Flammable' if kind == 'FLAMMABLE' else 'Grain' }}</td>
         <td><b>{{ c.vessel_name|upper }}</b></td>
         <td>{{ term.code if term }}</td>
         <td>{{ (term.berth_label or term.code) if term }}</td>
-        <td>{{ c.eta|etadisp }}</td><td>{{ c.etb|etadisp }}</td><td>{{ c.etc|etadisp }}</td>
+        <td>{{ eta_disp }}</td><td>{{ etb_disp }}</td><td>{{ c.etc|etadisp }}</td>
         <td>{{ c.quantity }}</td><td>{{ c.grade }}</td>
         <td>{{ c.principal_name }}</td><td>{{ c.destination }}</td>
       </tr>
