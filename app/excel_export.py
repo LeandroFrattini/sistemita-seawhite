@@ -20,6 +20,7 @@ FONT = "Courier New"
 PORT_FILL = PatternFill("solid", fgColor="FF009874")
 HEADER_FILL = PatternFill("solid", fgColor="C6E0B4")
 WHITE_FILL = PatternFill("solid", fgColor="FFFFFFFF")
+NOTICE_FILL = PatternFill("solid", fgColor="FFB45309")
 THIN = Side(style="thin", color="FFBFBFBF")
 
 # (encabezado, atributo del VesselCall, ancho de columna, es_fecha)
@@ -110,6 +111,23 @@ def build_lineup_xlsx(lineup, terminals, calls_by_terminal, *, internal: bool) -
     wg = ws.cell(row=row, column=first_col, value=settings.windguru_label)
     wg.hyperlink = settings.windguru_url
     wg.font = Font(name="Calibri", size=11, color="FF0563C1", underline="single")
+
+    # Eventos (aviso puntual del dia: puerto cerrado por viento, paro, etc.)
+    # -- solo si hay algo cargado, siempre al pie de todo
+    notice = (getattr(lineup, "notice", "") or "").strip()
+    if notice:
+        row += 2
+        end_col = min(last_col, first_col + 6)
+        ws.merge_cells(start_row=row, start_column=first_col, end_row=row, end_column=end_col)
+        label = ws.cell(row=row, column=first_col, value="EVENTOS")
+        label.font = Font(name=FONT, size=10, bold=True, color="FFFFFFFF")
+        label.fill = NOTICE_FILL
+        label.alignment = Alignment(horizontal="left", vertical="center")
+        row += 1
+        ws.merge_cells(start_row=row, start_column=first_col, end_row=row, end_column=end_col)
+        text = ws.cell(row=row, column=first_col, value=notice)
+        text.font = Font(name=FONT, size=10, bold=True)
+        text.alignment = Alignment(horizontal="left", vertical="center")
 
     bio = io.BytesIO()
     wb.save(bio)

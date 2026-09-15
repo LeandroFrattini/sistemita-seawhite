@@ -9,6 +9,12 @@
     <label>Puerto
       <input id="lineup-port" data-kind="{{ kind }}" value="{{ lineup.port_name }}" size="28">
     </label>
+    {% if not flammable %}
+    <label>Eventos
+      <input id="lineup-notice" data-kind="{{ kind }}" value="{{ lineup.notice }}"
+             placeholder="ej. Puerto cerrado por fuertes vientos" size="42">
+    </label>
+    {% endif %}
     <span class="muted">Última edición: {{ lineup.updated_by or "—" }}</span>
   </div>
   <div class="actions">

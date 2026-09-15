@@ -193,6 +193,8 @@ async def update_lineup(request: Request, db: Session = Depends(get_db), user: U
     # la fecha ya no se toca a mano -- get_draft_lineup la pisa sola con hoy
     if "port_name" in data:
         lineup.port_name = str(data["port_name"]).strip()
+    if "notice" in data:
+        lineup.notice = str(data["notice"]).strip()
     lineup.updated_by = user.username
     db.commit()
     return {"ok": True}

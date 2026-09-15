@@ -121,6 +121,14 @@ def _excel_table_text(terminal, term_calls) -> str:
     return "\n".join("  ".join(c.ljust(widths[i]) for i, c in enumerate(r)) for r in rows)
 
 
+def _notice_block(lineup) -> str:
+    """Aviso puntual del dia (puerto cerrado por viento, paro, etc.) cargado
+    en el line-up -- si hay algo, sale en todos los reportes de ese dia sin
+    tener que copiarlo mail por mail."""
+    notice = (getattr(lineup, "notice", "") or "").strip()
+    return f"EVENTOS: {notice}" if notice else ""
+
+
 def _wrap_body(inner_html: str, signature_html: str = "") -> str:
     """Envuelve todo el reporte en UN solo bloque para que Outlook no meta
     la firma en el medio. Si hay firma configurada, se agrega al final."""
@@ -136,15 +144,19 @@ def _wrap_body(inner_html: str, signature_html: str = "") -> str:
 def build_excel_report(call, client, lineup, terminal, term_calls, signature_html: str = "") -> BuiltReport:
     header = _excel_header_text(call, client, lineup)
     footer = settings.report_footer
+    notice = _notice_block(lineup)
+    notice_html = f"<div><b>{html.escape(notice)}</b></div><div><br></div>" if notice else ""
+    notice_text = f"{notice}\n\n" if notice else ""
     html_body = _wrap_body(
         f"<div>{_text_to_html(header)}</div>"
         "<div><br></div>"
         f"{_excel_table_html(terminal, term_calls)}"
         "<div><br></div>"
+        f"{notice_html}"
         f"<div>{_text_to_html(footer)}</div>",
         signature_html,
     )
-    text_body = f"{header}\n\n{_excel_table_text(terminal, term_calls)}\n\n{footer}"
+    text_body = f"{header}\n\n{_excel_table_text(terminal, term_calls)}\n\n{notice_text}{footer}"
     return BuiltReport(
         subject=build_subject(call, lineup),
         to_name=client.display_to,
@@ -228,6 +240,8 @@ def build_wbl_report(call, client, lineup, terminal, term_calls, signature_html:
     pfx = vessel_prefix(call.vessel_type).capitalize()  # "Mv" / "Mt"
     date_tag = (lineup.lineup_date or "").replace("/", ".")
     from_name = settings.mail_from_name.title()
+    notice = _notice_block(lineup)
+    notice_text = f"{notice}\n\n\n" if notice else ""
 
     text_body = (
         f"To {client.display_to}\n"
@@ -237,6 +251,7 @@ def build_wbl_report(call, client, lineup, terminal, term_calls, signature_html:
         f"Good day, pls note line up:\n\n"
         f"{_prospects_block(call, terminal)}\n\n\n"
         f"{_wbl_lineup_block(terminal, term_calls)}\n\n\n"
+        f"{notice_text}"
         f"{settings.report_footer}"
     )
     html_body = _wrap_body(

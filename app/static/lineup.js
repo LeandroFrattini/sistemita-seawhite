@@ -72,13 +72,13 @@ document.querySelectorAll(".grid [data-f]").forEach((input) => {
   });
 });
 
-// --- puerto del line-up (la fecha ya no se edita a mano) ---------------- //
-["lineup-port"].forEach((id) => {
+// --- puerto y eventos del line-up (la fecha ya no se edita a mano) ------ //
+[["lineup-port", "port_name"], ["lineup-notice", "notice"]].forEach(([id, field]) => {
   const el = document.getElementById(id);
   if (!el) return;
   el.addEventListener("change", async () => {
     try {
-      await api("/api/lineup", "POST", { kind: el.dataset.kind || "GRAIN", port_name: el.value });
+      await api("/api/lineup", "POST", { kind: el.dataset.kind || "GRAIN", [field]: el.value });
       flash("Guardado");
     } catch (e) {
       flash("Error: " + e.message, false);

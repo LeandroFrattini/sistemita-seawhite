@@ -95,6 +95,11 @@ class Lineup(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(String(20), default="GRAIN")  # GRAIN | FLAMMABLE
     port_name: Mapped[str] = mapped_column(String(120), default="")
+    # Aviso puntual (puerto cerrado por viento, paro, etc.) -- si tiene algo
+    # cargado sale al pie de todos los reportes de linea-up de ese dia y al
+    # pie de los dos Excel (interno y clientes), asi no hay que copiarlo a
+    # mano en cada reporte.
+    notice: Mapped[str] = mapped_column(String(255), default="")
     lineup_date: Mapped[str] = mapped_column(String(10), default="")  # dd/mm/yy
     status: Mapped[str] = mapped_column(String(20), default="draft")  # draft | archived
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

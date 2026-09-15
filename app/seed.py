@@ -62,6 +62,7 @@ _MIGRATIONS = [
     ("vessel_reports", "batch_id", "TEXT DEFAULT ''"),
     ("terminals", "exclude_from_excel", "BOOLEAN DEFAULT FALSE"),
     ("vessel_calls", "needs_report", "BOOLEAN DEFAULT TRUE"),
+    ("lineups", "notice", "TEXT DEFAULT ''"),
 ]
 
 
