@@ -1,7 +1,7 @@
 """Helpers de dominio compartidos por los routers."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -148,7 +148,30 @@ def ensure_vessel_file(db: Session, call: VesselCall, user: User | None) -> Vess
     vf.vessel_type = call.vessel_type or vf.vessel_type
     vf.principal_client_id = call.principal_client_id
     vf.principal_text = call.principal_text
+    _sync_vessel_file_fields(db, call, vf)
+    return vf
 
+
+def close_vessel_file_if_open(db: Session, call: VesselCall) -> VesselFile | None:
+    """Contraparte de ensure_vessel_file: si un barco deja de ser "nuestro"
+    y todavia tiene un legajo abierto en Barcos (ID) para ese muelle, lo
+    cierra (igual que el boton "Cerrar" manual) para que no quede colgado."""
+    if not (call.vessel_name or "").strip():
+        return None
+    vf = db.scalar(
+        select(VesselFile).where(
+            VesselFile.status == "open",
+            func.lower(VesselFile.vessel_name) == call.vessel_name.strip().lower(),
+            VesselFile.terminal_id == call.terminal_id,
+        )
+    )
+    if vf:
+        vf.status = "closed"
+        vf.closed_at = datetime.utcnow()
+    return vf
+
+
+def _sync_vessel_file_fields(db: Session, call: VesselCall, vf: VesselFile) -> None:
     current_ids = set(
         db.scalars(
             select(VesselExtraAgency.client_id).where(VesselExtraAgency.vessel_call_id == call.id)
@@ -160,5 +183,3 @@ def ensure_vessel_file(db: Session, call: VesselCall, user: User | None) -> Vess
     for link in list(vf.agencies):
         if link.client_id not in current_ids:
             db.delete(link)
-
-    return vf

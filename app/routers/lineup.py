@@ -14,6 +14,7 @@ from ..service import (
     active_clients,
     active_terminals,
     calls_for_lineup,
+    close_vessel_file_if_open,
     ensure_vessel_file,
     get_draft_lineup,
     group_by_terminal,
@@ -247,6 +248,8 @@ async def update_call(call_id: int, request: Request, db: Session = Depends(get_
 
     call.lineup.updated_by = user.username
     vf = ensure_vessel_file(db, call, user) if call.is_ours and call.needs_report else None
+    if not call.is_ours:
+        close_vessel_file_if_open(db, call)
     db.commit()
     return {
         "ok": True,
