@@ -14,6 +14,7 @@ from .models import (
     ProformaCoefTramo,
     ProformaConceptoFijo,
     ProformaParametro,
+    ProformaPilotageTramo,
     ProformaTarifaTurno,
     ProformaTugTarifa,
     Terminal,
@@ -76,6 +77,11 @@ _MIGRATIONS = [
     ("vessel_calls", "needs_report", "BOOLEAN DEFAULT TRUE"),
     ("lineups", "notice", "TEXT DEFAULT ''"),
     ("users", "is_pda_admin", "BOOLEAN DEFAULT FALSE"),
+    ("proformas", "remolques_in", "INTEGER DEFAULT 0"),
+    ("proformas", "remolques_out", "INTEGER DEFAULT 0"),
+    ("proformas", "immigration_in_boya", "BOOLEAN DEFAULT FALSE"),
+    ("proformas", "immigration_out_boya", "BOOLEAN DEFAULT FALSE"),
+    ("proformas", "calado", "FLOAT DEFAULT 0"),
 ]
 
 
@@ -126,14 +132,13 @@ PROFORMA_PARAMETROS = [
     ("libre_platica_coef", "Free Pratique -- coeficiente (x TRN/1000)", 6942.9),
     ("libre_platica_base", "Free Pratique -- base fija ARS", 416574.0),
     ("libre_platica_resta_trn", "Free Pratique -- TRN de referencia a restar", 1001.0),
+    ("immigration_boya_usd", "Immigration en boya (IN y/o OUT) -- USD fijo", 1875.0),
 ]
 
-# Evidencia real (PDAs Blue Star): 16000tn, 20000tn y 25000tn cobraron todos
-# coef 1.15 -> 3 tramos en vez de 4 (el tramo "10k-17k: 1" del memo original
-# no aparece reflejado en ninguna factura real)
 PROFORMA_COEF_TRAMOS = [
     (5000, 0.60),
     (10000, 0.85),
+    (17000, 1.0),
     (None, 1.15),
 ]
 
@@ -142,6 +147,17 @@ PROFORMA_TUG_TARIFAS = [
     (180, 9800.0),
     (200, 12270.0),
     (None, 14750.0),
+]
+
+# Pilotaje/practicaje por tramo de calado (pies) -- tarifario ESEM, columna
+# TOTAL, recorrido "Extranjero, By11o17-I.WHITE h/Profertil, 1 practico"
+# (el mas comun). Otros recorridos/banderas/2 practicos no estan cargados.
+PROFORMA_PILOTAGE_TRAMOS = [
+    (28, 10183.52),   # <28 pies / lastre
+    (30, 10452.29),   # >28<30 pies
+    (32, 10721.05),   # >30<32 pies
+    (34, 10989.82),   # >32<34 pies
+    (None, 11258.58), # >34 pies
 ]
 
 PROFORMA_CONCEPTOS_FIJOS = [
@@ -316,6 +332,10 @@ def _seed_proformador(db: Session) -> None:
     if not db.scalar(select(ProformaTugTarifa).limit(1)):
         for i, (hasta, valor) in enumerate(PROFORMA_TUG_TARIFAS):
             db.add(ProformaTugTarifa(hasta_loa=hasta, valor_usd=valor, orden=i))
+
+    if not db.scalar(select(ProformaPilotageTramo).limit(1)):
+        for i, (hasta, valor) in enumerate(PROFORMA_PILOTAGE_TRAMOS):
+            db.add(ProformaPilotageTramo(hasta_pies=hasta, valor_usd=valor, orden=i))
 
     if not db.scalar(select(ProformaConceptoFijo).limit(1)):
         for i, (clave, nombre, valor, cond) in enumerate(PROFORMA_CONCEPTOS_FIJOS):

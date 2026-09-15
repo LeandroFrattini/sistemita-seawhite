@@ -434,16 +434,21 @@ class Proforma(Base):
     puntal: Mapped[float] = mapped_column(Float, default=0)
     fc: Mapped[float | None] = mapped_column(Float, nullable=True)
     trn: Mapped[float] = mapped_column(Float, default=0)
+    calado: Mapped[float] = mapped_column(Float, default=0)  # pies, para el pilotaje
     cantidad: Mapped[float] = mapped_column(Float, default=0)
     dias_muelle: Mapped[float] = mapped_column(Float, default=0)
     dias_fondeo: Mapped[float] = mapped_column(Float, default=0)
-    cantidad_remolques: Mapped[int] = mapped_column(Integer, default=0)
+    cantidad_remolques: Mapped[int] = mapped_column(Integer, default=0)  # legacy, ver remolques_in/out
+    remolques_in: Mapped[int] = mapped_column(Integer, default=0)
+    remolques_out: Mapped[int] = mapped_column(Integer, default=0)
     turnos: Mapped[float] = mapped_column(Float, default=0)
     tipo_carga: Mapped[str] = mapped_column(String(30), default="ACEITE")
     categoria_watchmen: Mapped[str] = mapped_column(String(30), default="NORMAL")
     dia_tipo: Mapped[str] = mapped_column(String(20), default="SEMANA")
     procede_exterior: Mapped[bool] = mapped_column(Boolean, default=True)
     destino_exterior: Mapped[bool] = mapped_column(Boolean, default=True)
+    immigration_in_boya: Mapped[bool] = mapped_column(Boolean, default=False)
+    immigration_out_boya: Mapped[bool] = mapped_column(Boolean, default=False)
     total_usd: Mapped[float] = mapped_column(Float, default=0)
     creado_por: Mapped[str] = mapped_column(String(120), default="")
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -493,6 +498,20 @@ class ProformaTugTarifa(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     hasta_loa: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = ultimo tramo
+    valor_usd: Mapped[float] = mapped_column(Float, default=0)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ProformaPilotageTramo(Base):
+    """Tarifa de pilotaje/practicaje por tramo de calado (pies). Cargada
+    solo para el recorrido mas comun (Extranjero, I.White-Profertil, 1
+    practico) -- tarifario ESEM, sacado de la columna TOTAL. Otros
+    recorridos/banderas/2 practicos quedan afuera por ahora."""
+
+    __tablename__ = "proforma_pilotage_tramos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hasta_pies: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = ultimo tramo
     valor_usd: Mapped[float] = mapped_column(Float, default=0)
     orden: Mapped[int] = mapped_column(Integer, default=0)
 

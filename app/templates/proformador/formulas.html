@@ -9,7 +9,6 @@
   </div>
 </div>
 
-<p class="muted">Pilotaje / prácticos no está acá: va por calado, es un tarifario aparte.</p>
 
 {% if error == "password" %}
 <p class="flash err" style="position:static;display:inline-block">Contraseña incorrecta, no se guardaron los cambios.</p>
@@ -57,6 +56,22 @@
       <tr>
         <td><input type="number" step="any" name="tug_hasta_{{ t.id }}" value="{{ t.hasta_loa if t.hasta_loa is not none else '' }}" {{ 'disabled' if not puede_editar }}></td>
         <td><input type="number" step="any" name="tug_valor_{{ t.id }}" value="{{ t.valor_usd }}" {{ 'disabled' if not puede_editar }}></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h3>Pilotaje — por tramo de calado (pies)</h3>
+  <p class="muted">Solo recorrido Extranjero, By11o17-I.White h/Profertil, 1 práctico (el más común). Otros recorridos/banderas/2 prácticos todavía no están cargados.</p>
+  <table class="list">
+    <thead><tr><th>Hasta calado (pies) — vacío = sin tope</th><th>Valor USD</th></tr></thead>
+    <tbody>
+    {% for t in pilotage_tramos %}
+      <tr>
+        <td><input type="number" step="any" name="pilot_hasta_{{ t.id }}" value="{{ t.hasta_pies if t.hasta_pies is not none else '' }}" {{ 'disabled' if not puede_editar }}></td>
+        <td><input type="number" step="any" name="pilot_valor_{{ t.id }}" value="{{ t.valor_usd }}" {{ 'disabled' if not puede_editar }}></td>
       </tr>
     {% endfor %}
     </tbody>

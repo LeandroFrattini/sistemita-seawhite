@@ -17,6 +17,7 @@ from ..models import (
     ProformaConceptoFijo,
     ProformaLinea,
     ProformaParametro,
+    ProformaPilotageTramo,
     ProformaTarifaTurno,
     ProformaTugTarifa,
     User,
@@ -97,16 +98,20 @@ def _datos_from_form(form) -> dict:
         "eslora": eslora, "manga": manga, "puntal": puntal,
         "fc": calcular_fc(eslora, manga, puntal),
         "trn": f("trn"),
+        "calado": f("calado"),
         "cantidad": f("cantidad"),
         "dias_muelle": f("dias_muelle"),
         "dias_fondeo": f("dias_fondeo"),
-        "cantidad_remolques": int(f("cantidad_remolques")),
+        "remolques_in": int(f("remolques_in")),
+        "remolques_out": int(f("remolques_out")),
         "turnos": f("turnos"),
         "tipo_carga": form.get("tipo_carga") or "ACEITE",
         "categoria_watchmen": form.get("categoria_watchmen") or "NORMAL",
         "dia_tipo": form.get("dia_tipo") or "SEMANA",
         "procede_exterior": form.get("procede_exterior") == "on",
         "destino_exterior": form.get("destino_exterior") == "on",
+        "immigration_in_boya": form.get("immigration_in_boya") == "on",
+        "immigration_out_boya": form.get("immigration_out_boya") == "on",
     }
 
 
@@ -132,10 +137,12 @@ async def guardar(request: Request, db: Session = Depends(get_db), user: User = 
         dolar_venta=datos["dolar_venta"], cliente=datos["cliente"], tipo_buque=datos["tipo_buque"],
         tipo_operacion=datos["tipo_operacion"], nombre_buque=datos["nombre_buque"],
         eslora=datos["eslora"], manga=datos["manga"], puntal=datos["puntal"], fc=datos["fc"], trn=datos["trn"],
+        calado=datos["calado"],
         cantidad=datos["cantidad"], dias_muelle=datos["dias_muelle"], dias_fondeo=datos["dias_fondeo"],
-        cantidad_remolques=datos["cantidad_remolques"], turnos=datos["turnos"],
+        remolques_in=datos["remolques_in"], remolques_out=datos["remolques_out"], turnos=datos["turnos"],
         tipo_carga=datos["tipo_carga"], categoria_watchmen=datos["categoria_watchmen"], dia_tipo=datos["dia_tipo"],
         procede_exterior=datos["procede_exterior"], destino_exterior=datos["destino_exterior"],
+        immigration_in_boya=datos["immigration_in_boya"], immigration_out_boya=datos["immigration_out_boya"],
         total_usd=round(total, 2), creado_por=user.username,
     )
     db.add(p)
@@ -217,7 +224,8 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
 
     caract = [
         ("NRT", p.trn), ("Cargo (tn)", p.cantidad), ("LOA", p.eslora), ("Beam", p.manga),
-        ("Depth", p.puntal), ("FC", p.fc), ("Tugs", p.cantidad_remolques),
+        ("Depth", p.puntal), ("Draft (ft)", p.calado), ("FC", p.fc),
+        ("Tugs", (p.remolques_in or 0) + (p.remolques_out or 0)),
         ("Days alongside", p.dias_muelle), ("Shifts", p.turnos),
     ]
     row = 10
@@ -245,7 +253,7 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
         a = ws.cell(row=row, column=1, value=item.concepto)
         b = ws.cell(row=row, column=2, value=item.monto_usd)
         cc = ws.cell(row=row, column=3, value=item.observacion or "")
-        b.number_format = "#,##0.00"
+        b.number_format = "#,##0"
         for cell in (a, b, cc):
             cell.border = BOX
             cell.alignment = Alignment(vertical="center", wrap_text=(cell is cc))
@@ -261,7 +269,7 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
     total_value = ws.cell(row=row, column=2, value=round(total, 2))
     total_label.font = WHITE_BOLD
     total_value.font = WHITE_BOLD
-    total_value.number_format = "#,##0.00"
+    total_value.number_format = "#,##0"
     for col in range(1, last_col + 1):
         ws.cell(row=row, column=col).fill = fill(BLUE)
         ws.cell(row=row, column=col).border = BOX
@@ -295,6 +303,7 @@ def ver_formulas(request: Request, db: Session = Depends(get_db), user: User = D
         "parametros": db.scalars(select(ProformaParametro).order_by(ProformaParametro.orden)).all(),
         "coef_tramos": db.scalars(select(ProformaCoefTramo).order_by(ProformaCoefTramo.orden)).all(),
         "tug_tarifas": db.scalars(select(ProformaTugTarifa).order_by(ProformaTugTarifa.orden)).all(),
+        "pilotage_tramos": db.scalars(select(ProformaPilotageTramo).order_by(ProformaPilotageTramo.orden)).all(),
         "tarifas_turno": db.scalars(select(ProformaTarifaTurno).order_by(ProformaTarifaTurno.orden)).all(),
         "conceptos_fijos": db.scalars(select(ProformaConceptoFijo).order_by(ProformaConceptoFijo.orden)).all(),
     })
@@ -333,6 +342,16 @@ async def guardar_formulas(request: Request, db: Session = Depends(get_db), user
         if valor not in (None, ""):
             try:
                 tg.valor_usd = float(valor)
+            except ValueError:
+                pass
+
+    for pt in db.scalars(select(ProformaPilotageTramo)):
+        hasta = form.get(f"pilot_hasta_{pt.id}")
+        valor = form.get(f"pilot_valor_{pt.id}")
+        pt.hasta_pies = float(hasta) if hasta not in (None, "") else None
+        if valor not in (None, ""):
+            try:
+                pt.valor_usd = float(valor)
             except ValueError:
                 pass
 

@@ -1,9 +1,15 @@
 """Motor de calculo del Proformador.
 
 Formulas confirmadas contra PDAs reales de Blue Star (ver seed.py para los
-valores base). Pilotaje/practicos queda afuera a proposito: va por calado,
-es un mundo aparte con su propio tarifario.
+valores base). Pilotaje/practicos: tarifario ESEM por calado, solo cargado
+para el recorrido mas comun (Extranjero, I.White-Profertil, 1 practico) --
+otros recorridos/banderas/2 practicos todavia no estan cargados.
+
+Todos los montos se redondean a numeros enteros (sin decimales). Wharfage y
+Channel Toll se redondean siempre PARA ARRIBA; el resto usa redondeo normal.
 """
+import math
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -38,6 +44,10 @@ def tarifa_tug_por_loa(db: Session, eslora: float) -> float:
     return _tramo(models.ProformaTugTarifa, db, "hasta_loa", "valor_usd", eslora, 0.0)
 
 
+def tarifa_pilotage_por_calado(db: Session, calado_pies: float) -> float:
+    return _tramo(models.ProformaPilotageTramo, db, "hasta_pies", "valor_usd", calado_pies, 0.0)
+
+
 def tarifa_turno(db: Session, servicio: str, categoria: str, dia_tipo: str) -> float:
     t = db.scalar(
         select(models.ProformaTarifaTurno).where(
@@ -50,13 +60,14 @@ def tarifa_turno(db: Session, servicio: str, categoria: str, dia_tipo: str) -> f
 
 
 def _linea(concepto, monto, observacion="", informativo=False):
-    return {"concepto": concepto, "monto_usd": round(monto or 0, 2), "observacion": observacion, "informativo": informativo}
+    return {"concepto": concepto, "monto_usd": round(monto or 0), "observacion": observacion, "informativo": informativo}
 
 
 def calcular_proforma(db: Session, datos: dict) -> list[dict]:
     """datos esperados: dolar_venta, tipo_operacion, trn, cantidad, dias_muelle,
-    dias_fondeo, cantidad_remolques, turnos, tipo_carga, categoria_watchmen,
-    dia_tipo, procede_exterior, destino_exterior, eslora"""
+    dias_fondeo, remolques_in, remolques_out, turnos, tipo_carga,
+    categoria_watchmen, dia_tipo, procede_exterior, destino_exterior,
+    immigration_in_boya, immigration_out_boya, eslora"""
     dolar = float(datos.get("dolar_venta") or 0) or 1.0
     trn = float(datos.get("trn") or 0)
     cantidad = float(datos.get("cantidad") or 0)
@@ -64,11 +75,23 @@ def calcular_proforma(db: Session, datos: dict) -> list[dict]:
     dias_fondeo = float(datos.get("dias_fondeo") or 0)
     turnos = float(datos.get("turnos") or 0)
     eslora = float(datos.get("eslora") or 0)
-    cantidad_remolques = int(datos.get("cantidad_remolques") or 0)
+    remolques_in = int(datos.get("remolques_in") or 0)
+    remolques_out = int(datos.get("remolques_out") or 0)
+    calado = float(datos.get("calado") or 0)
     tipo_operacion = datos.get("tipo_operacion") or "Carga"
     dia_tipo = datos.get("dia_tipo") or "SEMANA"
+    accion = "LOADING" if tipo_operacion != "Descarga" else "DISCHARGING"
 
     lineas = []
+
+    # Pilotaje/practicaje -- solo recorrido Extranjero I.White-Profertil,
+    # 1 practico (el mas comun). Otros recorridos/banderas no estan cargados.
+    if calado:
+        valor_pilotage = tarifa_pilotage_por_calado(db, calado)
+        if valor_pilotage:
+            lineas.append(_linea(
+                "PILOTAGE", valor_pilotage, "BASIS OUR TARIFF WITH SERVICE PROVIDER",
+            ))
 
     wharfage_rate = get_param(db, "wharfage_usd_trn_dia", 0.46)
     channel_toll_rate = get_param(db, "channel_toll_usd_tn", 2.05)
@@ -76,65 +99,89 @@ def calcular_proforma(db: Session, datos: dict) -> list[dict]:
 
     if dias_muelle and trn:
         lineas.append(_linea(
-            "WHARFAGE (Uso de muelle)", wharfage_rate * trn * dias_muelle,
-            f"USD {wharfage_rate:g} x TRN {trn:g} x {dias_muelle:g} dia(s)",
+            "WHARFAGE (Uso de muelle)", math.ceil(wharfage_rate * trn * dias_muelle),
+            f"BASIS {dias_muelle:g} COMPLETE DAY(S) OF PORT STAY",
         ))
 
     if cantidad:
         coef = coeficiente_channel_toll(db, cantidad)
         lineas.append(_linea(
-            "CHANNEL TOLL (Vias navegables)", channel_toll_rate * cantidad * coef,
-            f"USD {channel_toll_rate:g} x {cantidad:g} tn x coef {coef:g}",
+            "CHANNEL TOLL (Vias navegables)", math.ceil(channel_toll_rate * cantidad * coef),
+            f"BASIS {cantidad:g} MT OF CARGO",
         ))
 
     if tipo_operacion == "Bunker" and dias_fondeo and trn:
         lineas.append(_linea(
             "USO DE FONDEADERO", fondeadero_rate * trn * dias_fondeo,
-            f"USD {fondeadero_rate:g} x TRN {trn:g} x {dias_fondeo:g} dia(s)",
+            f"BASIS {dias_fondeo:g} DAY(S) AT ANCHORAGE",
         ))
 
-    if trn:
+    # Free Pratique: solo se cobra si el barco procede del exterior
+    if trn and datos.get("procede_exterior"):
         coef_a = get_param(db, "libre_platica_coef", 6942.9)
         base = get_param(db, "libre_platica_base", 416574)
         resta_trn = get_param(db, "libre_platica_resta_trn", 1001)
         ars = ((trn - resta_trn) / 1000) * coef_a + base
         lineas.append(_linea(
-            "FREE PRATIQUE EXPENSES", ars / dolar, f"Basis TRN {trn:g} (calculado en ARS / TC {dolar:g})",
+            "FREE PRATIQUE EXPENSES", ars / dolar, f"BASIS TRN {trn:g}",
         ))
 
-    if eslora and cantidad_remolques:
+    # Tugs -- informativo, discriminado en/salida
+    if eslora and (remolques_in or remolques_out):
         valor_tug = tarifa_tug_por_loa(db, eslora)
-        lineas.append(_linea(
-            "TUGS", valor_tug * cantidad_remolques,
-            f"{cantidad_remolques} remolcador(es) x USD {valor_tug:g} segun LOA {eslora:g} -- informativo",
-            informativo=True,
-        ))
+        if remolques_in:
+            lineas.append(_linea(
+                "TUGS IN", valor_tug * remolques_in,
+                "BASIS OUR TARIFF WITH SERVICE PROVIDER", informativo=True,
+            ))
+        if remolques_out:
+            lineas.append(_linea(
+                "TUGS OUT", valor_tug * remolques_out,
+                "BASIS OUR TARIFF WITH SERVICE PROVIDER", informativo=True,
+            ))
 
-    if turnos:
+    # Watchmen: en base a DIAS COMPLETOS de estadia (no a los turnos)
+    if dias_muelle:
         categoria_watchmen = datos.get("categoria_watchmen") or "NORMAL"
         sereno_dia = tarifa_turno(db, "SERENO", categoria_watchmen, dia_tipo)
         if sereno_dia:
             lineas.append(_linea(
-                "WATCHMEN (Serenos)", (sereno_dia / 4 * turnos) / dolar,
-                f"ARS {sereno_dia:g}/dia [{categoria_watchmen}/{dia_tipo}] / 4 x {turnos:g} turno(s) / TC {dolar:g}",
+                "WATCHMEN", (sereno_dia * dias_muelle) / dolar,
+                f"BASIS {dias_muelle:g} COMPLETE DAY(S) OF PORT STAY",
             ))
+
+    # Tally: en base a los SHIFTS (turnos)
+    if turnos:
         categoria_tally = datos.get("tipo_carga") or "ACEITE"
         tally_dia = tarifa_turno(db, "TALLY", categoria_tally, dia_tipo)
         if tally_dia:
             lineas.append(_linea(
                 "HEAD TALLY CLERK", (tally_dia / 4 * turnos) / dolar,
-                f"ARS {tally_dia:g}/dia [{categoria_tally}/{dia_tipo}] / 4 x {turnos:g} turno(s) / TC {dolar:g}",
+                f"BASIS {turnos:g} SHIFT(S) FOR {accion} ALL CARGO",
             ))
 
     conceptos_fijos = db.scalars(
         select(models.ProformaConceptoFijo).where(models.ProformaConceptoFijo.activo == True)
         .order_by(models.ProformaConceptoFijo.orden)
     ).all()
+
+    # Immigration: si se hace en boya (in y/o out), un unico cargo fijo;
+    # si no, los conceptos normales condicionados a procedencia/destino
+    inmigracion_en_boya = datos.get("immigration_in_boya") or datos.get("immigration_out_boya")
+    if inmigracion_en_boya:
+        monto_boya = get_param(db, "immigration_boya_usd", 1875.0)
+        lineas.append(_linea("IMMIGRATION (AT BUOY)", monto_boya, "BASIS CLEARANCE AT BUOY"))
+
     for c in conceptos_fijos:
-        if c.clave == "immigration_in" and not datos.get("procede_exterior"):
-            continue
-        if c.clave == "immigration_out" and not datos.get("destino_exterior"):
-            continue
-        lineas.append(_linea(c.nombre, c.valor_usd, c.condicion or ""))
+        if c.clave == "immigration_in":
+            if inmigracion_en_boya or not datos.get("procede_exterior"):
+                continue
+            lineas.append(_linea(c.nombre, c.valor_usd, "BASIS ENTRANCE CLEARANCE AT BERTH"))
+        elif c.clave == "immigration_out":
+            if inmigracion_en_boya or not datos.get("destino_exterior"):
+                continue
+            lineas.append(_linea(c.nombre, c.valor_usd, "BASIS DEPARTURE CLEARANCE AT BERTH"))
+        else:
+            lineas.append(_linea(c.nombre, c.valor_usd, c.condicion or ""))
 
     return lineas

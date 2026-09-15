@@ -16,12 +16,14 @@
   <div class="row">
     <label>TC (dólar venta)<input value="{{ p.dolar_venta }}" disabled></label>
     <label>TRN<input value="{{ p.trn }}" disabled></label>
+    <label>Calado (pies)<input value="{{ p.calado }}" disabled></label>
     <label>LOA / Manga / Puntal<input value="{{ p.eslora }} / {{ p.manga }} / {{ p.puntal }}" disabled></label>
     <label>FC<input value="{{ p.fc }}" disabled></label>
     <label>Cantidad<input value="{{ p.cantidad }} tn" disabled></label>
     <label>Días muelle<input value="{{ p.dias_muelle }}" disabled></label>
-    <label>Remolcadores / Turnos<input value="{{ p.cantidad_remolques }} / {{ p.turnos }}" disabled></label>
+    <label>Remolcadores IN/OUT / Turnos<input value="{{ p.remolques_in }}/{{ p.remolques_out }} / {{ p.turnos }}" disabled></label>
     <label>Carga / Watchmen / Día<input value="{{ p.tipo_carga }} / {{ p.categoria_watchmen }} / {{ p.dia_tipo }}" disabled></label>
+    <label>Immigration en boya<input value="{{ 'IN' if p.immigration_in_boya }}{{ ' ' if p.immigration_in_boya and p.immigration_out_boya }}{{ 'OUT' if p.immigration_out_boya }}{{ '—' if not (p.immigration_in_boya or p.immigration_out_boya) }}" disabled></label>
   </div>
 </div>
 
@@ -31,13 +33,13 @@
   {% for item in p.items %}
     <tr>
       <td>{{ item.concepto }}</td>
-      <td>{{ "%.2f"|format(item.monto_usd) }}{% if item.informativo %} <span class="muted">(informativo)</span>{% endif %}</td>
+      <td>{{ "%.0f"|format(item.monto_usd) }}{% if item.informativo %} <span class="muted">(informativo)</span>{% endif %}</td>
       <td class="muted" style="font-size:11.5px">{{ item.observacion }}</td>
     </tr>
   {% endfor %}
   </tbody>
   <tfoot>
-    <tr style="font-weight:700"><td>Total USD</td><td>{{ "%.2f"|format(total) }}</td><td></td></tr>
+    <tr style="font-weight:700"><td>Total USD</td><td>{{ "%.0f"|format(total) }}</td><td></td></tr>
   </tfoot>
 </table>
 {% endblock %}

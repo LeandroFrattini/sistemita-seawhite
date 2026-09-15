@@ -8,7 +8,7 @@
   {% for l in lineas %}
     <tr>
       <td>{{ l.concepto }}</td>
-      <td>{{ "%.2f"|format(l.monto_usd) }}{% if l.informativo %} <span class="muted">(informativo)</span>{% endif %}</td>
+      <td>{{ "%.0f"|format(l.monto_usd) }}{% if l.informativo %} <span class="muted">(informativo)</span>{% endif %}</td>
       <td class="muted" style="font-size:11.5px">{{ l.observacion }}</td>
     </tr>
   {% else %}
@@ -16,6 +16,6 @@
   {% endfor %}
   </tbody>
   <tfoot>
-    <tr style="font-weight:700"><td>Total USD</td><td>{{ "%.2f"|format(total) }}</td><td></td></tr>
+    <tr style="font-weight:700"><td>Total USD</td><td>{{ "%.0f"|format(total) }}</td><td></td></tr>
   </tfoot>
 </table>

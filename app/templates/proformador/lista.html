@@ -20,7 +20,7 @@
       <td><b>{{ p.nombre_buque }}</b></td>
       <td>{{ p.cliente or "—" }}</td>
       <td>{{ p.tipo_operacion }}</td>
-      <td>USD {{ "%.2f"|format(p.total_usd or 0) }}</td>
+      <td>USD {{ "%.0f"|format(p.total_usd or 0) }}</td>
       <td>{{ p.creado_por or "—" }}</td>
       <td>{{ p.creado_en|localdt("%d/%m/%Y %H:%M") }}</td>
       <td><a class="mini" href="/proformador/{{ p.id }}">Ver</a></td>
