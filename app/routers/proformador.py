@@ -249,7 +249,6 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
         cell.border = BOX
         cell.alignment = Alignment(horizontal="left", indent=1)
     row += 1
-    first_item_row = row
     for item in p.items:
         a = ws.cell(row=row, column=1, value=item.concepto)
         b = ws.cell(row=row, column=2, value=item.monto_usd)
@@ -279,7 +278,6 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
     ws.column_dimensions["A"].width = 38
     ws.column_dimensions["B"].width = 16
     ws.column_dimensions["C"].width = 55
-    ws.freeze_panes = f"A{first_item_row}"
 
     bio = io.BytesIO()
     wb.save(bio)
