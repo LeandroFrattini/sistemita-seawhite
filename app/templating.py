@@ -3,6 +3,7 @@ from datetime import timedelta, timezone
 from fastapi.templating import Jinja2Templates
 
 from .config import BASE_DIR
+from .dates import display_eta
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
@@ -21,3 +22,4 @@ def localdt(value, fmt: str = "%d/%m/%Y %H:%M") -> str:
 
 
 templates.env.filters["localdt"] = localdt
+templates.env.filters["etadisp"] = display_eta

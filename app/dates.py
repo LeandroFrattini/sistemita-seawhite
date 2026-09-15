@@ -85,6 +85,19 @@ def add_days(d: date, n: int) -> date:
     return d + timedelta(days=n)
 
 
+def display_eta(value: str | None) -> str:
+    """Para mostrar ETA/ETB/ETC en pantalla (no en los inputs editables del
+    line-up, ahi se deja tal cual se tipea): si es fecha, DD/MM/AA parejo
+    aunque se haya cargado con año de 4 digitos o sin año; si es texto
+    libre (At roads, Alongside, 2nd Call...), en MAYUSCULAS, para que no
+    quede mezclado con lo que sale de "Alongside"/"ALONGSIDE" segun quien
+    lo haya tipeado."""
+    d, text = as_date_or_text(value)
+    if d:
+        return fmt_display(d)
+    return text.upper()
+
+
 def eta_sort_key(primary: str, fallback: str = "") -> tuple:
     """Clave para ordenar barcos por fecha estimada (ETA o ETB, el que se
     pase como "primary", con el otro de respaldo si esta vacio o no
