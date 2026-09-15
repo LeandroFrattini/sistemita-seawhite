@@ -69,7 +69,7 @@
           <td><input data-f="vessel_name" value="{{ call.vessel_name }}" class="w-vessel"></td>
           {% if not flammable %}
           <td>
-            <select data-f="vessel_type">
+            <select data-f="vessel_type" class="w-type">
               {% for vt in vessel_types %}
               <option value="{{ vt }}" {{ 'selected' if call.vessel_type == vt }}>{{ vt }}</option>
               {% endfor %}

@@ -109,7 +109,7 @@ table.grid input, table.grid select { border: 1px solid transparent; background:
 table.grid input:focus, table.grid select:focus { border-color: var(--green); background: #fff; outline: none; }
 table.grid tr.is-ours td { background: #f0faf5; }
 .principal-input.linked { font-weight: 600; color: var(--green-dark); }
-.w-vessel { min-width: 150px; } .w-imo { min-width: 80px; } .w-date { min-width: 78px; }
+.w-vessel { min-width: 150px; } .w-imo { min-width: 80px; } .w-date { min-width: 78px; } .w-type { min-width: 108px; }
 .w-oper { min-width: 60px; } .w-qty { min-width: 80px; } .w-grade { min-width: 90px; } .w-agent { min-width: 95px; }
 .col-ord { white-space: nowrap; width: 1%; }
 .col-ours { text-align: center; }
