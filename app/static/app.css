@@ -107,10 +107,13 @@ table.grid th { background: var(--head-green); text-align: left; padding: 5px 6p
 table.grid td { border: 1px solid var(--line); padding: 2px 4px; }
 table.grid input, table.grid select { border: 1px solid transparent; background: transparent; padding: 4px 5px; font: inherit; border-radius: 4px; width: 100%; }
 table.grid input:focus, table.grid select:focus { border-color: var(--green); background: #fff; outline: none; }
+table.grid select { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 table.grid tr.is-ours td { background: #f0faf5; }
 .principal-input.linked { font-weight: 600; color: var(--green-dark); }
-.w-vessel { min-width: 150px; } .w-imo { min-width: 80px; } .w-date { min-width: 78px; } .w-type { min-width: 108px; }
-.w-oper { min-width: 60px; } .w-qty { min-width: 80px; } .w-grade { min-width: 90px; } .w-agent { min-width: 95px; }
+.w-vessel { min-width: 150px; } .w-imo { min-width: 80px; } .w-date { min-width: 78px; }
+table.grid select.w-type { width: 44px; min-width: 44px; }
+table.grid input.w-oper { width: 24px; min-width: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.w-qty { min-width: 80px; } .w-grade { min-width: 90px; } .w-agent { min-width: 95px; }
 .col-ord { white-space: nowrap; width: 1%; }
 .col-ours { text-align: center; }
 .add-row { margin-top: 10px; }
