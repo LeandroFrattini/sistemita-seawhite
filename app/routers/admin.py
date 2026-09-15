@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from sqlalchemy import select
@@ -207,10 +207,16 @@ def create_event_template(
     category: str = Form(""),
     text: str = Form(...),
 ):
-    if text.strip():
-        db.add(EventTemplate(category=category.strip().upper() or "GENERAL", text=text.strip(), active=True))
-        db.commit()
-    return RedirectResponse("/admin?tab=wordings#sec-events", status_code=302)
+    """Devuelve JSON (no redirect) -- el form de "+ Agregar wording" lo
+    manda por fetch e inserta la fila el mismo sin recargar la pagina, asi
+    no se pierde el scroll ni se cierran las categorias ya abiertas."""
+    if not text.strip():
+        return JSONResponse({"ok": False, "error": "falta el texto"}, status_code=400)
+    cat = category.strip().upper() or "GENERAL"
+    e = EventTemplate(category=cat, text=text.strip(), active=True)
+    db.add(e)
+    db.commit()
+    return {"ok": True, "id": e.id, "category": e.category, "text": e.text}
 
 
 @router.post("/events/{event_id}")

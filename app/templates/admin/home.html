@@ -108,9 +108,9 @@
   <p class="muted">Frases reutilizables para armar reportes de Barcos (ID) y el Statement of Facts sin
   tipear todo de cero -- se buscan desde el legajo del barco. Los <code>{PLACEHOLDER}</code> entre llaves
   quedan para completar a mano al insertar (terminal, barcaza, etc).</p>
-  <details class="vf-cargo-box">
+  <details class="vf-cargo-box" open>
     <summary>+ Agregar wording</summary>
-    <form class="card" method="post" action="/admin/events" style="margin-top:8px">
+    <form class="card" id="add-wording-form" method="post" action="/admin/events" style="margin-top:8px">
       <div class="row">
         <label>Categoría<input name="category" placeholder="ej. DELAYS" list="event-categories" style="min-width:140px;"></label>
         <label style="flex:2">Texto<input name="text" required placeholder="ej. Awaiting shore readiness."></label>
@@ -122,8 +122,9 @@
     </form>
   </details>
 
+  <div id="wording-cats">
   {% for cat, items in events|groupby('category') %}
-  <details class="vf-cargo-box">
+  <details class="vf-cargo-box" data-cat="{{ cat }}">
     <summary>{{ cat or 'Sin categoría' }} ({{ items|length }})</summary>
     <div class="client-list">
     {% for e in items %}
@@ -143,8 +144,9 @@
     </div>
   </details>
   {% else %}
-  <p class="muted">Todavía no hay wordings cargados.</p>
+  <p class="muted" id="no-wordings">Todavía no hay wordings cargados.</p>
   {% endfor %}
+  </div>
 </section>
 {% endif %}
 
@@ -217,4 +219,85 @@
   </table>
 </section>
 {% endif %}
+
+<script>
+// --- "+ Agregar wording" por fetch: no recarga la pagina, asi no se
+// pierde el scroll ni se cierran las categorias que ya estaban abiertas
+// (se quejaron de que "se va para atras" cada vez que se agrega uno) --- //
+function escapeHtmlAdmin(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function wordingRowHtml(e) {
+  return `<form id="evt-${e.id}" class="card client-row" method="post" action="/admin/events/${e.id}">
+    <div class="row">
+      <label>Categoría<input name="category" value="${escapeHtmlAdmin(e.category)}" style="min-width:140px;"></label>
+      <label style="flex:2">Texto<input name="text" value="${escapeHtmlAdmin(e.text)}" required></label>
+      <label class="check">Activo<input type="checkbox" name="active" checked></label>
+    </div>
+    <div class="row end">
+      <button type="submit">Guardar</button>
+      <button type="submit" formaction="/admin/events/${e.id}/borrar" class="danger"
+              formnovalidate onclick="return confirm('¿Borrar este wording de la biblioteca?')">Borrar</button>
+    </div>
+  </form>`;
+}
+
+function insertWordingRow(e) {
+  document.getElementById("no-wordings")?.remove();
+  const wrap = document.getElementById("wording-cats");
+  let details = wrap.querySelector(`details[data-cat="${CSS.escape(e.category)}"]`);
+  if (!details) {
+    details = document.createElement("details");
+    details.className = "vf-cargo-box";
+    details.dataset.cat = e.category;
+    details.open = true;
+    details.innerHTML = `<summary>${escapeHtmlAdmin(e.category)} (0)</summary><div class="client-list"></div>`;
+    const after = [...wrap.querySelectorAll("details[data-cat]")].find((d) => d.dataset.cat > e.category);
+    if (after) after.before(details);
+    else wrap.appendChild(details);
+  }
+  const list = details.querySelector(".client-list");
+  const rowWrap = document.createElement("div");
+  rowWrap.innerHTML = wordingRowHtml(e);
+  const newRow = rowWrap.firstElementChild;
+  const after = [...list.querySelectorAll(".client-row")].find(
+    (r) => r.querySelector('[name="text"]').value.toLowerCase() > e.text.toLowerCase()
+  );
+  if (after) after.before(newRow);
+  else list.appendChild(newRow);
+  details.querySelector("summary").textContent =
+    `${e.category} (${list.querySelectorAll(".client-row").length})`;
+  details.open = true;
+  const catList = document.getElementById("event-categories");
+  if (catList && ![...catList.options].some((o) => o.value === e.category)) {
+    const opt = document.createElement("option");
+    opt.value = e.category;
+    catList.appendChild(opt);
+  }
+}
+
+document.getElementById("add-wording-form")?.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const form = ev.target;
+  const textInput = form.querySelector('[name="text"]');
+  const catInput = form.querySelector('[name="category"]');
+  if (!textInput.value.trim()) return;
+  const btn = form.querySelector('button[type="submit"]');
+  btn.disabled = true;
+  try {
+    const body = new URLSearchParams({ category: catInput.value, text: textInput.value });
+    const res = await fetch("/admin/events", { method: "POST", body });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || "no se pudo agregar");
+    insertWordingRow(data);
+    textInput.value = "";
+    textInput.focus();
+  } catch (e) {
+    alert("No se pudo agregar: " + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
 {% endblock %}
