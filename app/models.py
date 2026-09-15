@@ -434,7 +434,9 @@ class Proforma(Base):
     puntal: Mapped[float] = mapped_column(Float, default=0)
     fc: Mapped[float | None] = mapped_column(Float, nullable=True)
     trn: Mapped[float] = mapped_column(Float, default=0)
-    calado: Mapped[float] = mapped_column(Float, default=0)  # pies, para el pilotaje
+    calado: Mapped[float] = mapped_column(Float, default=0)  # legacy, ver calado_entrada/salida
+    calado_entrada: Mapped[float] = mapped_column(Float, default=0)  # pies, pilotaje de entrada
+    calado_salida: Mapped[float] = mapped_column(Float, default=0)  # pies, pilotaje de salida
     cantidad: Mapped[float] = mapped_column(Float, default=0)
     dias_muelle: Mapped[float] = mapped_column(Float, default=0)
     dias_fondeo: Mapped[float] = mapped_column(Float, default=0)

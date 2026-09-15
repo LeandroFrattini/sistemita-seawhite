@@ -98,7 +98,8 @@ def _datos_from_form(form) -> dict:
         "eslora": eslora, "manga": manga, "puntal": puntal,
         "fc": calcular_fc(eslora, manga, puntal),
         "trn": f("trn"),
-        "calado": f("calado"),
+        "calado_entrada": f("calado_entrada"),
+        "calado_salida": f("calado_salida"),
         "cantidad": f("cantidad"),
         "dias_muelle": f("dias_muelle"),
         "dias_fondeo": f("dias_fondeo"),
@@ -137,7 +138,7 @@ async def guardar(request: Request, db: Session = Depends(get_db), user: User = 
         dolar_venta=datos["dolar_venta"], cliente=datos["cliente"], tipo_buque=datos["tipo_buque"],
         tipo_operacion=datos["tipo_operacion"], nombre_buque=datos["nombre_buque"],
         eslora=datos["eslora"], manga=datos["manga"], puntal=datos["puntal"], fc=datos["fc"], trn=datos["trn"],
-        calado=datos["calado"],
+        calado_entrada=datos["calado_entrada"], calado_salida=datos["calado_salida"],
         cantidad=datos["cantidad"], dias_muelle=datos["dias_muelle"], dias_fondeo=datos["dias_fondeo"],
         remolques_in=datos["remolques_in"], remolques_out=datos["remolques_out"], turnos=datos["turnos"],
         tipo_carga=datos["tipo_carga"], categoria_watchmen=datos["categoria_watchmen"], dia_tipo=datos["dia_tipo"],
@@ -224,7 +225,7 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
 
     caract = [
         ("NRT", p.trn), ("Cargo (tn)", p.cantidad), ("LOA", p.eslora), ("Beam", p.manga),
-        ("Depth", p.puntal), ("Draft (ft)", p.calado), ("FC", p.fc),
+        ("Depth", p.puntal), ("Draft IN (ft)", p.calado_entrada), ("Draft OUT (ft)", p.calado_salida), ("FC", p.fc),
         ("Tugs", (p.remolques_in or 0) + (p.remolques_out or 0)),
         ("Days alongside", p.dias_muelle), ("Shifts", p.turnos),
     ]

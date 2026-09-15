@@ -77,21 +77,26 @@ def calcular_proforma(db: Session, datos: dict) -> list[dict]:
     eslora = float(datos.get("eslora") or 0)
     remolques_in = int(datos.get("remolques_in") or 0)
     remolques_out = int(datos.get("remolques_out") or 0)
-    calado = float(datos.get("calado") or 0)
+    calado_entrada = float(datos.get("calado_entrada") or 0)
+    calado_salida = float(datos.get("calado_salida") or 0)
     tipo_operacion = datos.get("tipo_operacion") or "Carga"
     dia_tipo = datos.get("dia_tipo") or "SEMANA"
     accion = "LOADING" if tipo_operacion != "Descarga" else "DISCHARGING"
 
     lineas = []
 
-    # Pilotaje/practicaje -- solo recorrido Extranjero I.White-Profertil,
-    # 1 practico (el mas comun). Otros recorridos/banderas no estan cargados.
-    if calado:
-        valor_pilotage = tarifa_pilotage_por_calado(db, calado)
-        if valor_pilotage:
-            lineas.append(_linea(
-                "PILOTAGE", valor_pilotage, "BASIS OUR TARIFF WITH SERVICE PROVIDER",
-            ))
+    # Pilotaje/practicaje -- se cobra por movimiento (entrada y salida por
+    # separado, cada uno con su propio calado). Solo recorrido Extranjero
+    # I.White-Profertil, 1 practico (el mas comun); otros recorridos/
+    # banderas todavia no estan cargados.
+    if calado_entrada:
+        valor = tarifa_pilotage_por_calado(db, calado_entrada)
+        if valor:
+            lineas.append(_linea("PILOTAGE IN", valor, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
+    if calado_salida:
+        valor = tarifa_pilotage_por_calado(db, calado_salida)
+        if valor:
+            lineas.append(_linea("PILOTAGE OUT", valor, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
 
     wharfage_rate = get_param(db, "wharfage_usd_trn_dia", 0.46)
     channel_toll_rate = get_param(db, "channel_toll_usd_tn", 2.05)

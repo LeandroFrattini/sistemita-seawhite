@@ -82,6 +82,8 @@ _MIGRATIONS = [
     ("proformas", "immigration_in_boya", "BOOLEAN DEFAULT FALSE"),
     ("proformas", "immigration_out_boya", "BOOLEAN DEFAULT FALSE"),
     ("proformas", "calado", "FLOAT DEFAULT 0"),
+    ("proformas", "calado_entrada", "FLOAT DEFAULT 0"),
+    ("proformas", "calado_salida", "FLOAT DEFAULT 0"),
 ]
 
 
