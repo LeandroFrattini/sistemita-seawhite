@@ -412,7 +412,7 @@ def calcular_otamerica(db: Session, datos: dict) -> list[dict]:
         barreras_rate = get_param(db, "otamerica_barreras_usd_dia", 2046.0)
         lineas.append(_linea(
             "MARINE CONTAINMENT BOOMS DEPLOYMENT", barreras_rate * dias_muelle,
-            f"BASIS {dias_muelle:g} DAY(S) OR FRACTION",
+            f"BASIS {dias_muelle:g} COMPLETE DAY(S)",
         ))
 
     # Amarre / Desamarre -- siempre tarifa de dia habil; el recargo de
