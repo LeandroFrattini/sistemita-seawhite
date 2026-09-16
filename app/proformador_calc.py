@@ -459,22 +459,23 @@ def calcular_otamerica(db: Session, datos: dict) -> list[dict]:
                 f"BASIS {dias_muelle:g} COMPLETE DAY(S) OF PORT STAY",
             ))
 
-    # Conceptos fijos (customs, line handlers, immigration, etc.) -- mismos
-    # que Carga/Descarga, sin la variante "en boya" (Otamerica siempre amarra)
+    # Migrations -- en Otamerica siempre va la tarifa "en boya" (USD 1875
+    # cada una), no la de muelle normal (1250) que usa Carga/Descarga
+    migrations_usd = get_param(db, "otamerica_migrations_usd", 1875.0)
+    if datos.get("procede_exterior"):
+        lineas.append(_linea("MIGRATIONS IN", migrations_usd, "BASIS ENTRANCE CLEARANCE"))
+    if datos.get("destino_exterior"):
+        lineas.append(_linea("MIGRATIONS OUT", migrations_usd, "BASIS DEPARTURE CLEARANCE"))
+
+    # Conceptos fijos (customs, line handlers, etc.) -- mismos que
+    # Carga/Descarga, salvo immigration_in/out (reemplazados arriba)
     conceptos_fijos = db.scalars(
         select(models.ProformaConceptoFijo).where(models.ProformaConceptoFijo.activo == True)
         .order_by(models.ProformaConceptoFijo.orden)
     ).all()
     for c in conceptos_fijos:
-        if c.clave == "immigration_in":
-            if not datos.get("procede_exterior"):
-                continue
-            lineas.append(_linea(c.nombre, c.valor_usd, "BASIS ENTRANCE CLEARANCE AT BERTH"))
-        elif c.clave == "immigration_out":
-            if not datos.get("destino_exterior"):
-                continue
-            lineas.append(_linea(c.nombre, c.valor_usd, "BASIS DEPARTURE CLEARANCE AT BERTH"))
-        else:
-            lineas.append(_linea(c.nombre, c.valor_usd, c.condicion or ""))
+        if c.clave in ("immigration_in", "immigration_out"):
+            continue
+        lineas.append(_linea(c.nombre, c.valor_usd, c.condicion or ""))
 
     return lineas

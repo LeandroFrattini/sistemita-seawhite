@@ -155,6 +155,7 @@ PROFORMA_PARAMETROS = [
     ("otamerica_isps_usd_tn", "Otamerica -- ISPS (USD x tonelada cargada)", 0.01),
     ("otamerica_barreras_usd_dia", "Otamerica -- Barreras de contencion marina (USD x dia o fraccion)", 2046.0),
     ("otamerica_amarre_usd", "Otamerica -- Amarre y Desamarre, cada uno, dia habil (USD fijo)", 7162.0),
+    ("otamerica_migrations_usd", "Otamerica -- Migrations IN/OUT, tarifa en boya, cada una (USD fijo)", 1875.0),
 ]
 
 # Configuracion propia de cada boya de bunker (Formulas la deja editar)
