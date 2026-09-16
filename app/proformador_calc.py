@@ -391,12 +391,14 @@ def calcular_otamerica(db: Session, datos: dict) -> list[dict]:
             f"BASIS {dias_muelle:g} COMPLETE DAY(S) OF PORT STAY",
         ))
 
-    # Channel Toll -- misma formula/tabla que Carga/Descarga
-    if cantidad:
+    # Channel Toll -- 2.05 x cantidad cargada x coeficiente (por TRN, no por
+    # cantidad como en Carga/Descarga) x factor de recorrido propio de Otamerica
+    if cantidad and trn:
         channel_toll_rate = get_param(db, "channel_toll_usd_tn", 2.05)
-        coef = coeficiente_channel_toll(db, cantidad)
+        coef = coeficiente_channel_toll(db, trn)
+        factor_recorrido = get_param(db, "otamerica_channel_toll_factor", 0.9)
         lineas.append(_linea(
-            "CHANNEL TOLL (Vias navegables)", math.ceil(channel_toll_rate * cantidad * coef),
+            "CHANNEL TOLL (Vias navegables)", math.ceil(channel_toll_rate * cantidad * coef * factor_recorrido),
             f"BASIS {cantidad:g} MT OF CARGO",
         ))
 
