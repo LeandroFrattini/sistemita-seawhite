@@ -49,13 +49,15 @@ def coeficiente_pilotage_por_calado(db: Session, calado_pies: float) -> float:
 
 
 def calcular_pilotage(db: Session, uf: float, calado_pies: float, *, km_clave: str = "pilotage_km_recorrido",
-                       service_clave: str = "pilotage_service_usd") -> float:
+                       service_clave: str = "pilotage_service_usd", dos_practicos: bool = False) -> float:
     """Formula real del tarifario ESEM: UF = Eslora x Manga x Puntal / 800
     (= FC, propio de cada barco), multiplicado por un %calado segun el
     tramo de calado de ESE movimiento (entrada o salida por separado).
     Por defecto usa el recorrido Extranjero I.White-Profertil, 1 practico;
     para el recorrido Monoboyas (Boya 17) se pasan las claves alternativas
-    (km y service distintos, el resto de los coeficientes es igual)."""
+    (km y service distintos, el resto de los coeficientes es igual).
+    dos_practicos (Otamerica, manga > 39.9m): duplica la tarifa de gobierno
+    (Maniobra+Navegacion) -- el service/related fijo NO se duplica."""
     factor = coeficiente_pilotage_por_calado(db, calado_pies)
     if not factor or not uf:
         return 0.0
@@ -69,6 +71,8 @@ def calcular_pilotage(db: Session, uf: float, calado_pies: float, *, km_clave: s
     maniobra = (uf * coef_maniobra) * factor
     navegacion = (uf * coef_navegacion + coef_km * km) * factor
     tarifa_gobierno = (maniobra + navegacion) * (1 - descuento)
+    if dos_practicos:
+        tarifa_gobierno *= 2
     return tarifa_gobierno + service
 
 
@@ -361,17 +365,23 @@ def calcular_otamerica(db: Session, datos: dict) -> list[dict]:
     lineas = []
 
     # Pilotaje -- misma ruta Monoboyas que Boya 17 (Otamerica 1/2 tambien
-    # son monoboyas), por movimiento (entrada/salida por separado)
+    # son monoboyas), por movimiento (entrada/salida por separado). Si la
+    # manga supera 39.9m (40m), va tarifario de DOS PRACTICOS: se duplica
+    # la tarifa de gobierno (Maniobra+Navegacion), el service fijo no cambia.
+    dos_practicos = manga > 39.9
+    remark_pilotage = "BASIS OUR TARIFF WITH SERVICE PROVIDER" + (
+        " (TWO PILOTS -- BEAM OVER 40M)" if dos_practicos else ""
+    )
     if calado_entrada:
         v = calcular_pilotage(db, uf, calado_entrada, km_clave="pilotage_monoboya_km",
-                               service_clave="pilotage_monoboya_service_usd")
+                               service_clave="pilotage_monoboya_service_usd", dos_practicos=dos_practicos)
         if v:
-            lineas.append(_linea("PILOTAGE IN", v, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
+            lineas.append(_linea("PILOTAGE IN", v, remark_pilotage))
     if calado_salida:
         v = calcular_pilotage(db, uf, calado_salida, km_clave="pilotage_monoboya_km",
-                               service_clave="pilotage_monoboya_service_usd")
+                               service_clave="pilotage_monoboya_service_usd", dos_practicos=dos_practicos)
         if v:
-            lineas.append(_linea("PILOTAGE OUT", v, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
+            lineas.append(_linea("PILOTAGE OUT", v, remark_pilotage))
 
     # Wharfage -- tarifa propia de Otamerica (0.07 x TRN x dia, no la generica 0.46)
     wharfage_rate = get_param(db, "otamerica_wharfage_usd_trn_dia", 0.07)
