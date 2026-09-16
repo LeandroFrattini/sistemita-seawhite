@@ -9,7 +9,7 @@ from openpyxl.drawing.image import Image as XLImage
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
 from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.utils import coordinate_to_tuple
+from openpyxl.utils import coordinate_to_tuple, get_column_letter
 from openpyxl.utils.units import pixels_to_EMU
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -52,14 +52,21 @@ BOYAS = [("BOYA_3", "Boya 3"), ("BOYA_11", "Boya 11"), ("BOYA_17", "Boya 17")]
 LOGO_PATH = BASE_DIR / "app" / "static" / "img" / "logo-sw-emblem.png"
 
 
-def _insertar_logo(ws, cell="C5", width=70, height=83, offset_x_px=6, offset_y_px=16):
+def _insertar_logo(ws, cell="C3", width=70, height=83):
+    """Ancla el logo en `cell`, pegado contra el borde derecho de esa columna.
+    Requiere que el ancho de columna ya este seteado en `ws` (llamar despues
+    de definir ws.column_dimensions), sino cae al ancho default de Excel."""
     if not LOGO_PATH.exists():
         return
     img = XLImage(str(LOGO_PATH))
     img.width = width
     img.height = height
     row, col = coordinate_to_tuple(cell)
-    marker = AnchorMarker(col=col - 1, colOff=pixels_to_EMU(offset_x_px), row=row - 1, rowOff=pixels_to_EMU(offset_y_px))
+    col_letter = get_column_letter(col)
+    col_width_chars = ws.column_dimensions[col_letter].width or 8.43
+    col_width_px = int(((256 * col_width_chars + int(128 / 7)) / 256) * 7)
+    x_off = max(col_width_px - width, 0)
+    marker = AnchorMarker(col=col - 1, colOff=pixels_to_EMU(x_off), row=row - 1, rowOff=0)
     img.anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(pixels_to_EMU(width), pixels_to_EMU(height)))
     ws.add_image(img)
 
@@ -242,6 +249,11 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
     ws.sheet_view.showGridLines = False
     last_col = 3
 
+    ws.row_dimensions[1].height = 22
+    ws.column_dimensions["A"].width = 42
+    ws.column_dimensions["B"].width = 16
+    ws.column_dimensions["C"].width = 60
+
     ws.merge_cells("A1:C2")
     c = ws["A1"]
     c.value = "SEA WHITE S.A."
@@ -316,11 +328,6 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
     for col in range(1, last_col + 1):
         ws.cell(row=row, column=col).fill = fill(BLUE)
         ws.cell(row=row, column=col).border = BOX
-
-    ws.row_dimensions[1].height = 22
-    ws.column_dimensions["A"].width = 42
-    ws.column_dimensions["B"].width = 16
-    ws.column_dimensions["C"].width = 60
 
     bio = io.BytesIO()
     wb.save(bio)
@@ -453,6 +460,11 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
     ws.sheet_view.showGridLines = False
     last_col = 3  # A..C
 
+    ws.row_dimensions[1].height = 22
+    ws.column_dimensions["A"].width = 38
+    ws.column_dimensions["B"].width = 16
+    ws.column_dimensions["C"].width = 55
+
     # --- encabezado con la marca ---
     ws.merge_cells("A1:C2")
     c = ws["A1"]
@@ -537,11 +549,6 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
     for col in range(1, last_col + 1):
         ws.cell(row=row, column=col).fill = fill(BLUE)
         ws.cell(row=row, column=col).border = BOX
-
-    ws.row_dimensions[1].height = 22
-    ws.column_dimensions["A"].width = 38
-    ws.column_dimensions["B"].width = 16
-    ws.column_dimensions["C"].width = 55
 
     bio = io.BytesIO()
     wb.save(bio)
