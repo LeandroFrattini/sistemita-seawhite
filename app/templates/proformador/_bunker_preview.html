@@ -1,0 +1,21 @@
+<div class="muted" style="margin-bottom:8px">
+  <b>{{ datos.nombre_buque }}</b> — {{ datos.cliente or "sin cliente" }} — {{ boyas.get(datos.boya, datos.boya) }}
+  <br>TC {{ datos.dolar_venta }} · TRN {{ datos.trn|round(0) }} · FC {{ datos.fc or "—" }}
+</div>
+<table class="list">
+  <thead><tr><th>Concepto</th><th>Valor USD</th><th>Observación</th></tr></thead>
+  <tbody>
+  {% for l in lineas %}
+    <tr>
+      <td>{{ l.concepto }}</td>
+      <td>{{ "%.0f"|format(l.monto_usd) }}{% if l.informativo %} <span class="muted">(informativo)</span>{% endif %}</td>
+      <td class="muted" style="font-size:11.5px">{{ l.observacion }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="3" class="muted" style="text-align:center;padding:12px">Completá los pasos anteriores y volvé a calcular.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr style="font-weight:700"><td>Total USD</td><td>{{ "%.0f"|format(total) }}</td><td></td></tr>
+  </tfoot>
+</table>

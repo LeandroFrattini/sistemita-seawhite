@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block nav_proformador %}active{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">{{ p.nombre_buque }}</h1>
+    <span class="muted">{{ p.cliente or "—" }} · {{ boyas.get(p.boya, p.boya) }} · Bunker</span>
+  </div>
+  <div class="actions">
+    <a class="btn primary" href="/proformador/bunker/{{ p.id }}/export.xlsx">⬇ Exportar Excel</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="row">
+    <label>TC (dólar venta)<input value="{{ p.dolar_venta }}" disabled></label>
+    <label>TRN<input value="{{ p.trn }}" disabled></label>
+    <label>LOA / Manga / Puntal<input value="{{ p.eslora }} / {{ p.manga }} / {{ p.puntal }}" disabled></label>
+    <label>FC<input value="{{ p.fc }}" disabled></label>
+    <label>Calado IN/OUT (pies)<input value="{{ p.calado_entrada }} / {{ p.calado_salida }}" disabled></label>
+    <label>Días estadía / Barcazas<input value="{{ p.dias_estadia }} / {{ p.cantidad_barcazas }}" disabled></label>
+    <label>Boat Surveyor<input value="{{ 'Sí (' + p.horas_boat_surveyor|string + ' hs)' if p.usa_boat_surveyor else 'No' }}" disabled></label>
+  </div>
+</div>
+
+<table class="list">
+  <thead><tr><th>Concepto</th><th>Valor USD</th><th>Observación</th></tr></thead>
+  <tbody>
+  {% for item in p.items %}
+    <tr>
+      <td>{{ item.concepto }}</td>
+      <td>{{ "%.0f"|format(item.monto_usd) }}{% if item.informativo %} <span class="muted">(informativo)</span>{% endif %}</td>
+      <td class="muted" style="font-size:11.5px">{{ item.observacion }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr style="font-weight:700"><td>Total USD</td><td>{{ "%.0f"|format(total) }}</td><td></td></tr>
+  </tfoot>
+</table>
+{% endblock %}

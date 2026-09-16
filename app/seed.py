@@ -11,6 +11,7 @@ from .models import (
     Client,
     EventTemplate,
     Lineup,
+    ProformaBunkerBoya,
     ProformaCoefTramo,
     ProformaConceptoFijo,
     ProformaParametro,
@@ -141,6 +142,21 @@ PROFORMA_PARAMETROS = [
     ("pilotage_km_recorrido", "Pilotaje -- km del recorrido (I.White-Profertil)", 53.0),
     ("pilotage_descuento", "Pilotaje -- descuento decreto 716/26 (0-1)", 0.2),
     ("pilotage_service_usd", "Pilotaje -- service/related fijo por movimiento (USD)", 6600.0),
+    ("pilotage_monoboya_km", "Pilotaje Monoboyas (Boya 17) -- km del recorrido", 25.0),
+    ("pilotage_monoboya_service_usd", "Pilotaje Monoboyas (Boya 17) -- service/related fijo", 8140.0),
+    ("bunker_channel_toll_usd_tn", "Bunker -- Channel Toll (USD x 20%TRN x coef x 0.7)", 2.05),
+    ("bunker_anchor_dues_usd_trn", "Bunker -- Anchor Dues (USD x TRN x dia)", 0.15),
+    ("bunker_customs_shift_usd", "Bunker -- Customs, USD por turno de 6hs", 300.0),
+    ("bunker_taxis_usd", "Bunker -- Taxis para oficial de migraciones/autoridades (USD fijo)", 200.0),
+    ("bunker_migrations_usd", "Bunker -- Migrations IN/OUT, cada uno (USD fijo)", 1875.0),
+    ("bunker_sipa_usd_turno", "Bunker -- SIPA/Prefectura Boya 3, USD por turno de 4hs (ABT)", 42.0),
+]
+
+# Configuracion propia de cada boya de bunker (Formulas la deja editar)
+PROFORMA_BUNKER_BOYAS = [
+    ("BOYA_3", "Boya 3", 4900.0, 4900.0, 400.0, False, False, True),
+    ("BOYA_11", "Boya 11", 2880.0, 3300.0, 350.0, True, False, False),
+    ("BOYA_17", "Boya 17", 2880.0, 1700.0, 350.0, True, True, False),
 ]
 
 PROFORMA_COEF_TRAMOS = [
@@ -332,9 +348,15 @@ def _seed_clients(db: Session) -> None:
 
 
 def _seed_proformador(db: Session) -> None:
-    if not db.scalar(select(ProformaParametro).limit(1)):
-        for i, (clave, etiqueta, valor) in enumerate(PROFORMA_PARAMETROS):
-            db.add(ProformaParametro(clave=clave, etiqueta=etiqueta, valor=valor, orden=i))
+    # Aditivo por clave (no solo "si la tabla esta vacia"): asi un parametro
+    # nuevo que se suma a PROFORMA_PARAMETROS despues llega solo a las bases
+    # que ya tenian otros cargados, en vez de quedar faltante en silencio.
+    existentes = {p.clave for p in db.scalars(select(ProformaParametro))}
+    max_orden = db.scalar(select(func.max(ProformaParametro.orden))) or -1
+    for clave, etiqueta, valor in PROFORMA_PARAMETROS:
+        if clave not in existentes:
+            max_orden += 1
+            db.add(ProformaParametro(clave=clave, etiqueta=etiqueta, valor=valor, orden=max_orden))
 
     if not db.scalar(select(ProformaCoefTramo).limit(1)):
         for i, (hasta, coef) in enumerate(PROFORMA_COEF_TRAMOS):
@@ -364,6 +386,13 @@ def _seed_proformador(db: Session) -> None:
                 db.add(ProformaTarifaTurno(servicio="SERENO", categoria=categoria, dia_tipo=dia_tipo,
                                             valor_ars_dia=valor, orden=orden))
                 orden += 1
+
+    if not db.scalar(select(ProformaBunkerBoya).limit(1)):
+        for i, (boya, etiqueta, osro, boat_trip, boat_hora, ch_anchor, pilotage, sipa) in enumerate(PROFORMA_BUNKER_BOYAS):
+            db.add(ProformaBunkerBoya(
+                boya=boya, etiqueta=etiqueta, osro_usd=osro, boat_trip_usd=boat_trip, boat_hora_usd=boat_hora,
+                cobra_channel_anchor=ch_anchor, cobra_pilotage=pilotage, cobra_sipa=sipa, orden=i,
+            ))
 
 
 def _seed_lineup(db: Session) -> None:

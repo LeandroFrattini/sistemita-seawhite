@@ -553,3 +553,72 @@ class ReportLog(Base):
     to_emails: Mapped[str] = mapped_column(Text, default="")
     report_format: Mapped[str] = mapped_column(String(20), default="EXCEL")
     status: Mapped[str] = mapped_column(String(30), default="generated")
+
+
+# --- PROFORMADOR DE BUNKER (Boya 3 / Boya 11 / Boya 17) -------------------
+class ProformaBunker(Base):
+    __tablename__ = "proforma_bunkers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dolar_venta: Mapped[float] = mapped_column(Float, default=0)
+    cliente: Mapped[str] = mapped_column(String(200), default="")
+    nombre_buque: Mapped[str] = mapped_column(String(150), default="MV TBN")
+    boya: Mapped[str] = mapped_column(String(10), default="BOYA_11")  # BOYA_3 | BOYA_11 | BOYA_17
+
+    eslora: Mapped[float] = mapped_column(Float, default=0)
+    manga: Mapped[float] = mapped_column(Float, default=0)
+    puntal: Mapped[float] = mapped_column(Float, default=0)
+    fc: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trn: Mapped[float] = mapped_column(Float, default=0)
+    calado_entrada: Mapped[float] = mapped_column(Float, default=0)
+    calado_salida: Mapped[float] = mapped_column(Float, default=0)
+
+    dias_estadia: Mapped[float] = mapped_column(Float, default=1)  # para Anchor Dues (Boya 11/17)
+    cantidad_barcazas: Mapped[int] = mapped_column(Integer, default=1)  # para OSRO
+    turnos_customs_clearance: Mapped[float] = mapped_column(Float, default=2)
+    turnos_customs_bunker_control: Mapped[float] = mapped_column(Float, default=4)
+    usa_boat_surveyor: Mapped[bool] = mapped_column(Boolean, default=False)
+    horas_boat_surveyor: Mapped[float] = mapped_column(Float, default=0)
+    turnos_sipa: Mapped[float] = mapped_column(Float, default=6)  # solo Boya 3, turnos de 4hs
+
+    procede_exterior: Mapped[bool] = mapped_column(Boolean, default=True)
+    destino_exterior: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    total_usd: Mapped[float] = mapped_column(Float, default=0)
+    creado_por: Mapped[str] = mapped_column(String(120), default="")
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    items: Mapped[list["ProformaBunkerLinea"]] = relationship(
+        back_populates="proforma", cascade="all, delete-orphan", order_by="ProformaBunkerLinea.orden"
+    )
+
+
+class ProformaBunkerLinea(Base):
+    __tablename__ = "proforma_bunker_lineas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proforma_id: Mapped[int] = mapped_column(ForeignKey("proforma_bunkers.id"), index=True)
+    concepto: Mapped[str] = mapped_column(String(200), default="")
+    monto_usd: Mapped[float] = mapped_column(Float, default=0)
+    observacion: Mapped[str] = mapped_column(String(300), default="")
+    informativo: Mapped[bool] = mapped_column(Boolean, default=False)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+
+    proforma: Mapped["ProformaBunker"] = relationship(back_populates="items")
+
+
+class ProformaBunkerBoya(Base):
+    """Configuracion propia de cada boya (visible/editable en Formulas)."""
+
+    __tablename__ = "proforma_bunker_boyas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    boya: Mapped[str] = mapped_column(String(10), unique=True)  # BOYA_3 | BOYA_11 | BOYA_17
+    etiqueta: Mapped[str] = mapped_column(String(40), default="")
+    osro_usd: Mapped[float] = mapped_column(Float, default=0)
+    boat_trip_usd: Mapped[float] = mapped_column(Float, default=0)  # boat/s for BQS surveyor, por viaje
+    boat_hora_usd: Mapped[float] = mapped_column(Float, default=0)  # si queda al costado
+    cobra_channel_anchor: Mapped[bool] = mapped_column(Boolean, default=False)
+    cobra_pilotage: Mapped[bool] = mapped_column(Boolean, default=False)
+    cobra_sipa: Mapped[bool] = mapped_column(Boolean, default=False)
+    orden: Mapped[int] = mapped_column(Integer, default=0)

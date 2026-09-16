@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% block nav_proformador %}active{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+<h1>Proformador de Bunker — Nueva proforma</h1>
+
+<div class="mes-tabs" id="step-indicator">
+  {% for n, label in [(1,"Cotización"),(2,"Cliente/Boya"),(3,"Buque"),(4,"Operación"),(5,"Resultado")] %}
+  <span class="mes-tab" data-step-pill="{{ n }}">{{ n }}. {{ label }}</span>
+  {% endfor %}
+</div>
+
+<form id="wizard-form">
+<div class="card">
+
+  <!-- Paso 1 -->
+  <div class="step" data-step="1">
+    <h3>Paso 1 — Cotización del dólar</h3>
+    <div class="row">
+      <label>Dólar venta (Banco Nación)<input type="number" step="0.0001" name="dolar_venta" id="dolar_venta" required></label>
+      <button type="button" id="btn-cotizacion">↻ Traer cotización BNA</button>
+      <span class="muted" id="cotizacion-msg"></span>
+    </div>
+  </div>
+
+  <!-- Paso 2 -->
+  <div class="step" data-step="2" hidden>
+    <h3>Paso 2 — Cliente y boya</h3>
+    <div class="row">
+      <label>Cliente<input type="text" name="cliente" placeholder="Ej. Geogas" required></label>
+      <label>Boya
+        <select name="boya" id="boya">{% for val, label in boyas %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select>
+      </label>
+    </div>
+    <p class="muted" id="boya-info"></p>
+  </div>
+
+  <!-- Paso 3 -->
+  <div class="step" data-step="3" hidden>
+    <h3>Paso 3 — Características del buque</h3>
+    <div class="row">
+      <label>Nombre del buque<input type="text" name="nombre_buque" id="nombre_buque" value="MV TBN"></label>
+      <label>Eslora (LOA)<input type="number" step="0.01" name="eslora" id="eslora"></label>
+      <label>Manga<input type="number" step="0.01" name="manga" id="manga"></label>
+      <label>Puntal<input type="number" step="0.01" name="puntal" id="puntal"></label>
+      <label>TRN (NRT)<input type="number" step="0.01" name="trn"></label>
+      <label>Calado entrada (pies)<input type="number" step="0.01" name="calado_entrada"></label>
+      <label>Calado salida (pies)<input type="number" step="0.01" name="calado_salida"></label>
+      <label>FC (calculado)<input type="text" id="fc-preview" disabled></label>
+    </div>
+    <p class="muted">El calado solo se usa si la boya lleva pilotaje (Boya 17).</p>
+    <table class="list" style="max-width:220px;margin-top:8px">
+      <thead><tr><th>Pies</th><th>Metros</th></tr></thead>
+      <tbody>
+        <tr><td>28</td><td>8.5344</td></tr>
+        <tr><td>30</td><td>9.144</td></tr>
+        <tr><td>32</td><td>9.7536</td></tr>
+        <tr><td>34</td><td>10.3632</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Paso 4 -->
+  <div class="step" data-step="4" hidden>
+    <h3>Paso 4 — Operación</h3>
+    <div class="row" id="wrap-anchor">
+      <label>Días de estadía (Anchor Dues)<input type="number" step="0.01" name="dias_estadia" value="1"></label>
+    </div>
+    <div class="row">
+      <label>Cantidad de barcazas (OSRO)<input type="number" step="1" name="cantidad_barcazas" value="1"></label>
+      <label>Turnos Customs Clearance (6hs c/u)<input type="number" step="1" name="turnos_customs_clearance" value="2"></label>
+      <label>Turnos Customs Bunker Control (6hs c/u)<input type="number" step="1" name="turnos_customs_bunker_control" value="4"></label>
+    </div>
+    <div class="row" id="wrap-sipa">
+      <label>Turnos SIPA/Prefectura (4hs c/u)<input type="number" step="0.5" name="turnos_sipa" value="6"></label>
+    </div>
+    <div class="row">
+      <label class="check">¿Usa Boat/s for BQS Surveyor?<input type="checkbox" name="usa_boat_surveyor" id="usa_boat_surveyor"></label>
+      <label id="wrap-boat-horas">Horas al costado (además del viaje)<input type="number" step="0.5" name="horas_boat_surveyor" value="0"></label>
+    </div>
+    <div class="row">
+      <label class="check">Procede del exterior<input type="checkbox" name="procede_exterior" id="procede_exterior" checked></label>
+      <label class="check">Se dirige al exterior<input type="checkbox" name="destino_exterior" id="destino_exterior" checked></label>
+    </div>
+  </div>
+
+  <!-- Paso 5 -->
+  <div class="step" data-step="5" hidden>
+    <h3>Paso 5 — Revisión y resultado</h3>
+    <p class="muted">Revisá los datos cargados. Si algo está mal, volvé con "Anterior" y corregilo; si está todo bien, hacé click en "Calcular".</p>
+    <div id="resumen-box"></div>
+    <div id="preview-box"><p class="muted">Hacé click en "Calcular" para ver el resultado.</p></div>
+  </div>
+
+  <div class="row end">
+    <button type="button" id="btn-prev" disabled>Anterior</button>
+    <button type="button" id="btn-calcular" hidden>Calcular</button>
+    <button type="button" id="btn-guardar" class="primary" hidden>Guardar proforma</button>
+    <button type="button" id="btn-next" class="primary">Siguiente</button>
+  </div>
+</div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const form = document.getElementById('wizard-form');
+let step = 1;
+const totalSteps = 5;
+const BOYA_INFO = {
+  BOYA_3: 'Boya 3: NO lleva Channel Toll ni Anchor Dues. Lleva SIPA (Prefectura). OSRO y Boat Surveyor son los más caros.',
+  BOYA_11: 'Boya 11: lleva Channel Toll y Anchor Dues. No lleva pilotaje ni SIPA.',
+  BOYA_17: 'Boya 17: lleva Channel Toll, Anchor Dues Y pilotaje (recorrido Monoboyas). No lleva SIPA.',
+};
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach(el => el.hidden = (+el.dataset.step !== n));
+  document.querySelectorAll('[data-step-pill]').forEach(el => el.classList.toggle('on', +el.dataset.stepPill === n));
+  document.getElementById('btn-prev').disabled = n === 1;
+  document.getElementById('btn-next').hidden = n === totalSteps;
+  document.getElementById('btn-calcular').hidden = n !== totalSteps;
+  document.getElementById('btn-guardar').hidden = n !== totalSteps;
+  if (n === totalSteps) renderResumen();
+}
+
+document.getElementById('btn-next').addEventListener('click', () => { if (step < totalSteps) { step++; showStep(step); } });
+document.getElementById('btn-prev').addEventListener('click', () => { if (step > 1) { step--; showStep(step); } });
+
+function recalcFC() {
+  const e = parseFloat(document.getElementById('eslora').value) || 0;
+  const m = parseFloat(document.getElementById('manga').value) || 0;
+  const p = parseFloat(document.getElementById('puntal').value) || 0;
+  document.getElementById('fc-preview').value = (e && m && p) ? Math.round(e * m * p / 800) : '';
+}
+['eslora', 'manga', 'puntal'].forEach(id => document.getElementById(id).addEventListener('input', recalcFC));
+document.getElementById('nombre_buque').addEventListener('focus', function () { this.select(); });
+
+function toggleBoyaWraps() {
+  const boya = document.getElementById('boya').value;
+  document.getElementById('boya-info').textContent = BOYA_INFO[boya] || '';
+  document.getElementById('wrap-anchor').style.display = (boya === 'BOYA_3') ? 'none' : '';
+  document.getElementById('wrap-sipa').style.display = (boya === 'BOYA_3') ? '' : 'none';
+}
+document.getElementById('boya').addEventListener('change', toggleBoyaWraps);
+toggleBoyaWraps();
+
+function toggleBoatHoras() {
+  document.getElementById('wrap-boat-horas').style.display = document.getElementById('usa_boat_surveyor').checked ? '' : 'none';
+}
+document.getElementById('usa_boat_surveyor').addEventListener('change', toggleBoatHoras);
+toggleBoatHoras();
+
+document.getElementById('btn-cotizacion').addEventListener('click', async () => {
+  const msg = document.getElementById('cotizacion-msg');
+  msg.textContent = 'Consultando...';
+  try {
+    const r = await fetch('/proformador/cotizacion');
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'error');
+    document.getElementById('dolar_venta').value = j.venta;
+    msg.textContent = `Venta: ${j.venta} / Compra: ${j.compra}`;
+  } catch (e) {
+    msg.textContent = 'No se pudo traer la cotización, cargala a mano.';
+  }
+});
+
+function fieldLabel(name) {
+  const el = form.elements[name];
+  if (!el) return '—';
+  if (el.type === 'checkbox') return el.checked ? 'Sí' : 'No';
+  if (el.tagName === 'SELECT') return el.options[el.selectedIndex]?.text || '—';
+  return el.value || '—';
+}
+
+function renderResumen() {
+  const boya = document.getElementById('boya').value;
+  const rows = [
+    ['Dólar venta', fieldLabel('dolar_venta')],
+    ['Cliente', fieldLabel('cliente')],
+    ['Boya', fieldLabel('boya')],
+    ['Buque', fieldLabel('nombre_buque')],
+    ['Eslora / Manga / Puntal', `${fieldLabel('eslora')} / ${fieldLabel('manga')} / ${fieldLabel('puntal')}`],
+    ['TRN / FC', `${fieldLabel('trn')} / ${document.getElementById('fc-preview').value || '—'}`],
+    ['Calado entrada / salida (pies)', `${fieldLabel('calado_entrada')} / ${fieldLabel('calado_salida')}`],
+  ];
+  if (boya !== 'BOYA_3') rows.push(['Días de estadía', fieldLabel('dias_estadia')]);
+  rows.push(['Cantidad de barcazas', fieldLabel('cantidad_barcazas')]);
+  rows.push(['Turnos Customs Clearance / Bunker Control', `${fieldLabel('turnos_customs_clearance')} / ${fieldLabel('turnos_customs_bunker_control')}`]);
+  if (boya === 'BOYA_3') rows.push(['Turnos SIPA', fieldLabel('turnos_sipa')]);
+  rows.push(['Usa Boat Surveyor / Horas al costado', `${fieldLabel('usa_boat_surveyor')} / ${fieldLabel('horas_boat_surveyor')}`]);
+  rows.push(['Procede del exterior / Se dirige al exterior', `${fieldLabel('procede_exterior')} / ${fieldLabel('destino_exterior')}`]);
+  const html = '<table class="list">' + rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') + '</table>';
+  document.getElementById('resumen-box').innerHTML = html;
+}
+
+async function calcular() {
+  const fd = new FormData(form);
+  const res = await fetch('/proformador/bunker/calcular', { method: 'POST', body: fd });
+  document.getElementById('preview-box').innerHTML = await res.text();
+}
+document.getElementById('btn-calcular').addEventListener('click', calcular);
+
+document.getElementById('btn-guardar').addEventListener('click', async () => {
+  const fd = new FormData(form);
+  const res = await fetch('/proformador/bunker/guardar', { method: 'POST', body: fd });
+  if (res.redirected) window.location.href = res.url;
+});
+
+showStep(1);
+</script>
+{% endblock %}

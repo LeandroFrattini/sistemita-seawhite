@@ -102,6 +102,26 @@
 </div>
 
 <div class="card">
+  <h3>Bunker — configuración por boya</h3>
+  <table class="list">
+    <thead><tr><th>Boya</th><th>OSRO (USD)</th><th>Boat trip (USD)</th><th>Boat x hora (USD)</th><th>Channel/Anchor</th><th>Pilotage</th><th>SIPA</th></tr></thead>
+    <tbody>
+    {% for bb in bunker_boyas %}
+      <tr>
+        <td>{{ bb.etiqueta }}</td>
+        <td><input type="number" step="any" name="boya_osro_{{ bb.id }}" value="{{ bb.osro_usd }}" {{ 'disabled' if not puede_editar }}></td>
+        <td><input type="number" step="any" name="boya_boattrip_{{ bb.id }}" value="{{ bb.boat_trip_usd }}" {{ 'disabled' if not puede_editar }}></td>
+        <td><input type="number" step="any" name="boya_boathora_{{ bb.id }}" value="{{ bb.boat_hora_usd }}" {{ 'disabled' if not puede_editar }}></td>
+        <td><input type="checkbox" name="boya_chanchor_{{ bb.id }}" {{ 'checked' if bb.cobra_channel_anchor }} {{ 'disabled' if not puede_editar }}></td>
+        <td><input type="checkbox" name="boya_pilotage_{{ bb.id }}" {{ 'checked' if bb.cobra_pilotage }} {{ 'disabled' if not puede_editar }}></td>
+        <td><input type="checkbox" name="boya_sipa_{{ bb.id }}" {{ 'checked' if bb.cobra_sipa }} {{ 'disabled' if not puede_editar }}></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
   <h3>Conceptos fijos (editables a mano, sin fórmula)</h3>
   <table class="list">
     <thead><tr><th style="width:60px">Activo</th><th>Nombre</th><th style="width:140px">Valor USD</th><th>Condición</th></tr></thead>
