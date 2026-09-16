@@ -84,14 +84,14 @@
         <select name="dia_tipo">{% for val, label in dias_tipo %}<option value="{{ val }}">{{ label }}</option>{% endfor %}</select>
       </label>
     </div>
-    <div class="row">
-      <label class="check">Procede del exterior (si no, viene de puerto argentino)<input type="checkbox" name="procede_exterior" id="procede_exterior" checked></label>
-      <label class="check">Se dirige al exterior (si no, va a puerto argentino)<input type="checkbox" name="destino_exterior" id="destino_exterior" checked></label>
+    <div class="pf-toggles">
+      <label class="pf-toggle"><input type="checkbox" name="procede_exterior" id="procede_exterior" checked> Procede del exterior (si no, viene de puerto argentino)</label>
+      <label class="pf-toggle"><input type="checkbox" name="destino_exterior" id="destino_exterior" checked> Se dirige al exterior (si no, va a puerto argentino)</label>
     </div>
-    <div class="row">
-      <label class="check">Immigration IN en boya?<input type="checkbox" name="immigration_in_boya" id="immigration_in_boya"></label>
-      <label class="check">Immigration OUT en boya?<input type="checkbox" name="immigration_out_boya" id="immigration_out_boya"></label>
-      <span class="muted">Si alguno está tildado, se cobra un único cargo de Immigration en boya (en vez de los normales)</span>
+    <div class="pf-toggles">
+      <label class="pf-toggle"><input type="checkbox" name="immigration_in_boya" id="immigration_in_boya"> Immigration IN en boya?</label>
+      <label class="pf-toggle"><input type="checkbox" name="immigration_out_boya" id="immigration_out_boya"> Immigration OUT en boya?</label>
+      <span class="muted" style="align-self:center">Si alguno está tildado, se cobra un único cargo de Immigration en boya (en vez de los normales)</span>
     </div>
   </div>
 

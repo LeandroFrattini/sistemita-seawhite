@@ -92,6 +92,29 @@ button.danger:hover { background: #fdecea; }
 /* page head */
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; }
 .page-head .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Proformador: hub de 3 botones grandes + chips de condicionantes -- clases
+   propias para no tocar .check/.row que usa el resto del sistema */
+.pf-hub { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
+.pf-hub-btn {
+  flex: 1 1 220px; min-width: 200px; padding: 18px 20px; border-radius: 12px;
+  border: 1px solid var(--line); background: #fff; text-decoration: none;
+  color: var(--ink); box-shadow: 0 1px 3px rgba(20,40,70,.06); transition: .15s;
+}
+.pf-hub-btn:hover { border-color: var(--blue); box-shadow: 0 4px 14px rgba(27,95,168,.14); transform: translateY(-1px); }
+.pf-hub-btn .pf-hub-title { font-size: 14.5px; font-weight: 700; letter-spacing: .3px; color: var(--blue-dark); }
+.pf-hub-btn .pf-hub-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.pf-hub-btn.disabled { opacity: .55; cursor: not-allowed; pointer-events: none; border-style: dashed; }
+
+.pf-toggles { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0; }
+.pf-toggle {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 10px;
+  border: 1px solid var(--line); border-radius: 20px; background: #fff;
+  font-size: 12.5px; cursor: pointer; transition: .15s; user-select: none;
+}
+.pf-toggle:hover { border-color: var(--blue); background: #f7fafd; }
+.pf-toggle:has(input:checked) { background: var(--head-blue); border-color: var(--blue); font-weight: 600; }
+.pf-toggle input[type=checkbox] { accent-color: var(--blue); width: 15px; height: 15px; cursor: pointer; margin: 0; }
 .lineup-meta { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .lineup-meta label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; }
 .lineup-meta input { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
