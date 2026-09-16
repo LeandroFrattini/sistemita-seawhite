@@ -469,14 +469,22 @@ def calcular_otamerica(db: Session, datos: dict) -> list[dict]:
     if datos.get("destino_exterior"):
         lineas.append(_linea("MIGRATIONS OUT", migrations_usd, "BASIS DEPARTURE CLEARANCE"))
 
-    # Conceptos fijos (customs, line handlers, etc.) -- mismos que
-    # Carga/Descarga, salvo immigration_in/out (reemplazados arriba)
+    # Conceptos fijos (customs, etc.) -- mismos que Carga/Descarga, salvo:
+    # immigration_in/out (reemplazados arriba por Migrations en boya),
+    # LINE HANDLERS IN/OUT (no van, ya estan cubiertos por Mooring/Unmooring),
+    # TRANSPORT (tarifa propia de Otamerica, USD 300 en vez de la generica)
+    transport_usd = get_param(db, "otamerica_transport_usd", 300.0)
     conceptos_fijos = db.scalars(
         select(models.ProformaConceptoFijo).where(models.ProformaConceptoFijo.activo == True)
         .order_by(models.ProformaConceptoFijo.orden)
     ).all()
     for c in conceptos_fijos:
         if c.clave in ("immigration_in", "immigration_out"):
+            continue
+        if c.nombre in ("LINE HANDLERS IN", "LINE HANDLERS OUT"):
+            continue
+        if c.nombre == "TRANSPORT":
+            lineas.append(_linea(c.nombre, transport_usd, c.condicion or ""))
             continue
         lineas.append(_linea(c.nombre, c.valor_usd, c.condicion or ""))
 
