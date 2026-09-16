@@ -166,6 +166,15 @@ async def guardar(request: Request, db: Session = Depends(get_db), user: User = 
     return RedirectResponse(url=f"/proformador/{p.id}", status_code=302)
 
 
+@router.post("/proformador/{proforma_id}/eliminar")
+def eliminar_proforma(proforma_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    p = db.get(Proforma, proforma_id)
+    if p:
+        db.delete(p)
+        db.commit()
+    return RedirectResponse(url="/proformador", status_code=302)
+
+
 @router.get("/proformador/{proforma_id}", response_class=HTMLResponse)
 def ver_proforma(request: Request, proforma_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
     p = db.get(Proforma, proforma_id)
