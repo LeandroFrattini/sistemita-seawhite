@@ -14,7 +14,7 @@ from openpyxl.utils.units import pixels_to_EMU
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..auth import current_user, pda_admin_required, verify_password
+from ..auth import admin_required, current_user, pda_admin_required, verify_password
 from ..config import BASE_DIR
 from ..database import get_db
 from ..models import (
@@ -200,7 +200,7 @@ async def guardar_bunker(request: Request, db: Session = Depends(get_db), user: 
 
 
 @router.post("/proformador/bunker/{proforma_id}/eliminar")
-def eliminar_bunker(proforma_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def eliminar_bunker(proforma_id: int, db: Session = Depends(get_db), user: User = Depends(admin_required)):
     p = db.get(ProformaBunker, proforma_id)
     if p:
         db.delete(p)
@@ -411,7 +411,7 @@ async def guardar(request: Request, db: Session = Depends(get_db), user: User = 
 
 
 @router.post("/proformador/{proforma_id}/eliminar")
-def eliminar_proforma(proforma_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def eliminar_proforma(proforma_id: int, db: Session = Depends(get_db), user: User = Depends(admin_required)):
     p = db.get(Proforma, proforma_id)
     if p:
         db.delete(p)
