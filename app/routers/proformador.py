@@ -52,7 +52,7 @@ BOYAS = [("BOYA_3", "Boya 3"), ("BOYA_11", "Boya 11"), ("BOYA_17", "Boya 17")]
 LOGO_PATH = BASE_DIR / "app" / "static" / "img" / "logo-sw-emblem.png"
 
 
-def _insertar_logo(ws, cell="C3", width=70, height=83):
+def _insertar_logo(ws, cell="C4", width=70, height=83):
     """Ancla el logo en `cell`, pegado contra el borde derecho de esa columna.
     Requiere que el ancho de columna ya este seteado en `ws` (llamar despues
     de definir ws.column_dimensions), sino cae al ancho default de Excel."""
