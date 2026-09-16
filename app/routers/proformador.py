@@ -52,14 +52,14 @@ BOYAS = [("BOYA_3", "Boya 3"), ("BOYA_11", "Boya 11"), ("BOYA_17", "Boya 17")]
 LOGO_PATH = BASE_DIR / "app" / "static" / "img" / "logo-sw-emblem.png"
 
 
-def _insertar_logo(ws, cell="C5", width=70, height=83, offset_px=6):
+def _insertar_logo(ws, cell="C5", width=70, height=83, offset_x_px=6, offset_y_px=16):
     if not LOGO_PATH.exists():
         return
     img = XLImage(str(LOGO_PATH))
     img.width = width
     img.height = height
     row, col = coordinate_to_tuple(cell)
-    marker = AnchorMarker(col=col - 1, colOff=pixels_to_EMU(offset_px), row=row - 1, rowOff=pixels_to_EMU(offset_px))
+    marker = AnchorMarker(col=col - 1, colOff=pixels_to_EMU(offset_x_px), row=row - 1, rowOff=pixels_to_EMU(offset_y_px))
     img.anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(pixels_to_EMU(width), pixels_to_EMU(height)))
     ws.add_image(img)
 
