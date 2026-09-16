@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import coordinate_to_tuple
+from openpyxl.utils.units import pixels_to_EMU
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -48,13 +52,16 @@ BOYAS = [("BOYA_3", "Boya 3"), ("BOYA_11", "Boya 11"), ("BOYA_17", "Boya 17")]
 LOGO_PATH = BASE_DIR / "app" / "static" / "img" / "logo-sw-emblem.png"
 
 
-def _insertar_logo(ws, cell="C5", width=70, height=83):
+def _insertar_logo(ws, cell="C5", width=70, height=83, offset_px=6):
     if not LOGO_PATH.exists():
         return
     img = XLImage(str(LOGO_PATH))
     img.width = width
     img.height = height
-    ws.add_image(img, cell)
+    row, col = coordinate_to_tuple(cell)
+    marker = AnchorMarker(col=col - 1, colOff=pixels_to_EMU(offset_px), row=row - 1, rowOff=pixels_to_EMU(offset_px))
+    img.anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(pixels_to_EMU(width), pixels_to_EMU(height)))
+    ws.add_image(img)
 
 
 @router.get("/proformador", response_class=HTMLResponse)
