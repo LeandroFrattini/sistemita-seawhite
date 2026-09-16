@@ -48,12 +48,12 @@ BOYAS = [("BOYA_3", "Boya 3"), ("BOYA_11", "Boya 11"), ("BOYA_17", "Boya 17")]
 LOGO_PATH = BASE_DIR / "app" / "static" / "img" / "logo-sw-emblem.png"
 
 
-def _insertar_logo(ws, cell="D1"):
+def _insertar_logo(ws, cell="C5", width=70, height=83):
     if not LOGO_PATH.exists():
         return
     img = XLImage(str(LOGO_PATH))
-    img.width = 34
-    img.height = 40
+    img.width = width
+    img.height = height
     ws.add_image(img, cell)
 
 
@@ -270,6 +270,7 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
         ("NRT", p.trn), ("LOA", p.eslora), ("Beam", p.manga), ("Depth", p.puntal),
         ("Draft IN (ft)", p.calado_entrada), ("Draft OUT (ft)", p.calado_salida), ("FC", p.fc),
     ]
+    caract = [(label, value) for label, value in caract if value]
     row = 11
     for label, value in caract:
         a, b = ws.cell(row=row, column=1, value=label), ws.cell(row=row, column=2, value=value)
@@ -484,6 +485,7 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
         ("Tugs", (p.remolques_in or 0) + (p.remolques_out or 0)),
         ("Days alongside", p.dias_muelle), ("Shifts", p.turnos),
     ]
+    caract = [(label, value) for label, value in caract if value]
     row = 10
     for label, value in caract:
         a, b = ws.cell(row=row, column=1, value=label), ws.cell(row=row, column=2, value=value)
