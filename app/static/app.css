@@ -18,6 +18,7 @@ a { color: var(--blue-dark); }
 }
 .topbar .brand { font-weight: 700; font-size: 16px; white-space: nowrap; flex: none; }
 .topbar .brand span { font-weight: 400; opacity: .85; }
+.brand-link { text-decoration: none; color: inherit; flex: none; }
 .topbar nav {
   display: flex; gap: 4px; flex: 1; min-width: 0;
   overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
@@ -123,6 +124,26 @@ button.danger:hover { background: #fdecea; }
 .flash { position: fixed; top: 12px; right: 16px; z-index: 50; padding: 8px 14px; border-radius: 7px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.15); }
 .flash.ok { background: #dcfce7; color: #166534; }
 .flash.err { background: #fee2e2; color: #991b1b; }
+
+/* Home: landing de bienvenida con logo + accesos rapidos a los modulos */
+.home-hero {
+  text-align: center; padding: 40px 20px; margin-bottom: 30px; border-radius: 16px;
+  background: linear-gradient(160deg, var(--blue) 0%, var(--blue-dark) 100%); color: #fff;
+}
+.home-hero img { width: 150px; max-width: 60%; height: auto; display: block; margin: 0 auto 18px; }
+.home-hero h1 { font-size: 26px; margin: 0 0 8px; color: #fff; }
+.home-hero p { margin: 0; font-size: 13.5px; color: #eaf3ff; opacity: .92; font-style: italic; }
+
+.home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; max-width: 1000px; margin: 0 auto; }
+.home-card {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
+  padding: 28px 20px; border-radius: 14px; border: 1px solid var(--line); background: #fff;
+  text-decoration: none; color: var(--ink); box-shadow: 0 1px 4px rgba(20,40,70,.07); transition: .15s;
+}
+.home-card:hover { border-color: var(--blue); box-shadow: 0 8px 22px rgba(27,95,168,.16); transform: translateY(-2px); }
+.home-card .home-card-icon { font-size: 34px; line-height: 1; }
+.home-card .home-card-title { font-size: 15px; font-weight: 700; letter-spacing: .2px; color: var(--blue-dark); }
+.home-card .home-card-sub { font-size: 12px; color: var(--muted); }
 
 /* grid */
 .terminal { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 18px; }

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block nav_home %}active{% endblock %}
+{% block content %}
+<div class="home-hero">
+  <img src="/static/img/logo-seawhite.png" alt="Sea White">
+  <h1>Sistemita SeaWhiters</h1>
+  <p>Sea White S.A. — Agencia Marítima, Bahía Blanca</p>
+</div>
+
+<div class="home-grid">
+  <a class="home-card" href="/lineup">
+    <div class="home-card-icon">⚓</div>
+    <div class="home-card-title">LINE UP</div>
+    <div class="home-card-sub">Line-up de terminales, en vivo</div>
+  </a>
+  <a class="home-card" href="/reports">
+    <div class="home-card-icon">📊</div>
+    <div class="home-card-title">REPORTES</div>
+    <div class="home-card-sub">Novedades diarias por barco</div>
+  </a>
+  <a class="home-card" href="/nuestros-barcos">
+    <div class="home-card-icon">🚢</div>
+    <div class="home-card-title">NUESTROS BARCOS</div>
+    <div class="home-card-sub">Barcos operados por Sea White</div>
+  </a>
+  <a class="home-card" href="/proformador">
+    <div class="home-card-icon">📄</div>
+    <div class="home-card-title">PROFORMADOR</div>
+    <div class="home-card-sub">PDAs de Carga, Bunker y Otamerica</div>
+  </a>
+</div>
+{% endblock %}

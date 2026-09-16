@@ -10,9 +10,10 @@
 <body>
 {% if user %}
 <header class="topbar">
-  <div class="brand">⚓ Sistemita <span>SeaWhiters</span></div>
+  <a href="/" class="brand-link"><div class="brand">⚓ Sistemita <span>SeaWhiters</span></div></a>
   <nav>
-    <a href="/" class="{% block nav_lineup %}{% endblock %}">Grain</a>
+    <a href="/" class="{% block nav_home %}{% endblock %}">Inicio</a>
+    <a href="/lineup" class="{% block nav_lineup %}{% endblock %}">Grain</a>
     <a href="/flammable" class="{% block nav_flammable %}{% endblock %}">Flammable</a>
 
     <div class="nav-group">
