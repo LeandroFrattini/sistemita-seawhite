@@ -14,6 +14,7 @@ from .models import (
     ProformaBunkerBoya,
     ProformaCoefTramo,
     ProformaConceptoFijo,
+    ProformaOtaRemolcadorTarifa,
     ProformaParametro,
     ProformaPilotageTramo,
     ProformaTarifaTurno,
@@ -150,6 +151,10 @@ PROFORMA_PARAMETROS = [
     ("bunker_taxis_usd", "Bunker -- Taxis para oficial de migraciones/autoridades (USD fijo)", 200.0),
     ("bunker_migrations_usd", "Bunker -- Migrations IN/OUT, cada uno (USD fijo)", 1875.0),
     ("bunker_sipa_usd_turno", "Bunker -- SIPA/Prefectura Boya 3, USD por turno de 4hs (ABT)", 42.0),
+    ("otamerica_wharfage_usd_trn_dia", "Otamerica -- Uso de muelle (USD x TRN x dia)", 0.07),
+    ("otamerica_isps_usd_tn", "Otamerica -- ISPS (USD x tonelada cargada)", 0.01),
+    ("otamerica_barreras_usd_dia", "Otamerica -- Barreras de contencion marina (USD x dia o fraccion)", 2046.0),
+    ("otamerica_amarre_usd", "Otamerica -- Amarre y Desamarre, cada uno, dia habil (USD fijo)", 7162.0),
 ]
 
 # Configuracion propia de cada boya de bunker (Formulas la deja editar)
@@ -171,6 +176,16 @@ PROFORMA_TUG_TARIFAS = [
     (180, 9800.0),
     (200, 12270.0),
     (None, 14750.0),
+]
+
+# Arancel de Remolcadores propio de Otamerica, por tramo de LOA (m) -- USD
+# por remolcador y por maniobra (tarifario Otamerica 2026)
+PROFORMA_OTA_REMOLCADOR_TARIFAS = [
+    (240, 17495.0),
+    (250, 19234.0),
+    (260, 21280.0),
+    (270, 23429.0),
+    (None, 25475.0),
 ]
 
 # Pilotaje/practicaje por tramo de calado (pies) -- tarifario ESEM, recorrido
@@ -393,6 +408,10 @@ def _seed_proformador(db: Session) -> None:
                 boya=boya, etiqueta=etiqueta, osro_usd=osro, boat_trip_usd=boat_trip, boat_hora_usd=boat_hora,
                 cobra_channel_anchor=ch_anchor, cobra_pilotage=pilotage, cobra_sipa=sipa, orden=i,
             ))
+
+    if not db.scalar(select(ProformaOtaRemolcadorTarifa).limit(1)):
+        for i, (hasta, valor) in enumerate(PROFORMA_OTA_REMOLCADOR_TARIFAS):
+            db.add(ProformaOtaRemolcadorTarifa(hasta_loa=hasta, valor_usd=valor, orden=i))
 
 
 def _seed_lineup(db: Session) -> None:

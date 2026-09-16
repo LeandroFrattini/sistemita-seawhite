@@ -322,3 +322,149 @@ def calcular_bunker(db: Session, datos: dict) -> list[dict]:
         ))
 
     return lineas
+
+
+def clasificar_buque_otamerica(desplazamiento: float) -> tuple[str, int, int]:
+    """Clasifica el buque por desplazamiento (tns) y devuelve (tipo, tugs_in, tugs_out),
+    segun la guia de Otamerica: Panamax hasta 89.290, Aframax 89.291-139.391,
+    Suezmax >139.391 -- Panamax entra con 3 tugs in/2 out, Aframax/Suezmax con 4 in/2 out."""
+    if desplazamiento <= 89290:
+        return "PANAMAX", 3, 2
+    if desplazamiento <= 139391:
+        return "AFRAMAX", 4, 2
+    return "SUEZMAX", 4, 2
+
+
+def tarifa_ota_remolcador_por_loa(db: Session, eslora: float) -> float:
+    return _tramo(models.ProformaOtaRemolcadorTarifa, db, "hasta_loa", "valor_usd", eslora, 0.0)
+
+
+def calcular_otamerica(db: Session, datos: dict) -> list[dict]:
+    """Proforma de Otamerica (Sitio 1 / Sitio 2, carga de crudo). Reutiliza
+    casi todas las formulas de Carga/Descarga (pilotaje monoboya -- misma
+    ruta que Boya 17, channel toll, free pratique, watchmen, conceptos
+    fijos), salvo Head Tally Clerk que no aplica. Wharfage y Remolcadores
+    usan la tarifa propia de la terminal en vez de la generica ESEM."""
+    dolar = float(datos.get("dolar_venta") or 0) or 1.0
+    trn = float(datos.get("trn") or 0)
+    cantidad = float(datos.get("cantidad") or 0)
+    dias_muelle = float(datos.get("dias_muelle") or 0)
+    eslora = float(datos.get("eslora") or 0)
+    manga = float(datos.get("manga") or 0)
+    puntal = float(datos.get("puntal") or 0)
+    desplazamiento = float(datos.get("desplazamiento") or 0)
+    calado_entrada = float(datos.get("calado_entrada") or 0)
+    calado_salida = float(datos.get("calado_salida") or 0)
+    dia_tipo = datos.get("dia_tipo") or "SEMANA"
+    uf = (eslora * manga * puntal / 800) if (eslora and manga and puntal) else 0.0
+
+    lineas = []
+
+    # Pilotaje -- misma ruta Monoboyas que Boya 17 (Otamerica 1/2 tambien
+    # son monoboyas), por movimiento (entrada/salida por separado)
+    if calado_entrada:
+        v = calcular_pilotage(db, uf, calado_entrada, km_clave="pilotage_monoboya_km",
+                               service_clave="pilotage_monoboya_service_usd")
+        if v:
+            lineas.append(_linea("PILOTAGE IN", v, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
+    if calado_salida:
+        v = calcular_pilotage(db, uf, calado_salida, km_clave="pilotage_monoboya_km",
+                               service_clave="pilotage_monoboya_service_usd")
+        if v:
+            lineas.append(_linea("PILOTAGE OUT", v, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
+
+    # Wharfage -- tarifa propia de Otamerica (0.07 x TRN x dia, no la generica 0.46)
+    wharfage_rate = get_param(db, "otamerica_wharfage_usd_trn_dia", 0.07)
+    if dias_muelle and trn:
+        lineas.append(_linea(
+            "WHARFAGE (Uso de muelle)", math.ceil(wharfage_rate * trn * dias_muelle),
+            f"BASIS {dias_muelle:g} COMPLETE DAY(S) OF PORT STAY",
+        ))
+
+    # Channel Toll -- misma formula/tabla que Carga/Descarga
+    if cantidad:
+        channel_toll_rate = get_param(db, "channel_toll_usd_tn", 2.05)
+        coef = coeficiente_channel_toll(db, cantidad)
+        lineas.append(_linea(
+            "CHANNEL TOLL (Vias navegables)", math.ceil(channel_toll_rate * cantidad * coef),
+            f"BASIS {cantidad:g} MT OF CARGO",
+        ))
+
+    # ISPS -- propio de Otamerica
+    if cantidad:
+        isps_rate = get_param(db, "otamerica_isps_usd_tn", 0.01)
+        lineas.append(_linea("ISPS", cantidad * isps_rate, f"BASIS {cantidad:g} MT OF CARGO"))
+
+    # Barreras de contencion marina -- siempre se cobra, por dia o fraccion
+    if dias_muelle:
+        barreras_rate = get_param(db, "otamerica_barreras_usd_dia", 2046.0)
+        lineas.append(_linea(
+            "MARINE CONTAINMENT BOOMS DEPLOYMENT", barreras_rate * dias_muelle,
+            f"BASIS {dias_muelle:g} DAY(S) OR FRACTION",
+        ))
+
+    # Amarre / Desamarre -- siempre tarifa de dia habil; el recargo de
+    # fin de semana/feriado se deja solo como referencia en la observacion
+    amarre_usd = get_param(db, "otamerica_amarre_usd", 7162.0)
+    if amarre_usd:
+        recargo = (
+            f"RATE INCREASES BY 50% (USD {amarre_usd * 1.5:,.0f}) IF PERFORMED OUTSIDE 07:00-19:00 ON WEEKDAYS "
+            f"OR ON SATURDAYS 07:00-13:00; BY 100% (USD {amarre_usd * 2:,.0f}) ON SATURDAYS 13:00-24:00, "
+            "SUNDAYS OR HOLIDAYS."
+        )
+        lineas.append(_linea("MOORING (Amarre)", amarre_usd, recargo))
+        lineas.append(_linea("UNMOORING (Desamarre)", amarre_usd, recargo))
+
+    # Remolcadores -- tarifa propia de Otamerica por LOA, cantidad segun
+    # clasificacion del buque (Panamax 3in/2out, Aframax/Suezmax 4in/2out).
+    # Informativo: lo paga el cliente directo al proveedor, es solo referencia.
+    if eslora and desplazamiento:
+        tipo_buque, tugs_in, tugs_out = clasificar_buque_otamerica(desplazamiento)
+        valor_tug = tarifa_ota_remolcador_por_loa(db, eslora)
+        if valor_tug:
+            lineas.append(_linea(
+                "TUGS IN", valor_tug * tugs_in,
+                f"BASIS {tugs_in} TUG(S) ({tipo_buque}) -- OUR TARIFF WITH SERVICE PROVIDER", informativo=True,
+            ))
+            lineas.append(_linea(
+                "TUGS OUT", valor_tug * tugs_out,
+                f"BASIS {tugs_out} TUG(S) ({tipo_buque}) -- OUR TARIFF WITH SERVICE PROVIDER", informativo=True,
+            ))
+
+    # Free Pratique: solo si el barco procede del exterior
+    if trn and datos.get("procede_exterior"):
+        coef_a = get_param(db, "libre_platica_coef", 6942.9)
+        base = get_param(db, "libre_platica_base", 416574)
+        resta_trn = get_param(db, "libre_platica_resta_trn", 1001)
+        ars = ((trn - resta_trn) / 1000) * coef_a + base
+        lineas.append(_linea("FREE PRATIQUE EXPENSES", ars / dolar, f"BASIS TRN {trn:g}"))
+
+    # Watchmen: en base a dias completos de estadia (igual que Carga/Descarga)
+    if dias_muelle:
+        categoria_watchmen = datos.get("categoria_watchmen") or "NORMAL"
+        sereno_dia = tarifa_turno(db, "SERENO", categoria_watchmen, dia_tipo)
+        if sereno_dia:
+            lineas.append(_linea(
+                "WATCHMEN", (sereno_dia * dias_muelle) / dolar,
+                f"BASIS {dias_muelle:g} COMPLETE DAY(S) OF PORT STAY",
+            ))
+
+    # Conceptos fijos (customs, line handlers, immigration, etc.) -- mismos
+    # que Carga/Descarga, sin la variante "en boya" (Otamerica siempre amarra)
+    conceptos_fijos = db.scalars(
+        select(models.ProformaConceptoFijo).where(models.ProformaConceptoFijo.activo == True)
+        .order_by(models.ProformaConceptoFijo.orden)
+    ).all()
+    for c in conceptos_fijos:
+        if c.clave == "immigration_in":
+            if not datos.get("procede_exterior"):
+                continue
+            lineas.append(_linea(c.nombre, c.valor_usd, "BASIS ENTRANCE CLEARANCE AT BERTH"))
+        elif c.clave == "immigration_out":
+            if not datos.get("destino_exterior"):
+                continue
+            lineas.append(_linea(c.nombre, c.valor_usd, "BASIS DEPARTURE CLEARANCE AT BERTH"))
+        else:
+            lineas.append(_linea(c.nombre, c.valor_usd, c.condicion or ""))
+
+    return lineas

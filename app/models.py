@@ -622,3 +622,70 @@ class ProformaBunkerBoya(Base):
     cobra_pilotage: Mapped[bool] = mapped_column(Boolean, default=False)
     cobra_sipa: Mapped[bool] = mapped_column(Boolean, default=False)
     orden: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# --- PROFORMADOR DE OTAMERICA (Sitio 1 / Sitio 2, carga de crudo) ---------
+class ProformaOtamerica(Base):
+    """PDA para Otamerica (terminal de crudo, Sitio 1/2). Reutiliza casi
+    todas las formulas de la proforma de Carga/Descarga (pilotaje monoboya,
+    channel toll, free pratique, watchmen, conceptos fijos) salvo Head
+    Tally Clerk, mas los conceptos propios de la terminal: Wharfage con
+    tarifa propia (0.07 x TRN en vez de 0.46), ISPS, Amarre/Desamarre,
+    Barreras de contencion y Remolcadores (tarifa propia por LOA)."""
+
+    __tablename__ = "proforma_otamericas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    dolar_venta: Mapped[float] = mapped_column(Float, default=0)
+    cliente: Mapped[str] = mapped_column(String(200), default="")
+    sitio: Mapped[str] = mapped_column(String(10), default="SITIO_1")  # SITIO_1 | SITIO_2
+    nombre_buque: Mapped[str] = mapped_column(String(150), default="MV TBN")
+
+    eslora: Mapped[float] = mapped_column(Float, default=0)
+    manga: Mapped[float] = mapped_column(Float, default=0)
+    puntal: Mapped[float] = mapped_column(Float, default=0)
+    fc: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trn: Mapped[float] = mapped_column(Float, default=0)
+    desplazamiento: Mapped[float] = mapped_column(Float, default=0)  # tns, clasifica Panamax/Aframax/Suezmax
+    calado_entrada: Mapped[float] = mapped_column(Float, default=0)
+    calado_salida: Mapped[float] = mapped_column(Float, default=0)
+    cantidad: Mapped[float] = mapped_column(Float, default=0)  # cantidad cargada (tn), para Channel Toll e ISPS
+
+    dias_muelle: Mapped[float] = mapped_column(Float, default=0)  # Wharfage, Watchmen, Barreras
+    categoria_watchmen: Mapped[str] = mapped_column(String(30), default="NORMAL")
+    dia_tipo: Mapped[str] = mapped_column(String(20), default="SEMANA")
+    procede_exterior: Mapped[bool] = mapped_column(Boolean, default=True)
+    destino_exterior: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    total_usd: Mapped[float] = mapped_column(Float, default=0)
+    creado_por: Mapped[str] = mapped_column(String(120), default="")
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    items: Mapped[list["ProformaOtamericaLinea"]] = relationship(
+        back_populates="proforma", cascade="all, delete-orphan", order_by="ProformaOtamericaLinea.orden"
+    )
+
+
+class ProformaOtamericaLinea(Base):
+    __tablename__ = "proforma_otamerica_lineas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    proforma_id: Mapped[int] = mapped_column(ForeignKey("proforma_otamericas.id"), index=True)
+    concepto: Mapped[str] = mapped_column(String(200), default="")
+    monto_usd: Mapped[float] = mapped_column(Float, default=0)
+    observacion: Mapped[str] = mapped_column(String(300), default="")
+    informativo: Mapped[bool] = mapped_column(Boolean, default=False)
+    orden: Mapped[int] = mapped_column(Integer, default=0)
+
+    proforma: Mapped["ProformaOtamerica"] = relationship(back_populates="items")
+
+
+class ProformaOtaRemolcadorTarifa(Base):
+    """Tarifa de remolcadores propia de Otamerica, por tramo de LOA (m)."""
+
+    __tablename__ = "proforma_ota_remolcador_tarifas"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    hasta_loa: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = ultimo tramo
+    valor_usd: Mapped[float] = mapped_column(Float, default=0)
+    orden: Mapped[int] = mapped_column(Integer, default=0)

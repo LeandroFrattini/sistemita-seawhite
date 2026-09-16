@@ -122,6 +122,22 @@
 </div>
 
 <div class="card">
+  <h3>Otamerica — Remolcadores, valor por remolcador según LOA (informativo)</h3>
+  <p class="muted">Panamax entra con 3 tugs IN / 2 OUT; Aframax y Suezmax con 4 IN / 2 OUT (según desplazamiento cargado en el wizard).</p>
+  <table class="list">
+    <thead><tr><th>Hasta LOA (m) — vacío = sin tope</th><th>Valor USD por remolcador</th></tr></thead>
+    <tbody>
+    {% for t in ota_remolcador_tarifas %}
+      <tr>
+        <td><input type="number" step="any" name="otatug_hasta_{{ t.id }}" value="{{ t.hasta_loa if t.hasta_loa is not none else '' }}" {{ 'disabled' if not puede_editar }}></td>
+        <td><input type="number" step="any" name="otatug_valor_{{ t.id }}" value="{{ t.valor_usd }}" {{ 'disabled' if not puede_editar }}></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
   <h3>Conceptos fijos (editables a mano, sin fórmula)</h3>
   <table class="list">
     <thead><tr><th style="width:60px">Activo</th><th>Nombre</th><th style="width:140px">Valor USD</th><th>Condición</th></tr></thead>

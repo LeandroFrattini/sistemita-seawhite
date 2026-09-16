@@ -25,13 +25,23 @@ from ..models import (
     ProformaCoefTramo,
     ProformaConceptoFijo,
     ProformaLinea,
+    ProformaOtamerica,
+    ProformaOtamericaLinea,
+    ProformaOtaRemolcadorTarifa,
     ProformaParametro,
     ProformaPilotageTramo,
     ProformaTarifaTurno,
     ProformaTugTarifa,
     User,
 )
-from ..proformador_calc import calcular_bunker, calcular_fc, calcular_pilotage, calcular_proforma
+from ..proformador_calc import (
+    calcular_bunker,
+    calcular_fc,
+    calcular_otamerica,
+    calcular_pilotage,
+    calcular_proforma,
+    clasificar_buque_otamerica,
+)
 from ..templating import templates
 
 router = APIRouter()
@@ -48,6 +58,7 @@ CATEGORIAS_WATCHMEN = [
 ]
 DIAS_TIPO_LABEL = [("SEMANA", "Día de semana"), ("SABADO", "Sábado"), ("DOMINGO_FERIADO", "Domingo/Feriado")]
 BOYAS = [("BOYA_3", "Boya 3"), ("BOYA_11", "Boya 11"), ("BOYA_17", "Boya 17")]
+SITIOS = [("SITIO_1", "Sitio 1 (OTA 1)"), ("SITIO_2", "Sitio 2 (OTA 2)")]
 
 LOGO_PATH = BASE_DIR / "app" / "static" / "img" / "logo-sw-emblem.png"
 
@@ -340,6 +351,238 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
     )
 
 
+# --- OTAMERICA (Sitio 1 / Sitio 2, carga de crudo) ------------------------
+# OJO: estas rutas literales van ANTES de "/proformador/{proforma_id}" mas
+# abajo, para que "/proformador/otamerica..." no matchee ahi primero.
+
+@router.get("/proformador/otamerica", response_class=HTMLResponse)
+def listar_otamericas(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    proformas = db.scalars(select(ProformaOtamerica).order_by(ProformaOtamerica.creado_en.desc()).limit(100)).all()
+    return templates.TemplateResponse(request, "proformador/otamerica_lista.html", {
+        "user": user, "proformas": proformas, "sitios": dict(SITIOS),
+    })
+
+
+@router.get("/proformador/otamerica/nuevo", response_class=HTMLResponse)
+def nuevo_otamerica_wizard(request: Request, user: User = Depends(current_user)):
+    return templates.TemplateResponse(request, "proformador/otamerica_wizard.html", {
+        "user": user, "sitios": SITIOS,
+        "categorias_watchmen": CATEGORIAS_WATCHMEN,
+        "dias_tipo": DIAS_TIPO_LABEL,
+    })
+
+
+def _datos_otamerica_from_form(form) -> dict:
+    def f(key, default=0.0):
+        v = form.get(key)
+        try:
+            return float(v) if v not in (None, "") else default
+        except ValueError:
+            return default
+
+    eslora, manga, puntal = f("eslora"), f("manga"), f("puntal")
+    return {
+        "dolar_venta": f("dolar_venta"),
+        "cliente": (form.get("cliente") or "").strip(),
+        "sitio": form.get("sitio") or "SITIO_1",
+        "nombre_buque": (form.get("nombre_buque") or "MV TBN").strip() or "MV TBN",
+        "eslora": eslora, "manga": manga, "puntal": puntal,
+        "fc": calcular_fc(eslora, manga, puntal),
+        "trn": f("trn"),
+        "desplazamiento": f("desplazamiento"),
+        "calado_entrada": f("calado_entrada"),
+        "calado_salida": f("calado_salida"),
+        "cantidad": f("cantidad"),
+        "dias_muelle": f("dias_muelle"),
+        "categoria_watchmen": form.get("categoria_watchmen") or "NORMAL",
+        "dia_tipo": form.get("dia_tipo") or "SEMANA",
+        "procede_exterior": form.get("procede_exterior") == "on",
+        "destino_exterior": form.get("destino_exterior") == "on",
+    }
+
+
+@router.post("/proformador/otamerica/calcular")
+async def calcular_otamerica_route(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    form = await request.form()
+    datos = _datos_otamerica_from_form(form)
+    lineas = calcular_otamerica(db, datos)
+    total = sum(l["monto_usd"] for l in lineas if not l["informativo"])
+    return templates.TemplateResponse(request, "proformador/_otamerica_preview.html", {
+        "user": user, "datos": datos, "lineas": lineas, "total": round(total, 2), "sitios": dict(SITIOS),
+    })
+
+
+@router.post("/proformador/otamerica/guardar")
+async def guardar_otamerica(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    form = await request.form()
+    datos = _datos_otamerica_from_form(form)
+    lineas = calcular_otamerica(db, datos)
+    total = sum(l["monto_usd"] for l in lineas if not l["informativo"])
+
+    p = ProformaOtamerica(
+        dolar_venta=datos["dolar_venta"], cliente=datos["cliente"], sitio=datos["sitio"],
+        nombre_buque=datos["nombre_buque"], eslora=datos["eslora"], manga=datos["manga"], puntal=datos["puntal"],
+        fc=datos["fc"], trn=datos["trn"], desplazamiento=datos["desplazamiento"],
+        calado_entrada=datos["calado_entrada"], calado_salida=datos["calado_salida"], cantidad=datos["cantidad"],
+        dias_muelle=datos["dias_muelle"], categoria_watchmen=datos["categoria_watchmen"], dia_tipo=datos["dia_tipo"],
+        procede_exterior=datos["procede_exterior"], destino_exterior=datos["destino_exterior"],
+        total_usd=round(total, 2), creado_por=user.username,
+    )
+    db.add(p)
+    db.flush()
+    for i, l in enumerate(lineas):
+        db.add(ProformaOtamericaLinea(
+            proforma_id=p.id, concepto=l["concepto"], monto_usd=l["monto_usd"],
+            observacion=l["observacion"], informativo=l["informativo"], orden=i,
+        ))
+    db.commit()
+    return RedirectResponse(url=f"/proformador/otamerica/{p.id}", status_code=302)
+
+
+@router.post("/proformador/otamerica/{proforma_id}/eliminar")
+def eliminar_otamerica(proforma_id: int, db: Session = Depends(get_db), user: User = Depends(admin_required)):
+    p = db.get(ProformaOtamerica, proforma_id)
+    if p:
+        db.delete(p)
+        db.commit()
+    return RedirectResponse(url="/proformador/otamerica", status_code=302)
+
+
+@router.get("/proformador/otamerica/{proforma_id}", response_class=HTMLResponse)
+def ver_otamerica(request: Request, proforma_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    p = db.get(ProformaOtamerica, proforma_id)
+    if not p:
+        return RedirectResponse(url="/proformador/otamerica", status_code=302)
+    total = sum(l.monto_usd for l in p.items if not l.informativo)
+    tipo_buque, tugs_in, tugs_out = clasificar_buque_otamerica(p.desplazamiento or 0)
+    return templates.TemplateResponse(request, "proformador/otamerica_ver.html", {
+        "user": user, "p": p, "total": round(total, 2), "sitios": dict(SITIOS), "tipo_buque": tipo_buque,
+    })
+
+
+@router.get("/proformador/otamerica/{proforma_id}/export.xlsx")
+def exportar_otamerica_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    p = db.get(ProformaOtamerica, proforma_id)
+    if not p:
+        return RedirectResponse(url="/proformador/otamerica", status_code=302)
+
+    BLUE = "FF1B5FA8"
+    GREY = "FFF4F6FA"
+    WHITE_BOLD = Font(bold=True, color="FFFFFFFF", size=11)
+    TITLE_FONT = Font(bold=True, color="FFFFFFFF", size=15)
+    BOLD = Font(bold=True)
+    ITALIC_MUTED = Font(italic=True, color="FF64758A")
+    THIN = Side(style="thin", color="FFB7C6DC")
+    BOX = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
+
+    def fill(color):
+        return PatternFill("solid", fgColor=color)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "PDA Otamerica"
+    ws.sheet_view.showGridLines = False
+    last_col = 3
+
+    ws.row_dimensions[1].height = 22
+    ws.column_dimensions["A"].width = 38
+    ws.column_dimensions["B"].width = 16
+    ws.column_dimensions["C"].width = 55
+
+    ws.merge_cells("A1:C2")
+    c = ws["A1"]
+    c.value = "SEA WHITE S.A."
+    c.font = TITLE_FONT
+    c.fill = fill(BLUE)
+    c.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+    for r in range(1, 3):
+        for col in range(1, last_col + 1):
+            ws.cell(row=r, column=col).fill = fill(BLUE)
+    _insertar_logo(ws)
+
+    ws["A3"] = "Facundo Zuviria 401 - Bahia Blanca, Argentina"
+    ws["A4"] = "Mail: operations@seawhite.com.ar"
+    ws["A3"].font = ITALIC_MUTED
+    ws["A4"].font = ITALIC_MUTED
+
+    ws["A6"] = "TO Messrs"
+    ws["A6"].font = BOLD
+    ws["B6"] = p.cliente or ""
+    ws["A7"] = "Vessel"
+    ws["A7"].font = BOLD
+    ws["B7"] = p.nombre_buque or ""
+    ws["B7"].font = BOLD
+    ws["A8"] = "Loading crude oil -- " + dict(SITIOS).get(p.sitio, p.sitio)
+    ws["A8"].font = BOLD
+
+    ws.merge_cells("A10:C10")
+    hdr = ws["A10"]
+    hdr.value = "VESSEL PARTICULARS"
+    hdr.font = WHITE_BOLD
+    hdr.fill = fill(BLUE)
+    hdr.alignment = Alignment(horizontal="left", indent=1)
+
+    caract = [
+        ("NRT", p.trn), ("Cargo (tn)", p.cantidad), ("Displacement (tns)", p.desplazamiento),
+        ("LOA", p.eslora), ("Beam", p.manga), ("Depth", p.puntal),
+        ("Draft IN (ft)", p.calado_entrada), ("Draft OUT (ft)", p.calado_salida), ("FC", p.fc),
+        ("Days alongside", p.dias_muelle),
+    ]
+    caract = [(label, value) for label, value in caract if value]
+    row = 11
+    for label, value in caract:
+        a, b = ws.cell(row=row, column=1, value=label), ws.cell(row=row, column=2, value=value)
+        a.font = BOLD
+        a.fill = fill(GREY)
+        a.border = BOX
+        b.border = BOX
+        ws.cell(row=row, column=3).border = BOX
+        row += 1
+
+    row += 1
+    headers = ["Concept", "Value (USD)", "Remark"]
+    for i, h in enumerate(headers):
+        cell = ws.cell(row=row, column=1 + i, value=h)
+        cell.font = WHITE_BOLD
+        cell.fill = fill(BLUE)
+        cell.border = BOX
+        cell.alignment = Alignment(horizontal="left", indent=1)
+    row += 1
+    for item in p.items:
+        a = ws.cell(row=row, column=1, value=item.concepto)
+        b = ws.cell(row=row, column=2, value=item.monto_usd)
+        cc = ws.cell(row=row, column=3, value=item.observacion or "")
+        b.number_format = "#,##0"
+        for cell in (a, b, cc):
+            cell.border = BOX
+            cell.alignment = Alignment(vertical="center", wrap_text=(cell is cc))
+        if item.informativo:
+            for cell in (a, b, cc):
+                cell.font = ITALIC_MUTED
+            a.value = f"{item.concepto} (informativo, no suma al total)"
+        row += 1
+
+    total = sum(i.monto_usd for i in p.items if not i.informativo)
+    total_label = ws.cell(row=row, column=1, value="TOTAL USD")
+    total_value = ws.cell(row=row, column=2, value=round(total))
+    total_label.font = WHITE_BOLD
+    total_value.font = WHITE_BOLD
+    total_value.number_format = "#,##0"
+    for col in range(1, last_col + 1):
+        ws.cell(row=row, column=col).fill = fill(BLUE)
+        ws.cell(row=row, column=col).border = BOX
+
+    bio = io.BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    filename = f"PDA Otamerica {p.nombre_buque or 'buque'}.xlsx".replace("/", "-")
+    return StreamingResponse(
+        bio,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 def _datos_from_form(form) -> dict:
     def f(key, default=0.0):
         v = form.get(key)
@@ -577,6 +820,9 @@ def ver_formulas(request: Request, db: Session = Depends(get_db), user: User = D
         "tarifas_turno": db.scalars(select(ProformaTarifaTurno).order_by(ProformaTarifaTurno.orden)).all(),
         "conceptos_fijos": db.scalars(select(ProformaConceptoFijo).order_by(ProformaConceptoFijo.orden)).all(),
         "bunker_boyas": db.scalars(select(ProformaBunkerBoya).order_by(ProformaBunkerBoya.orden)).all(),
+        "ota_remolcador_tarifas": db.scalars(
+            select(ProformaOtaRemolcadorTarifa).order_by(ProformaOtaRemolcadorTarifa.orden)
+        ).all(),
     })
 
 
@@ -665,6 +911,16 @@ async def guardar_formulas(request: Request, db: Session = Depends(get_db), user
         bb.cobra_channel_anchor = form.get(f"boya_chanchor_{bb.id}") == "on"
         bb.cobra_pilotage = form.get(f"boya_pilotage_{bb.id}") == "on"
         bb.cobra_sipa = form.get(f"boya_sipa_{bb.id}") == "on"
+
+    for ot in db.scalars(select(ProformaOtaRemolcadorTarifa)):
+        hasta = form.get(f"otatug_hasta_{ot.id}")
+        valor = form.get(f"otatug_valor_{ot.id}")
+        ot.hasta_loa = float(hasta) if hasta not in (None, "") else None
+        if valor not in (None, ""):
+            try:
+                ot.valor_usd = float(valor)
+            except ValueError:
+                pass
 
     db.commit()
     return RedirectResponse(url="/proformador/config/formulas", status_code=302)
