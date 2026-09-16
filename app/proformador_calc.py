@@ -270,20 +270,19 @@ def calcular_bunker(db: Session, datos: dict) -> list[dict]:
         toll_rate = get_param(db, "bunker_channel_toll_usd_tn", 2.05)
         coef = coeficiente_channel_toll(db, trn)
         lineas.append(_linea(
-            "CHANNEL TOLL", toll_rate * (0.2 * trn) * coef * 0.7,
-            f"BASIS 20% TRN {trn:g} x coef {coef:g}",
+            "CHANNEL TOLL", toll_rate * (0.2 * trn) * coef * 0.7, "",
         ))
 
     shift_usd = get_param(db, "bunker_customs_shift_usd", 300.0)
     if turnos_clearance:
         lineas.append(_linea(
             "CUSTOMS FOR CLEARANCE", shift_usd * turnos_clearance,
-            f"ABT {turnos_clearance:g} SHIFT(S) OF 6 HOURS FOR CLEARANCES AT ROADS",
+            "300 (ABT) PER SHIFT OF 6 HOURS -- MINIMUM 2 SHIFTS REQUIRED FOR CLEARANCES AT ROADS.",
         ))
     if turnos_bunker_control:
         lineas.append(_linea(
             "CUSTOMS FOR BUNKER CONTROL", shift_usd * turnos_bunker_control,
-            f"ABT {turnos_bunker_control:g} SHIFT(S) OF 6 HOURS TO COVER POSSIBLE BUNKERING DELAYS",
+            "300 (ABT) PER SHIFT OF 6 HOURS -- USUALLY MIN. 4 SHIFTS ARE REQUIRED TO COVER POSSIBLE BUNKERING DELAYS.",
         ))
 
     if boya_cfg and cantidad_barcazas:
