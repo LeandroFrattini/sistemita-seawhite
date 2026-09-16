@@ -22,7 +22,7 @@ from ..models import (
     ProformaTugTarifa,
     User,
 )
-from ..proformador_calc import calcular_fc, calcular_proforma
+from ..proformador_calc import calcular_fc, calcular_pilotage, calcular_proforma
 from ..templating import templates
 
 router = APIRouter()
@@ -56,6 +56,15 @@ def nuevo_wizard(request: Request, user: User = Depends(current_user)):
         "categorias_watchmen": CATEGORIAS_WATCHMEN,
         "dias_tipo": DIAS_TIPO_LABEL,
     })
+
+
+@router.get("/proformador/pilotage/probar")
+def probar_pilotage(uf: float = 0, calado: float = 0, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    """Calculadora suelta para probar la formula de pilotaje contra el
+    tarifario (cargando el coeficiente/UF y el calado a mano), sin tener
+    que armar una proforma completa."""
+    valor = calcular_pilotage(db, uf, calado)
+    return {"ok": True, "valor": round(valor)}
 
 
 @router.get("/proformador/cotizacion")

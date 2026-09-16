@@ -77,6 +77,12 @@
     {% endfor %}
     </tbody>
   </table>
+  <div class="row" style="margin-top:12px;align-items:flex-end">
+    <label>Probar: Coeficiente (UF)<input type="number" step="any" id="probar-uf" placeholder="ej. 174.70"></label>
+    <label>Calado (pies)<input type="number" step="any" id="probar-calado" placeholder="ej. 29"></label>
+    <button type="button" id="btn-probar-pilotage">Calcular</button>
+    <span id="probar-resultado" class="muted"></span>
+  </div>
 </div>
 
 <div class="card">
@@ -154,5 +160,22 @@ document.getElementById('btn-confirmar-password')?.addEventListener('click', () 
 document.getElementById('modal-password-input')?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-confirmar-password').click(); }
 });
+
+async function probarPilotage() {
+  const uf = document.getElementById('probar-uf').value;
+  const calado = document.getElementById('probar-calado').value;
+  const out = document.getElementById('probar-resultado');
+  if (!uf || !calado) { out.textContent = 'Cargá coeficiente y calado.'; return; }
+  try {
+    const r = await fetch(`/proformador/pilotage/probar?uf=${encodeURIComponent(uf)}&calado=${encodeURIComponent(calado)}`);
+    const j = await r.json();
+    out.textContent = j.ok ? `= USD ${j.valor}` : 'Error al calcular.';
+  } catch (e) {
+    out.textContent = 'Error al calcular.';
+  }
+}
+document.getElementById('btn-probar-pilotage')?.addEventListener('click', probarPilotage);
+document.getElementById('probar-uf')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') probarPilotage(); });
+document.getElementById('probar-calado')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') probarPilotage(); });
 </script>
 {% endblock %}
