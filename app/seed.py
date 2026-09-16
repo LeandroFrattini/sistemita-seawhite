@@ -158,6 +158,7 @@ PROFORMA_PARAMETROS = [
     ("otamerica_migrations_usd", "Otamerica -- Migrations IN/OUT, tarifa en boya, cada una (USD fijo)", 1875.0),
     ("otamerica_channel_toll_factor", "Otamerica -- Channel Toll, factor de recorrido", 0.9),
     ("otamerica_transport_usd", "Otamerica -- Transport (USD fijo)", 300.0),
+    ("otamerica_boat_surveyor_usd", "Otamerica -- Boat for Surveyor, por viaje (USD fijo, siempre 2 viajes)", 1300.0),
 ]
 
 # Configuracion propia de cada boya de bunker (Formulas la deja editar)

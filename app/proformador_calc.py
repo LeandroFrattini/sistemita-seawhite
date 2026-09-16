@@ -407,41 +407,15 @@ def calcular_otamerica(db: Session, datos: dict) -> list[dict]:
         isps_rate = get_param(db, "otamerica_isps_usd_tn", 0.01)
         lineas.append(_linea("ISPS", cantidad * isps_rate, f"BASIS {cantidad:g} MT OF CARGO"))
 
-    # Barreras de contencion marina -- siempre se cobra, por dia o fraccion
-    if dias_muelle:
-        barreras_rate = get_param(db, "otamerica_barreras_usd_dia", 2046.0)
+    # Boat/s for Surveyor -- siempre 2 viajes (embarque/desembarque en el
+    # nuevo muelle), a cargo nuestro (suma al total, no es informativo)
+    boat_surveyor_usd = get_param(db, "otamerica_boat_surveyor_usd", 1300.0)
+    if boat_surveyor_usd:
         lineas.append(_linea(
-            "MARINE CONTAINMENT BOOMS DEPLOYMENT", barreras_rate * dias_muelle,
-            f"BASIS {dias_muelle:g} COMPLETE DAY(S)",
+            "BOATS FOR SURVEYOR", boat_surveyor_usd * 2,
+            "BASIS 2 TRIPS TO NEW BERTH -- BOAT FOR EMBARK/DISEMBARK SURVEYOR SHOULD BE ORDERED BY AGENT AS "
+            "TERMINAL NOT AUTH. SURVEYORS TO BOARD WITH TERMINAL BOATS AND/OR THROUGH SHORE ACCESS.",
         ))
-
-    # Amarre / Desamarre -- siempre tarifa de dia habil; el recargo de
-    # fin de semana/feriado se deja solo como referencia en la observacion
-    amarre_usd = get_param(db, "otamerica_amarre_usd", 7162.0)
-    if amarre_usd:
-        recargo = (
-            f"RATE INCREASES BY 50% (USD {amarre_usd * 1.5:,.0f}) IF PERFORMED OUTSIDE 07:00-19:00 ON WEEKDAYS "
-            f"OR ON SATURDAYS 07:00-13:00; BY 100% (USD {amarre_usd * 2:,.0f}) ON SATURDAYS 13:00-24:00, "
-            "SUNDAYS OR HOLIDAYS."
-        )
-        lineas.append(_linea("MOORING (Amarre)", amarre_usd, recargo))
-        lineas.append(_linea("UNMOORING (Desamarre)", amarre_usd, recargo))
-
-    # Remolcadores -- tarifa propia de Otamerica por LOA, cantidad segun
-    # clasificacion del buque (Panamax 3in/2out, Aframax/Suezmax 4in/2out).
-    # Informativo: lo paga el cliente directo al proveedor, es solo referencia.
-    if eslora and desplazamiento:
-        tipo_buque, tugs_in, tugs_out = clasificar_buque_otamerica(desplazamiento)
-        valor_tug = tarifa_ota_remolcador_por_loa(db, eslora)
-        if valor_tug:
-            lineas.append(_linea(
-                "TUGS IN", valor_tug * tugs_in,
-                f"BASIS {tugs_in} TUG(S) ({tipo_buque}) -- OUR TARIFF WITH SERVICE PROVIDER", informativo=True,
-            ))
-            lineas.append(_linea(
-                "TUGS OUT", valor_tug * tugs_out,
-                f"BASIS {tugs_out} TUG(S) ({tipo_buque}) -- OUR TARIFF WITH SERVICE PROVIDER", informativo=True,
-            ))
 
     # Free Pratique: solo si el barco procede del exterior
     if trn and datos.get("procede_exterior"):
@@ -487,5 +461,44 @@ def calcular_otamerica(db: Session, datos: dict) -> list[dict]:
             lineas.append(_linea(c.nombre, transport_usd, c.condicion or ""))
             continue
         lineas.append(_linea(c.nombre, c.valor_usd, c.condicion or ""))
+
+    # --- Informativos al final (en gris, no suman al total): remolcadores,
+    # amarre/desamarre y barreras de contencion -- referencia de costo, los
+    # paga el cliente directo al proveedor/terminal ------------------------
+
+    # Remolcadores -- tarifa propia de Otamerica por LOA, cantidad segun
+    # clasificacion del buque (Panamax 3in/2out, Aframax/Suezmax 4in/2out).
+    if eslora and desplazamiento:
+        tipo_buque, tugs_in, tugs_out = clasificar_buque_otamerica(desplazamiento)
+        valor_tug = tarifa_ota_remolcador_por_loa(db, eslora)
+        if valor_tug:
+            lineas.append(_linea(
+                "TUGS IN", valor_tug * tugs_in,
+                f"BASIS {tugs_in} TUG(S) ({tipo_buque}) -- OUR TARIFF WITH SERVICE PROVIDER", informativo=True,
+            ))
+            lineas.append(_linea(
+                "TUGS OUT", valor_tug * tugs_out,
+                f"BASIS {tugs_out} TUG(S) ({tipo_buque}) -- OUR TARIFF WITH SERVICE PROVIDER", informativo=True,
+            ))
+
+    # Amarre / Desamarre -- siempre tarifa de dia habil; el recargo de
+    # fin de semana/feriado se deja solo como referencia en la observacion
+    amarre_usd = get_param(db, "otamerica_amarre_usd", 7162.0)
+    if amarre_usd:
+        recargo = (
+            f"RATE INCREASES BY 50% (USD {amarre_usd * 1.5:,.0f}) IF PERFORMED OUTSIDE 07:00-19:00 ON WEEKDAYS "
+            f"OR ON SATURDAYS 07:00-13:00; BY 100% (USD {amarre_usd * 2:,.0f}) ON SATURDAYS 13:00-24:00, "
+            "SUNDAYS OR HOLIDAYS."
+        )
+        lineas.append(_linea("MOORING (Amarre)", amarre_usd, recargo, informativo=True))
+        lineas.append(_linea("UNMOORING (Desamarre)", amarre_usd, recargo, informativo=True))
+
+    # Barreras de contencion marina -- siempre se cobra, por dia completo
+    if dias_muelle:
+        barreras_rate = get_param(db, "otamerica_barreras_usd_dia", 2046.0)
+        lineas.append(_linea(
+            "MARINE CONTAINMENT BOOMS DEPLOYMENT", barreras_rate * dias_muelle,
+            f"BASIS {dias_muelle:g} COMPLETE DAY(S)", informativo=True,
+        ))
 
     return lineas
