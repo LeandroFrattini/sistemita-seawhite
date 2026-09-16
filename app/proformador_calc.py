@@ -44,8 +44,29 @@ def tarifa_tug_por_loa(db: Session, eslora: float) -> float:
     return _tramo(models.ProformaTugTarifa, db, "hasta_loa", "valor_usd", eslora, 0.0)
 
 
-def tarifa_pilotage_por_calado(db: Session, calado_pies: float) -> float:
+def coeficiente_pilotage_por_calado(db: Session, calado_pies: float) -> float:
     return _tramo(models.ProformaPilotageTramo, db, "hasta_pies", "valor_usd", calado_pies, 0.0)
+
+
+def calcular_pilotage(db: Session, uf: float, calado_pies: float) -> float:
+    """Formula real del tarifario ESEM (Extranjero, I.White-Profertil, 1
+    practico): UF = Eslora x Manga x Puntal / 800 (= FC, propio de cada
+    barco), multiplicado por un %calado segun el tramo de calado de ESE
+    movimiento (entrada o salida por separado)."""
+    factor = coeficiente_pilotage_por_calado(db, calado_pies)
+    if not factor or not uf:
+        return 0.0
+    coef_maniobra = get_param(db, "pilotage_coef_maniobra", 14.0)
+    coef_navegacion = get_param(db, "pilotage_coef_navegacion", 8.0)
+    coef_km = get_param(db, "pilotage_coef_km", 12.0)
+    km = get_param(db, "pilotage_km_recorrido", 53.0)
+    descuento = get_param(db, "pilotage_descuento", 0.2)
+    service = get_param(db, "pilotage_service_usd", 6600.0)
+
+    maniobra = (uf * coef_maniobra) * factor
+    navegacion = (uf * coef_navegacion + coef_km * km) * factor
+    tarifa_gobierno = (maniobra + navegacion) * (1 - descuento)
+    return tarifa_gobierno + service
 
 
 def tarifa_turno(db: Session, servicio: str, categoria: str, dia_tipo: str) -> float:
@@ -75,10 +96,15 @@ def calcular_proforma(db: Session, datos: dict) -> list[dict]:
     dias_fondeo = float(datos.get("dias_fondeo") or 0)
     turnos = float(datos.get("turnos") or 0)
     eslora = float(datos.get("eslora") or 0)
+    manga = float(datos.get("manga") or 0)
+    puntal = float(datos.get("puntal") or 0)
     remolques_in = int(datos.get("remolques_in") or 0)
     remolques_out = int(datos.get("remolques_out") or 0)
     calado_entrada = float(datos.get("calado_entrada") or 0)
     calado_salida = float(datos.get("calado_salida") or 0)
+    # UF (Unidad Fiscal) sin redondear -- el "FC" que se muestra es solo
+    # informativo/redondeado, la formula de pilotaje necesita el valor real
+    uf = (eslora * manga * puntal / 800) if (eslora and manga and puntal) else 0.0
     tipo_operacion = datos.get("tipo_operacion") or "Carga"
     dia_tipo = datos.get("dia_tipo") or "SEMANA"
     accion = "LOADING" if tipo_operacion != "Descarga" else "DISCHARGING"
@@ -86,15 +112,16 @@ def calcular_proforma(db: Session, datos: dict) -> list[dict]:
     lineas = []
 
     # Pilotaje/practicaje -- se cobra por movimiento (entrada y salida por
-    # separado, cada uno con su propio calado). Solo recorrido Extranjero
-    # I.White-Profertil, 1 practico (el mas comun); otros recorridos/
-    # banderas todavia no estan cargados.
+    # separado, cada uno con su propio calado), en base a la Unidad Fiscal
+    # (UF, = FC) de ESTE barco. Solo recorrido Extranjero I.White-Profertil,
+    # 1 practico (el mas comun); otros recorridos/banderas todavia no
+    # estan cargados.
     if calado_entrada:
-        valor = tarifa_pilotage_por_calado(db, calado_entrada)
+        valor = calcular_pilotage(db, uf, calado_entrada)
         if valor:
             lineas.append(_linea("PILOTAGE IN", valor, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
     if calado_salida:
-        valor = tarifa_pilotage_por_calado(db, calado_salida)
+        valor = calcular_pilotage(db, uf, calado_salida)
         if valor:
             lineas.append(_linea("PILOTAGE OUT", valor, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
 

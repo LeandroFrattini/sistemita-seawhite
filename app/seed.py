@@ -135,6 +135,12 @@ PROFORMA_PARAMETROS = [
     ("libre_platica_base", "Free Pratique -- base fija ARS", 416574.0),
     ("libre_platica_resta_trn", "Free Pratique -- TRN de referencia a restar", 1001.0),
     ("immigration_boya_usd", "Immigration en boya (IN y/o OUT) -- USD fijo", 1875.0),
+    ("pilotage_coef_maniobra", "Pilotaje -- coeficiente Maniobra/Practicaje (x UF)", 14.0),
+    ("pilotage_coef_navegacion", "Pilotaje -- coeficiente Navegacion/Pilotaje (x UF)", 8.0),
+    ("pilotage_coef_km", "Pilotaje -- coeficiente x km de recorrido", 12.0),
+    ("pilotage_km_recorrido", "Pilotaje -- km del recorrido (I.White-Profertil)", 53.0),
+    ("pilotage_descuento", "Pilotaje -- descuento decreto 716/26 (0-1)", 0.2),
+    ("pilotage_service_usd", "Pilotaje -- service/related fijo por movimiento (USD)", 6600.0),
 ]
 
 PROFORMA_COEF_TRAMOS = [
@@ -151,15 +157,18 @@ PROFORMA_TUG_TARIFAS = [
     (None, 14750.0),
 ]
 
-# Pilotaje/practicaje por tramo de calado (pies) -- tarifario ESEM, columna
-# TOTAL, recorrido "Extranjero, By11o17-I.WHITE h/Profertil, 1 practico"
-# (el mas comun). Otros recorridos/banderas/2 practicos no estan cargados.
+# Pilotaje/practicaje por tramo de calado (pies) -- tarifario ESEM, recorrido
+# "Extranjero, By11o17-I.WHITE h/Profertil, 1 practico" (el mas comun).
+# Esto NO es un monto fijo: es el "%calado" que multiplica a la formula de
+# Maniobra/Navegacion, que a su vez depende de la Unidad Fiscal (UF) propia
+# de CADA barco (UF = Eslora x Manga x Puntal / 800 -- el mismo calculo que
+# el "FC"). Otros recorridos/banderas/2 practicos no estan cargados.
 PROFORMA_PILOTAGE_TRAMOS = [
-    (28, 10183.52),   # <28 pies / lastre
-    (30, 10452.29),   # >28<30 pies
-    (32, 10721.05),   # >30<32 pies
-    (34, 10989.82),   # >32<34 pies
-    (None, 11258.58), # >34 pies
+    (28, 1.0),    # <28 pies / lastre
+    (30, 1.075),  # >28<30 pies
+    (32, 1.15),   # >30<32 pies
+    (34, 1.225),  # >32<34 pies
+    (None, 1.3),  # >34 pies
 ]
 
 PROFORMA_CONCEPTOS_FIJOS = [

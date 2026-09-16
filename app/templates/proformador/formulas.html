@@ -63,10 +63,11 @@
 </div>
 
 <div class="card">
-  <h3>Pilotaje — por tramo de calado (pies)</h3>
-  <p class="muted">Solo recorrido Extranjero, By11o17-I.White h/Profertil, 1 práctico (el más común). Otros recorridos/banderas/2 prácticos todavía no están cargados.</p>
+  <h3>Pilotaje — coeficiente por tramo de calado (pies)</h3>
+  <p class="muted">Solo recorrido Extranjero, By11o17-I.White h/Profertil, 1 práctico (el más común). Otros recorridos/banderas/2 prácticos todavía no están cargados.
+  El monto final se calcula con la Unidad Fiscal (UF = FC) de cada barco, no es un valor fijo.</p>
   <table class="list">
-    <thead><tr><th>Hasta calado (pies) — vacío = sin tope</th><th>Valor USD</th></tr></thead>
+    <thead><tr><th>Hasta calado (pies) — vacío = sin tope</th><th>Coeficiente (%calado)</th></tr></thead>
     <tbody>
     {% for t in pilotage_tramos %}
       <tr>
