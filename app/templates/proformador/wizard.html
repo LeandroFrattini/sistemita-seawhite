@@ -97,7 +97,9 @@
 
   <!-- Paso 5 -->
   <div class="step" data-step="5" hidden>
-    <h3>Paso 5 — Resultado</h3>
+    <h3>Paso 5 — Revisión y resultado</h3>
+    <p class="muted">Revisá los datos cargados. Si algo está mal, volvé con "Anterior" y corregilo; si está todo bien, hacé click en "Calcular".</p>
+    <div id="resumen-box"></div>
     <div id="preview-box"><p class="muted">Hacé click en "Calcular" para ver el resultado.</p></div>
   </div>
 
@@ -124,6 +126,38 @@ function showStep(n) {
   document.getElementById('btn-next').hidden = n === totalSteps;
   document.getElementById('btn-calcular').hidden = n !== totalSteps;
   document.getElementById('btn-guardar').hidden = n !== totalSteps;
+  if (n === totalSteps) renderResumen();
+}
+
+function fieldLabel(name) {
+  const el = form.elements[name];
+  if (!el) return '—';
+  if (el.type === 'checkbox') return el.checked ? 'Sí' : 'No';
+  if (el.tagName === 'SELECT') return el.options[el.selectedIndex]?.text || '—';
+  return el.value || '—';
+}
+
+function renderResumen() {
+  const rows = [
+    ['Dólar venta', fieldLabel('dolar_venta')],
+    ['Cliente', fieldLabel('cliente')],
+    ['Tipo de buque / Operación', `${fieldLabel('tipo_buque')} / ${fieldLabel('tipo_operacion')}`],
+    ['Buque', fieldLabel('nombre_buque')],
+    ['Eslora / Manga / Puntal', `${fieldLabel('eslora')} / ${fieldLabel('manga')} / ${fieldLabel('puntal')}`],
+    ['TRN / FC', `${fieldLabel('trn')} / ${document.getElementById('fc-preview').value || '—'}`],
+    ['Calado entrada / salida (pies)', `${fieldLabel('calado_entrada')} / ${fieldLabel('calado_salida')}`],
+    ['Cantidad a cargar/descargar', `${fieldLabel('cantidad')} tn`],
+    ['Días de muelle / fondeo', `${fieldLabel('dias_muelle')} / ${fieldLabel('dias_fondeo')}`],
+    ['Remolcadores IN / OUT', `${fieldLabel('remolques_in')} / ${fieldLabel('remolques_out')}`],
+    ['Turnos (shifts)', fieldLabel('turnos')],
+    ['Tipo de carga (Tally) / Watchmen / Día', `${fieldLabel('tipo_carga')} / ${fieldLabel('categoria_watchmen')} / ${fieldLabel('dia_tipo')}`],
+    ['Procede del exterior / Se dirige al exterior', `${fieldLabel('procede_exterior')} / ${fieldLabel('destino_exterior')}`],
+    ['Immigration en boya (IN / OUT)', `${fieldLabel('immigration_in_boya')} / ${fieldLabel('immigration_out_boya')}`],
+  ];
+  const html = '<table class="list">' +
+    rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('') +
+    '</table>';
+  document.getElementById('resumen-box').innerHTML = html;
 }
 
 document.getElementById('btn-next').addEventListener('click', () => { if (step < totalSteps) { step++; showStep(step); } });
