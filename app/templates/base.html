@@ -13,33 +13,43 @@
   <a href="/" class="brand-link"><div class="brand">⚓ Sistemita <span>SeaWhiters</span></div></a>
   <nav>
     <a href="/" class="{% block nav_home %}{% endblock %}">Inicio</a>
-    <a href="/lineup" class="{% block nav_lineup %}{% endblock %}">Grain</a>
-    <a href="/flammable" class="{% block nav_flammable %}{% endblock %}">Flammable</a>
 
     <div class="nav-group">
-      <button type="button" class="nav-drop-btn {{ self.nav_ours() }} {{ self.nav_files() }}">Barcos ▾</button>
+      <button type="button" class="nav-drop-btn {{ self.nav_lineup() }} {{ self.nav_flammable() }}">Line Up ▾</button>
       <div class="nav-drop-panel">
-        <a href="/nuestros-barcos" class="{% block nav_ours %}{% endblock %}">Nuestros barcos</a>
-        <a href="/barcos" class="{% block nav_files %}{% endblock %}">Barcos (ID)</a>
+        <a href="/lineup" class="{% block nav_lineup %}{% endblock %}">Grain</a>
+        <a href="/flammable" class="{% block nav_flammable %}{% endblock %}">Flammable</a>
       </div>
     </div>
 
     <div class="nav-group">
-      <button type="button" class="nav-drop-btn {{ self.nav_reports() }} {{ self.nav_finalize() }}">Reportes ▾</button>
+      <button type="button" class="nav-drop-btn {{ self.nav_ours() }} {{ self.nav_files() }} {{ self.nav_proformador() }} {{ self.nav_clients() }} {{ self.nav_reports() }} {{ self.nav_finalize() }} {{ self.nav_operaciones() }}">Operaciones ▾</button>
       <div class="nav-drop-panel">
-        <a href="/reports" class="{% block nav_reports %}{% endblock %}">Reportes</a>
-        <a href="/finalize" class="{% block nav_finalize %}{% endblock %}">Exportar Excel</a>
+        <div class="nav-subgroup">
+          <button type="button" class="nav-sub-btn {{ self.nav_ours() }} {{ self.nav_files() }}">Barcos ▸</button>
+          <div class="nav-sub-panel">
+            <a href="/nuestros-barcos" class="{% block nav_ours %}{% endblock %}">Nuestros barcos</a>
+            <a href="/barcos" class="{% block nav_files %}{% endblock %}">Barcos (ID)</a>
+          </div>
+        </div>
+        <a href="/proformador" class="{% block nav_proformador %}{% endblock %}">Proformador</a>
+        <a href="/clients" class="{% block nav_clients %}{% endblock %}">Clientes</a>
+        <div class="nav-subgroup">
+          <button type="button" class="nav-sub-btn {{ self.nav_reports() }} {{ self.nav_finalize() }}">Reportes ▸</button>
+          <div class="nav-sub-panel">
+            <a href="/reports" class="{% block nav_reports %}{% endblock %}">Reportes</a>
+            <a href="/finalize" class="{% block nav_finalize %}{% endblock %}">Exportar Excel</a>
+          </div>
+        </div>
       </div>
     </div>
 
-    <a href="/clients" class="{% block nav_clients %}{% endblock %}">Clientes</a>
-    <a href="/proformador" class="{% block nav_proformador %}{% endblock %}">Proformador</a>
-    <a href="/operaciones" class="{% block nav_operaciones %}{% endblock %}">Operaciones</a>
-    {% if user.is_admin %}<a href="/admin" class="{% block nav_admin %}{% endblock %}">Admin</a>{% endif %}
+    <!-- {% block nav_operaciones %}{% endblock %} -->
     {% if user.is_admin %}<a href="/administracion" class="{% block nav_administracion %}{% endblock %}">Administración</a>{% endif %}
   </nav>
-  <div class="user">{{ user.full_name or user.username }} ·
-    <a href="/cambiar-clave">clave</a> · <a href="/logout">salir</a></div>
+  <div class="user">{{ user.full_name or user.username }}
+    {% if user.is_admin %} · <a href="/admin">Admin</a>{% endif %}
+    · <a href="/cambiar-clave">clave</a> · <a href="/logout">salir</a></div>
 </header>
 {% endif %}
 <main class="{% block main_class %}wrap{% endblock %}">
