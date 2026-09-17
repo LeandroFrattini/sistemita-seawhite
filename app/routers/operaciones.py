@@ -4,13 +4,13 @@ from email.message import EmailMessage
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
 from ..config import BASE_DIR
 from ..database import get_db
-from ..models import User
-from ..service import active_clients
+from ..models import Client, User
 from ..templating import templates
 
 router = APIRouter()
@@ -45,8 +45,13 @@ def utilidades_page(request: Request, user: User = Depends(current_user)):
 
 @router.get("/operaciones/utilidades/pending-docs", response_class=HTMLResponse)
 def pending_docs_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    # Solo agencias -- los grupos de estiba no operan documentacion de buque,
+    # no hace falta mandarles Pending Docs
+    clients = db.scalars(
+        select(Client).where(Client.active == True, Client.client_type == "AGENCY").order_by(Client.name)
+    ).all()
     return templates.TemplateResponse(request, "utilidades/pending_docs.html", {
-        "user": user, "clients": active_clients(db),
+        "user": user, "clients": clients,
     })
 
 
