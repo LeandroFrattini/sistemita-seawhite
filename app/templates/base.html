@@ -34,7 +34,9 @@
 
     <a href="/clients" class="{% block nav_clients %}{% endblock %}">Clientes</a>
     <a href="/proformador" class="{% block nav_proformador %}{% endblock %}">Proformador</a>
+    <a href="/operaciones" class="{% block nav_operaciones %}{% endblock %}">Operaciones</a>
     {% if user.is_admin %}<a href="/admin" class="{% block nav_admin %}{% endblock %}">Admin</a>{% endif %}
+    {% if user.is_admin %}<a href="/administracion" class="{% block nav_administracion %}{% endblock %}">Administración</a>{% endif %}
   </nav>
   <div class="user">{{ user.full_name or user.username }} ·
     <a href="/cambiar-clave">clave</a> · <a href="/logout">salir</a></div>
