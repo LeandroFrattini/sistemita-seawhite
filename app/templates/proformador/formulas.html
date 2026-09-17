@@ -7,6 +7,11 @@
     <h1 style="margin:0">Fórmulas del Proformador</h1>
     <span class="muted">{% if puede_editar %}Podés editar los valores de abajo.{% else %}Solo lectura — pedile a un Administrador de PDA que actualice estos valores.{% endif %}</span>
   </div>
+  {% if puede_editar %}
+  <div class="actions">
+    <button type="button" class="primary btn-guardar-formulas">Guardar cambios</button>
+  </div>
+  {% endif %}
 </div>
 
 
@@ -161,7 +166,7 @@
 </div>
 
 {% if puede_editar %}
-<button type="button" class="primary" id="btn-guardar-formulas">Guardar cambios</button>
+<button type="button" class="primary btn-guardar-formulas">Guardar cambios</button>
 {% endif %}
 </form>
 
@@ -171,7 +176,8 @@
     <button type="button" class="modal-close" id="close-modal-password" aria-label="Cerrar">×</button>
   </div>
   <p class="muted">Estás por modificar el tarifario del Proformador. Ingresá tu contraseña para confirmar.</p>
-  <input type="password" id="modal-password-input" placeholder="Contraseña" autocomplete="current-password" style="width:100%">
+  <input type="password" id="modal-password-input" name="pda_confirm_password_field" placeholder="Contraseña"
+         autocomplete="off" autocorrect="off" spellcheck="false" style="width:100%">
   <div class="row end" style="margin-top:14px">
     <button type="button" id="close-modal-password-2">Cancelar</button>
     <button type="button" class="primary" id="btn-confirmar-password">Confirmar y guardar</button>
@@ -182,7 +188,11 @@
 {% block scripts %}
 <script>
 const pwModal = document.getElementById('modal-confirm-password');
-document.getElementById('btn-guardar-formulas')?.addEventListener('click', () => pwModal.showModal());
+document.querySelectorAll('.btn-guardar-formulas').forEach((btn) => btn.addEventListener('click', () => {
+  document.getElementById('modal-password-input').value = '';
+  pwModal.showModal();
+  document.getElementById('modal-password-input').focus();
+}));
 document.getElementById('close-modal-password')?.addEventListener('click', () => pwModal.close());
 document.getElementById('close-modal-password-2')?.addEventListener('click', () => pwModal.close());
 pwModal?.addEventListener('click', (ev) => { if (ev.target === pwModal) pwModal.close(); });
