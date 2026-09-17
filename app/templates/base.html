@@ -23,7 +23,7 @@
     </div>
 
     <div class="nav-group">
-      <button type="button" class="nav-drop-btn {{ self.nav_ours() }} {{ self.nav_files() }} {{ self.nav_proformador() }} {{ self.nav_clients() }} {{ self.nav_reports() }} {{ self.nav_finalize() }} {{ self.nav_operaciones() }}">Operaciones ▾</button>
+      <button type="button" class="nav-drop-btn {{ self.nav_ours() }} {{ self.nav_files() }} {{ self.nav_proformador() }} {{ self.nav_clients() }} {{ self.nav_reports() }} {{ self.nav_finalize() }} {{ self.nav_utilidades() }} {{ self.nav_operaciones() }}">Operaciones ▾</button>
       <div class="nav-drop-panel">
         <div class="nav-subgroup">
           <button type="button" class="nav-sub-btn {{ self.nav_ours() }} {{ self.nav_files() }}">Barcos ▸</button>
@@ -41,6 +41,7 @@
             <a href="/finalize" class="{% block nav_finalize %}{% endblock %}">Exportar Excel</a>
           </div>
         </div>
+        <a href="/operaciones/utilidades" class="{% block nav_utilidades %}{% endblock %}">Utilidades</a>
       </div>
     </div>
 
