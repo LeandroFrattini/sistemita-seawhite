@@ -11,10 +11,6 @@
   </div>
 </div>
 
-<p class="flash err" style="position:static;display:inline-block;margin-bottom:14px">
-  Los 3 modelos todavía tienen texto de relleno (placeholder) — pasame el texto real de cada uno y los cargo.
-</p>
-
 <div class="card">
   <div class="row">
     <label>Cliente
@@ -30,58 +26,185 @@
     </label>
   </div>
 
-  <div class="pf-toggles" style="margin-top:14px" id="modelos-wrap">
-    <label class="pf-toggle"><input type="radio" name="modelo" value="1"> Modelo 1</label>
-    <label class="pf-toggle"><input type="radio" name="modelo" value="2"> Modelo 2</label>
-    <label class="pf-toggle"><input type="radio" name="modelo" value="3"> Modelo 3</label>
+  <div class="pf-toggles" style="margin-top:14px">
+    <label class="pf-toggle"><input type="radio" name="puerto" value="argentina"> Puerto Argentino</label>
+    <label class="pf-toggle"><input type="radio" name="puerto" value="foreign"> Puerto Exterior</label>
   </div>
+</div>
 
-  <div class="row end" style="margin-top:16px">
+<div class="card" id="card-sanitary" hidden>
+  <h3>Sanitary missing docs <span class="muted" style="font-weight:400;font-size:11.5px">(solo puerto exterior)</span></h3>
+  <div class="doc-checklist" id="items-sanitary"></div>
+</div>
+
+<div class="card">
+  <h3>Immigration missing docs</h3>
+  <div class="doc-checklist" id="items-immigration"></div>
+</div>
+
+<div class="card">
+  <h3>Senasa missing docs</h3>
+  <div class="doc-checklist" id="items-senasa"></div>
+</div>
+
+<div class="card">
+  <h3>Coastguard missing docs</h3>
+  <div class="doc-checklist" id="items-coastguard"></div>
+</div>
+
+<div class="card">
+  <div class="row end">
     <button type="button" class="primary" id="btn-abrir-outlook" hidden>✉ Abrir en Outlook</button>
   </div>
-  <p class="muted" id="aviso-incompleto" style="margin-top:8px">Elegí cliente, buque y modelo para habilitar el botón.</p>
+  <p class="muted" id="aviso-incompleto" style="margin-top:8px">Elegí cliente, buque y tipo de puerto para habilitar el botón.</p>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// TODO: reemplazar el asunto/cuerpo de cada modelo por el texto real que
-// pase Leandro -- por ahora es placeholder, bien marcado para no mandarlo
-// por error a un cliente.
-const MODELOS = {
-  "1": {
-    subject: (buque) => `Pending Documents -- ${buque}`,
-    body: (buque, clienteTo) => `[PENDIENTE: pegar aca el texto real del Modelo 1]\n\nTO ${clienteTo}\nVessel: ${buque}`,
+// Texto sacado tal cual de los mails reales (ARGENTINIAN PORT.eml /
+// PENDING DOCS FOREIGN PORT.eml). "attachment: true" = plantilla fija
+// pendiente de subir (mailto: no soporta adjuntos por navegador).
+const SECTIONS = {
+  sanitary: {
+    onlyForeign: true,
+    items: [
+      { text: "Maritime Health declaration (Attached)", attachment: true },
+      { text: "Ship sanitary control exception certificate" },
+      { text: "Last 10 ports of call (updated)" },
+      { text: "Ship particular" },
+      { text: "Yellow fever vaccination list (with application date of each crew member)" },
+      { text: "IMO Crew list with date and place of embark of each crew member" },
+      { text: 'Medical Log book (Last 3 pages) updated with the date of today. Please sign and stamp the last page and put this remark: "ALL CREW ARE IN GOOD HEALTH CONDITIONS SINCE XX/XX/XXXX"' },
+    ],
   },
-  "2": {
-    subject: (buque) => `Pending Documents -- ${buque}`,
-    body: (buque, clienteTo) => `[PENDIENTE: pegar aca el texto real del Modelo 2]\n\nTO ${clienteTo}\nVessel: ${buque}`,
+  immigration: {
+    items: [
+      { text: "Scan of all crew Passport (with valid expiry date / renovation / extensión)." },
+      { text: "Scan of all crew Seamenbooks (with valid expiry date / renovation / extensión)." },
+      { text: "One arrival crew list that shows Passport and seamanbook number and expiration date of each crew member." },
+    ],
   },
-  "3": {
-    subject: (buque) => `Pending Documents -- ${buque}`,
-    body: (buque, clienteTo) => `[PENDIENTE: pegar aca el texto real del Modelo 3]\n\nTO ${clienteTo}\nVessel: ${buque}`,
+  senasa: {
+    itemsByPuerto: {
+      foreign: [
+        { text: "Form A and B" },
+        { text: "Last 3 Cargo" },
+      ],
+      argentina: [
+        { text: "Loading Sequence." },
+        { text: "Pre-Stowage plan for Bahia Blanca." },
+        { text: "Senasa Form A and B already completed in last Argentinian port." },
+        { text: "Last 3 cargo per hold." },
+      ],
+    },
   },
+  coastguard: {
+    items: [
+      { text: "Certificate of registry" },
+      { text: "Safety management certificate" },
+      { text: "Documento of compliance" },
+      { text: "International ship safety certificate" },
+      { text: "International tonnage certificate" },
+      { text: "Continous synopsis record" },
+      { text: "International loadline certificate" },
+      { text: "Cargo ship safety construction certificate" },
+      { text: "Cargo ship safety equipment certificate" },
+      { text: "Cargo ship safety radio certificate" },
+      { text: "International oil pollution prevention certificate" },
+      { text: "Maritime labour certificate" },
+      { text: "International ballast water certificate" },
+      { text: "International sewage pollution prevention certificate" },
+      { text: "Minimum safe Manning certificate" },
+      { text: "Last port state control" },
+      { text: "Civil liability certificate FOR BUNKERING" },
+      { text: "DMLC part 1 and 2 (Anex)" },
+      { text: "Grain loading certificate / Fitness certificate" },
+      { text: "International air pollution prevention certificate" },
+      { text: "Cargo Manifest" },
+      { text: "Class Certificate" },
+      { text: "Last Port Clearance", onlyForeign: true },
+      { text: "Ballast water report (Attached)", attachment: true },
+    ],
+  },
+};
+
+const BLOQUE_FINAL = {
+  argentina: [
+    "Info for the master:",
+    "Please have ready to deliver at berthing clearance:",
+    "- Custom store list endorsed to Bahia Blanca port given by last port agent.",
+    "- Inmigration Inward clearence granted at first Argentinian port.",
+    "- Three copies of arrival crew list.",
+    "- Please collect all crew shore passes.",
+    "- Departure crew list with passport & seamanbook number & expiry date",
+    "",
+    "Please have arrival/berthing time sheet at hand, and bunkers rob (vlsfo/mgo/fw/lub oil) and arrival drafts.",
+  ].join("\n"),
+  foreign: [
+    "Please have ready to deliver at berthing clearance:",
+    "-As per Migrations authority request, upon berthing must present all Shore Pass duly completed (Duly completed: All data requested, with fingerprint/photo/signature of master in all shore passes and vssl stamp and each crew signature in each shore pass).",
+    "- Three copies of arrival crew list.",
+    "- Five copies of Departure crew list with passport & seamanbook number & expiry date.",
+    "",
+    "-Please have ready for deliver at berthing clearance TWO SETS of forms OM 1645/1646/1647/1648 + Narcotic list & Nil list.",
+  ].join("\n"),
 };
 
 const clienteSelect = document.getElementById('cliente-select');
 const buqueInput = document.getElementById('buque-input');
 const btnAbrir = document.getElementById('btn-abrir-outlook');
 const aviso = document.getElementById('aviso-incompleto');
+const cardSanitary = document.getElementById('card-sanitary');
 
-function modeloElegido() {
-  const el = document.querySelector('input[name="modelo"]:checked');
+function puertoElegido() {
+  const el = document.querySelector('input[name="puerto"]:checked');
   return el ? el.value : null;
 }
 
+function itemsDeSeccion(clave, seccion, puerto) {
+  let items = seccion.itemsByPuerto ? seccion.itemsByPuerto[puerto] || [] : seccion.items;
+  if (puerto === 'argentina') items = items.filter((it) => !it.onlyForeign);
+  return items;
+}
+
+function renderChecklists() {
+  const puerto = puertoElegido();
+  cardSanitary.hidden = puerto !== 'foreign';
+  for (const clave of Object.keys(SECTIONS)) {
+    const wrap = document.getElementById(`items-${clave}`);
+    wrap.innerHTML = '';
+    if (!puerto) continue;
+    const items = itemsDeSeccion(clave, SECTIONS[clave], puerto);
+    items.forEach((it, idx) => {
+      const label = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = true;
+      cb.dataset.section = clave;
+      cb.dataset.idx = idx;
+      label.appendChild(cb);
+      const span = document.createElement('span');
+      span.textContent = it.text + (it.attachment ? ' 📎' : '');
+      label.appendChild(span);
+      label.addEventListener('change', actualizarEstado);
+      wrap.appendChild(label);
+    });
+  }
+}
+
 function actualizarEstado() {
-  const completo = clienteSelect.value && buqueInput.value.trim() && modeloElegido();
+  const completo = clienteSelect.value && buqueInput.value.trim() && puertoElegido();
   btnAbrir.hidden = !completo;
   aviso.hidden = !!completo;
 }
 
 clienteSelect.addEventListener('change', actualizarEstado);
 buqueInput.addEventListener('input', actualizarEstado);
-document.querySelectorAll('input[name="modelo"]').forEach((r) => r.addEventListener('change', actualizarEstado));
+document.querySelectorAll('input[name="puerto"]').forEach((r) => r.addEventListener('change', () => {
+  renderChecklists();
+  actualizarEstado();
+}));
 
 function soloEmail(raw) {
   // "Nombre <mail@dominio.com>" -> "mail@dominio.com" (mailto: no soporta
@@ -90,17 +213,40 @@ function soloEmail(raw) {
   return (m ? m[1] : raw).trim();
 }
 
+function buildBody(puerto, clienteTo, buque) {
+  const lines = [];
+  if (puerto === 'argentina') { lines.push('DE PUERTO ARG', ''); }
+  lines.push(`To ${clienteTo}`, 'From Sea White', `Ref ${buque}`, '');
+  lines.push('Good afternoon,', 'We would be missing the following documentation for each authority', '');
+
+  const labels = { sanitary: 'Sanitary missing docs:', immigration: 'Immigration missing docs:',
+                    senasa: 'Senasa missing docs:', coastguard: 'Coastguard missing docs:' };
+  for (const clave of Object.keys(SECTIONS)) {
+    if (clave === 'sanitary' && puerto !== 'foreign') continue;
+    const checked = [...document.querySelectorAll(`#items-${clave} input:checked`)];
+    if (!checked.length) continue;
+    const items = itemsDeSeccion(clave, SECTIONS[clave], puerto);
+    lines.push(labels[clave]);
+    checked.forEach((cb) => lines.push(`• ${items[+cb.dataset.idx].text}`));
+    lines.push('');
+  }
+
+  lines.push(BLOQUE_FINAL[puerto], '', 'Saludos/Regards');
+  return lines.join('\n');
+}
+
 btnAbrir.addEventListener('click', () => {
   const opt = clienteSelect.options[clienteSelect.selectedIndex];
   const emails = (opt.dataset.emails || '').split(',').map(soloEmail).filter(Boolean).join(',');
   const clienteTo = opt.dataset.to || opt.textContent;
   const buque = buqueInput.value.trim();
-  const modelo = MODELOS[modeloElegido()];
-  const subject = encodeURIComponent(modelo.subject(buque));
-  const body = encodeURIComponent(modelo.body(buque, clienteTo));
+  const puerto = puertoElegido();
+  const subject = encodeURIComponent(`Pending Docs -- ${buque}`);
+  const body = encodeURIComponent(buildBody(puerto, clienteTo, buque));
   window.location.href = `mailto:${emails}?subject=${subject}&body=${body}`;
 });
 
+renderChecklists();
 actualizarEstado();
 </script>
 {% endblock %}

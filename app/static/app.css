@@ -112,6 +112,12 @@ button.danger:hover { background: #fdecea; }
 .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; }
 .page-head .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
+/* Utilidades: checklist de items de documentacion (Pending Docs) */
+.doc-checklist { display: flex; flex-direction: column; gap: 2px; }
+.doc-checklist label { display: flex; align-items: flex-start; gap: 9px; padding: 6px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; line-height: 1.4; }
+.doc-checklist label:hover { background: #f7fafd; }
+.doc-checklist input[type=checkbox] { margin-top: 3px; accent-color: var(--blue); flex: none; }
+
 /* Proformador: hub de 3 botones grandes + chips de condicionantes -- clases
    propias para no tocar .check/.row que usa el resto del sistema */
 .pf-hub { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
