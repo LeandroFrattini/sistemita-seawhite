@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
 from .. import liquidaciones as liq
-from ..auth import admin_required
+from ..auth import administracion_required
 from ..models import User
 from ..templating import templates
 
@@ -15,7 +15,7 @@ router = APIRouter()
 
 
 @router.get("/administracion", response_class=HTMLResponse)
-def administracion_page(request: Request, user: User = Depends(admin_required)):
+def administracion_page(request: Request, user: User = Depends(administracion_required)):
     return templates.TemplateResponse(request, "administracion.html", {"user": user})
 
 
@@ -35,13 +35,13 @@ def _limpiar_temporales():
 
 
 @router.get("/administracion/liquidaciones", response_class=HTMLResponse)
-def liquidaciones_form(request: Request, user: User = Depends(admin_required)):
+def liquidaciones_form(request: Request, user: User = Depends(administracion_required)):
     return templates.TemplateResponse(request, "administracion/liquidaciones.html", {"user": user, "resultado": None, "error": None})
 
 
 @router.post("/administracion/liquidaciones/procesar", response_class=HTMLResponse)
 async def liquidaciones_procesar(
-    request: Request, excel: UploadFile, zip: UploadFile, user: User = Depends(admin_required),
+    request: Request, excel: UploadFile, zip: UploadFile, user: User = Depends(administracion_required),
 ):
     _limpiar_temporales()
     error = None
@@ -84,7 +84,7 @@ async def liquidaciones_procesar(
 
 
 @router.get("/administracion/liquidaciones/descargar/{token}")
-def liquidaciones_descargar(token: str, user: User = Depends(admin_required)):
+def liquidaciones_descargar(token: str, user: User = Depends(administracion_required)):
     _limpiar_temporales()
     entry = _ARCHIVOS_TEMP.get(token)
     if not entry:

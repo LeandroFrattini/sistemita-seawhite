@@ -46,7 +46,7 @@
     </div>
 
     <!-- {% block nav_operaciones %}{% endblock %} -->
-    {% if user.is_admin %}<a href="/administracion" class="{% block nav_administracion %}{% endblock %}">Administración</a>{% endif %}
+    {% if user.is_admin or user.is_administracion %}<a href="/administracion" class="{% block nav_administracion %}{% endblock %}">Administración</a>{% endif %}
   </nav>
   <div class="user">{{ user.full_name or user.username }}
     {% if user.is_admin %} · <a href="/admin">Admin</a>{% endif %}

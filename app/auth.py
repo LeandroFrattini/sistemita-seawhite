@@ -64,6 +64,14 @@ def pda_admin_required(user: User = Depends(current_user)) -> User:
     return user
 
 
+def administracion_required(user: User = Depends(current_user)) -> User:
+    """Permiso especifico para entrar a la seccion Administracion -- se
+    activa por perfil (checkbox en Admin -> Usuarios), no por is_admin."""
+    if not user.is_admin and not user.is_administracion:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Se requiere permiso de Administracion")
+    return user
+
+
 def optional_user(request: Request, db: Session = Depends(get_db)) -> User | None:
     data = read_session_cookie(request.cookies.get(COOKIE_NAME))
     if not data:

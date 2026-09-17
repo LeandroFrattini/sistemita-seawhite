@@ -86,6 +86,7 @@ _MIGRATIONS = [
     ("proformas", "calado", "FLOAT DEFAULT 0"),
     ("proformas", "calado_entrada", "FLOAT DEFAULT 0"),
     ("proformas", "calado_salida", "FLOAT DEFAULT 0"),
+    ("users", "is_administracion", "BOOLEAN DEFAULT FALSE"),
 ]
 
 

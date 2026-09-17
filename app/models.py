@@ -33,6 +33,9 @@ class User(Base):
     # permiso especifico (independiente de is_admin) para editar el
     # tarifario del Proformador -- se activa por perfil, no por rol
     is_pda_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    # permiso especifico (independiente de is_admin) para entrar a la
+    # seccion Administracion (Liquidaciones Aduana, etc.)
+    is_administracion: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
