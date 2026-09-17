@@ -116,7 +116,7 @@ button.danger:hover { background: #fdecea; }
 .section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
 .section-head h3 { margin: 0; }
 .doc-checklist { display: flex; flex-direction: column; gap: 2px; }
-.doc-checklist label { display: flex; align-items: flex-start; gap: 9px; padding: 6px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; line-height: 1.4; }
+.card .doc-checklist label { display: flex; flex-direction: row; align-items: flex-start; gap: 9px; padding: 6px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; line-height: 1.4; }
 .doc-checklist label:hover { background: #f7fafd; }
 .doc-checklist input[type=checkbox] { margin-top: 3px; accent-color: var(--blue); flex: none; }
 
@@ -134,8 +134,8 @@ button.danger:hover { background: #fdecea; }
 .pf-hub-btn.disabled { opacity: .55; cursor: not-allowed; pointer-events: none; border-style: dashed; }
 
 .pf-toggles { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0; }
-.pf-toggle {
-  display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px 7px 10px;
+.pf-toggle, .card .pf-toggle {
+  display: inline-flex; flex-direction: row; align-items: center; gap: 8px; padding: 7px 14px 7px 10px;
   border: 1px solid var(--line); border-radius: 20px; background: #fff;
   font-size: 12.5px; cursor: pointer; transition: .15s; user-select: none;
 }
