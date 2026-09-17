@@ -164,8 +164,11 @@ document.querySelectorAll(".extras-cell").forEach((cell) => {
   panel.addEventListener("click", (e) => e.stopPropagation());
 
   panel.addEventListener("change", async () => {
-    const ids = [...panel.querySelectorAll("input:checked")].map((i) => i.value);
-    cnt.textContent = ids.length;
+    // el checkbox del principal (data-principal-auto) es solo visual -- ya
+    // recibe el mail por ser principal, no se manda ni se cuenta como "extra"
+    const ids = [...panel.querySelectorAll("input:checked:not([data-principal-auto])")].map((i) => i.value);
+    const tienePrincipalAuto = !!panel.querySelector("[data-principal-auto]");
+    cnt.textContent = ids.length + (tienePrincipalAuto ? 1 : 0);
     try {
       await api(`/api/calls/${callId(cell)}/extras`, "POST", { client_ids: ids });
       flash("Destinatarios guardados");

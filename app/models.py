@@ -173,6 +173,20 @@ class VesselCall(Base):
             return self.principal_client.name
         return self.principal_text or ""
 
+    @property
+    def extra_agency_ids(self) -> set[int]:
+        return {link.client_id for link in self.extra_agencies}
+
+    @property
+    def display_client_count(self) -> int:
+        """Cantidad a mostrar en el chip "N clientes" -- si el barco es
+        nuestro, el principal ya recibe el mail solo (ver recipient_clients),
+        asi que cuenta como uno mas aunque no este en extra_agencies."""
+        ids = self.extra_agency_ids
+        if self.is_ours and self.principal_client_id and self.principal_client_id not in ids:
+            return len(ids) + 1
+        return len(ids)
+
     def recipient_clients(self) -> list["Client"]:
         out: list[Client] = []
         seen: set[int] = set()

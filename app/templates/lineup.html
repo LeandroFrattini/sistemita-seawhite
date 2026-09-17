@@ -104,14 +104,16 @@
           </td>
           <td class="extras-cell">
             <button class="chip-btn" data-extras>
-              <span class="cnt">{{ call.extra_agencies|length }}</span> clientes ▾
+              <span class="cnt">{{ call.display_client_count }}</span> clientes ▾
             </button>
             <div class="extras-panel" hidden>
               <div class="extras-title">Agencias (también reciben el mail)</div>
               {% for c in clients if not c.is_estiba %}
-              <label><input type="checkbox" value="{{ c.id }}"
-                {{ 'checked' if c.id in call.extra_agencies|map(attribute='client_id')|list }}>
-                {{ c.name }} <em>{{ 'WBL' if c.report_format == 'WBL_TEXT' else 'Excel' }}</em></label>
+              {% set is_principal_auto = call.is_ours and call.principal_client_id == c.id %}
+              <label{% if is_principal_auto %} class="extra-principal"{% endif %}><input type="checkbox" value="{{ c.id }}"
+                {{ 'checked' if c.id in call.extra_agency_ids }}
+                {% if is_principal_auto %}checked disabled data-principal-auto{% endif %}>
+                {{ c.name }} <em>{{ 'WBL' if c.report_format == 'WBL_TEXT' else 'Excel' }}</em>{% if is_principal_auto %} <span class="muted">(principal)</span>{% endif %}</label>
               {% endfor %}
               {% set estibas = clients|selectattr('is_estiba')|list %}
               {% if estibas %}
