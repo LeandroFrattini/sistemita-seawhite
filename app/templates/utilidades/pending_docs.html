@@ -238,7 +238,7 @@ function buildBody(puerto, clienteTo, buque) {
     lines.push('');
   }
 
-  lines.push(BLOQUE_FINAL[puerto], '', 'Saludos/Regards');
+  lines.push(BLOQUE_FINAL[puerto]);
   return lines.join('\n');
 }
 
@@ -263,7 +263,7 @@ btnAbrir.addEventListener('click', async () => {
   const clienteTo = opt.dataset.to || opt.textContent;
   const buque = buqueInput.value.trim();
   const puerto = puertoElegido();
-  const subject = `Pending Docs -- ${buque}`;
+  const subject = `${buque.toUpperCase()} - PENDING DOCS`;
   const body = buildBody(puerto, clienteTo, buque);
   const attachments = collectAttachmentKeys(puerto);
 
