@@ -12,13 +12,9 @@
   </div>
 </div>
 
-{% if error %}
-<p class="flash err" style="position:static;display:inline-block;margin-bottom:14px">{{ error }}</p>
-{% endif %}
-
 <div class="card">
   <h3>Cargar archivos de la quincena</h3>
-  <form method="post" action="/administracion/liquidaciones/procesar" enctype="multipart/form-data">
+  <form id="liq-form" method="post" action="/administracion/liquidaciones/procesar" enctype="multipart/form-data">
     <div class="row">
       <label>Excel de liquidaciones (ARCA, .xlsx)
         <input type="file" name="excel" accept=".xlsx" required>
@@ -28,96 +24,71 @@
       </label>
     </div>
     <div class="row end" style="margin-top:12px">
-      <button type="submit" class="primary">Procesar</button>
+      <button type="submit" class="primary" id="btn-procesar">Procesar</button>
     </div>
   </form>
 </div>
 
-{% if resultado %}
-<div class="card">
-  <div class="row" style="gap:28px">
-    <div><div class="muted" style="font-size:12px">Habilitaciones</div><div style="font-size:22px;font-weight:700">{{ resultado.total_habilitaciones }}</div></div>
-    <div><div class="muted" style="font-size:12px">Monto total (PES)</div><div style="font-size:22px;font-weight:700">{{ "{:,.2f}".format(resultado.total_monto) }}</div></div>
-    <div><div class="muted" style="font-size:12px">Buques distintos</div><div style="font-size:22px;font-weight:700">{{ resultado.resumen_buque|length }}</div></div>
+<div class="card" id="progreso-card" hidden>
+  <div class="progreso-head">
+    <span>Procesando…</span>
+    <span id="progreso-pct">0%</span>
   </div>
-  <div class="row end" style="margin-top:14px">
-    <a class="btn primary" href="/administracion/liquidaciones/descargar/{{ token }}">⬇ Descargar Excel clasificado</a>
-  </div>
+  <div class="progreso-track"><div class="progreso-fill" id="progreso-fill"></div></div>
 </div>
 
-{% if resultado.filas_sin_pdf %}
-<div class="card" style="border-color:#e8b4a8">
-  <h3 style="color:#b45309">⚠ Filas sin PDF ({{ resultado.filas_sin_pdf|length }})</h3>
-  <p class="muted">Se liquidó algo cuyo comprobante no está en el .zip.</p>
-  <p style="font-size:13px">{{ resultado.filas_sin_pdf|join(", ") }}</p>
+<div id="resultados-container">
+{% include "administracion/_liquidaciones_resultado.html" %}
 </div>
-{% endif %}
+{% endblock %}
 
-{% if resultado.pdfs_sin_fila %}
-<div class="card">
-  <h3>PDFs sin fila ({{ resultado.pdfs_sin_fila|length }})</h3>
-  <p class="muted">Comprobantes bajados que no están en esta liquidación (suele ser ruido de la quincena anterior).</p>
-  <p style="font-size:13px">{{ resultado.pdfs_sin_fila|join(", ") }}</p>
-</div>
-{% endif %}
+{% block scripts %}
+<script>
+const form = document.getElementById('liq-form');
+const btn = document.getElementById('btn-procesar');
+const progresoCard = document.getElementById('progreso-card');
+const progresoFill = document.getElementById('progreso-fill');
+const progresoPct = document.getElementById('progreso-pct');
+const resultados = document.getElementById('resultados-container');
 
-{% if resultado.duplicados %}
-<div class="card">
-  <h3>Duplicados en el ZIP ({{ resultado.duplicados|length }})</h3>
-  <p style="font-size:13px">{{ resultado.duplicados|join(", ") }}</p>
-</div>
-{% endif %}
+function setProgreso(pct) {
+  progresoFill.style.width = pct + '%';
+  progresoPct.textContent = Math.round(pct) + '%';
+}
 
-{% if resultado.codigos_desconocidos %}
-<div class="card">
-  <h3>Códigos de tipo nuevos, no catalogados</h3>
-  <p class="muted">No están en la lista conocida — se muestran igual, solo para ir ampliándola.</p>
-  <p style="font-size:13px">{{ resultado.codigos_desconocidos|join(", ") }}</p>
-</div>
-{% endif %}
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const formData = new FormData(form);
 
-{% if resultado.aliases_aplicados %}
-<div class="card">
-  <h3>Alias aplicados</h3>
-  <p style="font-size:13px">{% for k, v in resultado.aliases_aplicados.items() %}{{ k }} → {{ v }}{% if not loop.last %}, {% endif %}{% endfor %}</p>
-</div>
-{% endif %}
+  resultados.innerHTML = '';
+  progresoCard.hidden = false;
+  btn.disabled = true;
+  setProgreso(0);
 
-<div class="card">
-  <h3>Resumen por buque</h3>
-  <table class="list">
-    <thead><tr><th>Buque / Medio</th><th>Habilitaciones</th><th>Monto (PES)</th><th>% del total</th><th>Tipos</th></tr></thead>
-    <tbody>
-    {% for r in resultado.resumen_buque %}
-      <tr>
-        <td>{{ r.buque }}{% if r.no_es_buque %} <span class="muted" style="font-size:11px">(no es buque)</span>{% endif %}</td>
-        <td>{{ r.cantidad }}</td>
-        <td>{{ "{:,.2f}".format(r.monto) }}</td>
-        <td>{{ "%.1f"|format(r.pct * 100) }}%</td>
-        <td class="muted" style="font-size:12px">{{ r.tipos }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-    <tfoot>
-      <tr style="font-weight:700"><td>TOTAL</td><td>{{ resultado.total_habilitaciones }}</td><td>{{ "{:,.2f}".format(resultado.total_monto) }}</td><td>100%</td><td></td></tr>
-    </tfoot>
-  </table>
-</div>
+  // Avanza solo hasta ~90% mientras esperamos la respuesta real -- no sabemos
+  // cuanto va a tardar el server, asi que se frena ahi y el ultimo tramo
+  // (90 -> 100) lo completa la respuesta llegando.
+  let pct = 0;
+  const interval = setInterval(() => {
+    pct += (90 - pct) * 0.08 + 0.3;
+    if (pct > 90) pct = 90;
+    setProgreso(pct);
+  }, 120);
 
-<div class="card">
-  <h3>Resumen por tipo de habilitación</h3>
-  <table class="list">
-    <thead><tr><th>Tipo</th><th>Habilitaciones</th><th>Monto (PES)</th></tr></thead>
-    <tbody>
-    {% for r in resultado.resumen_tipo %}
-      <tr>
-        <td>{{ r.codigo }} — {{ catalogo.get(r.codigo, r.descripcion) }}</td>
-        <td>{{ r.cantidad }}</td>
-        <td>{{ "{:,.2f}".format(r.monto) }}</td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
+  try {
+    const res = await fetch(form.action, { method: 'POST', body: formData });
+    const html = await res.text();
+    clearInterval(interval);
+    setProgreso(100);
+    await new Promise((r) => setTimeout(r, 300));
+    resultados.innerHTML = html;
+  } catch (e) {
+    clearInterval(interval);
+    resultados.innerHTML = '<p class="flash err" style="position:static;display:inline-block">No se pudo procesar. Probá de nuevo.</p>';
+  } finally {
+    progresoCard.hidden = true;
+    btn.disabled = false;
+  }
+});
+</script>
 {% endblock %}

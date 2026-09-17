@@ -120,6 +120,11 @@ button.danger:hover { background: #fdecea; }
 .doc-checklist label:hover { background: #f7fafd; }
 .doc-checklist input[type=checkbox] { margin-top: 3px; accent-color: var(--blue); flex: none; }
 
+/* Administracion: barra de progreso animada (Liquidaciones Aduana) */
+.progreso-head { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.progreso-track { background: var(--bg); border: 1px solid var(--line); border-radius: 20px; height: 10px; overflow: hidden; }
+.progreso-fill { height: 100%; width: 0%; border-radius: 20px; background: linear-gradient(90deg, var(--blue) 0%, var(--blue-dark) 100%); transition: width .15s linear; }
+
 /* Proformador: hub de 3 botones grandes + chips de condicionantes -- clases
    propias para no tocar .check/.row que usa el resto del sistema */
 .pf-hub { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }

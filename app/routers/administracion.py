@@ -77,7 +77,7 @@ async def liquidaciones_procesar(
     except Exception:
         error = "No se pudo procesar los archivos. Revisa que sean el Excel y el .zip correctos."
 
-    return templates.TemplateResponse(request, "administracion/liquidaciones.html", {
+    return templates.TemplateResponse(request, "administracion/_liquidaciones_resultado.html", {
         "user": user, "resultado": resultado, "error": error, "token": token,
         "catalogo": liq.CATALOGO_TIPOS,
     })
