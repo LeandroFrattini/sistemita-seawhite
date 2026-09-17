@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block nav_utilidades %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Pending Docs</h1>
+    <span class="muted">Armá el mail de documentación pendiente y abrilo directo en tu cliente de mail.</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/operaciones/utilidades">← Utilidades</a>
+  </div>
+</div>
+
+<p class="flash err" style="position:static;display:inline-block;margin-bottom:14px">
+  Los 3 modelos todavía tienen texto de relleno (placeholder) — pasame el texto real de cada uno y los cargo.
+</p>
+
+<div class="card">
+  <div class="row">
+    <label>Cliente
+      <select id="cliente-select">
+        <option value="">Seleccioná un cliente...</option>
+        {% for c in clients %}
+        <option value="{{ c.id }}" data-emails="{{ c.emails|replace('\n', ',') }}" data-to="{{ c.display_to }}">{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>Nombre del buque
+      <input type="text" id="buque-input" placeholder="Ej. MV TBN">
+    </label>
+  </div>
+
+  <div class="pf-toggles" style="margin-top:14px" id="modelos-wrap">
+    <label class="pf-toggle"><input type="radio" name="modelo" value="1"> Modelo 1</label>
+    <label class="pf-toggle"><input type="radio" name="modelo" value="2"> Modelo 2</label>
+    <label class="pf-toggle"><input type="radio" name="modelo" value="3"> Modelo 3</label>
+  </div>
+
+  <div class="row end" style="margin-top:16px">
+    <button type="button" class="primary" id="btn-abrir-outlook" hidden>✉ Abrir en Outlook</button>
+  </div>
+  <p class="muted" id="aviso-incompleto" style="margin-top:8px">Elegí cliente, buque y modelo para habilitar el botón.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// TODO: reemplazar el asunto/cuerpo de cada modelo por el texto real que
+// pase Leandro -- por ahora es placeholder, bien marcado para no mandarlo
+// por error a un cliente.
+const MODELOS = {
+  "1": {
+    subject: (buque) => `Pending Documents -- ${buque}`,
+    body: (buque, clienteTo) => `[PENDIENTE: pegar aca el texto real del Modelo 1]\n\nTO ${clienteTo}\nVessel: ${buque}`,
+  },
+  "2": {
+    subject: (buque) => `Pending Documents -- ${buque}`,
+    body: (buque, clienteTo) => `[PENDIENTE: pegar aca el texto real del Modelo 2]\n\nTO ${clienteTo}\nVessel: ${buque}`,
+  },
+  "3": {
+    subject: (buque) => `Pending Documents -- ${buque}`,
+    body: (buque, clienteTo) => `[PENDIENTE: pegar aca el texto real del Modelo 3]\n\nTO ${clienteTo}\nVessel: ${buque}`,
+  },
+};
+
+const clienteSelect = document.getElementById('cliente-select');
+const buqueInput = document.getElementById('buque-input');
+const btnAbrir = document.getElementById('btn-abrir-outlook');
+const aviso = document.getElementById('aviso-incompleto');
+
+function modeloElegido() {
+  const el = document.querySelector('input[name="modelo"]:checked');
+  return el ? el.value : null;
+}
+
+function actualizarEstado() {
+  const completo = clienteSelect.value && buqueInput.value.trim() && modeloElegido();
+  btnAbrir.hidden = !completo;
+  aviso.hidden = !!completo;
+}
+
+clienteSelect.addEventListener('change', actualizarEstado);
+buqueInput.addEventListener('input', actualizarEstado);
+document.querySelectorAll('input[name="modelo"]').forEach((r) => r.addEventListener('change', actualizarEstado));
+
+function soloEmail(raw) {
+  // "Nombre <mail@dominio.com>" -> "mail@dominio.com" (mailto: no soporta
+  // el formato con nombre, rompe la URL si queda tal cual)
+  const m = raw.match(/<([^<>]+)>/);
+  return (m ? m[1] : raw).trim();
+}
+
+btnAbrir.addEventListener('click', () => {
+  const opt = clienteSelect.options[clienteSelect.selectedIndex];
+  const emails = (opt.dataset.emails || '').split(',').map(soloEmail).filter(Boolean).join(',');
+  const clienteTo = opt.dataset.to || opt.textContent;
+  const buque = buqueInput.value.trim();
+  const modelo = MODELOS[modeloElegido()];
+  const subject = encodeURIComponent(modelo.subject(buque));
+  const body = encodeURIComponent(modelo.body(buque, clienteTo));
+  window.location.href = `mailto:${emails}?subject=${subject}&body=${body}`;
+});
+
+actualizarEstado();
+</script>
+{% endblock %}
