@@ -66,10 +66,11 @@
 
 <div class="card">
   <div class="row end">
-    <button type="button" class="primary" id="btn-abrir-outlook" hidden>✉ Descargar y abrir en Outlook</button>
+    <button type="button" id="btn-descargar-adjuntos" hidden>📎 Descargar adjuntos</button>
+    <button type="button" class="primary" id="btn-abrir-outlook" hidden>✉ Abrir en Outlook</button>
   </div>
   <p class="muted" id="aviso-incompleto" style="margin-top:8px">Elegí cliente, buque y tipo de puerto para habilitar el botón.</p>
-  <p class="muted" style="margin-top:4px;font-size:11.5px">Se descarga un archivo .eml con los adjuntos ya puestos — abrilo (doble click) para que se abra en Outlook, revisalo y mandalo.</p>
+  <p class="muted" style="margin-top:4px;font-size:11.5px">"Abrir en Outlook" abre el mail nuevo, ya editable, listo para mandar. Si hay adjuntos correspondientes, descargalos aparte y arrastralos al mail ya abierto.</p>
 </div>
 {% endblock %}
 
@@ -77,8 +78,8 @@
 <script>
 // Texto sacado tal cual de los mails reales (ARGENTINIAN PORT.eml /
 // PENDING DOCS FOREIGN PORT.eml). "attachmentKey(s)" = plantilla fija --
-// va embebida de verdad en el .eml que se descarga (ver ATTACHMENT_FILES
-// en operaciones.py); si todavia no se subio el archivo, se omite sola.
+// se puede descargar aparte en zip (ver ATTACHMENT_FILES en
+// operaciones.py); si todavia no se subio el archivo, se omite solo.
 const SECTIONS = {
   sanitary: {
     onlyForeign: true,
@@ -172,6 +173,7 @@ const BLOQUE_FINAL = {
 const clienteSelect = document.getElementById('cliente-select');
 const buqueInput = document.getElementById('buque-input');
 const btnAbrir = document.getElementById('btn-abrir-outlook');
+const btnAdjuntos = document.getElementById('btn-descargar-adjuntos');
 const aviso = document.getElementById('aviso-incompleto');
 const cardSanitary = document.getElementById('card-sanitary');
 
@@ -231,8 +233,10 @@ document.querySelectorAll('.check-all').forEach((checkAll) => {
 });
 
 function actualizarEstado() {
-  const completo = clienteSelect.value && buqueInput.value.trim() && puertoElegido();
+  const puerto = puertoElegido();
+  const completo = clienteSelect.value && buqueInput.value.trim() && puerto;
   btnAbrir.hidden = !completo;
+  btnAdjuntos.hidden = !completo || collectAttachmentKeys(puerto).length === 0;
   aviso.hidden = !!completo;
 }
 
@@ -252,7 +256,6 @@ function soloEmail(raw) {
 
 function buildBody(puerto, clienteTo, buque) {
   const lines = [];
-  if (puerto === 'argentina') { lines.push('DE PUERTO ARG', ''); }
   lines.push(`To ${clienteTo}`, 'From Sea White', `Ref ${buque}`, '');
   lines.push('Good afternoon,', 'We would be missing the following documentation for each authority', '');
 
@@ -287,40 +290,46 @@ function collectAttachmentKeys(puerto) {
   return [...claves];
 }
 
-btnAbrir.addEventListener('click', async () => {
+btnAbrir.addEventListener('click', () => {
   const opt = clienteSelect.options[clienteSelect.selectedIndex];
   const emails = (opt.dataset.emails || '').split(',').map(soloEmail).filter(Boolean).join(',');
   const clienteTo = opt.dataset.to || opt.textContent;
   const buque = buqueInput.value.trim();
   const puerto = puertoElegido();
-  const subject = `${buque.toUpperCase()} - PENDING DOCS`;
-  const body = buildBody(puerto, clienteTo, buque);
+  const subject = encodeURIComponent(`${buque.toUpperCase()} - PENDING DOCS`);
+  const body = encodeURIComponent(buildBody(puerto, clienteTo, buque));
+  window.location.href = `mailto:${emails}?subject=${subject}&body=${body}`;
+});
+
+btnAdjuntos.addEventListener('click', async () => {
+  const buque = buqueInput.value.trim();
+  const puerto = puertoElegido();
   const attachments = collectAttachmentKeys(puerto);
 
-  const textoOriginal = btnAbrir.textContent;
-  btnAbrir.disabled = true;
-  btnAbrir.textContent = 'Generando...';
+  const textoOriginal = btnAdjuntos.textContent;
+  btnAdjuntos.disabled = true;
+  btnAdjuntos.textContent = 'Descargando...';
   try {
-    const res = await fetch('/operaciones/utilidades/pending-docs/eml', {
+    const res = await fetch('/operaciones/utilidades/pending-docs/adjuntos.zip', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: emails, subject, body, attachments, filename: `Pending Docs - ${buque}.eml` }),
+      body: JSON.stringify({ attachments }),
     });
-    if (!res.ok) throw new Error('No se pudo generar el mail.');
+    if (!res.ok) throw new Error('No se pudieron descargar los adjuntos.');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Pending Docs - ${buque}.eml`;
+    a.download = `Adjuntos Pending Docs - ${buque}.zip`;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
   } catch (e) {
-    alert('Ocurrió un error al generar el mail. Probá de nuevo.');
+    alert('Ocurrió un error al descargar los adjuntos. Probá de nuevo.');
   } finally {
-    btnAbrir.disabled = false;
-    btnAbrir.textContent = textoOriginal;
+    btnAdjuntos.disabled = false;
+    btnAdjuntos.textContent = textoOriginal;
   }
 });
 

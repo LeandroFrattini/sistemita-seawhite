@@ -1,6 +1,5 @@
 import io
-import mimetypes
-from email.message import EmailMessage
+import zipfile
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -55,41 +54,28 @@ def pending_docs_page(request: Request, db: Session = Depends(get_db), user: Use
     })
 
 
-@router.post("/operaciones/utilidades/pending-docs/eml")
-async def pending_docs_eml(request: Request, user: User = Depends(current_user)):
-    """Arma un .eml (mensaje MIME real) con los adjuntos fijos que
-    correspondan y lo devuelve para descargar -- un mailto: normal no puede
-    llevar adjuntos por navegador, pero un .eml descargado si los trae
-    embebidos: al abrirlo, Outlook lo carga con todo listo para revisar."""
+@router.post("/operaciones/utilidades/pending-docs/adjuntos.zip")
+async def pending_docs_adjuntos(request: Request, user: User = Depends(current_user)):
+    """Descarga en un .zip las plantillas fijas que correspondan, para
+    arrastrarlas al mail que "Abrir en Outlook" (mailto:) ya dejo abierto
+    -- un mailto: no puede llevar adjuntos por navegador, es una limitacion
+    del navegador, asi que el adjunto se suma a mano en un paso aparte."""
     data = await request.json()
-    to = (data.get("to") or "").strip()
-    subject = (data.get("subject") or "").strip()
-    body = data.get("body") or ""
-    filename = (data.get("filename") or "Pending Docs.eml").strip().replace("/", "-")
     claves = data.get("attachments") or []
 
-    msg = EmailMessage()
-    msg["From"] = "Sea White <operations@seawhite.com.ar>"
-    if to:
-        msg["To"] = to
-    msg["Subject"] = subject
-    msg.set_content(body)
-
-    for clave in claves:
-        entry = ATTACHMENT_FILES.get(clave)
-        if not entry:
-            continue
-        disk_name, display_name = entry
-        path = ATTACHMENTS_DIR / disk_name
-        if not path.exists():
-            continue
-        ctype, _ = mimetypes.guess_type(display_name)
-        maintype, subtype = ctype.split("/", 1) if ctype else ("application", "octet-stream")
-        msg.add_attachment(path.read_bytes(), maintype=maintype, subtype=subtype, filename=display_name)
-
-    bio = io.BytesIO(bytes(msg))
+    bio = io.BytesIO()
+    with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as zf:
+        for clave in claves:
+            entry = ATTACHMENT_FILES.get(clave)
+            if not entry:
+                continue
+            disk_name, display_name = entry
+            path = ATTACHMENTS_DIR / disk_name
+            if not path.exists():
+                continue
+            zf.writestr(display_name, path.read_bytes())
     bio.seek(0)
     return StreamingResponse(
-        bio, media_type="message/rfc822",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        bio, media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="Adjuntos Pending Docs.zip"'},
     )
