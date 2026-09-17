@@ -113,6 +113,8 @@ button.danger:hover { background: #fdecea; }
 .page-head .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Utilidades: checklist de items de documentacion (Pending Docs) */
+.section-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.section-head h3 { margin: 0; }
 .doc-checklist { display: flex; flex-direction: column; gap: 2px; }
 .doc-checklist label { display: flex; align-items: flex-start; gap: 9px; padding: 6px 8px; border-radius: 6px; font-size: 13px; cursor: pointer; line-height: 1.4; }
 .doc-checklist label:hover { background: #f7fafd; }

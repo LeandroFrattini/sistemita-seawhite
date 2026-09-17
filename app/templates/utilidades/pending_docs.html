@@ -33,22 +33,34 @@
 </div>
 
 <div class="card" id="card-sanitary" hidden>
-  <h3>Sanitary missing docs <span class="muted" style="font-weight:400;font-size:11.5px">(solo puerto exterior)</span></h3>
+  <div class="section-head">
+    <h3>Sanitary missing docs <span class="muted" style="font-weight:400;font-size:11.5px">(solo puerto exterior)</span></h3>
+    <label class="pf-toggle"><input type="checkbox" class="check-all" data-section="sanitary"> Tildar todos</label>
+  </div>
   <div class="doc-checklist" id="items-sanitary"></div>
 </div>
 
 <div class="card">
-  <h3>Immigration missing docs</h3>
+  <div class="section-head">
+    <h3>Immigration missing docs</h3>
+    <label class="pf-toggle"><input type="checkbox" class="check-all" data-section="immigration"> Tildar todos</label>
+  </div>
   <div class="doc-checklist" id="items-immigration"></div>
 </div>
 
 <div class="card">
-  <h3>Senasa missing docs</h3>
+  <div class="section-head">
+    <h3>Senasa missing docs</h3>
+    <label class="pf-toggle"><input type="checkbox" class="check-all" data-section="senasa"> Tildar todos</label>
+  </div>
   <div class="doc-checklist" id="items-senasa"></div>
 </div>
 
 <div class="card">
-  <h3>Coastguard missing docs</h3>
+  <div class="section-head">
+    <h3>Coastguard missing docs</h3>
+    <label class="pf-toggle"><input type="checkbox" class="check-all" data-section="coastguard"> Tildar todos</label>
+  </div>
   <div class="doc-checklist" id="items-coastguard"></div>
 </div>
 
@@ -174,6 +186,13 @@ function itemsDeSeccion(clave, seccion, puerto) {
   return items;
 }
 
+function actualizarCheckAll(clave) {
+  const checkAll = document.querySelector(`.check-all[data-section="${clave}"]`);
+  if (!checkAll) return;
+  const items = [...document.querySelectorAll(`#items-${clave} input[type=checkbox]`)];
+  checkAll.checked = items.length > 0 && items.every((cb) => cb.checked);
+}
+
 function renderChecklists() {
   const puerto = puertoElegido();
   cardSanitary.hidden = puerto !== 'foreign';
@@ -186,7 +205,7 @@ function renderChecklists() {
       const label = document.createElement('label');
       const cb = document.createElement('input');
       cb.type = 'checkbox';
-      cb.checked = true;
+      cb.checked = false;
       cb.dataset.section = clave;
       cb.dataset.idx = idx;
       label.appendChild(cb);
@@ -194,11 +213,22 @@ function renderChecklists() {
       const tieneAdjunto = it.attachmentKey || it.attachmentKeys;
       span.textContent = it.text + (tieneAdjunto ? ' 📎' : '');
       label.appendChild(span);
-      label.addEventListener('change', actualizarEstado);
+      label.addEventListener('change', () => { actualizarCheckAll(clave); actualizarEstado(); });
       wrap.appendChild(label);
     });
+    actualizarCheckAll(clave);
   }
 }
+
+document.querySelectorAll('.check-all').forEach((checkAll) => {
+  checkAll.addEventListener('change', () => {
+    const clave = checkAll.dataset.section;
+    document.querySelectorAll(`#items-${clave} input[type=checkbox]`).forEach((cb) => {
+      cb.checked = checkAll.checked;
+    });
+    actualizarEstado();
+  });
+});
 
 function actualizarEstado() {
   const completo = clienteSelect.value && buqueInput.value.trim() && puertoElegido();
