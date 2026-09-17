@@ -54,22 +54,24 @@
 
 <div class="card">
   <div class="row end">
-    <button type="button" class="primary" id="btn-abrir-outlook" hidden>✉ Abrir en Outlook</button>
+    <button type="button" class="primary" id="btn-abrir-outlook" hidden>✉ Descargar y abrir en Outlook</button>
   </div>
   <p class="muted" id="aviso-incompleto" style="margin-top:8px">Elegí cliente, buque y tipo de puerto para habilitar el botón.</p>
+  <p class="muted" style="margin-top:4px;font-size:11.5px">Se descarga un archivo .eml con los adjuntos ya puestos — abrilo (doble click) para que se abra en Outlook, revisalo y mandalo.</p>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 // Texto sacado tal cual de los mails reales (ARGENTINIAN PORT.eml /
-// PENDING DOCS FOREIGN PORT.eml). "attachment: true" = plantilla fija
-// pendiente de subir (mailto: no soporta adjuntos por navegador).
+// PENDING DOCS FOREIGN PORT.eml). "attachmentKey(s)" = plantilla fija --
+// va embebida de verdad en el .eml que se descarga (ver ATTACHMENT_FILES
+// en operaciones.py); si todavia no se subio el archivo, se omite sola.
 const SECTIONS = {
   sanitary: {
     onlyForeign: true,
     items: [
-      { text: "Maritime Health declaration (Attached)", attachment: true },
+      { text: "Maritime Health declaration (Attached)", attachmentKey: "maritime_health" },
       { text: "Ship sanitary control exception certificate" },
       { text: "Last 10 ports of call (updated)" },
       { text: "Ship particular" },
@@ -88,7 +90,7 @@ const SECTIONS = {
   senasa: {
     itemsByPuerto: {
       foreign: [
-        { text: "Form A and B" },
+        { text: "Form A and B", attachmentKeys: ["senasa_form_a", "senasa_form_b"] },
         { text: "Last 3 Cargo" },
       ],
       argentina: [
@@ -124,10 +126,14 @@ const SECTIONS = {
       { text: "Cargo Manifest" },
       { text: "Class Certificate" },
       { text: "Last Port Clearance", onlyForeign: true },
-      { text: "Ballast water report (Attached)", attachment: true },
+      { text: "Ballast water report (Attached)", attachmentKey: "ballast_water" },
     ],
   },
 };
+
+// Van siempre pegados (no son items tildables, forman parte del parrafo
+// final "Please have ready to deliver...") solo cuando el puerto es exterior
+const ADJUNTOS_SIEMPRE_FOREIGN = ["om_1645", "om_1646", "om_1647", "om_1648", "shore_pass"];
 
 const BLOQUE_FINAL = {
   argentina: [
@@ -185,7 +191,8 @@ function renderChecklists() {
       cb.dataset.idx = idx;
       label.appendChild(cb);
       const span = document.createElement('span');
-      span.textContent = it.text + (it.attachment ? ' 📎' : '');
+      const tieneAdjunto = it.attachmentKey || it.attachmentKeys;
+      span.textContent = it.text + (tieneAdjunto ? ' 📎' : '');
       label.appendChild(span);
       label.addEventListener('change', actualizarEstado);
       wrap.appendChild(label);
@@ -235,15 +242,56 @@ function buildBody(puerto, clienteTo, buque) {
   return lines.join('\n');
 }
 
-btnAbrir.addEventListener('click', () => {
+function collectAttachmentKeys(puerto) {
+  const claves = new Set();
+  for (const clave of Object.keys(SECTIONS)) {
+    if (clave === 'sanitary' && puerto !== 'foreign') continue;
+    const items = itemsDeSeccion(clave, SECTIONS[clave], puerto);
+    [...document.querySelectorAll(`#items-${clave} input:checked`)].forEach((cb) => {
+      const it = items[+cb.dataset.idx];
+      if (it.attachmentKey) claves.add(it.attachmentKey);
+      if (it.attachmentKeys) it.attachmentKeys.forEach((k) => claves.add(k));
+    });
+  }
+  if (puerto === 'foreign') ADJUNTOS_SIEMPRE_FOREIGN.forEach((k) => claves.add(k));
+  return [...claves];
+}
+
+btnAbrir.addEventListener('click', async () => {
   const opt = clienteSelect.options[clienteSelect.selectedIndex];
   const emails = (opt.dataset.emails || '').split(',').map(soloEmail).filter(Boolean).join(',');
   const clienteTo = opt.dataset.to || opt.textContent;
   const buque = buqueInput.value.trim();
   const puerto = puertoElegido();
-  const subject = encodeURIComponent(`Pending Docs -- ${buque}`);
-  const body = encodeURIComponent(buildBody(puerto, clienteTo, buque));
-  window.location.href = `mailto:${emails}?subject=${subject}&body=${body}`;
+  const subject = `Pending Docs -- ${buque}`;
+  const body = buildBody(puerto, clienteTo, buque);
+  const attachments = collectAttachmentKeys(puerto);
+
+  const textoOriginal = btnAbrir.textContent;
+  btnAbrir.disabled = true;
+  btnAbrir.textContent = 'Generando...';
+  try {
+    const res = await fetch('/operaciones/utilidades/pending-docs/eml', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: emails, subject, body, attachments, filename: `Pending Docs - ${buque}.eml` }),
+    });
+    if (!res.ok) throw new Error('No se pudo generar el mail.');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Pending Docs - ${buque}.eml`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Ocurrió un error al generar el mail. Probá de nuevo.');
+  } finally {
+    btnAbrir.disabled = false;
+    btnAbrir.textContent = textoOriginal;
+  }
 });
 
 renderChecklists();
