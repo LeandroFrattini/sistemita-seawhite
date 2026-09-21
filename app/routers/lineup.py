@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
-from ..charts import build_donut, filtrar_por_tipo
+from ..charts import build_donut, describir_fuera, filtrar_por_tipo
 from ..database import get_db
 from datetime import date, datetime
 
@@ -115,10 +115,15 @@ def our_vessels_page(request: Request, mes: str = "", tipo: str = "AGENCY", db: 
     for _, _, call in en_lineup:
         clientes = call.recipient_clients()
         nombres_anunciados += [c.name for c in clientes] if clientes else [call.principal_name]
-    nombres_op, fuera_op = filtrar_por_tipo([o.principal for o in operados], tipo_por_nombre, tipo)
+    todos_op = [o.principal for o in operados]
+    ag_op, fuera_op = filtrar_por_tipo(todos_op, tipo_por_nombre, "AGENCY")
+    es_op, _ = filtrar_por_tipo(todos_op, tipo_por_nombre, "ESTIBA")
+    nombres_op = ag_op if tipo == "AGENCY" else es_op
     nombres_an, fuera_an = filtrar_por_tipo(nombres_anunciados, tipo_por_nombre, tipo)
     grafico_operados = build_donut(nombres_op)
     grafico_anunciados = build_donut(nombres_an)
+    # el total de la tabla de operados = agencias + estibas + los que no se pueden clasificar
+    cuenta_operados = {"total": len(todos_op), "agencias": len(ag_op), "estibas": len(es_op), "fuera": len(fuera_op)}
 
     return templates.TemplateResponse(
         request,
@@ -129,8 +134,11 @@ def our_vessels_page(request: Request, mes: str = "", tipo: str = "AGENCY", db: 
             "operados": operados,
             "grafico_operados": grafico_operados,
             "grafico_anunciados": grafico_anunciados,
-            "fuera_operados": fuera_op,
-            "fuera_anunciados": fuera_an,
+            "fuera_operados": describir_fuera(fuera_op),
+            "n_fuera_operados": len(fuera_op),
+            "fuera_anunciados": describir_fuera(fuera_an),
+            "n_fuera_anunciados": len(fuera_an),
+            "cuenta_operados": cuenta_operados,
             "tipo": tipo,
             "total_operados": len(todos),
             "mes": mes,
@@ -201,6 +209,22 @@ def move_operated(op_id: int, period: str = Form(""), volver: str = Form(""),
             db.commit()
     dest = f"/nuestros-barcos?mes={volver}" if volver else "/nuestros-barcos"
     return RedirectResponse(dest + "#operados", status_code=302)
+
+
+@router.post("/operados/{op_id}/cliente")
+def set_operated_client(op_id: int, cliente: str = Form(""), volver: str = Form(""), tipo: str = Form("AGENCY"),
+                        db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Corrige el cliente de un barco ya operado (ej. quedo con un texto suelto como
+    "AT PORT" en vez de su cliente). Solo se acepta un cliente activo de la planilla."""
+    row = db.get(OperatedVessel, op_id)
+    client = db.scalar(
+        select(Client).where(func.lower(Client.name) == cliente.strip().lower(), Client.active.is_(True))
+    )
+    if row and client:
+        row.principal = client.name
+        db.commit()
+    partes = ([f"mes={volver}"] if volver else []) + [f"tipo={'ESTIBA' if tipo.upper() == 'ESTIBA' else 'AGENCY'}"]
+    return RedirectResponse("/nuestros-barcos?" + "&".join(partes) + "#operados", status_code=302)
 
 
 @router.post("/operados/{op_id}/delete")

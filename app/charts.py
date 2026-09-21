@@ -12,23 +12,33 @@ COLOR_OTROS = "#7f8c9a"
 COLOR_SIN_CLIENTE = "#b9c4cf"
 
 
-def filtrar_por_tipo(names, tipo_por_nombre: dict[str, str], tipo: str) -> tuple[list[str], int]:
+def filtrar_por_tipo(names, tipo_por_nombre: dict[str, str], tipo: str) -> tuple[list[str], list[str]]:
     """Deja los clientes del tipo pedido (AGENCY o ESTIBA) segun la planilla de Clientes.
 
     `tipo_por_nombre` es {nombre en minusculas: tipo} de los clientes activos de la planilla.
-    Devuelve (nombres que quedan, cuantos se dejan afuera por no tener cliente o tener uno
-    que no esta en la planilla). Los de OTRO tipo no cuentan como "afuera": se ven cambiando
-    el selector."""
+    Devuelve (nombres que quedan, nombres que se dejan afuera por no tener cliente o tener uno
+    que no esta en la planilla; los vacios quedan como ""). Los de OTRO tipo no cuentan como
+    "afuera": se ven cambiando el selector."""
     kept: list[str] = []
-    fuera = 0
+    fuera: list[str] = []
     for n in names:
         key = (n or "").strip().casefold()
         t = tipo_por_nombre.get(key) if key else None
         if t is None:
-            fuera += 1
+            fuera.append((n or "").strip())
         elif t == tipo:
             kept.append(n)
     return kept, fuera
+
+
+def describir_fuera(fuera: list[str]) -> str:
+    """'ISA, Alpemar, (sin cliente)': nombres distintos, en orden de aparicion."""
+    vistos: list[str] = []
+    for n in fuera:
+        etiqueta = n or "(sin cliente)"
+        if etiqueta not in vistos:
+            vistos.append(etiqueta)
+    return ", ".join(vistos)
 
 
 def build_donut(names, max_slices: int = len(PALETTE)) -> dict:

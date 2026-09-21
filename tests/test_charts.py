@@ -1,6 +1,6 @@
 import re
 
-from app.charts import COLOR_OTROS, COLOR_SIN_CLIENTE, PALETTE, build_donut, filtrar_por_tipo
+from app.charts import COLOR_OTROS, COLOR_SIN_CLIENTE, PALETTE, build_donut, describir_fuera, filtrar_por_tipo
 from app.database import SessionLocal
 from app.models import Client, OperatedVessel, Terminal, VesselCall, VesselExtraAgency
 from app.service import get_draft_lineup
@@ -140,7 +140,8 @@ def test_filtrar_por_tipo_separa_agencias_de_estibas():
     ag, fuera_ag = filtrar_por_tipo(["AMI", "ISA", "ami ", "", None, "Alpemar", "Blue Star"], tipos, "AGENCY")
     es, fuera_es = filtrar_por_tipo(["AMI", "ISA", "ami ", "", None, "Alpemar", "Blue Star"], tipos, "ESTIBA")
     assert ag == ["AMI", "ami ", "Blue Star"] and es == ["ISA"]
-    assert fuera_ag == fuera_es == 3   # vacio, None y "Alpemar" (no esta en la planilla); ISA no cuenta como "afuera"
+    assert fuera_ag == fuera_es == ["", "", "Alpemar"]   # vacio, None y Alpemar (no esta en la planilla); ISA no cuenta como "afuera"
+    assert describir_fuera(fuera_ag) == "(sin cliente), Alpemar"
 
 
 def test_pantalla_no_muestra_clientes_que_no_estan_en_la_planilla(client):
@@ -159,7 +160,9 @@ def test_pantalla_no_muestra_clientes_que_no_estan_en_la_planilla(client):
     assert "AMI 1" in lab and "Blue Star 1" in lab
     assert "ISA" not in lab and "Alpemar" not in lab
     assert re.search(r'class="donut-num">2</text>', r.text)
-    assert "No se cuentan 3 barcos sin cliente o con uno que no está en la planilla de Clientes." in r.text
+    assert "Sin clasificar (3): sin cliente o con uno que no está en la planilla de Clientes: <b>ISA, Alpemar, (sin cliente)</b>." in r.text
+    # la cuenta cierra: total = con agencia + con estiba + sin clasificar
+    assert re.search(r"Total de operados: <b>5</b> = 2 con agencia \+ 0 con estiba \+ 3 sin clasificar", r.text)
 
 
 # --- tabla: "por quien estamos" ------------------------------------------------ #
@@ -193,3 +196,60 @@ def test_tabla_muestra_solo_nuestros_clientes_y_sin_carga_ni_destino(client):
     assert "DESTINO-RARO" not in r.text                  # columnas Carga y Destino ya no estan
     assert "<th>Carga</th>" not in r.text and "<th>Destino</th>" not in r.text
     assert "<th>Estamos por</th>" in r.text
+
+
+def test_el_total_de_operados_cierra_agencias_mas_estibas_mas_sin_clasificar(client):
+    """El caso reportado: 17 con agencia + 2 con estiba + 1 sin clasificar = 20 en la tabla."""
+    make_user("op")
+    login(client, "op", "claveLarga-2026")
+    with SessionLocal() as db:
+        db.query(Client).delete()
+        db.flush()
+        db.add(Client(name="AMI"))
+        db.add(Client(name="ISA", client_type="ESTIBA"))
+        db.add_all([_operado(f"A{i}", "AMI", "2026-09") for i in range(17)])
+        db.add_all([_operado(f"E{i}", "ISA", "2026-09") for i in range(2)])
+        db.add(_operado("X", "CLIENTE-NO-CARGADO", "2026-09"))
+        db.commit()
+
+    ag = client.get("/nuestros-barcos")
+    assert re.search(r'class="donut-num">17</text>', ag.text)
+    assert "Total de operados: <b>20</b> = 17 con agencia + 2 con estiba + 1 sin clasificar" in ag.text
+    assert "CLIENTE-NO-CARGADO" in ag.text                   # se nombra el que quedo afuera
+    es = client.get("/nuestros-barcos?tipo=ESTIBA")
+    assert re.search(r'class="donut-num">2</text>', es.text)
+    assert "Total de operados: <b>20</b> = 17 con agencia + 2 con estiba + 1 sin clasificar" in es.text
+
+
+def test_corregir_el_cliente_de_un_barco_operado(client):
+    """Caso real: IONIC KIBOU quedo con "AT PORT" y tiene que ser Atlas."""
+    make_user("op")
+    login(client, "op", "claveLarga-2026")
+    with SessionLocal() as db:
+        db.query(Client).delete()
+        db.flush()
+        db.add(Client(name="ATLAS"))
+        db.add(Client(name="Vieja", active=False))
+        op = _operado("IONIC KIBOU", "AT PORT", "2026-09")
+        db.add(op)
+        db.commit()
+        op_id = op.id
+
+    page = client.get("/nuestros-barcos")
+    assert "AT PORT (elegir cliente)" in page.text and "sin-clasificar" in page.text
+    assert re.search(r'class="donut-num">1</text>', page.text) is None       # aun no cuenta en ningun grafico
+
+    # un cliente que no esta en la planilla (o esta inactivo) no se acepta
+    for invalido in ("NO-EXISTE", "Vieja", ""):
+        r = client.post(f"/operados/{op_id}/cliente", data={"cliente": invalido})
+        assert r.status_code == 302
+    with SessionLocal() as db:
+        assert db.get(OperatedVessel, op_id).principal == "AT PORT"
+
+    r = client.post(f"/operados/{op_id}/cliente", data={"cliente": "atlas", "volver": "2026-09", "tipo": "AGENCY"})
+    assert r.headers["location"] == "/nuestros-barcos?mes=2026-09&tipo=AGENCY#operados"
+    with SessionLocal() as db:
+        assert db.get(OperatedVessel, op_id).principal == "ATLAS"
+    despues = client.get("/nuestros-barcos")
+    assert re.search(r'class="donut-num">1</text>', despues.text)
+    assert "sin-clasificar" not in despues.text and "Sin clasificar" not in despues.text

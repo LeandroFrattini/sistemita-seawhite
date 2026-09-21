@@ -3,6 +3,7 @@
 {% block main_class %}wide{% endblock %}
 {% from "_donut.html" import donut %}
 {% block content %}
+{% set nombres_clientes = clients|map(attribute='name')|map('trim')|map('lower')|list %}
 <h1>Nuestros barcos</h1>
 
 {% set que = 'agencia' if tipo == 'AGENCY' else 'estiba' %}
@@ -26,14 +27,18 @@
     </div>
     {% endif %}
     {{ donut(grafico_operados, 'Barcos operados por ' ~ que, 'No hay barcos operados con ' ~ ('agencia' if tipo == 'AGENCY' else 'estiba') ~ ' en ese período.') }}
-    {% if fuera_operados %}<p class="muted pie-note">No se cuentan {{ fuera_operados }} {{ 'barco' if fuera_operados == 1 else 'barcos' }} sin cliente o con uno que no está en la planilla de Clientes.</p>{% endif %}
+    {% if cuenta_operados.total %}
+    <p class="muted pie-note">Total de operados: <b>{{ cuenta_operados.total }}</b> = {{ cuenta_operados.agencias }} con agencia + {{ cuenta_operados.estibas }} con estiba{% if n_fuera_operados %} + {{ n_fuera_operados }} sin clasificar{% endif %}.
+      Cada barco cuenta una vez por cada cliente asociado.</p>
+    {% endif %}
+    {% if n_fuera_operados %}<p class="muted pie-note">Sin clasificar ({{ n_fuera_operados }}): sin cliente o con uno que no está en la planilla de Clientes: <b>{{ fuera_operados }}</b>.</p>{% endif %}
   </div>
 
   <div class="card pie-card">
     <h3>Barcos anunciados por {{ que }}</h3>
     <p class="muted pie-sub">Los que están hoy en el line-up</p>
     {{ donut(grafico_anunciados, 'Barcos anunciados por ' ~ que, 'No hay barcos anunciados con ' ~ que ~ ' en el line-up actual.') }}
-    {% if fuera_anunciados %}<p class="muted pie-note">No se cuentan {{ fuera_anunciados }} {{ 'barco' if fuera_anunciados == 1 else 'barcos' }} sin cliente o con uno que no está en la planilla de Clientes.</p>{% endif %}
+    {% if n_fuera_anunciados %}<p class="muted pie-note">Sin clasificar ({{ n_fuera_anunciados }}): sin cliente o con uno que no está en la planilla de Clientes: <b>{{ fuera_anunciados }}</b>.</p>{% endif %}
   </div>
 </section>
 
@@ -134,7 +139,18 @@
         <td>{{ o.terminal_code }}</td><td>{{ o.berth_label }}</td>
         <td>{{ o.eta|etadisp }}</td><td>{{ o.etb|etadisp }}</td><td>{{ o.etc|etadisp }}</td>
         <td>{{ o.grade }}</td>
-        <td>{% if o.principal %}<span class="cli-chip">{{ o.principal }}</span>{% else %}<span class="muted">Sin cliente</span>{% endif %}</td>
+        <td class="nowrap">
+          {# el cliente se puede corregir desde la fila (elegir uno de la planilla de Clientes) #}
+          {% set actual = (o.principal or '').strip() %}
+          <form method="post" action="/operados/{{ o.id }}/cliente" class="inline-form">
+            <input type="hidden" name="volver" value="{{ mes }}"><input type="hidden" name="tipo" value="{{ tipo }}">
+            <select name="cliente" data-autosubmit class="cli-select {{ 'sin-clasificar' if actual.lower() not in nombres_clientes }}" aria-label="Cliente de {{ o.vessel_name }}">
+              {% if actual.lower() not in nombres_clientes %}<option value="" selected>{{ actual or 'Sin cliente' }} (elegir cliente)</option>{% endif %}
+              {% for c in clients %}<option value="{{ c.name }}" {{ 'selected' if c.name.strip().lower() == actual.lower() }}>{{ c.name }}</option>{% endfor %}
+            </select>
+            <noscript><button class="mini">Guardar</button></noscript>
+          </form>
+        </td>
         <td class="nowrap">{{ o.operated_at|localdt("%d/%m/%Y") }}</td>
         <td>{{ o.removed_by }}</td>
         <td class="nowrap">
@@ -166,6 +182,10 @@ document.getElementById("open-add-vessel-modal")?.addEventListener("click", () =
 document.getElementById("close-add-vessel-modal")?.addEventListener("click", () => addVesselModal.close());
 addVesselModal?.addEventListener("click", (ev) => {
   if (ev.target === addVesselModal) addVesselModal.close();
+});
+// elegir un cliente en la fila de un barco operado lo guarda al instante
+document.querySelectorAll("select[data-autosubmit]").forEach((sel) => {
+  sel.addEventListener("change", () => { if (sel.value) sel.form.submit(); });
 });
 </script>
 {% endblock %}
