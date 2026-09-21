@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
-from ..charts import build_donut
+from ..charts import build_donut, filtrar_por_tipo
 from ..database import get_db
 from datetime import date, datetime
 
@@ -83,7 +83,7 @@ def _period_label(p: str) -> str:
 
 
 @router.get("/nuestros-barcos", response_class=HTMLResponse)
-def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(current_user)):
+def our_vessels_page(request: Request, mes: str = "", tipo: str = "AGENCY", db: Session = Depends(get_db), user: User = Depends(current_user)):
     en_lineup = []
     for kind in ("GRAIN", "FLAMMABLE"):
         lineup = get_draft_lineup(db, kind)
@@ -105,9 +105,20 @@ def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_
     meses = sorted(counts.keys(), reverse=True)
     operados = [o for o in todos if o.period == mes] if mes else todos
 
-    # graficos de torta: operados (sigue el filtro de mes) y anunciados (line-up actual)
-    grafico_operados = build_donut([o.principal for o in operados])
-    grafico_anunciados = build_donut([c.principal_name for _, _, c in en_lineup])
+    # graficos de torta: operados (sigue el filtro de mes) y anunciados (line-up actual).
+    # Solo cuentan los clientes cargados y activos en la planilla de Clientes.
+    # Un barco cuenta una vez por CADA cliente asociado (agencia principal, otras agencias y
+    # estibas), asi que si figura con agencia y estiba aparece en los dos selectores.
+    tipo = "ESTIBA" if tipo.upper() == "ESTIBA" else "AGENCY"
+    tipo_por_nombre = {c.name.strip().casefold(): c.client_type for c in active_clients(db)}
+    nombres_anunciados: list[str] = []
+    for _, _, call in en_lineup:
+        clientes = call.recipient_clients()
+        nombres_anunciados += [c.name for c in clientes] if clientes else [call.principal_name]
+    nombres_op, fuera_op = filtrar_por_tipo([o.principal for o in operados], tipo_por_nombre, tipo)
+    nombres_an, fuera_an = filtrar_por_tipo(nombres_anunciados, tipo_por_nombre, tipo)
+    grafico_operados = build_donut(nombres_op)
+    grafico_anunciados = build_donut(nombres_an)
 
     return templates.TemplateResponse(
         request,
@@ -118,6 +129,9 @@ def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_
             "operados": operados,
             "grafico_operados": grafico_operados,
             "grafico_anunciados": grafico_anunciados,
+            "fuera_operados": fuera_op,
+            "fuera_anunciados": fuera_an,
+            "tipo": tipo,
             "total_operados": len(todos),
             "mes": mes,
             "meses": [(m, _period_label(m), counts[m]) for m in meses],

@@ -5,25 +5,35 @@
 {% block content %}
 <h1>Nuestros barcos</h1>
 
+{% set que = 'agencia' if tipo == 'AGENCY' else 'estiba' %}
+<div class="tipo-switch" role="group" aria-label="Ver barcos por">
+  <span class="muted">Ver por</span>
+  <a class="tipo-opt {{ 'on' if tipo == 'AGENCY' }}" href="/nuestros-barcos?{% if mes %}mes={{ mes }}&amp;{% endif %}tipo=AGENCY#resumen" {{ 'aria-current=true' if tipo == 'AGENCY' }}>Agencias</a>
+  <a class="tipo-opt {{ 'on' if tipo == 'ESTIBA' }}" href="/nuestros-barcos?{% if mes %}mes={{ mes }}&amp;{% endif %}tipo=ESTIBA#resumen" {{ 'aria-current=true' if tipo == 'ESTIBA' }}>Estibas</a>
+  <span class="muted tipo-hint">Si un barco tiene agencia y estiba, se cuenta en las dos.</span>
+</div>
+
 <section id="resumen" class="pies">
   <div class="card pie-card">
-    <h3>Barcos operados por cliente</h3>
+    <h3>Barcos operados por {{ que }}</h3>
     <p class="muted pie-sub">{% if mes %}{{ period_label(mes) }}{% else %}Todos los meses{% endif %}</p>
     {% if meses %}
     <div class="mes-tabs">
-      <a class="mes-tab {{ 'on' if not mes }}" href="/nuestros-barcos#resumen">Todos</a>
+      <a class="mes-tab {{ 'on' if not mes }}" href="/nuestros-barcos?tipo={{ tipo }}#resumen">Todos</a>
       {% for p, label, n in meses %}
-      <a class="mes-tab {{ 'on' if mes == p }}" href="/nuestros-barcos?mes={{ p }}#resumen">{{ label }}</a>
+      <a class="mes-tab {{ 'on' if mes == p }}" href="/nuestros-barcos?mes={{ p }}&amp;tipo={{ tipo }}#resumen">{{ label }}</a>
       {% endfor %}
     </div>
     {% endif %}
-    {{ donut(grafico_operados, 'Barcos operados por cliente', 'No hay barcos operados en ese período.') }}
+    {{ donut(grafico_operados, 'Barcos operados por ' ~ que, 'No hay barcos operados con ' ~ ('agencia' if tipo == 'AGENCY' else 'estiba') ~ ' en ese período.') }}
+    {% if fuera_operados %}<p class="muted pie-note">No se cuentan {{ fuera_operados }} {{ 'barco' if fuera_operados == 1 else 'barcos' }} sin cliente o con uno que no está en la planilla de Clientes.</p>{% endif %}
   </div>
 
   <div class="card pie-card">
-    <h3>Barcos anunciados por cliente</h3>
+    <h3>Barcos anunciados por {{ que }}</h3>
     <p class="muted pie-sub">Los que están hoy en el line-up</p>
-    {{ donut(grafico_anunciados, 'Barcos anunciados por cliente', 'No hay barcos anunciados en el line-up actual.') }}
+    {{ donut(grafico_anunciados, 'Barcos anunciados por ' ~ que, 'No hay barcos anunciados con ' ~ que ~ ' en el line-up actual.') }}
+    {% if fuera_anunciados %}<p class="muted pie-note">No se cuentan {{ fuera_anunciados }} {{ 'barco' if fuera_anunciados == 1 else 'barcos' }} sin cliente o con uno que no está en la planilla de Clientes.</p>{% endif %}
   </div>
 </section>
 
@@ -67,8 +77,8 @@
   <table class="list">
     <thead><tr>
       <th>Line-up</th><th>Barco</th><th>Terminal</th><th>Muelle</th>
-      <th>ETA</th><th>ETB</th><th>ETC/ETS</th><th>Carga</th><th>Producto</th>
-      <th>Principal</th><th>Destino</th>
+      <th>ETA</th><th>ETB</th><th>ETC/ETS</th><th>Producto</th>
+      <th>Estamos por</th>
     </tr></thead>
     <tbody>
     {% for kind, term, c in en_lineup %}
@@ -81,8 +91,10 @@
         <td>{{ term.code if term }}</td>
         <td>{{ (term.berth_label or term.code) if term }}</td>
         <td>{{ eta_disp }}</td><td>{{ etb_disp }}</td><td>{{ c.etc|etadisp }}</td>
-        <td>{{ c.quantity }}</td><td>{{ c.grade }}</td>
-        <td>{{ c.principal_name }}</td><td>{{ c.destination }}</td>
+        <td>{{ c.grade }}</td>
+        {# solo nuestros clientes de la planilla: el principal real no cuenta si no es nuestro #}
+        {% set cl = c.recipient_clients() %}
+        <td>{% if cl %}<span class="cli-list">{% for x in cl %}<span class="cli-chip{{ ' estiba' if x.is_estiba }}">{{ x.name }}{% if x.is_estiba %} <em>estiba</em>{% endif %}</span>{% endfor %}</span>{% else %}<span class="muted">Sin cliente nuestro</span>{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>
@@ -101,9 +113,9 @@
 
   {% if meses %}
   <div class="mes-tabs">
-    <a class="mes-tab {{ 'on' if not mes }}" href="/nuestros-barcos#operados">Todos ({{ total_operados }})</a>
+    <a class="mes-tab {{ 'on' if not mes }}" href="/nuestros-barcos?tipo={{ tipo }}#operados">Todos ({{ total_operados }})</a>
     {% for p, label, n in meses %}
-    <a class="mes-tab {{ 'on' if mes == p }}" href="/nuestros-barcos?mes={{ p }}#operados">{{ label }} ({{ n }})</a>
+    <a class="mes-tab {{ 'on' if mes == p }}" href="/nuestros-barcos?mes={{ p }}&amp;tipo={{ tipo }}#operados">{{ label }} ({{ n }})</a>
     {% endfor %}
   </div>
   {% endif %}
@@ -112,8 +124,8 @@
   <table class="list">
     <thead><tr>
       <th>Barco</th><th>Terminal</th><th>Muelle</th>
-      <th>ETA</th><th>ETB</th><th>ETC</th><th>Carga</th><th>Grade</th>
-      <th>Principal</th><th>Destino</th><th>Sacado</th><th>Por</th><th>Mes (recuento)</th><th></th>
+      <th>ETA</th><th>ETB</th><th>ETC</th><th>Grade</th>
+      <th>Cliente</th><th>Sacado</th><th>Por</th><th>Mes (recuento)</th><th></th>
     </tr></thead>
     <tbody>
     {% for o in operados %}
@@ -121,8 +133,8 @@
         <td><b>{{ o.vessel_name|upper }}</b></td>
         <td>{{ o.terminal_code }}</td><td>{{ o.berth_label }}</td>
         <td>{{ o.eta|etadisp }}</td><td>{{ o.etb|etadisp }}</td><td>{{ o.etc|etadisp }}</td>
-        <td>{{ o.quantity }}</td><td>{{ o.grade }}</td>
-        <td>{{ o.principal }}</td><td>{{ o.destination }}</td>
+        <td>{{ o.grade }}</td>
+        <td>{% if o.principal %}<span class="cli-chip">{{ o.principal }}</span>{% else %}<span class="muted">Sin cliente</span>{% endif %}</td>
         <td class="nowrap">{{ o.operated_at|localdt("%d/%m/%Y") }}</td>
         <td>{{ o.removed_by }}</td>
         <td class="nowrap">

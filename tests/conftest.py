@@ -16,7 +16,7 @@ from app.auth import hash_password  # noqa: E402
 from app.config import Settings, settings  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import User  # noqa: E402
+from app.models import OperatedVessel, User, VesselCall, VesselExtraAgency  # noqa: E402
 from app.security import ip_limiter, user_limiter  # noqa: E402
 from app.seed import init_db  # noqa: E402
 
@@ -35,6 +35,9 @@ def client():
     init_db()
     with SessionLocal() as db:
         db.query(User).delete()
+        db.query(VesselExtraAgency).delete()
+        db.query(VesselCall).delete()
+        db.query(OperatedVessel).delete()
         db.commit()
     init_db()  # vuelve a sembrar admin/admin
     user_limiter.clear_all()

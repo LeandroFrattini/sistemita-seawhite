@@ -12,6 +12,25 @@ COLOR_OTROS = "#7f8c9a"
 COLOR_SIN_CLIENTE = "#b9c4cf"
 
 
+def filtrar_por_tipo(names, tipo_por_nombre: dict[str, str], tipo: str) -> tuple[list[str], int]:
+    """Deja los clientes del tipo pedido (AGENCY o ESTIBA) segun la planilla de Clientes.
+
+    `tipo_por_nombre` es {nombre en minusculas: tipo} de los clientes activos de la planilla.
+    Devuelve (nombres que quedan, cuantos se dejan afuera por no tener cliente o tener uno
+    que no esta en la planilla). Los de OTRO tipo no cuentan como "afuera": se ven cambiando
+    el selector."""
+    kept: list[str] = []
+    fuera = 0
+    for n in names:
+        key = (n or "").strip().casefold()
+        t = tipo_por_nombre.get(key) if key else None
+        if t is None:
+            fuera += 1
+        elif t == tipo:
+            kept.append(n)
+    return kept, fuera
+
+
 def build_donut(names, max_slices: int = len(PALETTE)) -> dict:
     """Cuenta barcos por cliente. Los `max_slices` clientes con mas barcos van
     cada uno en su porcion; el resto se junta en "Otros". Los barcos sin cliente
