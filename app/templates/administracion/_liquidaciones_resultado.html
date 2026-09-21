@@ -12,6 +12,20 @@
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
       Descargar Excel clasificado
     </a>
+    <a class="btn liq-download" href="/administracion/liquidaciones/descargar-zip/{{ token }}">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+      Descargar PDFs por buque
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Carpetas del ZIP ({{ resultado.carpetas|length }})</h3>
+  <p class="muted">Cada habilitación va a la carpeta de su buque. Lo que no se pudo leer o no trae buque queda en «Sin clasificar».</p>
+  <div class="liq-folders">
+    {% for c in resultado.carpetas %}
+    <span class="liq-folder{% if c.sin_clasificar %} is-unsorted{% endif %}">{{ c.nombre }} <b>{{ c.cantidad }}</b></span>
+    {% endfor %}
   </div>
 </div>
 

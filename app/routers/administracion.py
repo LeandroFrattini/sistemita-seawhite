@@ -69,6 +69,7 @@ async def liquidaciones_procesar(
         token = uuid.uuid4().hex
         _ARCHIVOS_TEMP[token] = {
             "bytes": resultado.excel_bytes,
+            "zip_bytes": resultado.zip_bytes,
             "filename": f"Liquidaciones_clasificadas.xlsx",
             "creado": time.time(),
         }
@@ -81,6 +82,20 @@ async def liquidaciones_procesar(
         "user": user, "resultado": resultado, "error": error, "token": token,
         "catalogo": liq.CATALOGO_TIPOS,
     })
+
+
+@router.get("/administracion/liquidaciones/descargar-zip/{token}")
+def liquidaciones_descargar_zip(token: str, user: User = Depends(administracion_required)):
+    _limpiar_temporales()
+    entry = _ARCHIVOS_TEMP.get(token)
+    if not entry:
+        return RedirectResponse(url="/administracion/liquidaciones", status_code=302)
+    bio = io.BytesIO(entry["zip_bytes"])
+    bio.seek(0)
+    return StreamingResponse(
+        bio, media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="Habilitaciones_por_buque.zip"'},
+    )
 
 
 @router.get("/administracion/liquidaciones/descargar/{token}")

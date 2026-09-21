@@ -75,6 +75,20 @@ def normalizar_buque(nombre: str) -> str:
     return ALIAS_BUQUE.get(nombre, nombre)
 
 
+CARPETA_SIN_CLASIFICAR = "SIN CLASIFICAR"
+_RE_CHARS_INVALIDOS = re.compile(r'[\\/:*?"<>|\x00-\x1f]')
+
+
+def nombre_carpeta(buque: str) -> str:
+    """Nombre de carpeta seguro para Windows a partir del buque del PDF.
+    Vacio -> SIN CLASIFICAR (el PDF no tenia el campo o no se pudo leer)."""
+    limpio = _RE_CHARS_INVALIDOS.sub(" ", buque or "")
+    limpio = re.sub(r"\s+", " ", limpio).strip(" .")
+    if not limpio or limpio.upper() == CARPETA_SIN_CLASIFICAR:
+        return CARPETA_SIN_CLASIFICAR
+    return limpio
+
+
 def _monto_a_float(v) -> float:
     try:
         return float(str(v).replace(",", "."))
@@ -100,6 +114,9 @@ class ResultadoLiquidaciones:
     resumen_tipo: list[dict] = field(default_factory=list)
     aliases_aplicados: dict = field(default_factory=dict)
     excel_bytes: bytes = b""
+    # ZIP con los PDFs ordenados en una carpeta por buque + SIN CLASIFICAR
+    zip_bytes: bytes = b""
+    carpetas: list[dict] = field(default_factory=list)
 
 
 def _encontrar_hoja_datos(wb):
@@ -160,22 +177,54 @@ def procesar(excel_bytes: bytes, zip_bytes: bytes) -> ResultadoLiquidaciones:
     # --- parsear todos los PDFs del zip ---
     pdfs_por_ref: dict[str, dict] = {}
     nombres_vistos: dict[str, str] = {}
-    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+    # Cada PDF se copia al ZIP de salida en la carpeta de su buque. Lo que no
+    # se puede leer, no tiene numero de habilitacion en el nombre o no trae
+    # buque va a SIN CLASIFICAR, para que nada se pierda ni quede mal ubicado.
+    carpetas: dict[str, int] = {}
+    nombres_usados: set[str] = set()
+    out_bio = io.BytesIO()
+
+    def _guardar_en_zip(zout, base: str, contenido: bytes, buque: str):
+        carpeta = nombre_carpeta(buque)
+        destino = f"{carpeta}/{base}"
+        n = 1
+        while destino.lower() in nombres_usados:
+            n += 1
+            stem, dot, ext = base.rpartition(".")
+            destino = f"{carpeta}/{stem} ({n}).{ext}" if dot else f"{carpeta}/{base} ({n})"
+        nombres_usados.add(destino.lower())
+        zout.writestr(destino, contenido)
+        carpetas[carpeta] = carpetas.get(carpeta, 0) + 1
+
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf, zipfile.ZipFile(out_bio, "w", zipfile.ZIP_DEFLATED) as zout:
         for info in zf.infolist():
             name = info.filename
             base = name.rsplit("/", 1)[-1]
             if info.is_dir() or not base.lower().endswith(".pdf") or name.startswith("__MACOSX"):
                 continue
+            contenido = zf.read(info)
             ref = ref_desde_nombre(base)
+            try:
+                datos = parse_pdf(io.BytesIO(contenido))
+            except Exception:
+                datos = {"tipo": "", "buque": "", "lugar": ""}
+            buque_pdf = normalizar_buque(datos["buque"])
+
             if not ref:
+                _guardar_en_zip(zout, base, contenido, "")
                 continue
             if ref in pdfs_por_ref:
                 resultado.duplicados.append(base)
+                _guardar_en_zip(zout, base, contenido, buque_pdf)
                 continue
             nombres_vistos[ref] = base
-            with zf.open(info) as f:
-                datos = parse_pdf(io.BytesIO(f.read()))
             pdfs_por_ref[ref] = datos
+            _guardar_en_zip(zout, base, contenido, buque_pdf)
+    resultado.zip_bytes = out_bio.getvalue()
+    resultado.carpetas = sorted(
+        [{"nombre": n, "cantidad": c, "sin_clasificar": n == CARPETA_SIN_CLASIFICAR} for n, c in carpetas.items()],
+        key=lambda x: (x["sin_clasificar"], x["nombre"]),
+    )
 
     # --- matchear filas del excel contra los pdfs ---
     refs_usadas: set[str] = set()
