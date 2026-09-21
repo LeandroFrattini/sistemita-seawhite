@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Sistemita SeaWhiters{% endblock %}</title>
   <link rel="icon" type="image/png" href="/static/img/logo-sw-emblem.png">
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v={{ static_v('app.css') }}">
 </head>
 <body>
 {% if user %}
@@ -56,7 +56,7 @@
 <main class="{% block main_class %}wrap{% endblock %}">
   {% block content %}{% endblock %}
 </main>
-{% if user %}<script src="/static/nav.js" defer></script>{% endif %}
+{% if user %}<script src="/static/nav.js?v={{ static_v('nav.js') }}" defer></script>{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

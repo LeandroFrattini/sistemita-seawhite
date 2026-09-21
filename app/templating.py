@@ -21,5 +21,15 @@ def localdt(value, fmt: str = "%d/%m/%Y %H:%M") -> str:
     return value.astimezone(_AR_TZ).strftime(fmt)
 
 
+def _static_version(name: str) -> str:
+    # mtime del archivo: cada deploy con cambios de CSS/JS cambia la URL y
+    # el navegador no se queda con la version vieja en cache.
+    try:
+        return str(int((BASE_DIR / "app" / "static" / name).stat().st_mtime))
+    except OSError:
+        return "0"
+
+
+templates.env.globals["static_v"] = _static_version
 templates.env.filters["localdt"] = localdt
 templates.env.filters["etadisp"] = display_eta
