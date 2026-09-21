@@ -118,16 +118,12 @@ def build_lineup_xlsx(lineup, terminals, calls_by_terminal, *, internal: bool) -
     if notice:
         row += 2
         end_col = min(last_col, first_col + 6)
-        ws.merge_cells(start_row=row, start_column=first_col, end_row=row, end_column=end_col)
-        label = ws.cell(row=row, column=first_col, value="EVENTOS")
-        label.font = Font(name=FONT, size=10, bold=True, color="FFFFFFFF")
-        label.fill = NOTICE_FILL
-        label.alignment = Alignment(horizontal="left", vertical="center")
-        row += 1
+        # Solo el texto cargado, sin fila-titulo "EVENTOS"
         ws.merge_cells(start_row=row, start_column=first_col, end_row=row, end_column=end_col)
         text = ws.cell(row=row, column=first_col, value=notice)
-        text.font = Font(name=FONT, size=10, bold=True)
-        text.alignment = Alignment(horizontal="left", vertical="center")
+        text.font = Font(name=FONT, size=10, bold=True, color="FFFFFFFF")
+        text.fill = NOTICE_FILL
+        text.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
 
     bio = io.BytesIO()
     wb.save(bio)

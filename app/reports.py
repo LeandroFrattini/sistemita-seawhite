@@ -124,9 +124,9 @@ def _excel_table_text(terminal, term_calls) -> str:
 def _notice_block(lineup) -> str:
     """Aviso puntual del dia (puerto cerrado por viento, paro, etc.) cargado
     en el line-up -- si hay algo, sale en todos los reportes de ese dia sin
-    tener que copiarlo mail por mail."""
-    notice = (getattr(lineup, "notice", "") or "").strip()
-    return f"EVENTOS: {notice}" if notice else ""
+    tener que copiarlo mail por mail. Sale solo el texto cargado, sin
+    leyenda delante."""
+    return (getattr(lineup, "notice", "") or "").strip()
 
 
 def _wrap_body(inner_html: str, signature_html: str = "") -> str:
