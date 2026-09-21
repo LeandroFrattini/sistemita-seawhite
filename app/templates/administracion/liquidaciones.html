@@ -12,19 +12,38 @@
   </div>
 </div>
 
-<div class="card">
-  <h3>Cargar archivos de la quincena</h3>
+<div class="card liq-upload">
+  <div class="liq-card-head">
+    <h3>Cargar archivos de la quincena</h3>
+    <span class="muted">Arrastrá cada archivo o hacé clic para elegirlo</span>
+  </div>
   <form id="liq-form" method="post" action="/administracion/liquidaciones/procesar" enctype="multipart/form-data">
-    <div class="row">
-      <label>Excel de liquidaciones (ARCA, .xlsx)
+    <div class="dz-grid">
+      <label class="dz" data-ext=".xlsx">
         <input type="file" name="excel" accept=".xlsx" required>
+        <span class="dz-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13l4 4m0-4l-4 4"/></svg>
+        </span>
+        <span class="dz-body">
+          <span class="dz-title">Excel de liquidaciones</span>
+          <span class="dz-hint">Archivo de ARCA, formato .xlsx</span>
+          <span class="dz-file" data-empty="Ningún archivo seleccionado">Ningún archivo seleccionado</span>
+        </span>
       </label>
-      <label>ZIP de PDFs de habilitación (.zip)
+      <label class="dz" data-ext=".zip">
         <input type="file" name="zip" accept=".zip" required>
+        <span class="dz-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 7.5L12 3 3.5 7.5v9L12 21l8.5-4.5z"/><path d="M3.5 7.5L12 12l8.5-4.5"/><path d="M12 12v9"/></svg>
+        </span>
+        <span class="dz-body">
+          <span class="dz-title">PDFs de habilitación</span>
+          <span class="dz-hint">Un solo archivo comprimido, formato .zip</span>
+          <span class="dz-file" data-empty="Ningún archivo seleccionado">Ningún archivo seleccionado</span>
+        </span>
       </label>
     </div>
-    <div class="row end" style="margin-top:12px">
-      <button type="submit" class="primary" id="btn-procesar">Procesar</button>
+    <div class="liq-submit">
+      <button type="submit" class="btn primary" id="btn-procesar">Procesar quincena</button>
     </div>
   </form>
 </div>
@@ -50,6 +69,39 @@ const progresoCard = document.getElementById('progreso-card');
 const progresoFill = document.getElementById('progreso-fill');
 const progresoPct = document.getElementById('progreso-pct');
 const resultados = document.getElementById('resultados-container');
+
+// Zonas de carga: muestran el nombre elegido y aceptan arrastrar y soltar.
+document.querySelectorAll('.dz').forEach((dz) => {
+  const input = dz.querySelector('input[type=file]');
+  const fileLabel = dz.querySelector('.dz-file');
+  const ext = dz.dataset.ext;
+
+  function refresh() {
+    const f = input.files[0];
+    dz.classList.toggle('has-file', !!f);
+    fileLabel.textContent = f ? f.name : fileLabel.dataset.empty;
+  }
+  input.addEventListener('change', refresh);
+
+  ['dragenter', 'dragover'].forEach((t) => dz.addEventListener(t, (e) => {
+    e.preventDefault();
+    dz.classList.add('is-over');
+  }));
+  ['dragleave', 'drop'].forEach((t) => dz.addEventListener(t, (e) => {
+    e.preventDefault();
+    dz.classList.remove('is-over');
+  }));
+  dz.addEventListener('drop', (e) => {
+    const f = e.dataTransfer.files[0];
+    if (!f) return;
+    if (!f.name.toLowerCase().endsWith(ext)) {
+      fileLabel.textContent = 'Tiene que ser un archivo ' + ext;
+      return;
+    }
+    input.files = e.dataTransfer.files;
+    refresh();
+  });
+});
 
 function setProgreso(pct) {
   progresoFill.style.width = pct + '%';

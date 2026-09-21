@@ -97,13 +97,19 @@ button, .btn {
   display: inline-block; padding: 8px 14px; border: 1px solid var(--blue-dark);
   background: #fff; color: var(--blue-dark); border-radius: 7px; cursor: pointer;
   font-size: 13px; text-decoration: none; font-weight: 600;
+  transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .1s ease;
+}
+button:active:not(:disabled), .btn:active { transform: translateY(1px); }
+button:disabled { opacity: .55; cursor: not-allowed; }
+button:focus-visible, .btn:focus-visible, a:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--blue); outline-offset: 2px;
 }
 /* el "display: inline-block" de arriba pisa el hidden nativo del navegador
    -- sin esto, ocultar un boton con el.hidden = true no hace nada */
 button[hidden], .btn[hidden] { display: none; }
 button:hover, .btn:hover { background: #eaf2fb; }
-.btn.primary, button[type=submit].primary { background: var(--blue); color: #fff; border-color: var(--blue); }
-.btn.primary:hover { background: var(--blue-dark); }
+.btn.primary, button[type=submit].primary { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 1px 2px rgba(18,63,115,.25); }
+.btn.primary:hover, button[type=submit].primary:hover { background: var(--blue-dark); border-color: var(--blue-dark); box-shadow: 0 4px 12px rgba(18,63,115,.28); }
 button.danger, .danger { border-color: #c0392b; color: #c0392b; }
 button.danger:hover { background: #fdecea; }
 .mini { padding: 1px 5px; font-size: 11px; border-radius: 4px; line-height: 1.3; }
@@ -427,3 +433,72 @@ table.list tr.row-here:hover td { background: #ffec9e; }
 .report-card footer .hint { font-size: 12px; color: var(--warn); align-self: center; }
 .note-line { display: block; margin: 4px 0 10px; font-size: 12px; color: var(--muted); }
 .note-line input { margin-left: 8px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
+
+/* Administracion: hub + Liquidaciones Aduana */
+.hc-ico {
+  display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px;
+  background: var(--head-blue); color: var(--blue-dark); transition: background-color .15s, color .15s;
+}
+.home-card:hover .hc-ico { background: var(--blue); color: #fff; }
+
+.liq-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.liq-card-head h3 { margin: 0; font-size: 15px; }
+.liq-card-head .muted { font-size: 12.5px; }
+
+.dz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.card label.dz {
+  position: relative; flex-direction: row; align-items: center; gap: 14px; padding: 18px 18px;
+  border: 1.5px dashed #a9c7e8; border-radius: 12px; background: #f7fafd;
+  color: var(--ink); font-size: 13px; cursor: pointer;
+  transition: border-color .15s, background-color .15s, box-shadow .15s;
+}
+.dz:hover { border-color: var(--blue); background: #f0f6fd; }
+.dz:focus-within { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27,95,168,.18); }
+.dz.is-over { border-style: solid; border-color: var(--blue); background: #e6f0fb; }
+.dz.has-file { border-style: solid; border-color: #86b5e4; background: #fff; }
+/* el input real queda accesible por teclado pero sin el boton gris nativo */
+.card .dz input[type=file] {
+  position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; padding: 0; border: 0;
+  opacity: 0; cursor: pointer;
+}
+.dz-icon {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px;
+  background: var(--head-blue); color: var(--blue-dark);
+}
+.dz.has-file .dz-icon { background: var(--blue); color: #fff; }
+.dz-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dz-title { font-size: 14px; font-weight: 600; color: var(--blue-dark); }
+.dz-hint { font-size: 12px; color: var(--muted); }
+.dz-file { margin-top: 4px; font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dz.has-file .dz-file { color: var(--ink); font-weight: 600; }
+.liq-submit { display: flex; justify-content: flex-end; margin-top: 16px; }
+.liq-submit .btn { padding: 10px 22px; font-size: 13.5px; }
+
+.liq-stats { display: flex; align-items: stretch; gap: 12px; flex-wrap: wrap; }
+.liq-stat {
+  flex: 1 1 160px; display: flex; flex-direction: column; gap: 4px; padding: 12px 16px;
+  border-radius: 10px; background: #f7fafd; border: 1px solid var(--line);
+}
+.liq-stat-label { font-size: 12px; color: var(--muted); }
+.liq-stat-value { font-size: 24px; font-weight: 700; color: var(--blue-dark); letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.liq-download { display: inline-flex; align-items: center; gap: 8px; align-self: center; padding: 11px 18px; }
+
+.liq-alert { border-color: #f0d3a6; background: #fffaf1; }
+.liq-alert h3 { color: var(--warn); }
+
+.liq-table-wrap { overflow-x: auto; }
+table.liq-table { border-collapse: collapse; width: 100%; font-size: 13px; background: transparent; }
+table.liq-table th, table.liq-table td { border: 0; border-bottom: 1px solid var(--line); padding: 9px 12px; }
+table.liq-table thead th {
+  background: transparent; color: var(--muted); font-size: 11.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .04em; border-bottom: 1.5px solid #b9cfe6; white-space: nowrap;
+}
+table.liq-table tbody tr { transition: background-color .12s; }
+table.liq-table tbody tr:hover { background: #f4f8fd; }
+table.liq-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.liq-table tfoot td { border-bottom: 0; border-top: 1.5px solid #b9cfe6; font-weight: 700; color: var(--blue-dark); }
+
+@media (prefers-reduced-motion: reduce) {
+  button, .btn, .dz, .hc-ico, table.liq-table tbody tr { transition: none; }
+  button:active:not(:disabled), .btn:active { transform: none; }
+}
