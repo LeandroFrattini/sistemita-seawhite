@@ -511,3 +511,105 @@ table.liq-table tfoot td { border-bottom: 0; border-top: 1.5px solid #b9cfe6; fo
 .liq-folder b { font-variant-numeric: tabular-nums; color: var(--blue-dark); }
 .liq-folder.is-unsorted { background: #fffaf1; border-color: #f0d3a6; color: var(--warn); }
 .liq-folder.is-unsorted b { color: var(--warn); }
+
+/* ==========================================================================
+   Pulido visual -- capa de estilos que refina lo anterior sin tocar estructura
+   ========================================================================== */
+:root {
+  --navy: #0f2a4a;
+  --line-soft: rgba(20, 50, 90, .09);
+  --shadow-sm: 0 1px 2px rgba(16, 42, 77, .06), 0 1px 1px rgba(16, 42, 77, .04);
+  --shadow-md: 0 10px 24px -12px rgba(16, 42, 77, .22);
+}
+html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body { font-family: "Geist", -apple-system, "Segoe UI", Roboto, sans-serif; background: #f3f6fb; }
+button, input, select, textarea { font-family: inherit; }
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+h1 { font-size: 24px; font-weight: 700; letter-spacing: -.015em; color: var(--navy); margin-bottom: 16px; }
+h2 { color: var(--navy); letter-spacing: -.01em; }
+.page-head { margin-bottom: 18px; }
+table.grid, table.list, .vf-table, .sof-table { font-variant-numeric: tabular-nums; }
+
+/* barra superior */
+.topbar {
+  background: linear-gradient(180deg, #1f67b0 0%, #154a86 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 6px 18px -10px rgba(10, 30, 60, .55);
+  padding: 9px 20px;
+}
+.topbar .brand { letter-spacing: -.01em; }
+.topbar nav > a, .topbar nav > .nav-group > .nav-drop-btn {
+  text-transform: uppercase; font-size: 11.5px; font-weight: 600; letter-spacing: .06em;
+  padding: 8px 11px; opacity: .88;
+  transition: background-color .15s ease, opacity .15s ease, box-shadow .15s ease;
+}
+.topbar nav > a:hover, .topbar nav > .nav-group > .nav-drop-btn:hover { opacity: 1; background: rgba(255,255,255,.13); }
+.topbar nav > a.active, .topbar nav > .nav-group > .nav-drop-btn.active {
+  opacity: 1; background: rgba(255,255,255,.14); box-shadow: inset 0 -2px 0 rgba(255,255,255,.9);
+  border-radius: 6px 6px 3px 3px;
+}
+.topbar .user { font-size: 12.5px; }
+.topbar .user a { text-decoration: none; opacity: .8; padding: 2px 1px; border-bottom: 1px solid transparent; transition: opacity .15s, border-color .15s; }
+.topbar .user a:hover { opacity: 1; border-bottom-color: rgba(255,255,255,.7); }
+.nav-drop-panel, .nav-sub-panel, .extras-panel { border-color: var(--line-soft); border-radius: 12px; box-shadow: 0 18px 40px -14px rgba(10, 30, 60, .35); }
+.nav-drop-panel a, .nav-sub-panel a, .nav-sub-btn { border-radius: 8px; transition: background-color .12s; }
+
+/* superficies: bordes suaves + sombra teñida del mismo azul */
+.card, .terminal, .report-card, .bulk-bar, .recalc-box, .client-card, .pf-hub-btn, .home-card, .login-card {
+  border-color: var(--line-soft); border-radius: 12px; box-shadow: var(--shadow-sm);
+}
+.client-card { overflow: hidden; }
+.client-card > summary { transition: background-color .12s; }
+.pf-hub-btn:hover, .home-card:hover { box-shadow: var(--shadow-md); }
+.home-hero {
+  background: radial-gradient(900px 320px at 88% -30%, rgba(255,255,255,.16), transparent 62%),
+              linear-gradient(160deg, #1f67b0 0%, #123f73 100%);
+  box-shadow: 0 22px 44px -24px rgba(18, 63, 115, .65);
+}
+.login-card { box-shadow: 0 28px 56px -28px rgba(18, 63, 115, .4); border-radius: 16px; }
+.card h3 { color: var(--navy); font-size: 14.5px; letter-spacing: -.005em; }
+
+/* botones secundarios mas suaves; los primarios y de peligro conservan lo suyo */
+button:not(.danger):not(.primary):not(.mini), .btn:not(.danger):not(.primary):not(.mini) { border-color: #b9cde3; }
+button:not(.danger):not(.primary):not(.mini):hover, .btn:not(.danger):not(.primary):not(.mini):hover { border-color: var(--blue); background: #eef4fb; }
+
+/* campos */
+.card input, .card select, .card textarea, .event-search, .lineup-meta input, .cargo-row input, .hold-row input, .hold-row select {
+  border-color: #cfdbe9; transition: border-color .15s ease, box-shadow .15s ease;
+}
+.card input:hover, .card select:hover, .card textarea:hover { border-color: #a9bfd8; }
+.card input:focus, .card select:focus, .card textarea:focus, .event-search:focus, .lineup-meta input:focus,
+.vf-fields input:focus, .vf-report-form textarea:focus, .cargo-row input:focus, .hold-row input:focus, .hold-row select:focus {
+  outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27, 95, 168, .16);
+}
+
+/* tablas */
+table.list { border-collapse: collapse; background: #fff; }
+table.list th, table.list td { border: 0; border-bottom: 1px solid var(--line-soft); padding: 9px 12px; }
+table.list th {
+  background: #eef3fa; color: #55708f; font-size: 11.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .05em; border-bottom: 1.5px solid #c9dbef;
+}
+table.list tbody tr { transition: background-color .12s; }
+table.list tbody tr:hover td { background: #f6f9fd; }
+table.list tr.row-here td { background: #fff8dc; }
+table.list tr.row-here:hover td { background: #fff1b8; }
+table.grid th { background: #e3edf8; color: #1c3a5e; border-color: #c5d9ee; font-size: 12px; }
+table.grid td { border-color: #e3eaf3; }
+.vf-table th { background: #eef3fa; letter-spacing: .05em; border-bottom: 1.5px solid #c9dbef; }
+.vf-table td { border-bottom-color: var(--line-soft); }
+
+/* chips, badges, estados */
+.status-chip, .vf-badge, .type-tag { letter-spacing: .01em; }
+.mes-tab, .type-chip, .pf-toggle { transition: background-color .15s, border-color .15s, color .15s; }
+.mes-tab.on, .type-chip:has(input:checked) { box-shadow: 0 2px 8px -3px rgba(27, 95, 168, .5); }
+.badge { border-radius: 6px; letter-spacing: .02em; }
+
+/* avisos */
+.flash { border-radius: 10px; box-shadow: 0 12px 28px -12px rgba(10, 30, 60, .4); }
+.ok-box, .error { border-radius: 10px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar nav > a, .topbar nav > .nav-group > .nav-drop-btn, .topbar .user a, table.list tbody tr,
+  .nav-drop-panel a, .nav-sub-panel a, .nav-sub-btn, .client-card > summary { transition: none; }
+}
