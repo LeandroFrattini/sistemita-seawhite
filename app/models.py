@@ -47,8 +47,9 @@ class User(Base):
 
     @property
     def requires_2fa(self) -> bool:
-        """Los perfiles con permisos sensibles no pueden trabajar sin segundo factor."""
-        return bool(self.is_admin or self.is_administracion or self.is_pda_admin)
+        """Admin y Administracion no pueden trabajar sin segundo factor (cuando
+        MFA_ENABLED esta encendido; hoy viene apagado)."""
+        return bool(self.is_admin or self.is_administracion)
 
 
 class Terminal(Base):

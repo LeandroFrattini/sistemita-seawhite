@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
+from ..config import settings
 from ..database import get_db
 from ..models import User
 from ..security import (
@@ -53,6 +54,8 @@ def _render(request: Request, user: User, db: Session, *, error: str | None = No
 
 @router.get("/seguridad", response_class=HTMLResponse)
 def seguridad(request: Request, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if not settings.mfa_enabled:
+        return RedirectResponse("/", status_code=302)
     return _render(request, user, db)
 
 
@@ -63,8 +66,8 @@ def activar(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ):
-    if user.totp_enabled:
-        return RedirectResponse("/seguridad", status_code=302)
+    if not settings.mfa_enabled or user.totp_enabled:
+        return RedirectResponse("/seguridad" if settings.mfa_enabled else "/", status_code=302)
 
     key = f"setup:{user.id}"
     wait = user_limiter.remaining_lock(key)

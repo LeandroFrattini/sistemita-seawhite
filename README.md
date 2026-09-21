@@ -50,9 +50,11 @@ FastAPI + SQLite + Jinja2 + openpyxl. Base de datos en `data/lineup.db`.
   caracteres, sin usuario adentro ni claves comunes.
 - **Sesión:** cookie firmada, `HttpOnly`, `SameSite=Lax` y `Secure` por HTTPS. Vence a los 30
   días en el servidor. Cambiar la contraseña cierra las demás sesiones de esa cuenta.
-- **Verificación en dos pasos (TOTP):** Google/Microsoft Authenticator o Authy. Es
-  **obligatoria** para quien tenga Admin, Admin PDA o Administración; opcional para el resto
-  (`/seguridad`). Cada activación entrega 8 códigos de recuperación de un solo uso. Si alguien
+- **Verificación en dos pasos (TOTP):** Google/Microsoft Authenticator o Authy.
+  **Hoy está APAGADA** (interruptor `MFA_ENABLED`, por defecto `false`): el código está
+  hecho y probado pero no se aplica a nadie. Para encenderla, definir `MFA_ENABLED=true` en
+  las variables de entorno de Render. Encendida, es **obligatoria** para quien tenga Admin o
+  Administración; opcional para el resto (`/seguridad`). Cada activación entrega 8 códigos de recuperación de un solo uso. Si alguien
   pierde el celular: Admin → Usuarios → **Reiniciar 2FA**.
   El secreto se guarda cifrado con una clave derivada de `SECRET_KEY`: **si se cambia
   `SECRET_KEY`, todos tienen que volver a activar el 2FA** (y se cierran todas las sesiones).

@@ -13,11 +13,19 @@ import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.auth import hash_password  # noqa: E402
+from app.config import Settings, settings  # noqa: E402
 from app.database import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
 from app.security import ip_limiter, user_limiter  # noqa: E402
 from app.seed import init_db  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def mfa_on(monkeypatch):
+    """Por defecto la app trae el 2FA apagado; las pruebas lo encienden salvo
+    las que verifican justamente el modo apagado (que lo vuelven a apagar)."""
+    monkeypatch.setattr(settings, "mfa_enabled", True)
 
 
 @pytest.fixture()

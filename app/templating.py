@@ -2,7 +2,7 @@ from datetime import timedelta, timezone
 
 from fastapi.templating import Jinja2Templates
 
-from .config import BASE_DIR
+from .config import BASE_DIR, settings
 from .dates import display_eta
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
@@ -31,5 +31,7 @@ def _static_version(name: str) -> str:
 
 
 templates.env.globals["static_v"] = _static_version
+# funcion (no valor) para que se lea la configuracion en cada render
+templates.env.globals["mfa_enabled"] = lambda: settings.mfa_enabled
 templates.env.filters["localdt"] = localdt
 templates.env.filters["etadisp"] = display_eta

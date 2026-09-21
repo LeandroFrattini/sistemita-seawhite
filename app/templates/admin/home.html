@@ -57,11 +57,13 @@
       {% if u.must_change_password %}
       <p class="muted" style="margin:4px 0 0">⏳ Tiene pendiente elegir su contraseña al entrar.</p>
       {% endif %}
+      {% if mfa_enabled() %}
       <p class="muted" style="margin:4px 0 0">
         {% if u.totp_enabled %}🔒 Verificación en dos pasos activa.{% elif u.requires_2fa %}⚠ Debe activar la verificación en dos pasos.{% else %}Sin verificación en dos pasos.{% endif %}
       </p>
+      {% endif %}
       <div class="row end">
-        {% if u.totp_enabled or u.totp_secret_enc %}
+        {% if mfa_enabled() and (u.totp_enabled or u.totp_secret_enc) %}
         <button type="submit" formaction="/admin/users/{{ u.id }}/reset-2fa" class="danger" formnovalidate
                 onclick="return confirm('¿Reiniciar la verificación en dos pasos de {{ u.username }}? Va a tener que configurarla de nuevo.')">Reiniciar 2FA</button>
         {% endif %}

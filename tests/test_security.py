@@ -233,3 +233,33 @@ def test_no_admin_no_puede_reiniciar_2fa(client):
     make_user("operador")
     login(client, "operador", "claveLarga-2026")
     assert client.post("/admin/users/1/reset-2fa").status_code == 403
+
+
+# --- 2FA apagado (estado por defecto) --------------------------------------- #
+
+def test_2fa_viene_apagado_por_defecto():
+    from app.config import Settings
+    assert Settings().mfa_enabled is False
+
+
+def test_con_2fa_apagado_nadie_es_obligado_ni_ve_las_pantallas(client, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "mfa_enabled", False)
+    make_user("jefe", is_administracion=True)
+    assert login(client, "jefe", "claveLarga-2026").headers["location"] == "/"
+    assert client.get("/administracion").status_code == 200   # sin pedir activar nada
+    assert client.get("/seguridad").headers["location"] == "/"
+    assert "/seguridad" not in client.get("/").text            # sin link en la barra
+
+
+def test_con_2fa_apagado_el_login_no_pide_codigo_aunque_lo_tenga_activado(client, monkeypatch):
+    from app.config import settings
+    make_user("jefe", is_administracion=True)
+    login(client, "jefe", "claveLarga-2026")
+    _activar_2fa(client, "jefe")
+    client.cookies.clear()
+
+    monkeypatch.setattr(settings, "mfa_enabled", False)
+    r = login(client, "jefe", "claveLarga-2026")
+    assert r.headers["location"] == "/"
+    assert client.get("/login/2fa").headers["location"] == "/login"

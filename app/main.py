@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .auth import session_user
-from .config import BASE_DIR
+from .config import BASE_DIR, settings
 from .database import SessionLocal
 from .routers import (
     admin,
@@ -50,7 +50,7 @@ async def enforce_account_state(request: Request, call_next):
             user = session_user(request, db)
             if user and user.must_change_password:
                 return RedirectResponse("/cambiar-clave", status_code=302)
-            if user and user.requires_2fa and not user.totp_enabled:
+            if settings.mfa_enabled and user and user.requires_2fa and not user.totp_enabled:
                 return RedirectResponse("/seguridad", status_code=302)
         finally:
             db.close()

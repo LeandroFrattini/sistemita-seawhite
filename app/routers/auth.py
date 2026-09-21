@@ -16,6 +16,7 @@ from ..auth import (
     optional_user,
     read_pending_cookie,
 )
+from ..config import settings
 from ..database import get_db
 from ..models import User
 from ..security import (
@@ -72,7 +73,7 @@ def login_submit(
 
     user_limiter.reset(ukey)
 
-    if user.totp_enabled:
+    if settings.mfa_enabled and user.totp_enabled:
         # clave correcta pero falta el segundo factor: cookie corta, sin sesion todavia
         resp = RedirectResponse("/login/2fa", status_code=302)
         resp.set_cookie(
@@ -91,6 +92,8 @@ def login_submit(
 def _pending_user(request: Request, db: Session) -> User | None:
     from ..auth import password_stamp
 
+    if not settings.mfa_enabled:
+        return None
     data = read_pending_cookie(request.cookies.get(PENDING_COOKIE_NAME))
     if not data:
         return None

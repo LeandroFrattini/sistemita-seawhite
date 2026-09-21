@@ -37,5 +37,10 @@ class Settings(BaseSettings):
     bootstrap_admin_user: str = "admin"
     bootstrap_admin_password: str = "admin"
 
+    # Verificacion en dos pasos (TOTP). Apagada por defecto: para encenderla,
+    # definir la variable de entorno MFA_ENABLED=true. Apagada, nadie esta
+    # obligado a activarla, el login no pide codigo y no se muestran las pantallas.
+    mfa_enabled: bool = False
+
 
 settings = Settings()
