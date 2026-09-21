@@ -1,0 +1,24 @@
+{# Grafico de torta (donut) en SVG puro + leyenda con numeros. chart = app.charts.build_donut #}
+{% macro donut(chart, resumen, vacio) %}
+{% if chart.total %}
+<div class="donut-wrap">
+  <svg viewBox="0 0 42 42" class="donut" role="img" aria-label="{{ resumen }}: {% for s in chart.slices %}{{ s.label }} {{ s.count }}{{ ', ' if not loop.last }}{% endfor %}">
+    <circle cx="21" cy="21" r="15.9155" fill="none" stroke="#e7eef7" stroke-width="6"></circle>
+    {% for s in chart.slices %}
+    <circle cx="21" cy="21" r="15.9155" fill="none" stroke="{{ s.color }}" stroke-width="6"
+            stroke-dasharray="{{ '%.2f'|format(s.dash) }} {{ '%.2f'|format(s.gap) }}"
+            stroke-dashoffset="{{ '%.2f'|format(s.offset) }}"><title>{{ s.label }}: {{ s.count }} ({{ s.pct_txt }})</title></circle>
+    {% endfor %}
+    <text x="21" y="22.2" text-anchor="middle" class="donut-num">{{ chart.total }}</text>
+    <text x="21" y="26.4" text-anchor="middle" class="donut-cap">{{ 'barco' if chart.total == 1 else 'barcos' }}</text>
+  </svg>
+  <ul class="donut-legend">
+    {% for s in chart.slices %}
+    <li><i style="background:{{ s.color }}"></i><span class="lg-name">{{ s.label }}</span><b>{{ s.count }}</b><span class="lg-pct">{{ s.pct_txt }}</span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% else %}
+<p class="muted donut-empty">{{ vacio }}</p>
+{% endif %}
+{% endmacro %}

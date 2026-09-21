@@ -1,8 +1,31 @@
 {% extends "base.html" %}
 {% block nav_ours %}active{% endblock %}
 {% block main_class %}wide{% endblock %}
+{% from "_donut.html" import donut %}
 {% block content %}
 <h1>Nuestros barcos</h1>
+
+<section id="resumen" class="pies">
+  <div class="card pie-card">
+    <h3>Barcos operados por cliente</h3>
+    <p class="muted pie-sub">{% if mes %}{{ period_label(mes) }}{% else %}Todos los meses{% endif %}</p>
+    {% if meses %}
+    <div class="mes-tabs">
+      <a class="mes-tab {{ 'on' if not mes }}" href="/nuestros-barcos#resumen">Todos</a>
+      {% for p, label, n in meses %}
+      <a class="mes-tab {{ 'on' if mes == p }}" href="/nuestros-barcos?mes={{ p }}#resumen">{{ label }}</a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {{ donut(grafico_operados, 'Barcos operados por cliente', 'No hay barcos operados en ese período.') }}
+  </div>
+
+  <div class="card pie-card">
+    <h3>Barcos anunciados por cliente</h3>
+    <p class="muted pie-sub">Los que están hoy en el line-up</p>
+    {{ donut(grafico_anunciados, 'Barcos anunciados por cliente', 'No hay barcos anunciados en el line-up actual.') }}
+  </div>
+</section>
 
 <section>
   <div class="vf-reporte-head">

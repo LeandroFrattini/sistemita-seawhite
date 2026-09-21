@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
+from ..charts import build_donut
 from ..database import get_db
 from datetime import date, datetime
 
@@ -104,6 +105,10 @@ def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_
     meses = sorted(counts.keys(), reverse=True)
     operados = [o for o in todos if o.period == mes] if mes else todos
 
+    # graficos de torta: operados (sigue el filtro de mes) y anunciados (line-up actual)
+    grafico_operados = build_donut([o.principal for o in operados])
+    grafico_anunciados = build_donut([c.principal_name for _, _, c in en_lineup])
+
     return templates.TemplateResponse(
         request,
         "nuestros_barcos.html",
@@ -111,6 +116,8 @@ def our_vessels_page(request: Request, mes: str = "", db: Session = Depends(get_
             "user": user,
             "en_lineup": en_lineup,
             "operados": operados,
+            "grafico_operados": grafico_operados,
+            "grafico_anunciados": grafico_anunciados,
             "total_operados": len(todos),
             "mes": mes,
             "meses": [(m, _period_label(m), counts[m]) for m in meses],
