@@ -42,3 +42,28 @@ Usuario inicial: **admin / admin** (cambialo en Admin → Usuarios, o por `.env`
 ## Stack
 
 FastAPI + SQLite + Jinja2 + openpyxl. Base de datos en `data/lineup.db`.
+
+## Seguridad
+
+- **Login:** bloqueo temporal tras 5 fallos por usuario (25 por IP) en 15 min; mensaje
+  idéntico para usuario inexistente o clave incorrecta. Contraseñas nuevas: mínimo 10
+  caracteres, sin usuario adentro ni claves comunes.
+- **Sesión:** cookie firmada, `HttpOnly`, `SameSite=Lax` y `Secure` por HTTPS. Vence a los 30
+  días en el servidor. Cambiar la contraseña cierra las demás sesiones de esa cuenta.
+- **Verificación en dos pasos (TOTP):** Google/Microsoft Authenticator o Authy. Es
+  **obligatoria** para quien tenga Admin, Admin PDA o Administración; opcional para el resto
+  (`/seguridad`). Cada activación entrega 8 códigos de recuperación de un solo uso. Si alguien
+  pierde el celular: Admin → Usuarios → **Reiniciar 2FA**.
+  El secreto se guarda cifrado con una clave derivada de `SECRET_KEY`: **si se cambia
+  `SECRET_KEY`, todos tienen que volver a activar el 2FA** (y se cierran todas las sesiones).
+- **HTTP:** sin `/docs` ni `/openapi.json`; cabeceras CSP, HSTS, X-Frame-Options, nosniff;
+  rechazo de POST desde otro origen; `Cache-Control: no-store` en las páginas con datos.
+- Eventos de seguridad (login fallido/bloqueado, 2FA, cambios de clave) van al log
+  (logger `seguridad`), visible en el panel de Render.
+
+### Pruebas
+
+```
+pip install -r requirements-dev.txt
+python -m pytest tests
+```

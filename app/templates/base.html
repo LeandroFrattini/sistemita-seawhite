@@ -53,7 +53,7 @@
   </nav>
   <div class="user">{{ user.full_name or user.username }}
     {% if user.is_admin %} · <a href="/admin">Admin</a>{% endif %}
-    · <a href="/cambiar-clave">clave</a> · <a href="/logout">salir</a></div>
+    · <a href="/cambiar-clave">clave</a> · <a href="/seguridad">seguridad</a> · <a href="/logout">salir</a></div>
 </header>
 {% endif %}
 <main class="{% block main_class %}wrap{% endblock %}">

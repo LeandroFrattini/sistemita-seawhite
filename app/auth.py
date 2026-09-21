@@ -1,5 +1,7 @@
+import hashlib
+
 from fastapi import Depends, HTTPException, Request, status
-from itsdangerous import BadSignature, URLSafeSerializer
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -7,13 +9,22 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .database import get_db
 from .models import User
+from .security import is_https
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-_serializer = URLSafeSerializer(settings.secret_key, salt="lineup-session")
+_serializer = URLSafeTimedSerializer(settings.secret_key, salt="lineup-session")
+# cookie intermedia entre "clave correcta" y "codigo del segundo factor"
+_pending_serializer = URLSafeTimedSerializer(settings.secret_key, salt="lineup-2fa-pending")
 COOKIE_NAME = "lineup_session"
-# la sesion dura varios meses: es una app interna en PC de trabajo, no
-# tiene sentido pedir usuario/clave todo el tiempo. Se cierra con "salir".
-SESSION_MAX_AGE = 60 * 60 * 24 * 180
+PENDING_COOKIE_NAME = "lineup_2fa_pending"
+# 30 dias, y el vencimiento se controla en el servidor (no solo en el
+# navegador): una cookie robada deja de servir cuando vence.
+SESSION_MAX_AGE = 60 * 60 * 24 * 30
+PENDING_MAX_AGE = 5 * 60
+
+# hash de relleno para gastar el mismo tiempo cuando el usuario no existe
+# (evita descubrir usuarios validos midiendo la demora de la respuesta)
+_DUMMY_HASH = pwd_context.hash("relleno-para-igualar-tiempos")
 
 
 def hash_password(raw: str) -> str:
@@ -27,25 +38,68 @@ def verify_password(raw: str, hashed: str) -> bool:
         return False
 
 
+def password_stamp(user: User) -> str:
+    """Huella de la contraseña actual. Va dentro de la cookie: si el usuario
+    (o un admin) cambia la contraseña, todas las sesiones anteriores dejan de valer."""
+    return hashlib.sha256(user.password_hash.encode()).hexdigest()[:16]
+
+
 def make_session_cookie(user: User) -> str:
-    return _serializer.dumps({"uid": user.id, "u": user.username})
+    return _serializer.dumps({"uid": user.id, "u": user.username, "pv": password_stamp(user)})
+
+
+def attach_session(response, request: Request, user: User) -> None:
+    """Pone la cookie de sesion: HttpOnly, SameSite=Lax y Secure cuando el
+    acceso es por HTTPS (en local, sobre http, no se marca Secure para poder probar)."""
+    response.set_cookie(
+        COOKIE_NAME,
+        make_session_cookie(user),
+        httponly=True,
+        samesite="lax",
+        secure=is_https(request),
+        max_age=SESSION_MAX_AGE,
+    )
 
 
 def read_session_cookie(raw: str | None) -> dict | None:
     if not raw:
         return None
     try:
-        return _serializer.loads(raw)
-    except BadSignature:
+        return _serializer.loads(raw, max_age=SESSION_MAX_AGE)
+    except (BadSignature, SignatureExpired):
         return None
 
 
-def current_user(request: Request, db: Session = Depends(get_db)) -> User:
+def make_pending_cookie(user: User) -> str:
+    return _pending_serializer.dumps({"uid": user.id, "pv": password_stamp(user)})
+
+
+def read_pending_cookie(raw: str | None) -> dict | None:
+    if not raw:
+        return None
+    try:
+        return _pending_serializer.loads(raw, max_age=PENDING_MAX_AGE)
+    except (BadSignature, SignatureExpired):
+        return None
+
+
+def session_user(request: Request, db: Session) -> User | None:
+    """Usuario de la sesion, o None si no hay sesion valida (firma, vencimiento,
+    usuario activo y contraseña sin cambios desde que se inició)."""
     data = read_session_cookie(request.cookies.get(COOKIE_NAME))
     if not data:
-        raise _redirect_login()
+        return None
     user = db.get(User, data.get("uid"))
     if not user or not user.is_active:
+        return None
+    if data.get("pv") != password_stamp(user):
+        return None
+    return user
+
+
+def current_user(request: Request, db: Session = Depends(get_db)) -> User:
+    user = session_user(request, db)
+    if not user:
         raise _redirect_login()
     return user
 
@@ -73,15 +127,15 @@ def administracion_required(user: User = Depends(current_user)) -> User:
 
 
 def optional_user(request: Request, db: Session = Depends(get_db)) -> User | None:
-    data = read_session_cookie(request.cookies.get(COOKIE_NAME))
-    if not data:
-        return None
-    return db.get(User, data.get("uid"))
+    return session_user(request, db)
 
 
 def authenticate(db: Session, username: str, password: str) -> User | None:
     user = db.scalar(select(User).where(User.username == username.strip()))
-    if user and user.is_active and verify_password(password, user.password_hash):
+    if not user:
+        verify_password(password, _DUMMY_HASH)  # mismo costo que un usuario real
+        return None
+    if verify_password(password, user.password_hash) and user.is_active:
         return user
     return None
 

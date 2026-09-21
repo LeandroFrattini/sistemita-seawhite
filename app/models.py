@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Float,
@@ -37,6 +38,17 @@ class User(Base):
     # seccion Administracion (Liquidaciones Aduana, etc.)
     is_administracion: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # Segundo factor (TOTP). El secreto va cifrado; mientras totp_enabled sea
+    # False y haya secreto, el usuario esta a mitad del alta (escaneo del QR).
+    totp_secret_enc: Mapped[str] = mapped_column(Text, default="")
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    totp_last_step: Mapped[int] = mapped_column(BigInteger, default=0)  # anti-replay
+    totp_recovery: Mapped[str] = mapped_column(Text, default="")  # JSON de hashes
+
+    @property
+    def requires_2fa(self) -> bool:
+        """Los perfiles con permisos sensibles no pueden trabajar sin segundo factor."""
+        return bool(self.is_admin or self.is_administracion or self.is_pda_admin)
 
 
 class Terminal(Base):

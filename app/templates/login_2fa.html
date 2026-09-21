@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block main_class %}login-wrap{% endblock %}
+{% block content %}
+<div class="login-card">
+  <div class="login-brand">
+    <img src="/static/img/logo-seawhite.png" alt="Sea White" class="login-logo">
+    <p class="login-tag">⚓ La mejor agencia del país</p>
+  </div>
+  <form method="post" action="/login/2fa" class="login-form">
+    <h1>Verificación en dos pasos</h1>
+    <p class="muted" style="margin-top:-4px">Ingresá el código de 6 dígitos de tu app autenticadora.
+    Si perdiste el celular, podés usar un código de recuperación.</p>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <label>Código<input name="code" autofocus autocomplete="one-time-code" inputmode="text" required></label>
+    <button type="submit" class="primary">Verificar</button>
+    <p style="text-align:center;margin:14px 0 0"><a href="/login" class="muted">← Volver al inicio de sesión</a></p>
+  </form>
+</div>
+{% endblock %}

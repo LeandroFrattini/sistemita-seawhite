@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -151,6 +153,25 @@ def update_user(
             u.password_hash = hash_password(password.strip())
             u.must_change_password = True
         db.commit()
+    return RedirectResponse(f"/admin?tab=usuarios#usr-{user_id}", status_code=302)
+
+
+@router.post("/users/{user_id}/reset-2fa")
+def reset_user_2fa(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(admin_required),
+):
+    """Para quien perdio el celular: borra su segundo factor. Si su perfil lo
+    exige, tendra que volver a activarlo en el proximo ingreso."""
+    u = db.get(User, user_id)
+    if u:
+        u.totp_secret_enc = ""
+        u.totp_enabled = False
+        u.totp_last_step = 0
+        u.totp_recovery = ""
+        db.commit()
+        logging.getLogger("seguridad").warning("2fa reiniciado usuario=%s por admin=%s", u.username, admin.username)
     return RedirectResponse(f"/admin?tab=usuarios#usr-{user_id}", status_code=302)
 
 

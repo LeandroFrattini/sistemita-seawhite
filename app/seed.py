@@ -87,6 +87,10 @@ _MIGRATIONS = [
     ("proformas", "calado_entrada", "FLOAT DEFAULT 0"),
     ("proformas", "calado_salida", "FLOAT DEFAULT 0"),
     ("users", "is_administracion", "BOOLEAN DEFAULT FALSE"),
+    ("users", "totp_secret_enc", "TEXT DEFAULT ''"),
+    ("users", "totp_enabled", "BOOLEAN DEFAULT FALSE"),
+    ("users", "totp_last_step", "BIGINT DEFAULT 0"),
+    ("users", "totp_recovery", "TEXT DEFAULT ''"),
 ]
 
 

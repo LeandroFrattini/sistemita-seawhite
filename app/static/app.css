@@ -613,3 +613,16 @@ table.grid td { border-color: #e3eaf3; }
   .topbar nav > a, .topbar nav > .nav-group > .nav-drop-btn, .topbar .user a, table.list tbody tr,
   .nav-drop-panel a, .nav-sub-panel a, .nav-sub-btn, .client-card > summary { transition: none; }
 }
+
+/* Seguridad de la cuenta: alta del segundo factor */
+.mfa-steps { margin: 4px 0 16px; padding-left: 20px; line-height: 1.7; }
+.mfa-qr { display: grid; place-items: center; margin: 8px 0 14px; }
+.mfa-qr svg { box-sizing: content-box; height: auto; max-width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 6px; background: #fff; }
+.mfa-key { display: inline-block; margin-top: 4px; padding: 6px 12px; border-radius: 8px; background: #f7fafd; border: 1px solid var(--line); letter-spacing: .06em; font-size: 13px; user-select: all; }
+.mfa-form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+.mfa-form input { min-width: 180px; font-size: 18px; letter-spacing: .25em; text-align: center; }
+.mfa-setup { max-width: 520px; }
+.mfa-codes { max-width: 560px; }
+.mfa-code-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0 16px; }
+.mfa-code-grid code { padding: 9px 12px; border-radius: 8px; background: #f7fafd; border: 1px solid var(--line); font-size: 15px; letter-spacing: .08em; text-align: center; user-select: all; }
+.flash-inline { max-width: 520px; padding: 10px 14px; border-radius: 10px; background: #fffaf1; border: 1px solid #f0d3a6; color: var(--warn); font-size: 13px; }

@@ -11,3 +11,6 @@ pdfplumber==0.11.4
 Pillow==11.0.0
 pydantic-settings==2.7.1
 psycopg[binary]==3.2.3
+pyotp==2.10.0
+segno==1.6.6
+cryptography==50.0.1

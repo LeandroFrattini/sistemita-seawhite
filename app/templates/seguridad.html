@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Seguridad de la cuenta</h1>
+    <span class="muted">Verificación en dos pasos con Google Authenticator, Microsoft Authenticator o Authy</span>
+  </div>
+</div>
+
+{% if codes %}
+<div class="card mfa-codes">
+  <h3>Guardá tus códigos de recuperación</h3>
+  <p class="muted">Cada código sirve <b>una sola vez</b> y reemplaza al de la app si perdés el celular.
+  Guardalos en un lugar seguro (gestor de contraseñas o impreso). <b>No se vuelven a mostrar.</b></p>
+  <div class="mfa-code-grid">
+    {% for c in codes %}<code>{{ c }}</code>{% endfor %}
+  </div>
+  <div class="row end"><a class="btn primary" href="/">Ya los guardé, continuar</a></div>
+</div>
+
+{% elif enabled %}
+<div class="card">
+  <h3>Verificación en dos pasos: activada</h3>
+  <p class="ok-box" style="display:inline-block">✔ Tu cuenta pide un código de la app al iniciar sesión.</p>
+  <p class="muted">Te quedan <b>{{ recovery_left }}</b> códigos de recuperación sin usar.
+  Si cambiás de celular o perdés el acceso, pedile a un administrador que reinicie tu verificación.</p>
+</div>
+
+{% else %}
+{% if user.requires_2fa %}
+<p class="flash-inline">Tu perfil tiene permisos sensibles, por eso la verificación en dos pasos es <b>obligatoria</b>.
+Hasta activarla no vas a poder usar el resto del sistema.</p>
+{% endif %}
+<div class="card mfa-setup">
+  <h3>Activar verificación en dos pasos</h3>
+  <ol class="mfa-steps">
+    <li>Instalá <b>Google Authenticator</b> (o Microsoft Authenticator / Authy) en tu celular.</li>
+    <li>En la app tocá <b>+</b> y escaneá este código QR.</li>
+    <li>Escribí abajo el código de 6 dígitos que muestra la app.</li>
+  </ol>
+  <div class="mfa-qr" role="img" aria-label="Código QR para la app autenticadora">{{ qr|safe }}</div>
+  <p class="muted" style="text-align:center">¿No podés escanear? Ingresá esta clave a mano:<br>
+  <code class="mfa-key">{{ manual_key }}</code></p>
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  <form method="post" action="/seguridad/activar" class="mfa-form">
+    <label>Código de 6 dígitos
+      <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" required autofocus>
+    </label>
+    <button type="submit" class="btn primary">Activar</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}
