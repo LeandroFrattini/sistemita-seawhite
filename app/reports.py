@@ -475,8 +475,17 @@ def _wbl_hold_label(label: str) -> str:
     return f"Hold {m.group(1)}" if m else label
 
 
+def _delays_lines(delays: str, empty: str) -> list[str]:
+    """Bloque "Delays" del turno. Con demoras cargadas, cada renglon va debajo
+    del titulo (se puede cargar mas de una); sin demoras queda "Delays: NIL"."""
+    entries = [ln.strip() for ln in (delays or "").splitlines() if ln.strip()]
+    if not entries or (len(entries) == 1 and entries[0].strip("-").strip().upper() in ("", "NIL")):
+        return ["", f"Delays: {empty}"]
+    return ["", "Delays:", *entries]
+
+
 def build_shift_report(
-    vf, client, shift: dict, notes: str, signature_html: str = "", statement_of_facts: str = "",
+    vf, client, shift: dict, signature_html: str = "", statement_of_facts: str = "",
 ) -> BuiltReport:
     """Loading/Discharging Shift -- formato calcado de MV IONIC KIBOU (Atlas)
     y MV DISCOVERER (Oceanway, con breakdown por bodega), o el de MV DOVER
@@ -554,9 +563,7 @@ def build_shift_report(
             for i, pc in enumerate(per_cargo):
                 prefix = "Balance to go:\t" if i == 0 else "\t\t"
                 lines.append(f"{prefix}{_fmt_mt(pc['balance'])} mt {pc['grade']}")
-        lines += ["", f"Delays: {(shift.get('delays') or 'NIL').strip()}"]
-        if (notes or "").strip():
-            lines += ["", "Remarks:", notes.strip()]
+        lines += _delays_lines(shift.get("delays"), "NIL")
         prospect = (shift.get("prospect") or "").strip()
         if prospect:
             lines += ["", "Prospects:", prospect]
@@ -596,9 +603,7 @@ def build_shift_report(
             for i, pc in enumerate(per_cargo):
                 prefix = "Balance to go =\t" if i == 0 else "\t\t"
                 lines.append(f"{prefix}{_fmt_mt(pc['balance'])} MT – {pc['grade']}")
-        lines += ["", f"Delays: {(shift.get('delays') or '-').strip()}"]
-        if (notes or "").strip():
-            lines += ["", "Remarks:", notes.strip()]
+        lines += _delays_lines(shift.get("delays"), "-")
         if shift.get("include_breakdown"):
             cumulative: dict[str, float] = {}
             for c in cargos:

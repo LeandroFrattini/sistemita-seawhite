@@ -211,14 +211,13 @@
         </div>
         {% endfor %}
       </div>
-      <div class="vf-fields">
-        <label>Delays (opcional)<input type="text" name="delays" placeholder="1030/1300 hrs no loading due to strong winds"></label>
-      </div>
+      <label>Delays (opcional, una demora por renglón)
+        <textarea name="delays" rows="3" placeholder="07:45/08:45 Hrs - Strong winds. Loading operations stopped.&#10;11:10/13:00 Hrs - Strong winds. Loading operations stopped."></textarea>
+      </label>
       <label>Tentative prospect (opcional)
         <textarea name="prospect" rows="2" placeholder="ETF: 12/0000 hrs&#10;ETS: 12/0400 hrs"></textarea>
       </label>
       <label class="check"><input type="checkbox" name="include_breakdown"> Incluir breakdown acumulado por bodega (ej. Oceanway)</label>
-      <label>Remarks (opcional)<textarea name="notes" rows="3"></textarea></label>
       {% if vf.sof_entries %}
       <label class="check"><input type="checkbox" name="include_sof"> Incluir Statement of Facts al pie (clientes WBL)</label>
       {% endif %}

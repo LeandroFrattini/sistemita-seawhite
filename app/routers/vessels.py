@@ -418,7 +418,8 @@ async def create_vessel_report(
         )
         db.add(loading_entry)
         sof_entries = [loading_entry]
-        delays_text = shift["delays"]
+        # cada renglon de "Delays" es una demora; en el SOF van juntas en un solo evento
+        delays_text = "; ".join(ln.strip() for ln in shift["delays"].splitlines() if ln.strip())
         if delays_text and delays_text.strip("-").strip().upper() not in ("", "NIL"):
             delays_entry = SofEntry(
                 vessel_file_id=vf.id, event_date=event_at, time_from=shift["time_from"],
@@ -436,7 +437,7 @@ async def create_vessel_report(
         cc_setting = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
         batch_id = uuid.uuid4().hex
         for i, client in enumerate(clients):
-            report = build_shift_report(vf, client, shift, notes, statement_of_facts=sof)
+            report = build_shift_report(vf, client, shift, statement_of_facts=sof)
             cc_emails = [e for e in cc_setting if e not in report.to_emails]
             db.add(
                 VesselReport(
