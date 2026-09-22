@@ -3,10 +3,11 @@ import json
 import zipfile
 from datetime import date
 
-from fastapi import APIRouter, Depends, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.datastructures import UploadFile
 
 from ..auth import current_user
 from ..config import BASE_DIR

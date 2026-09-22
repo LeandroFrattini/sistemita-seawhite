@@ -23,6 +23,7 @@ from openpyxl.drawing.image import Image as XLImage
 from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
 from openpyxl.drawing.xdr import XDRPositiveSize2D
 from openpyxl.utils.units import pixels_to_EMU
+from PIL import Image as PILImage
 
 from .config import BASE_DIR
 
@@ -178,6 +179,29 @@ def build_acta_reconduccion(
 # Shore pass (Ficha individual tripulante - ANEXO VI)
 # --------------------------------------------------------------------- #
 
+def _recortar_cuadro(foto_bytes: bytes, target_w: int, target_h: int) -> io.BytesIO:
+    """Recorta (centrado, sin deformar) y escala la foto para que llene
+    exactamente el cuadro del ANEXO VI, en vez de dejarla mas chica con
+    margenes si no coincide la proporcion del original."""
+    img = PILImage.open(io.BytesIO(foto_bytes)).convert("RGB")
+    ratio_caja = target_w / target_h
+    ancho, alto = img.size
+    ratio_foto = ancho / alto
+    if ratio_foto > ratio_caja:
+        nuevo_ancho = int(alto * ratio_caja)
+        x0 = (ancho - nuevo_ancho) // 2
+        img = img.crop((x0, 0, x0 + nuevo_ancho, alto))
+    else:
+        nuevo_alto = int(ancho / ratio_caja)
+        y0 = (alto - nuevo_alto) // 2
+        img = img.crop((0, y0, ancho, y0 + nuevo_alto))
+    img = img.resize((target_w, target_h), PILImage.LANCZOS)
+    out = io.BytesIO()
+    img.save(out, format="PNG")
+    out.seek(0)
+    return out
+
+
 def build_shore_pass(
     *, buque: str, empresa_signataria: str, lugar_fecha: str, trip: Tripulante,
     foto_bytes: bytes | None,
@@ -199,13 +223,12 @@ def build_shore_pass(
     ws["V37"] = lugar_fecha
 
     if foto_bytes:
-        foto = XLImage(io.BytesIO(foto_bytes))
         target_w, target_h = 190, 165  # caja D33:L40 del modelo
-        ratio = min(target_w / foto.width, target_h / foto.height)
-        foto.width = int(foto.width * ratio)
-        foto.height = int(foto.height * ratio)
+        recortada = _recortar_cuadro(foto_bytes, target_w, target_h)
+        foto = XLImage(recortada)
+        foto.width, foto.height = target_w, target_h
         marker = AnchorMarker(col=3, colOff=pixels_to_EMU(6), row=32, rowOff=pixels_to_EMU(4))
-        foto.anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(pixels_to_EMU(foto.width), pixels_to_EMU(foto.height)))
+        foto.anchor = OneCellAnchor(_from=marker, ext=XDRPositiveSize2D(pixels_to_EMU(target_w), pixels_to_EMU(target_h)))
         ws.add_image(foto)
 
     bio = io.BytesIO()
