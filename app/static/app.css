@@ -337,6 +337,8 @@ table.list tr.row-here:hover td { background: #ffec9e; }
 /* Operados: fila pintada cuando ya se cargaron los datos operativos */
 table.list tr.row-completo td { background: #e6f7ec; }
 table.list tr.row-completo:hover td { background: #d8f2e2; }
+table.list tr.row-pendiente td { background: #fdf1e6; }
+table.list tr.row-pendiente:hover td { background: #fbe6d2; }
 .op-tabla-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 8px; }
 .op-tabla-head h3 { margin: 0; }
 .zarpada-pendiente { color: var(--muted); font-style: italic; }
