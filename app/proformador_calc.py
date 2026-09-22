@@ -295,7 +295,9 @@ def calcular_bunker(db: Session, datos: dict) -> list[dict]:
             f"BASIS {cantidad_barcazas:g} BUNKER BARGE TRIP(S)",
         ))
 
-    if trn:
+    # Free Pratique: solo se cobra si el barco procede del exterior (igual
+    # que en Carga/Descarga y Otamerica)
+    if trn and datos.get("procede_exterior"):
         coef_a = get_param(db, "libre_platica_coef", 6942.9)
         base = get_param(db, "libre_platica_base", 416574)
         resta_trn = get_param(db, "libre_platica_resta_trn", 1001)
