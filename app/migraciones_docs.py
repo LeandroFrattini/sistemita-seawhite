@@ -165,8 +165,8 @@ def build_acta_reconduccion(
     p9.runs[5].text = str(fecha.year)
     p9.runs[6].text = ""
 
-    # Numero de expediente DNM -- por ahora siempre el mismo (255192)
-    paras[16].runs[2].text = "  255192"
+    # Numero de expediente DNM -- por ahora siempre el mismo (258369)
+    paras[16].runs[2].text = "  258369"
 
     bio = io.BytesIO()
     doc.save(bio)
