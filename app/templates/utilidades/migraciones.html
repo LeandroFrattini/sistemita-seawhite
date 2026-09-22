@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block nav_utilidades %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Migraciones</h1>
+    <span class="muted">Notas de embarco/desembarco, acta de reconducción y shore pass, en Word/Excel listos para descargar.</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/operaciones/utilidades">← Utilidades</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="pf-toggles">
+    <label class="pf-toggle"><input type="radio" name="modo" value="EMBARCO" checked> Nota de embarco</label>
+    <label class="pf-toggle"><input type="radio" name="modo" value="DESEMBARCO"> Nota de desembarco</label>
+    <label class="pf-toggle"><input type="radio" name="modo" value="RECONDUCCION"> Acta de reconducción</label>
+  </div>
+</div>
+
+<div id="bloque-nota">
+  <div class="card">
+    <h3>Datos del buque</h3>
+    <div class="row">
+      <label>Fecha<input type="date" id="nota-fecha" value="{{ hoy }}"></label>
+      <label>Bandera del buque<input type="text" id="nota-bandera" placeholder="Ej. MALTA"></label>
+      <label>Nombre del buque<input type="text" id="nota-buque" placeholder="Ej. LEDA C"></label>
+      <label>Muelle<input type="text" id="nota-muelle" placeholder="opcional"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-head">
+      <h3>Tripulantes</h3>
+      <button type="button" class="btn" id="btn-add-trip">+ Agregar tripulante</button>
+    </div>
+    <p class="muted" id="trip-vacio">Todavía no agregaste ningún tripulante.</p>
+    <div id="trip-list"></div>
+  </div>
+
+  <div class="card" id="card-shorepass" hidden>
+    <h3>Shore Pass (solo embarco)</h3>
+    <p class="muted">Se genera una Ficha ANEXO VI por cada tripulante de la lista de arriba, con los mismos datos
+    más lo que completes acá abajo en cada fila (lugar de nacimiento, expedida por y foto).</p>
+    <div class="row">
+      <label>Empresa signataria<input type="text" id="sp-empresa" value="SEA WHITE"></label>
+      <label>Lugar y fecha (ficha)<input type="text" id="sp-lugar-fecha" placeholder="Ej. BAHIA BLANCA, DE ABRIL DE 2026"></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row end">
+      <button type="button" class="btn" id="btn-shorepass" hidden>⬇ Shore Pass (.zip)</button>
+      <button type="button" class="btn primary" id="btn-nota">⬇ Generar nota (.docx)</button>
+    </div>
+    <p class="muted" id="nota-aviso" style="margin-top:8px">Completá bandera, buque y al menos un tripulante para habilitar la descarga.</p>
+  </div>
+</div>
+
+<div id="bloque-reconduccion" hidden>
+  <div class="card">
+    <h3>Datos de la reconducción</h3>
+    <div class="row">
+      <label>Fecha<input type="date" id="rc-fecha" value="{{ hoy }}"></label>
+      <label>Nacionalidad<input type="text" id="rc-nacionalidad"></label>
+      <label>Nombre del tripulante<input type="text" id="rc-nombre"></label>
+      <label>Pasaporte<input type="text" id="rc-pasaporte"></label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label>Bandera del buque<input type="text" id="rc-bandera"></label>
+      <label>Nombre del buque<input type="text" id="rc-buque"></label>
+      <label>Vuelo<input type="text" id="rc-vuelo" placeholder="Ej. UA 818"></label>
+      <label>Fecha de salida<input type="text" id="rc-fecha-salida" placeholder="Ej. 28/04"></label>
+      <label>Hora<input type="text" id="rc-hora-salida" placeholder="Ej. 21:00"></label>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row end">
+      <button type="button" class="btn primary" id="btn-reconduccion">⬇ Generar acta (.docx)</button>
+    </div>
+    <p class="muted" id="rc-aviso" style="margin-top:8px">Completá todos los campos para habilitar la descarga.</p>
+  </div>
+</div>
+
+<form id="form-nota" method="post" action="/operaciones/utilidades/migraciones/nota.docx" hidden>
+  <input type="hidden" name="tipo"><input type="hidden" name="fecha"><input type="hidden" name="bandera">
+  <input type="hidden" name="buque"><input type="hidden" name="muelle"><input type="hidden" name="tripulantes">
+</form>
+<form id="form-reconduccion" method="post" action="/operaciones/utilidades/migraciones/reconduccion.docx" hidden>
+  <input type="hidden" name="fecha"><input type="hidden" name="nacionalidad"><input type="hidden" name="nombre">
+  <input type="hidden" name="pasaporte"><input type="hidden" name="bandera"><input type="hidden" name="buque">
+  <input type="hidden" name="vuelo"><input type="hidden" name="fecha_salida"><input type="hidden" name="hora_salida">
+</form>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.trip-row { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 10px; position: relative; }
+.trip-row .row { margin-bottom: 8px; }
+.trip-row .trip-remove { position: absolute; top: 8px; right: 8px; }
+.trip-row .trip-extra { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; padding-top: 8px; border-top: 1px dashed var(--line); margin-top: 4px; }
+.trip-row .trip-extra label { font-size: 11.5px; }
+</style>
+<script>
+let tripCount = 0;
+const tripList = document.getElementById('trip-list');
+const tripVacio = document.getElementById('trip-vacio');
+
+function modoActual() {
+  return document.querySelector('input[name="modo"]:checked').value;
+}
+
+function agregarTripulante() {
+  const idx = tripCount++;
+  const div = document.createElement('div');
+  div.className = 'trip-row';
+  div.dataset.idx = idx;
+  div.innerHTML = `
+    <button type="button" class="mini danger trip-remove" title="Quitar">✕</button>
+    <div class="row">
+      <label>Nombre<input type="text" class="f-nombre" placeholder="APELLIDO NOMBRE"></label>
+      <label>Nacionalidad<input type="text" class="f-nacionalidad"></label>
+      <label>Fecha de nacimiento<input type="text" class="f-fecha-nac" placeholder="dd/mm/aaaa"></label>
+      <label>Lugar de nacimiento<input type="text" class="f-lugar-nac" placeholder="opcional"></label>
+      <label>Pasaporte<input type="text" class="f-pasaporte"></label>
+      <label>Rango<input type="text" class="f-rango"></label>
+    </div>
+    <div class="row f-desembarco" hidden>
+      <label>Vuelo<input type="text" class="f-vuelo"></label>
+      <label>Fecha de salida<input type="text" class="f-fecha-salida" placeholder="dd/mm/aaaa"></label>
+      <label>Hora de salida<input type="text" class="f-hora-salida" placeholder="hh:mm"></label>
+    </div>
+    <div class="trip-extra f-shorepass" hidden>
+      <label>Expedida por (pasaporte)<input type="text" class="f-expedida-por" placeholder="= nacionalidad si lo dejás vacío"></label>
+      <label>Foto<input type="file" accept="image/*" class="f-foto"></label>
+    </div>
+  `;
+  div.querySelector('.trip-remove').addEventListener('click', () => { div.remove(); actualizarEstado(); });
+  tripList.appendChild(div);
+  aplicarModoFilas();
+  actualizarEstado();
+}
+document.getElementById('btn-add-trip').addEventListener('click', agregarTripulante);
+
+function aplicarModoFilas() {
+  const modo = modoActual();
+  document.querySelectorAll('.trip-row').forEach((row) => {
+    row.querySelector('.f-desembarco').hidden = modo !== 'DESEMBARCO';
+    row.querySelector('.f-shorepass').hidden = modo !== 'EMBARCO';
+  });
+}
+
+function recolectarTripulantes() {
+  return [...document.querySelectorAll('.trip-row')].map((row) => ({
+    nombre: row.querySelector('.f-nombre').value.trim(),
+    nacionalidad: row.querySelector('.f-nacionalidad').value.trim(),
+    fecha_nacimiento: row.querySelector('.f-fecha-nac').value.trim(),
+    lugar_nacimiento: row.querySelector('.f-lugar-nac').value.trim(),
+    pasaporte: row.querySelector('.f-pasaporte').value.trim(),
+    rango: row.querySelector('.f-rango').value.trim(),
+    vuelo: row.querySelector('.f-vuelo').value.trim(),
+    fecha_salida: row.querySelector('.f-fecha-salida').value.trim(),
+    hora_salida: row.querySelector('.f-hora-salida').value.trim(),
+    expedida_por: row.querySelector('.f-expedida-por').value.trim(),
+  })).filter((t) => t.nombre);
+}
+
+function actualizarEstado() {
+  const modo = modoActual();
+  const esRecon = modo === 'RECONDUCCION';
+  document.getElementById('bloque-nota').hidden = esRecon;
+  document.getElementById('bloque-reconduccion').hidden = !esRecon;
+  document.getElementById('card-shorepass').hidden = modo !== 'EMBARCO';
+  document.getElementById('btn-shorepass').hidden = modo !== 'EMBARCO';
+  aplicarModoFilas();
+
+  if (!esRecon) {
+    const trips = recolectarTripulantes();
+    tripVacio.hidden = document.querySelectorAll('.trip-row').length > 0;
+    const completo = document.getElementById('nota-bandera').value.trim()
+      && document.getElementById('nota-buque').value.trim() && trips.length > 0;
+    document.getElementById('btn-nota').disabled = !completo;
+    document.getElementById('btn-shorepass').disabled = !completo;
+    document.getElementById('nota-aviso').hidden = completo;
+  } else {
+    const completo = ['rc-nacionalidad', 'rc-nombre', 'rc-pasaporte', 'rc-bandera', 'rc-buque', 'rc-vuelo', 'rc-fecha-salida', 'rc-hora-salida']
+      .every((id) => document.getElementById(id).value.trim());
+    document.getElementById('btn-reconduccion').disabled = !completo;
+    document.getElementById('rc-aviso').hidden = completo;
+  }
+}
+
+document.querySelectorAll('input[name="modo"]').forEach((r) => r.addEventListener('change', actualizarEstado));
+['nota-bandera', 'nota-buque'].forEach((id) => document.getElementById(id).addEventListener('input', actualizarEstado));
+tripList.addEventListener('input', actualizarEstado);
+['rc-nacionalidad', 'rc-nombre', 'rc-pasaporte', 'rc-bandera', 'rc-buque', 'rc-vuelo', 'rc-fecha-salida', 'rc-hora-salida']
+  .forEach((id) => document.getElementById(id).addEventListener('input', actualizarEstado));
+
+document.getElementById('btn-nota').addEventListener('click', () => {
+  const form = document.getElementById('form-nota');
+  form.tipo.value = modoActual();
+  form.fecha.value = document.getElementById('nota-fecha').value;
+  form.bandera.value = document.getElementById('nota-bandera').value.trim();
+  form.buque.value = document.getElementById('nota-buque').value.trim();
+  form.muelle.value = document.getElementById('nota-muelle').value.trim();
+  form.tripulantes.value = JSON.stringify(recolectarTripulantes());
+  form.submit();
+});
+
+document.getElementById('btn-reconduccion').addEventListener('click', () => {
+  const form = document.getElementById('form-reconduccion');
+  form.fecha.value = document.getElementById('rc-fecha').value;
+  form.nacionalidad.value = document.getElementById('rc-nacionalidad').value.trim();
+  form.nombre.value = document.getElementById('rc-nombre').value.trim();
+  form.pasaporte.value = document.getElementById('rc-pasaporte').value.trim();
+  form.bandera.value = document.getElementById('rc-bandera').value.trim();
+  form.buque.value = document.getElementById('rc-buque').value.trim();
+  form.vuelo.value = document.getElementById('rc-vuelo').value.trim();
+  form.fecha_salida.value = document.getElementById('rc-fecha-salida').value.trim();
+  form.hora_salida.value = document.getElementById('rc-hora-salida').value.trim();
+  form.submit();
+});
+
+document.getElementById('btn-shorepass').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-shorepass');
+  const trips = recolectarTripulantes();
+  const fd = new FormData();
+  fd.append('buque', document.getElementById('nota-buque').value.trim());
+  fd.append('empresa_signataria', document.getElementById('sp-empresa').value.trim() || 'SEA WHITE');
+  fd.append('lugar_fecha', document.getElementById('sp-lugar-fecha').value.trim());
+  fd.append('tripulantes', JSON.stringify(trips));
+  [...document.querySelectorAll('.trip-row')].forEach((row, idx) => {
+    const foto = row.querySelector('.f-foto').files[0];
+    if (foto) fd.append(`foto_${idx}`, foto);
+  });
+
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generando...';
+  try {
+    const res = await fetch('/operaciones/utilidades/migraciones/shore-pass.zip', { method: 'POST', body: fd });
+    if (!res.ok) throw new Error('fallo');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Shore Pass - ${document.getElementById('nota-buque').value.trim()}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('No se pudo generar el Shore Pass. Probá de nuevo.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+});
+
+agregarTripulante();
+actualizarEstado();
+</script>
+{% endblock %}
