@@ -21,6 +21,18 @@ def localdt(value, fmt: str = "%d/%m/%Y %H:%M") -> str:
     return value.astimezone(_AR_TZ).strftime(fmt)
 
 
+def fmt_zarpe(value: str) -> str:
+    """'2026-09-20T20:15' (datetime-local) -> '20/09/2026 20:15'."""
+    if not value:
+        return ""
+    try:
+        d, t = value.split("T")
+        y, m, day = d.split("-")
+        return f"{day}/{m}/{y} {t}"
+    except ValueError:
+        return value
+
+
 def _static_version(name: str) -> str:
     # mtime del archivo: cada deploy con cambios de CSS/JS cambia la URL y
     # el navegador no se queda con la version vieja en cache.
@@ -35,3 +47,4 @@ templates.env.globals["static_v"] = _static_version
 templates.env.globals["mfa_enabled"] = lambda: settings.mfa_enabled
 templates.env.filters["localdt"] = localdt
 templates.env.filters["etadisp"] = display_eta
+templates.env.filters["fmtzarpe"] = fmt_zarpe

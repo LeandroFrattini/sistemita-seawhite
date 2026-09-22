@@ -164,10 +164,21 @@ def _sitio(o: OperatedVessel) -> str:
     return o.berth_label or o.terminal_code or ""
 
 
+def _parse_zarpe(value: str) -> datetime | None:
+    """'2026-09-20T20:15' (datetime-local) -> datetime, para que Excel lo
+    trate como fecha real (ordenable/filtrable), no como texto suelto."""
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return None
+
+
 @router.get("/nuestros-barcos/operados/exportar.xlsx")
 def exportar_operados(mes: str = "", db: Session = Depends(get_db), user: User = Depends(current_user)):
-    """BARCO / SITIO o MUELLE / ZARPADA / CLIENTE, separado en 2 hojas
-    (Agencias / Estibas) -- respeta el filtro de mes que este viendo."""
+    """BARCO / SITIO o MUELLE / ZARPADA / DESTINO / CLIENTE, separado en 2
+    hojas (Agencias / Estibas) -- respeta el filtro de mes que este viendo."""
     query = select(OperatedVessel).order_by(OperatedVessel.period.desc(), OperatedVessel.operated_at.desc())
     todos = list(db.scalars(query))
     operados = [o for o in todos if o.period == mes] if mes else todos
@@ -185,7 +196,7 @@ def exportar_operados(mes: str = "", db: Session = Depends(get_db), user: User =
     wb.remove(wb.active)
     for title, rows in (("Agencias", operados_agencia), ("Estibas", operados_estiba)):
         ws = wb.create_sheet(title)
-        headers = ["BARCO", "SITIO / MUELLE", "ZARPADA", "CLIENTE"]
+        headers = ["BARCO", "SITIO / MUELLE", "ZARPADA", "DESTINO", "CLIENTE"]
         for i, h in enumerate(headers, start=1):
             c = ws.cell(row=1, column=i, value=h)
             c.font = WHITE_BOLD
@@ -194,9 +205,13 @@ def exportar_operados(mes: str = "", db: Session = Depends(get_db), user: User =
         for r, o in enumerate(rows, start=2):
             ws.cell(row=r, column=1, value=o.vessel_name.upper())
             ws.cell(row=r, column=2, value=_sitio(o))
-            ws.cell(row=r, column=3, value=o.zarpe or "")
-            ws.cell(row=r, column=4, value=o.principal)
-        for i, w in enumerate([28, 22, 20, 26], start=1):
+            zarpe_dt = _parse_zarpe(o.zarpe)
+            zc = ws.cell(row=r, column=3, value=zarpe_dt if zarpe_dt else "")
+            if zarpe_dt:
+                zc.number_format = "dd/mm/yyyy hh:mm"
+            ws.cell(row=r, column=4, value=o.destination or "")
+            ws.cell(row=r, column=5, value=o.principal)
+        for i, w in enumerate([28, 22, 20, 22, 26], start=1):
             ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
 
     bio = io.BytesIO()
