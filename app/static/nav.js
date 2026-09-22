@@ -1,8 +1,9 @@
 "use strict";
-// Desplegables de la barra superior (Line Up / Operaciones, y los flyouts
-// anidados de Barcos/Reportes dentro de Operaciones). Cada panel se saca de
-// su lugar original con position:fixed, igual que el popup de "otras
-// agencias" del line-up, para que no se recorte por overflow del <nav>.
+// Desplegables de la barra superior (Line Up / Operaciones). Cada panel se
+// saca de su lugar original con position:fixed, igual que el popup de
+// "otras agencias" del line-up, para que no se recorte por overflow del <nav>.
+// El nivel 2 (.nav-subgroup / .nav-sub-panel) queda soportado por si algun
+// dia se vuelve a anidar un submenu, aunque hoy ningun template lo usa.
 (function () {
   function closeAllTop() {
     document.querySelectorAll(".nav-drop-panel, .nav-sub-panel").forEach((p) => (p.hidden = true));
