@@ -91,6 +91,11 @@ _MIGRATIONS = [
     ("users", "totp_enabled", "BOOLEAN DEFAULT FALSE"),
     ("users", "totp_last_step", "BIGINT DEFAULT 0"),
     ("users", "totp_recovery", "TEXT DEFAULT ''"),
+    ("operated_vessels", "amarre", "TEXT DEFAULT ''"),
+    ("operated_vessels", "inicio_operacion", "TEXT DEFAULT ''"),
+    ("operated_vessels", "fin_operacion", "TEXT DEFAULT ''"),
+    ("operated_vessels", "zarpe", "TEXT DEFAULT ''"),
+    ("operated_vessels", "cantidad_operada", "TEXT DEFAULT ''"),
 ]
 
 

@@ -268,6 +268,25 @@ class OperatedVessel(Base):
     principal: Mapped[str] = mapped_column(String(120), default="")
     extras: Mapped[str] = mapped_column(String(255), default="")
 
+    # Datos operativos para calculos futuros (facturacion, estadias, etc.).
+    # Se cargan aparte, despues de que el barco ya quedo en "Operados"
+    # ("Completar datos" en Nuestros barcos). datetime-local -> string ISO.
+    amarre: Mapped[str] = mapped_column(String(40), default="")
+    inicio_operacion: Mapped[str] = mapped_column(String(40), default="")
+    fin_operacion: Mapped[str] = mapped_column(String(40), default="")
+    zarpe: Mapped[str] = mapped_column(String(40), default="")
+    cantidad_operada: Mapped[str] = mapped_column(String(40), default="")
+
+    def datos_completos(self, es_estiba: bool) -> bool:
+        """Estiba: solo hace falta el fin de carga/descarga. Agencia: los
+        5 campos operativos, porque se usan para calculos futuros."""
+        if es_estiba:
+            return bool(self.fin_operacion.strip())
+        return all([
+            self.amarre.strip(), self.inicio_operacion.strip(), self.fin_operacion.strip(),
+            self.zarpe.strip(), self.cantidad_operada.strip(),
+        ])
+
 
 VESSEL_REPORT_TYPES = [
     ("BERTHING", "Berthing"),

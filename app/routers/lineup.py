@@ -1,5 +1,9 @@
+import io
+
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -125,6 +129,11 @@ def our_vessels_page(request: Request, mes: str = "", tipo: str = "AGENCY", db: 
     # el total de la tabla de operados = agencias + estibas + los que no se pueden clasificar
     cuenta_operados = {"total": len(todos_op), "agencias": len(ag_op), "estibas": len(es_op), "fuera": len(fuera_op)}
 
+    # Tabla de Operados: separada en Agencia / Estiba (se cobra una vez por
+    # cada cliente asociado, asi que cada fila es un cliente distinto).
+    operados_agencia = [o for o in operados if tipo_por_nombre.get(o.principal.strip().casefold()) == "AGENCY"]
+    operados_estiba = [o for o in operados if tipo_por_nombre.get(o.principal.strip().casefold()) == "ESTIBA"]
+
     return templates.TemplateResponse(
         request,
         "nuestros_barcos.html",
@@ -132,6 +141,8 @@ def our_vessels_page(request: Request, mes: str = "", tipo: str = "AGENCY", db: 
             "user": user,
             "en_lineup": en_lineup,
             "operados": operados,
+            "operados_agencia": operados_agencia,
+            "operados_estiba": operados_estiba,
             "grafico_operados": grafico_operados,
             "grafico_anunciados": grafico_anunciados,
             "fuera_operados": describir_fuera(fuera_op),
@@ -146,6 +157,55 @@ def our_vessels_page(request: Request, mes: str = "", tipo: str = "AGENCY", db: 
             "period_label": _period_label,
             "clients": active_clients(db),
         },
+    )
+
+
+def _sitio(o: OperatedVessel) -> str:
+    return o.berth_label or o.terminal_code or ""
+
+
+@router.get("/nuestros-barcos/operados/exportar.xlsx")
+def exportar_operados(mes: str = "", db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """BARCO / SITIO o MUELLE / ZARPADA / CLIENTE, separado en 2 hojas
+    (Agencias / Estibas) -- respeta el filtro de mes que este viendo."""
+    query = select(OperatedVessel).order_by(OperatedVessel.period.desc(), OperatedVessel.operated_at.desc())
+    todos = list(db.scalars(query))
+    operados = [o for o in todos if o.period == mes] if mes else todos
+    tipo_por_nombre = {c.name.strip().casefold(): c.client_type for c in active_clients(db)}
+    operados_agencia = [o for o in operados if tipo_por_nombre.get(o.principal.strip().casefold()) == "AGENCY"]
+    operados_estiba = [o for o in operados if tipo_por_nombre.get(o.principal.strip().casefold()) == "ESTIBA"]
+
+    BLUE = "FF1B5FA8"
+    WHITE_BOLD = Font(bold=True, color="FFFFFFFF")
+
+    def _fill(color):
+        return PatternFill("solid", fgColor=color)
+
+    wb = Workbook()
+    wb.remove(wb.active)
+    for title, rows in (("Agencias", operados_agencia), ("Estibas", operados_estiba)):
+        ws = wb.create_sheet(title)
+        headers = ["BARCO", "SITIO / MUELLE", "ZARPADA", "CLIENTE"]
+        for i, h in enumerate(headers, start=1):
+            c = ws.cell(row=1, column=i, value=h)
+            c.font = WHITE_BOLD
+            c.fill = _fill(BLUE)
+            c.alignment = Alignment(horizontal="left")
+        for r, o in enumerate(rows, start=2):
+            ws.cell(row=r, column=1, value=o.vessel_name.upper())
+            ws.cell(row=r, column=2, value=_sitio(o))
+            ws.cell(row=r, column=3, value=o.zarpe or "")
+            ws.cell(row=r, column=4, value=o.principal)
+        for i, w in enumerate([28, 22, 20, 26], start=1):
+            ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
+
+    bio = io.BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+    filename = f"Operados {_period_label(mes) if mes else 'todos'}.xlsx".replace("/", "-")
+    return StreamingResponse(
+        bio, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -222,6 +282,28 @@ def set_operated_client(op_id: int, cliente: str = Form(""), volver: str = Form(
     )
     if row and client:
         row.principal = client.name
+        db.commit()
+    partes = ([f"mes={volver}"] if volver else []) + [f"tipo={'ESTIBA' if tipo.upper() == 'ESTIBA' else 'AGENCY'}"]
+    return RedirectResponse("/nuestros-barcos?" + "&".join(partes) + "#operados", status_code=302)
+
+
+@router.post("/operados/{op_id}/completar")
+def completar_operado(
+    op_id: int, volver: str = Form(""), tipo: str = Form("AGENCY"),
+    amarre: str = Form(""), inicio_operacion: str = Form(""), fin_operacion: str = Form(""),
+    zarpe: str = Form(""), cantidad_operada: str = Form(""),
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+):
+    """Carga los datos operativos de un barco ya operado (Amarre/Inicio/Final/
+    Zarpe/Cantidad para Agencia, o solo Final para Estiba) -- se van a usar
+    para calculos futuros, por eso quedan en campos propios y no sueltos."""
+    row = db.get(OperatedVessel, op_id)
+    if row:
+        row.amarre = amarre.strip()
+        row.inicio_operacion = inicio_operacion.strip()
+        row.fin_operacion = fin_operacion.strip()
+        row.zarpe = zarpe.strip()
+        row.cantidad_operada = cantidad_operada.strip()
         db.commit()
     partes = ([f"mes={volver}"] if volver else []) + [f"tipo={'ESTIBA' if tipo.upper() == 'ESTIBA' else 'AGENCY'}"]
     return RedirectResponse("/nuestros-barcos?" + "&".join(partes) + "#operados", status_code=302)

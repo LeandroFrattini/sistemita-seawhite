@@ -328,11 +328,18 @@ table.list tr.row-here:hover td { background: #ffec9e; }
 .vf-reporte-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
 .vf-reporte-head h2 { margin: 0; }
 
-#report-modal, #sof-modal, #bd-modal, #shift-modal, #add-vessel-modal {
+#report-modal, #sof-modal, #bd-modal, #shift-modal, #add-vessel-modal, #completar-modal {
   border: none; border-radius: 12px; padding: 18px 20px 20px; width: min(640px, 92vw);
   max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25);
 }
-#report-modal::backdrop, #sof-modal::backdrop, #bd-modal::backdrop, #shift-modal::backdrop, #add-vessel-modal::backdrop { background: rgba(10, 22, 38, .45); }
+#report-modal::backdrop, #sof-modal::backdrop, #bd-modal::backdrop, #shift-modal::backdrop, #add-vessel-modal::backdrop, #completar-modal::backdrop { background: rgba(10, 22, 38, .45); }
+
+/* Operados: fila pintada cuando ya se cargaron los datos operativos */
+table.list tr.row-completo td { background: #e6f7ec; }
+table.list tr.row-completo:hover td { background: #d8f2e2; }
+.op-tabla-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 8px; }
+.op-tabla-head h3 { margin: 0; }
+.zarpada-pendiente { color: var(--muted); font-style: italic; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .modal-head h2 { margin: 0; font-size: 17px; }
 .modal-close {

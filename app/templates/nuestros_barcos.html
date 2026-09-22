@@ -109,12 +109,69 @@
   {% endif %}
 </section>
 
+{% macro operados_tabla(titulo, filas, es_estiba) %}
+<div class="op-tabla-head">
+  <h3>{{ titulo }} ({{ filas|length }})</h3>
+</div>
+{% if filas %}
+<table class="list">
+  <thead><tr>
+    <th>Barco</th><th>Sitio / Muelle</th><th>Zarpada</th><th>Cliente</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for o in filas %}
+    <tr class="{{ 'row-completo' if o.datos_completos(es_estiba) }}">
+      <td><b>{{ o.vessel_name|upper }}</b></td>
+      <td>{{ o.berth_label or o.terminal_code }}</td>
+      <td>{% if o.zarpe %}{{ o.zarpe|replace('T', ' ') }}{% else %}<span class="zarpada-pendiente">Pendiente</span>{% endif %}</td>
+      <td class="nowrap">
+        {# el cliente se puede corregir desde la fila (elegir uno de la planilla de Clientes) #}
+        {% set actual = (o.principal or '').strip() %}
+        <form method="post" action="/operados/{{ o.id }}/cliente" class="inline-form">
+          <input type="hidden" name="volver" value="{{ mes }}"><input type="hidden" name="tipo" value="{{ tipo }}">
+          <select name="cliente" data-autosubmit class="cli-select {{ 'sin-clasificar' if actual.lower() not in nombres_clientes }}" aria-label="Cliente de {{ o.vessel_name }}">
+            {% if actual.lower() not in nombres_clientes %}<option value="" selected>{{ actual or 'Sin cliente' }} (elegir cliente)</option>{% endif %}
+            {% for c in clients %}<option value="{{ c.name }}" {{ 'selected' if c.name.strip().lower() == actual.lower() }}>{{ c.name }}</option>{% endfor %}
+          </select>
+          <noscript><button class="mini">Guardar</button></noscript>
+        </form>
+      </td>
+      <td class="nowrap">
+        <button type="button" class="mini btn-completar"
+          data-id="{{ o.id }}" data-vessel="{{ o.vessel_name|upper }}" data-estiba="{{ '1' if es_estiba else '' }}"
+          data-amarre="{{ o.amarre }}" data-inicio="{{ o.inicio_operacion }}" data-fin="{{ o.fin_operacion }}"
+          data-zarpe="{{ o.zarpe }}" data-cantidad="{{ o.cantidad_operada }}">
+          {{ '✓ Datos' if o.datos_completos(es_estiba) else 'Completar datos' }}
+        </button>
+        <form method="post" action="/operados/{{ o.id }}/mes" class="inline-form">
+          <input type="hidden" name="volver" value="{{ mes }}">
+          <input type="month" name="period" value="{{ o.period }}" title="Mes de recuento">
+          <button class="mini" title="Mover al mes de recuento">Mover</button>
+        </form>
+        <form method="post" action="/operados/{{ o.id }}/delete" class="inline-form"
+              onsubmit="return confirm('¿Borrar del histórico?')">
+          <input type="hidden" name="volver" value="{{ mes }}">
+          <button class="mini danger" title="Borrar">✕</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">{{ 'No hay barcos operados en ese mes.' if mes else 'Todavía no hay barcos operados.' }}</p>
+{% endif %}
+{% endmacro %}
+
 <section id="operados">
-  <h2>Operados
-    {% if mes %}· {{ period_label(mes) }} ({{ operados|length }}){% else %}· todos ({{ total_operados }}){% endif %}
-  </h2>
+  <div class="op-tabla-head">
+    <h2>Operados
+      {% if mes %}· {{ period_label(mes) }} ({{ operados|length }}){% else %}· todos ({{ total_operados }}){% endif %}
+    </h2>
+    <a class="btn" href="/nuestros-barcos/operados/exportar.xlsx{{ '?mes=' ~ mes if mes }}">⬇ Exportar Excel</a>
+  </div>
   <p class="muted">Cuando borrás un barco nuestro del line-up (la ✕), pasa acá. El <b>mes</b> se toma del ETC/ETS
-  del barco, y lo podés cambiar por fila para tu recuento.</p>
+  del barco, y lo podés cambiar por fila para tu recuento. Al completar los datos operativos, la fila se pinta de verde.</p>
 
   {% if meses %}
   <div class="mes-tabs">
@@ -125,56 +182,30 @@
   </div>
   {% endif %}
 
-  {% if operados %}
-  <table class="list">
-    <thead><tr>
-      <th>Barco</th><th>Terminal</th><th>Muelle</th>
-      <th>ETA</th><th>ETB</th><th>ETC</th><th>Grade</th>
-      <th>Cliente</th><th>Sacado</th><th>Por</th><th>Mes (recuento)</th><th></th>
-    </tr></thead>
-    <tbody>
-    {% for o in operados %}
-      <tr>
-        <td><b>{{ o.vessel_name|upper }}</b></td>
-        <td>{{ o.terminal_code }}</td><td>{{ o.berth_label }}</td>
-        <td>{{ o.eta|etadisp }}</td><td>{{ o.etb|etadisp }}</td><td>{{ o.etc|etadisp }}</td>
-        <td>{{ o.grade }}</td>
-        <td class="nowrap">
-          {# el cliente se puede corregir desde la fila (elegir uno de la planilla de Clientes) #}
-          {% set actual = (o.principal or '').strip() %}
-          <form method="post" action="/operados/{{ o.id }}/cliente" class="inline-form">
-            <input type="hidden" name="volver" value="{{ mes }}"><input type="hidden" name="tipo" value="{{ tipo }}">
-            <select name="cliente" data-autosubmit class="cli-select {{ 'sin-clasificar' if actual.lower() not in nombres_clientes }}" aria-label="Cliente de {{ o.vessel_name }}">
-              {% if actual.lower() not in nombres_clientes %}<option value="" selected>{{ actual or 'Sin cliente' }} (elegir cliente)</option>{% endif %}
-              {% for c in clients %}<option value="{{ c.name }}" {{ 'selected' if c.name.strip().lower() == actual.lower() }}>{{ c.name }}</option>{% endfor %}
-            </select>
-            <noscript><button class="mini">Guardar</button></noscript>
-          </form>
-        </td>
-        <td class="nowrap">{{ o.operated_at|localdt("%d/%m/%Y") }}</td>
-        <td>{{ o.removed_by }}</td>
-        <td class="nowrap">
-          <form method="post" action="/operados/{{ o.id }}/mes" class="inline-form">
-            <input type="hidden" name="volver" value="{{ mes }}">
-            <input type="month" name="period" value="{{ o.period }}">
-            <button class="mini">Mover</button>
-          </form>
-        </td>
-        <td>
-          <form method="post" action="/operados/{{ o.id }}/delete"
-                onsubmit="return confirm('¿Borrar del histórico?')">
-            <input type="hidden" name="volver" value="{{ mes }}">
-            <button class="mini danger">✕</button>
-          </form>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="muted">{{ 'No hay barcos operados en ese mes.' if mes else 'Todavía no hay barcos operados.' }}</p>
-  {% endif %}
+  {{ operados_tabla("Agencias", operados_agencia, false) }}
+  {{ operados_tabla("Estibas", operados_estiba, true) }}
 </section>
+
+<dialog id="completar-modal">
+  <div class="modal-head">
+    <h2 id="completar-titulo">Completar datos</h2>
+    <button type="button" class="modal-close" id="close-completar-modal" aria-label="Cerrar">×</button>
+  </div>
+  <form method="post" id="completar-form" class="vf-report-form">
+    <input type="hidden" name="volver" value="{{ mes }}">
+    <input type="hidden" name="tipo" value="{{ tipo }}">
+    <div id="completar-campos-extra" class="vf-fields">
+      <label>Amarre<input type="datetime-local" name="amarre" id="completar-amarre"></label>
+      <label>Inicio<input type="datetime-local" name="inicio_operacion" id="completar-inicio"></label>
+      <label>Zarpe<input type="datetime-local" name="zarpe" id="completar-zarpe"></label>
+      <label>Cantidad cargada/descargada<input type="text" name="cantidad_operada" id="completar-cantidad" placeholder="ej. 25000 tn"></label>
+    </div>
+    <div class="vf-fields">
+      <label><span id="completar-fin-text">Final</span><input type="datetime-local" name="fin_operacion" id="completar-fin"></label>
+    </div>
+    <button type="submit" class="btn primary vf-submit">Guardar</button>
+  </form>
+</dialog>
 
 <script>
 const addVesselModal = document.getElementById("add-vessel-modal");
@@ -186,6 +217,33 @@ addVesselModal?.addEventListener("click", (ev) => {
 // elegir un cliente en la fila de un barco operado lo guarda al instante
 document.querySelectorAll("select[data-autosubmit]").forEach((sel) => {
   sel.addEventListener("change", () => { if (sel.value) sel.form.submit(); });
+});
+
+// modal "Completar datos" -- un solo dialog reusado para todas las filas
+const completarModal = document.getElementById("completar-modal");
+const completarForm = document.getElementById("completar-form");
+const completarCamposExtra = document.getElementById("completar-campos-extra");
+const completarFinText = document.getElementById("completar-fin-text");
+const completarTitulo = document.getElementById("completar-titulo");
+
+document.querySelectorAll(".btn-completar").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const esEstiba = btn.dataset.estiba === "1";
+    completarForm.action = `/operados/${btn.dataset.id}/completar`;
+    completarTitulo.textContent = `Completar datos — ${btn.dataset.vessel}`;
+    document.getElementById("completar-amarre").value = btn.dataset.amarre || "";
+    document.getElementById("completar-inicio").value = btn.dataset.inicio || "";
+    document.getElementById("completar-fin").value = btn.dataset.fin || "";
+    document.getElementById("completar-zarpe").value = btn.dataset.zarpe || "";
+    document.getElementById("completar-cantidad").value = btn.dataset.cantidad || "";
+    completarCamposExtra.hidden = esEstiba;
+    completarFinText.textContent = esEstiba ? "Final de carga/descarga" : "Final";
+    completarModal.showModal();
+  });
+});
+document.getElementById("close-completar-modal")?.addEventListener("click", () => completarModal.close());
+completarModal?.addEventListener("click", (ev) => {
+  if (ev.target === completarModal) completarModal.close();
 });
 </script>
 {% endblock %}
