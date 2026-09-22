@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from ..auth import current_user
 from ..charts import build_donut, describir_fuera, filtrar_por_tipo
 from ..database import get_db
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from ..dates import eta_sort_key, parse_date
 from ..models import Client, OperatedVessel, Terminal, User, VesselCall, VesselExtraAgency, VesselFile
@@ -296,7 +296,12 @@ def completar_operado(
 ):
     """Carga los datos operativos de un barco ya operado (Amarre/Inicio/Final/
     Zarpe/Cantidad para Agencia, o solo Final para Estiba) -- se van a usar
-    para calculos futuros, por eso quedan en campos propios y no sueltos."""
+    para calculos futuros, por eso quedan en campos propios y no sueltos.
+    Un mismo movimiento de barco genera una fila de OperatedVessel POR
+    CADA cliente (ver _archive_operated), asi que al completar una hay
+    que repetir los mismos datos en sus filas hermanas (mismo barco,
+    mismo muelle, creadas juntas en el mismo momento al sacarlo del
+    line-up) para no tener que cargarlo mas de una vez."""
     row = db.get(OperatedVessel, op_id)
     if row:
         row.amarre = amarre.strip()
@@ -304,6 +309,23 @@ def completar_operado(
         row.fin_operacion = fin_operacion.strip()
         row.zarpe = zarpe.strip()
         row.cantidad_operada = cantidad_operada.strip()
+
+        hermanas = db.scalars(
+            select(OperatedVessel).where(
+                OperatedVessel.id != row.id,
+                func.lower(OperatedVessel.vessel_name) == row.vessel_name.strip().lower(),
+                OperatedVessel.terminal_code == row.terminal_code,
+                OperatedVessel.berth_label == row.berth_label,
+                OperatedVessel.operated_at >= row.operated_at - timedelta(seconds=10),
+                OperatedVessel.operated_at <= row.operated_at + timedelta(seconds=10),
+            )
+        ).all()
+        for h in hermanas:
+            h.amarre = row.amarre
+            h.inicio_operacion = row.inicio_operacion
+            h.fin_operacion = row.fin_operacion
+            h.zarpe = row.zarpe
+            h.cantidad_operada = row.cantidad_operada
         db.commit()
     partes = ([f"mes={volver}"] if volver else []) + [f"tipo={'ESTIBA' if tipo.upper() == 'ESTIBA' else 'AGENCY'}"]
     return RedirectResponse("/nuestros-barcos?" + "&".join(partes) + "#operados", status_code=302)
