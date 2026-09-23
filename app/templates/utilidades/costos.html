@@ -47,7 +47,7 @@
   </div>
   {% endif %}
 
-  {% if p.nota %}<p class="muted costo-nota">{{ p.nota }}</p>{% endif %}
+  {% if p.nota and not p.tabla %}<p class="muted costo-nota">{{ p.nota }}</p>{% endif %}
 </div>
 {% endfor %}
 {% endblock %}
