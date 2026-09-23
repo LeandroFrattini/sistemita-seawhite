@@ -12,12 +12,18 @@
 </div>
 
 {% for p in plantillas %}
-<div class="card">
+<div class="card{{ ' costo-tabla-wrap' if p.tabla }}" {% if p.tabla %}data-titulo="{{ p.titulo }}" data-nota="{{ p.nota }}"{% endif %}>
   <div class="section-head">
     <h3>{{ p.titulo }}</h3>
     <span class="costo-head-right">
       {% if p.actualizado %}<span class="muted" style="font-size:11.5px">Actualizado {{ p.actualizado }}</span>{% endif %}
+      {% if p.tabla %}
+      <select class="costo-cliente-select" aria-label="Cliente / terminal">
+        {% for c in p.tabla.columnas %}<option value="{{ loop.index0 }}">{{ c }}</option>{% endfor %}
+      </select>
+      {% endif %}
       {% if p.grupos %}<button type="button" class="btn mini costo-copiar-grupo" data-texto="{{ p.texto_plano() }}">Copiar</button>{% endif %}
+      {% if p.tabla %}<button type="button" class="btn mini costo-copiar">Copiar</button>{% endif %}
     </span>
   </div>
 
@@ -37,18 +43,8 @@
   {% endfor %}
 
   {% if p.tabla %}
-  <div class="costo-tabla-wrap" data-titulo="{{ p.titulo }}" data-nota="{{ p.nota }}">
-    <label class="costo-cliente-label">Cliente / terminal
-      <select class="costo-cliente-select">
-        {% for c in p.tabla.columnas %}<option value="{{ loop.index0 }}">{{ c }}</option>{% endfor %}
-      </select>
-    </label>
-    <div class="costo-copiable-wrap">
-      <pre class="costo-copiable"></pre>
-      <button type="button" class="btn mini costo-copiar">Copiar</button>
-    </div>
-    <script type="application/json" class="costo-tabla-data">{{ {"columnas": p.tabla.columnas, "filas": p.tabla.filas} | tojson }}</script>
-  </div>
+  <pre class="costo-copiable"></pre>
+  <script type="application/json" class="costo-tabla-data">{{ {"columnas": p.tabla.columnas, "filas": p.tabla.filas} | tojson }}</script>
   {% endif %}
 
   {% if p.nota and not p.tabla %}<p class="muted costo-nota">{{ p.nota }}</p>{% endif %}
@@ -68,15 +64,12 @@ table.costo-items td.num { text-align: right; font-variant-numeric: tabular-nums
 table.costo-items tr.costo-alt td { color: var(--muted); }
 .costo-o { display: inline-block; font-size: 10px; font-weight: 700; color: #fff; background: var(--muted); border-radius: 4px; padding: 1px 5px; margin-right: 6px; }
 .costo-nota { margin-top: 10px; font-size: 12px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
-.costo-cliente-label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; max-width: 280px; margin-bottom: 10px; }
-.costo-cliente-label select { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; }
-.costo-copiable-wrap { position: relative; }
+.costo-cliente-select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
 .costo-copiable {
   background: #f7fafd; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
   font-family: inherit; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin: 0;
 }
-.costo-copiar { position: absolute; top: 8px; right: 8px; }
-.costo-head-right { display: flex; align-items: center; gap: 10px; }
+.costo-head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 </style>
 <script>
 document.querySelectorAll('.costo-copiar-grupo').forEach((btn) => {
