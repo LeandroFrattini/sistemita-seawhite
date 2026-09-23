@@ -15,7 +15,10 @@
 <div class="card">
   <div class="section-head">
     <h3>{{ p.titulo }}</h3>
-    {% if p.actualizado %}<span class="muted" style="font-size:11.5px">Actualizado {{ p.actualizado }}</span>{% endif %}
+    <span class="costo-head-right">
+      {% if p.actualizado %}<span class="muted" style="font-size:11.5px">Actualizado {{ p.actualizado }}</span>{% endif %}
+      {% if p.grupos %}<button type="button" class="btn mini costo-copiar-grupo" data-texto="{{ p.texto_plano() }}">Copiar</button>{% endif %}
+    </span>
   </div>
 
   {% for g in p.grupos %}
@@ -29,6 +32,7 @@
       </tr>
       {% endfor %}
     </table>
+    {% if g.nota %}<p class="muted costo-nota">{{ g.nota }}</p>{% endif %}
   </div>
   {% endfor %}
 
@@ -72,8 +76,22 @@ table.costo-items tr.costo-alt td { color: var(--muted); }
   font-family: inherit; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin: 0;
 }
 .costo-copiar { position: absolute; top: 8px; right: 8px; }
+.costo-head-right { display: flex; align-items: center; gap: 10px; }
 </style>
 <script>
+document.querySelectorAll('.costo-copiar-grupo').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(btn.dataset.texto);
+      const original = btn.textContent;
+      btn.textContent = '¡Copiado!';
+      setTimeout(() => (btn.textContent = original), 1500);
+    } catch (e) {
+      alert('No se pudo copiar: ' + e.message);
+    }
+  });
+});
+
 document.querySelectorAll('.costo-tabla-wrap').forEach((wrap) => {
   const data = JSON.parse(wrap.querySelector('.costo-tabla-data').textContent);
   const select = wrap.querySelector('.costo-cliente-select');

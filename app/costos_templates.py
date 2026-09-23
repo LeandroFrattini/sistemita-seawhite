@@ -23,6 +23,7 @@ class ItemCosto:
 class GrupoItems:
     titulo: str
     items: list[ItemCosto]
+    nota: str = ""  # va pegada a este grupo especifico (no al pie de toda la plantilla)
 
 
 @dataclass
@@ -39,6 +40,25 @@ class PlantillaCosto:
     grupos: list[GrupoItems] = field(default_factory=list)
     tabla: TablaCosto | None = None
     nota: str = ""
+
+    def texto_plano(self) -> str:
+        """Todo el contenido de `grupos` armado como el mensaje de texto
+        que se manda tal cual (para el boton "Copiar" de la plantilla)."""
+        lineas = [self.titulo.upper()]
+        for g in self.grupos:
+            lineas.append("")
+            if g.titulo:
+                lineas.append(g.titulo.upper() + ":")
+            for it in g.items:
+                prefijo = "O " if it.es_alternativa else ""
+                lineas.append(f"{prefijo}{it.label}: {it.valor}")
+            if g.nota:
+                lineas.append("")
+                lineas.append(g.nota)
+        if self.nota:
+            lineas.append("")
+            lineas.append(self.nota)
+        return "\n".join(lineas)
 
 
 PLANTILLAS: list[PlantillaCosto] = [
@@ -81,9 +101,23 @@ PLANTILLAS: list[PlantillaCosto] = [
         ],
     ),
     PlantillaCosto(
-        slug="botes-grua-muelle",
-        titulo="Botes y grúa de muelle",
+        slug="estiba-botes-grua-muelle",
+        titulo="Estiba, botes y grúa de muelle",
         grupos=[
+            GrupoItems(
+                "Stevedore services — charges per shift (6 hours) nwh",
+                [
+                    ItemCosto("0-45 Kgs", "USD 760"),
+                    ItemCosto("45-100 kgs", "USD 1,000"),
+                    ItemCosto("100-200 kgs", "USD 1,250"),
+                    ItemCosto("200-500 kgs", "USD 2,050"),
+                    ItemCosto("500-1000 kgs", "USD 2,500"),
+                    ItemCosto("1000-3000 kgs", "USD 3,240"),
+                    ItemCosto("3000-5000 kgs", "USD 4,860"),
+                    ItemCosto("> 5000 kgs", "USD 5,400"),
+                ],
+                nota="If in overtime (mon/fri 1900/0700 + sat 1300/2400 + sun & hol 0000/2400): 100% surcharge.",
+            ),
             GrupoItems("Boat services expenses", [
                 ItemCosto("Boat service (up to 3 tonnes) - flat tariff", "USD 1,950.-"),
                 ItemCosto("Waiting time alongside", "USD 150 per hour"),
@@ -92,7 +126,6 @@ PLANTILLAS: list[PlantillaCosto] = [
                 ItemCosto("Per shift of 6 hours - flat tariff", "USD 1,200.-"),
             ]),
         ],
-        nota="If in overtime (mon/fri 1900/0700 + sat 1300/2400 + sun & hol 0000/2400): 100% surcharge.",
     ),
     PlantillaCosto(
         slug="estibas-provistas-repuestos-lubs-materiales",
