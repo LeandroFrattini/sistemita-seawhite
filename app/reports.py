@@ -145,7 +145,7 @@ def build_excel_report(call, client, lineup, terminal, term_calls, signature_htm
     header = _excel_header_text(call, client, lineup)
     footer = settings.report_footer
     notice = _notice_block(lineup)
-    notice_html = f"<div><b>{html.escape(notice)}</b></div><div><br></div>" if notice else ""
+    notice_html = f"<div><b>{_text_to_html(notice)}</b></div><div><br></div>" if notice else ""
     notice_text = f"{notice}\n\n" if notice else ""
     html_body = _wrap_body(
         f"<div>{_text_to_html(header)}</div>"
