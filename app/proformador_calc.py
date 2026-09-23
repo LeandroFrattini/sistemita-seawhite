@@ -56,8 +56,8 @@ def calcular_pilotage(db: Session, uf: float, calado_pies: float, *, km_clave: s
     Por defecto usa el recorrido Extranjero I.White-Profertil, 1 practico;
     para el recorrido Monoboyas (Boya 17) se pasan las claves alternativas
     (km y service distintos, el resto de los coeficientes es igual).
-    dos_practicos (Otamerica, manga > 39.9m): duplica la tarifa de gobierno
-    (Maniobra+Navegacion) -- el service/related fijo NO se duplica."""
+    dos_practicos (manga > 39.9m, en cualquier ruta): duplica la tarifa de
+    gobierno (Maniobra+Navegacion) -- el service/related fijo NO se duplica."""
     factor = coeficiente_pilotage_por_calado(db, calado_pies)
     if not factor or not uf:
         return 0.0
@@ -122,15 +122,20 @@ def calcular_proforma(db: Session, datos: dict) -> list[dict]:
     # separado, cada uno con su propio calado), en base a la Unidad Fiscal
     # (UF, = FC) de ESTE barco. Solo recorrido Extranjero I.White-Profertil,
     # 1 practico (el mas comun); otros recorridos/banderas todavia no
-    # estan cargados.
+    # estan cargados. Si la manga supera 39.9m (40m), va tarifario de DOS
+    # PRACTICOS: se duplica la tarifa de gobierno (igual que en Otamerica).
+    dos_practicos = manga > 39.9
+    remark_pilotage = "BASIS OUR TARIFF WITH SERVICE PROVIDER" + (
+        " (TWO PILOTS -- BEAM OVER 40M)" if dos_practicos else ""
+    )
     if calado_entrada:
-        valor = calcular_pilotage(db, uf, calado_entrada)
+        valor = calcular_pilotage(db, uf, calado_entrada, dos_practicos=dos_practicos)
         if valor:
-            lineas.append(_linea("PILOTAGE IN", valor, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
+            lineas.append(_linea("PILOTAGE IN", valor, remark_pilotage))
     if calado_salida:
-        valor = calcular_pilotage(db, uf, calado_salida)
+        valor = calcular_pilotage(db, uf, calado_salida, dos_practicos=dos_practicos)
         if valor:
-            lineas.append(_linea("PILOTAGE OUT", valor, "BASIS OUR TARIFF WITH SERVICE PROVIDER"))
+            lineas.append(_linea("PILOTAGE OUT", valor, remark_pilotage))
 
     wharfage_rate = get_param(db, "wharfage_usd_trn_dia", 0.46)
     channel_toll_rate = get_param(db, "channel_toll_usd_tn", 2.05)
