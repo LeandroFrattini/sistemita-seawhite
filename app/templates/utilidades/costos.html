@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block nav_utilidades %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Plantillas de costos</h1>
+    <span class="muted">Precios de referencia para responder rápido cuando preguntan cuánto sale algo.</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/operaciones/utilidades">← Utilidades</a>
+  </div>
+</div>
+
+{% for p in plantillas %}
+<div class="card">
+  <div class="section-head">
+    <h3>{{ p.titulo }}</h3>
+    {% if p.actualizado %}<span class="muted" style="font-size:11.5px">Actualizado {{ p.actualizado }}</span>{% endif %}
+  </div>
+
+  {% for g in p.grupos %}
+  <div class="costo-grupo">
+    {% if g.titulo %}<h4>{{ g.titulo }}</h4>{% endif %}
+    <table class="costo-items">
+      {% for it in g.items %}
+      <tr class="{{ 'costo-alt' if it.es_alternativa }}">
+        <td>{% if it.es_alternativa %}<span class="costo-o">O</span>{% endif %}{{ it.label }}</td>
+        <td class="num">{{ it.valor }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endfor %}
+
+  {% if p.tabla %}
+  <div class="liq-table-wrap">
+    <table class="list liq-table">
+      <thead><tr><th></th>{% for c in p.tabla.columnas %}<th class="num">{{ c }}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for rotulo, valores in p.tabla.filas %}
+        <tr><td>{{ rotulo }}</td>{% for v in valores %}<td class="num">{{ v }}</td>{% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if p.nota %}<p class="muted costo-nota">{{ p.nota }}</p>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<style>
+.costo-grupo { margin-bottom: 14px; }
+.costo-grupo:last-child { margin-bottom: 0; }
+.costo-grupo h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--blue-dark); text-transform: uppercase; letter-spacing: .02em; }
+table.costo-items { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.costo-items td { padding: 5px 4px; border-bottom: 1px dashed var(--line-soft); }
+table.costo-items tr:last-child td { border-bottom: 0; }
+table.costo-items td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; color: var(--blue-dark); }
+table.costo-items tr.costo-alt td { color: var(--muted); }
+.costo-o { display: inline-block; font-size: 10px; font-weight: 700; color: #fff; background: var(--muted); border-radius: 4px; padding: 1px 5px; margin-right: 6px; }
+.costo-nota { margin-top: 10px; font-size: 12px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
+</style>
+{% endblock %}
