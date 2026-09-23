@@ -17,6 +17,11 @@ class ItemCosto:
     label: str
     valor: str
     es_alternativa: bool = False  # precedido por "O" (alternativa al item de arriba)
+    # Si se setea, el valor mostrado/copiado se recalcula en vivo como
+    # valor_por_unidad * cantidad del contador (ver PlantillaCosto.contadores)
+    # -- `valor` queda como fallback/placeholder mientras no hay JS.
+    valor_por_unidad: float | None = None
+    contador: str | None = None
 
 
 @dataclass
@@ -41,22 +46,32 @@ class PlantillaCosto:
     grupos: list[GrupoItems] = field(default_factory=list)
     tabla: TablaCosto | None = None
     nota: str = ""
+    # Contadores editables (ej. cantidad de on-signers/off-signers) que
+    # multiplican los items con `contador` seteado. (id, etiqueta, default)
+    contadores: list[tuple[str, str, int]] = field(default_factory=list)
 
     def datos_js(self) -> dict:
         """Version serializable (para el <script type=application/json>)
         de todo lo que necesita el JS de la tarjeta para armar el texto
-        copiable cuando hay tabla -- tabla + grupos, ya que van los dos
-        juntos en un solo mensaje segun el cliente/terminal elegido."""
+        copiable -- tabla + grupos + contadores, ya que van todos juntos
+        en un solo mensaje segun lo que se elija/cargue en la tarjeta."""
         return {
             "titulo": self.titulo,
             "columnas": self.tabla.columnas if self.tabla else [],
             "filas": self.tabla.filas if self.tabla else [],
             "tabla_nota": self.tabla.nota if self.tabla else "",
+            "contadores": [{"id": cid, "label": clabel, "default": cdef} for cid, clabel, cdef in self.contadores],
             "grupos": [
                 {
                     "titulo": g.titulo,
                     "nota": g.nota,
-                    "items": [{"label": it.label, "valor": it.valor, "alt": it.es_alternativa} for it in g.items],
+                    "items": [
+                        {
+                            "label": it.label, "valor": it.valor, "alt": it.es_alternativa,
+                            "valorPorUnidad": it.valor_por_unidad, "contador": it.contador,
+                        }
+                        for it in g.items
+                    ],
                 }
                 for g in self.grupos
             ],
@@ -86,20 +101,42 @@ PLANTILLAS: list[PlantillaCosto] = [
     PlantillaCosto(
         slug="crew-change-bahia-blanca",
         titulo="Crew Change en Bahía Blanca",
-        actualizado="14/08/2026",
+        actualizado="22/09/2026",
+        contadores=[
+            ("on", "Cantidad de on-signers", 1),
+            ("off", "Cantidad de off-signers", 1),
+        ],
         grupos=[
             GrupoItems("On-signer", [
-                ItemCosto("1 taxi: Local airport - Hotel", "99 USD"),
-                ItemCosto("1 taxi: Hotel - Authorities - Vessel", "176 USD"),
-                ItemCosto("1 taxi: Local airport - Authorities - Vessel", "227 USD", es_alternativa=True),
-                ItemCosto("Taxi trip to perform embarking procedures", "122 USD"),
+                ItemCosto("1 taxi: Local airport - Hotel", "80 USD"),
+                ItemCosto("1 taxi: Hotel - Authorities - Vessel", "142 USD"),
+                ItemCosto("1 taxi: Local airport - Authorities - Vessel", "184 USD", es_alternativa=True),
+                ItemCosto("Taxi trip to perform embarking procedures", "92 USD"),
+                ItemCosto("Immigration expenses for each on-signer", "80 USD", valor_por_unidad=80, contador="on"),
+                ItemCosto("Hotel room accommodation for each on-signer (abt, meals included, if needed)",
+                           "150 USD", valor_por_unidad=150, contador="on"),
             ]),
             GrupoItems("Off-signer", [
-                ItemCosto("1 taxi: Vessel - Authorities - Hotel", "176 USD"),
-                ItemCosto("1 taxi: Hotel - Local airport", "99 USD"),
-                ItemCosto("1 taxi: Vessel - Authorities - Local airport", "227 USD", es_alternativa=True),
-                ItemCosto("Taxi trip to perform disembarking procedures", "121 USD"),
+                ItemCosto("1 taxi: Vessel - Authorities - Hotel", "142 USD"),
+                ItemCosto("1 taxi: Hotel - Local airport", "80 USD"),
+                ItemCosto("1 taxi: Vessel - Authorities - Local airport", "184 USD", es_alternativa=True),
+                ItemCosto("Taxi trip to perform disembarking procedures", "92 USD"),
+                ItemCosto("Immigration expenses for each off-signer", "80 USD", valor_por_unidad=80, contador="off"),
+                ItemCosto("Hotel room accommodation for each off-signer (abt, meals included, if needed)",
+                           "150 USD", valor_por_unidad=150, contador="off"),
             ]),
+            GrupoItems(
+                "",
+                [
+                    ItemCosto("Fee for crew change (per crew member)", "90 USD",
+                               valor_por_unidad=90, contador="total"),
+                    ItemCosto(
+                        "Custom: each shift of 6 hours for luggage control before/after embark/disembark "
+                        "(if embark or disembark is in overtime)", "USD 300",
+                    ),
+                ],
+                nota="Each taxi has capacity for abt 3 crew members plus their luggage.",
+            ),
         ],
     ),
     PlantillaCosto(
