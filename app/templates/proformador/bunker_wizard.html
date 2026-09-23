@@ -211,6 +211,23 @@ document.getElementById('btn-guardar').addEventListener('click', async () => {
   if (res.redirected) window.location.href = res.url;
 });
 
+// El botón "Copiar" del bloque "Para pegar en el mail" se reinyecta con
+// innerHTML cada vez que se recalcula, así que se escucha delegado sobre
+// el contenedor fijo en vez de engancharlo directo (no correría un
+// addEventListener puesto adentro del fragmento).
+document.getElementById('preview-box').addEventListener('click', async (ev) => {
+  if (!ev.target.closest('#btn-copiar-bunker-info')) return;
+  const btn = ev.target.closest('#btn-copiar-bunker-info');
+  try {
+    await navigator.clipboard.writeText(document.getElementById('bunker-info-pegar').textContent);
+    const original = btn.textContent;
+    btn.textContent = '¡Copiado!';
+    setTimeout(() => (btn.textContent = original), 1500);
+  } catch (e) {
+    alert('No se pudo copiar: ' + e.message);
+  }
+});
+
 showStep(1);
 </script>
 {% endblock %}
