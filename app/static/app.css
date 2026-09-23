@@ -155,7 +155,8 @@ button.danger:hover { background: #fdecea; }
 .pf-toggle input[type=checkbox] { accent-color: var(--blue); width: 15px; height: 15px; cursor: pointer; margin: 0; }
 .lineup-meta { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .lineup-meta label { font-size: 12px; color: var(--muted); display: flex; flex-direction: column; }
-.lineup-meta input { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
+.lineup-meta input, .lineup-meta textarea { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; }
+.lineup-meta textarea { width: 320px; min-height: 36px; resize: vertical; font-family: inherit; line-height: 1.35; }
 .lineup-date-fixed { font-size: 14px; }
 
 .flash { position: fixed; top: 12px; right: 16px; z-index: 50; padding: 8px 14px; border-radius: 7px; font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.15); }
@@ -584,11 +585,11 @@ button:not(.danger):not(.primary):not(.mini), .btn:not(.danger):not(.primary):no
 button:not(.danger):not(.primary):not(.mini):hover, .btn:not(.danger):not(.primary):not(.mini):hover { border-color: var(--blue); background: #eef4fb; }
 
 /* campos */
-.card input, .card select, .card textarea, .event-search, .lineup-meta input, .cargo-row input, .hold-row input, .hold-row select {
+.card input, .card select, .card textarea, .event-search, .lineup-meta input, .lineup-meta textarea, .cargo-row input, .hold-row input, .hold-row select {
   border-color: #cfdbe9; transition: border-color .15s ease, box-shadow .15s ease;
 }
 .card input:hover, .card select:hover, .card textarea:hover { border-color: #a9bfd8; }
-.card input:focus, .card select:focus, .card textarea:focus, .event-search:focus, .lineup-meta input:focus,
+.card input:focus, .card select:focus, .card textarea:focus, .event-search:focus, .lineup-meta input:focus, .lineup-meta textarea:focus,
 .vf-fields input:focus, .vf-report-form textarea:focus, .cargo-row input:focus, .hold-row input:focus, .hold-row select:focus {
   outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27, 95, 168, .16);
 }

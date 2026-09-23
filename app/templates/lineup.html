@@ -11,8 +11,8 @@
     </label>
     {% if not flammable %}
     <label>Eventos
-      <input id="lineup-notice" data-kind="{{ kind }}" value="{{ lineup.notice }}"
-             placeholder="ej. Puerto cerrado por fuertes vientos" size="42">
+      <textarea id="lineup-notice" data-kind="{{ kind }}" rows="2"
+                placeholder="ej. Puerto cerrado por fuertes vientos">{{ lineup.notice }}</textarea>
     </label>
     {% endif %}
     <span class="muted">Última edición: {{ lineup.updated_by or "—" }}</span>
