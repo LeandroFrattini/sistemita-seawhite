@@ -33,15 +33,17 @@
   {% endfor %}
 
   {% if p.tabla %}
-  <div class="liq-table-wrap">
-    <table class="list liq-table">
-      <thead><tr><th></th>{% for c in p.tabla.columnas %}<th class="num">{{ c }}</th>{% endfor %}</tr></thead>
-      <tbody>
-      {% for rotulo, valores in p.tabla.filas %}
-        <tr><td>{{ rotulo }}</td>{% for v in valores %}<td class="num">{{ v }}</td>{% endfor %}</tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <div class="costo-tabla-wrap" data-titulo="{{ p.titulo }}" data-nota="{{ p.nota }}">
+    <label class="costo-cliente-label">Cliente / terminal
+      <select class="costo-cliente-select">
+        {% for c in p.tabla.columnas %}<option value="{{ loop.index0 }}">{{ c }}</option>{% endfor %}
+      </select>
+    </label>
+    <div class="costo-copiable-wrap">
+      <pre class="costo-copiable"></pre>
+      <button type="button" class="btn mini costo-copiar">Copiar</button>
+    </div>
+    <script type="application/json" class="costo-tabla-data">{{ {"columnas": p.tabla.columnas, "filas": p.tabla.filas} | tojson }}</script>
   </div>
   {% endif %}
 
@@ -62,5 +64,44 @@ table.costo-items td.num { text-align: right; font-variant-numeric: tabular-nums
 table.costo-items tr.costo-alt td { color: var(--muted); }
 .costo-o { display: inline-block; font-size: 10px; font-weight: 700; color: #fff; background: var(--muted); border-radius: 4px; padding: 1px 5px; margin-right: 6px; }
 .costo-nota { margin-top: 10px; font-size: 12px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
+.costo-cliente-label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); gap: 3px; max-width: 280px; margin-bottom: 10px; }
+.costo-cliente-label select { padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; font-size: 13.5px; }
+.costo-copiable-wrap { position: relative; }
+.costo-copiable {
+  background: #f7fafd; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+  font-family: inherit; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin: 0;
+}
+.costo-copiar { position: absolute; top: 8px; right: 8px; }
 </style>
+<script>
+document.querySelectorAll('.costo-tabla-wrap').forEach((wrap) => {
+  const data = JSON.parse(wrap.querySelector('.costo-tabla-data').textContent);
+  const select = wrap.querySelector('.costo-cliente-select');
+  const pre = wrap.querySelector('.costo-copiable');
+  const titulo = wrap.dataset.titulo;
+  const nota = wrap.dataset.nota;
+
+  function render() {
+    const idx = +select.value;
+    const lineas = [titulo.toUpperCase() + ' — ' + data.columnas[idx], ''];
+    data.filas.forEach(([rotulo, valores]) => lineas.push(`${rotulo}: ${valores[idx]}`));
+    if (nota) lineas.push('', nota);
+    pre.textContent = lineas.join('\n');
+  }
+  select.addEventListener('change', render);
+  render();
+
+  const btn = wrap.querySelector('.costo-copiar');
+  btn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(pre.textContent);
+      const original = btn.textContent;
+      btn.textContent = '¡Copiado!';
+      setTimeout(() => (btn.textContent = original), 1500);
+    } catch (e) {
+      alert('No se pudo copiar: ' + e.message);
+    }
+  });
+});
+</script>
 {% endblock %}
