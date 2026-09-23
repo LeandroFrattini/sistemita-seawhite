@@ -148,7 +148,7 @@ def calcular_proforma(db: Session, datos: dict) -> list[dict]:
         ))
 
     if cantidad:
-        coef = coeficiente_channel_toll(db, cantidad)
+        coef = coeficiente_channel_toll(db, trn)
         lineas.append(_linea(
             "CHANNEL TOLL (Vias navegables)", math.ceil(channel_toll_rate * cantidad * coef),
             f"BASIS {cantidad:g} MT OF CARGO",
