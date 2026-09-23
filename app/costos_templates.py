@@ -142,20 +142,42 @@ PLANTILLAS: list[PlantillaCosto] = [
     PlantillaCosto(
         slug="crew-change-rosales",
         titulo="Crew Change en Rosales",
-        actualizado="14/08/2026",
+        actualizado="22/09/2026",
+        contadores=[
+            ("on", "Cantidad de on-signers", 1),
+            ("off", "Cantidad de off-signers", 1),
+        ],
         grupos=[
             GrupoItems("On-signer", [
                 ItemCosto("1 taxi: Local airport - Hotel", "99 USD"),
                 ItemCosto("1 taxi: Hotel - Authorities - Rosales", "245 USD"),
                 ItemCosto("1 taxi: Local airport - Authorities - Rosales", "302 USD", es_alternativa=True),
                 ItemCosto("Taxi trip to perform embarking procedures", "121 USD"),
+                ItemCosto("Immigration expenses for each on-signer", "80 USD", valor_por_unidad=80, contador="on"),
+                ItemCosto("Hotel room accommodation for each on-signer (abt, meals included, if needed)",
+                           "150 USD", valor_por_unidad=150, contador="on"),
             ]),
             GrupoItems("Off-signer", [
                 ItemCosto("1 taxi: Rosales - Authorities - Hotel", "245 USD"),
                 ItemCosto("1 taxi: Hotel - Local airport", "99 USD"),
                 ItemCosto("1 taxi: Rosales - Authorities - Local airport", "302 USD", es_alternativa=True),
                 ItemCosto("Taxi trip to perform disembarking procedures", "121 USD"),
+                ItemCosto("Immigration expenses for each off-signer", "80 USD", valor_por_unidad=80, contador="off"),
+                ItemCosto("Hotel room accommodation for each off-signer (abt, meals included, if needed)",
+                           "150 USD", valor_por_unidad=150, contador="off"),
             ]),
+            GrupoItems(
+                "",
+                [
+                    ItemCosto("Fee for crew change (per crew member)", "90 USD",
+                               valor_por_unidad=90, contador="total"),
+                    ItemCosto(
+                        "Custom: each shift of 6 hours for luggage control before/after embark/disembark "
+                        "(if embark or disembark is in overtime)", "USD 300",
+                    ),
+                ],
+                nota="Each taxi has capacity for abt 3 crew members plus their luggage.",
+            ),
         ],
     ),
     PlantillaCosto(
