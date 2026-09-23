@@ -12,15 +12,23 @@
 </div>
 
 {% for p in plantillas %}
-<div class="card{{ ' costo-tabla-wrap' if p.tabla }}" {% if p.tabla %}data-titulo="{{ p.titulo }}" data-nota="{{ p.nota }}"{% endif %}>
+<div class="card{{ ' costo-tabla-wrap' if p.tabla }}">
   <div class="section-head">
     <h3>{{ p.titulo }}</h3>
     <span class="costo-head-right">
       {% if p.actualizado %}<span class="muted" style="font-size:11.5px">Actualizado {{ p.actualizado }}</span>{% endif %}
-      {% if p.grupos %}<button type="button" class="btn mini costo-copiar-grupo" data-texto="{{ p.texto_plano() }}">Copiar</button>{% endif %}
+      {% if p.tabla %}<button type="button" class="btn mini costo-copiar">Copiar</button>
+      {% elif p.grupos %}<button type="button" class="btn mini costo-copiar-grupo" data-texto="{{ p.texto_plano() }}">Copiar</button>{% endif %}
     </span>
   </div>
 
+  {% if p.tabla %}
+  <select class="costo-cliente-select" aria-label="Cliente / terminal">
+    {% for c in p.tabla.columnas %}<option value="{{ loop.index0 }}">{{ c }}</option>{% endfor %}
+  </select>
+  <pre class="costo-copiable"></pre>
+  <script type="application/json" class="costo-tabla-data">{{ p.datos_js() | tojson }}</script>
+  {% else %}
   {% for g in p.grupos %}
   <div class="costo-grupo">
     {% if g.titulo %}<h4>{{ g.titulo }}</h4>{% endif %}
@@ -35,19 +43,8 @@
     {% if g.nota %}<p class="muted costo-nota">{{ g.nota }}</p>{% endif %}
   </div>
   {% endfor %}
-
-  {% if p.tabla %}
-  <div class="costo-tabla-bloque">
-    <select class="costo-cliente-select" aria-label="Cliente / terminal">
-      {% for c in p.tabla.columnas %}<option value="{{ loop.index0 }}">{{ c }}</option>{% endfor %}
-    </select>
-    <pre class="costo-copiable"></pre>
-    <button type="button" class="btn mini costo-copiar">Copiar</button>
-    <script type="application/json" class="costo-tabla-data">{{ {"columnas": p.tabla.columnas, "filas": p.tabla.filas} | tojson }}</script>
-  </div>
+  {% if p.nota %}<p class="muted costo-nota">{{ p.nota }}</p>{% endif %}
   {% endif %}
-
-  {% if p.nota and not p.tabla %}<p class="muted costo-nota">{{ p.nota }}</p>{% endif %}
 </div>
 {% endfor %}
 {% endblock %}
@@ -64,8 +61,7 @@ table.costo-items td.num { text-align: right; font-variant-numeric: tabular-nums
 table.costo-items tr.costo-alt td { color: var(--muted); }
 .costo-o { display: inline-block; font-size: 10px; font-weight: 700; color: #fff; background: var(--muted); border-radius: 4px; padding: 1px 5px; margin-right: 6px; }
 .costo-nota { margin-top: 10px; font-size: 12px; padding-top: 8px; border-top: 1px solid var(--line-soft); }
-.costo-tabla-bloque { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-.costo-cliente-select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; }
+.costo-cliente-select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
 .costo-copiable {
   width: 100%; box-sizing: border-box; background: #f7fafd; border: 1px solid var(--line); border-radius: 8px;
   padding: 12px 14px; font-family: inherit; font-size: 13px; line-height: 1.5; white-space: pre-wrap; margin: 0;
@@ -90,14 +86,18 @@ document.querySelectorAll('.costo-tabla-wrap').forEach((wrap) => {
   const data = JSON.parse(wrap.querySelector('.costo-tabla-data').textContent);
   const select = wrap.querySelector('.costo-cliente-select');
   const pre = wrap.querySelector('.costo-copiable');
-  const titulo = wrap.dataset.titulo;
-  const nota = wrap.dataset.nota;
 
   function render() {
     const idx = +select.value;
-    const lineas = [titulo.toUpperCase() + ' — ' + data.columnas[idx], ''];
+    const lineas = [data.titulo.toUpperCase() + ' — ' + data.columnas[idx], ''];
     data.filas.forEach(([rotulo, valores]) => lineas.push(`${rotulo}: ${valores[idx]}`));
-    if (nota) lineas.push('', nota);
+    if (data.tabla_nota) lineas.push('', data.tabla_nota);
+    data.grupos.forEach((g) => {
+      lineas.push('');
+      if (g.titulo) lineas.push(g.titulo.toUpperCase() + ':');
+      g.items.forEach((it) => lineas.push(`${it.alt ? 'O ' : ''}${it.label}: ${it.valor}`));
+      if (g.nota) lineas.push('', g.nota);
+    });
     pre.textContent = lineas.join('\n');
   }
   select.addEventListener('change', render);

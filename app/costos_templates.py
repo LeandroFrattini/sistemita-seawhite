@@ -30,6 +30,7 @@ class GrupoItems:
 class TablaCosto:
     columnas: list[str]
     filas: list[tuple[str, list[str]]]  # (rotulo de fila, [valor por columna])
+    nota: str = ""  # va pegada a la tabla (antes de los grupos fijos, si los hay)
 
 
 @dataclass
@@ -40,6 +41,26 @@ class PlantillaCosto:
     grupos: list[GrupoItems] = field(default_factory=list)
     tabla: TablaCosto | None = None
     nota: str = ""
+
+    def datos_js(self) -> dict:
+        """Version serializable (para el <script type=application/json>)
+        de todo lo que necesita el JS de la tarjeta para armar el texto
+        copiable cuando hay tabla -- tabla + grupos, ya que van los dos
+        juntos en un solo mensaje segun el cliente/terminal elegido."""
+        return {
+            "titulo": self.titulo,
+            "columnas": self.tabla.columnas if self.tabla else [],
+            "filas": self.tabla.filas if self.tabla else [],
+            "tabla_nota": self.tabla.nota if self.tabla else "",
+            "grupos": [
+                {
+                    "titulo": g.titulo,
+                    "nota": g.nota,
+                    "items": [{"label": it.label, "valor": it.valor, "alt": it.es_alternativa} for it in g.items],
+                }
+                for g in self.grupos
+            ],
+        }
 
     def texto_plano(self) -> str:
         """Todo el contenido de `grupos` armado como el mensaje de texto
@@ -103,33 +124,10 @@ PLANTILLAS: list[PlantillaCosto] = [
     PlantillaCosto(
         slug="estiba-botes-grua-muelle",
         titulo="Estiba, botes y grúa de muelle",
-        grupos=[
-            GrupoItems(
-                "Stevedore services — charges per shift (6 hours) nwh",
-                [
-                    ItemCosto("0-45 Kgs", "USD 760"),
-                    ItemCosto("45-100 kgs", "USD 1,000"),
-                    ItemCosto("100-200 kgs", "USD 1,250"),
-                    ItemCosto("200-500 kgs", "USD 2,050"),
-                    ItemCosto("500-1000 kgs", "USD 2,500"),
-                    ItemCosto("1000-3000 kgs", "USD 3,240"),
-                    ItemCosto("3000-5000 kgs", "USD 4,860"),
-                    ItemCosto("> 5000 kgs", "USD 5,400"),
-                ],
-                nota="If in overtime (mon/fri 1900/0700 + sat 1300/2400 + sun & hol 0000/2400): 100% surcharge.",
-            ),
-            GrupoItems("Boat services expenses", [
-                ItemCosto("Boat service (up to 3 tonnes) - flat tariff", "USD 1,950.-"),
-                ItemCosto("Waiting time alongside", "USD 150 per hour"),
-            ]),
-            GrupoItems("Shore crane expenses", [
-                ItemCosto("Per shift of 6 hours - flat tariff", "USD 1,200.-"),
-            ]),
-        ],
-    ),
-    PlantillaCosto(
-        slug="estibas-provistas-repuestos-lubs-materiales",
-        titulo="Estibas provistas, repuestos, lubs y materiales",
+        # Stevedore services (charges per shift) y Estibas provistas eran el
+        # mismo costo contado dos veces -- una sola tabla por terminal, el
+        # selector de arriba maneja el precio por peso; Boat/Crane quedan
+        # fijos (no varian por terminal).
         tabla=TablaCosto(
             columnas=["Blue Star / Oceanway", "Atlas / Otros", "AMI"],
             filas=[
@@ -142,9 +140,19 @@ PLANTILLAS: list[PlantillaCosto] = [
                 ("3000-5000 kgs", ["USD 3,645", "USD 4,860", "USD 5,150"]),
                 ("> 5000 kgs", ["USD 4,050", "USD 5,400", "USD 5,700"]),
             ],
+            nota="If in overtime (mon/fri 1900/0700 + sat 1300/2400 + sun & hol 0000/2400): 100% surcharge.\n\n"
+                 "Tener en cuenta al cotizar: aclarar que para los 4 primeros casos (entre 0 y 500 kilos) "
+                 "al momento de la operación se ajustarán los valores en función de cantidad de bultos / "
+                 "lugar de embarque / requerimiento de personal de estiba.",
         ),
-        nota="Tener en cuenta al cotizar: aclarar que para los 4 primeros casos (entre 0 y 500 kilos) "
-             "al momento de la operación se ajustarán los valores en función de cantidad de bultos / "
-             "lugar de embarque / requerimiento de personal de estiba.",
+        grupos=[
+            GrupoItems("Boat services expenses", [
+                ItemCosto("Boat service (up to 3 tonnes) - flat tariff", "USD 1,950.-"),
+                ItemCosto("Waiting time alongside", "USD 150 per hour"),
+            ]),
+            GrupoItems("Shore crane expenses", [
+                ItemCosto("Per shift of 6 hours - flat tariff", "USD 1,200.-"),
+            ]),
+        ],
     ),
 ]
