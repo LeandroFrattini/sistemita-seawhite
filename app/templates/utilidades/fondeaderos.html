@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block nav_utilidades %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Fondeaderos</h1>
+    <span class="muted">Coordenadas de las áreas de fondeo, listas para copiar y pegar.</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/operaciones/utilidades">← Utilidades</a>
+  </div>
+</div>
+
+{% for f in fondeaderos %}
+<div class="card">
+  <div class="section-head">
+    <h3>{{ f.nombre }}</h3>
+    <button type="button" class="btn mini fondeadero-copiar" data-texto="{{ f.texto_plano() }}">Copiar</button>
+  </div>
+  <pre class="fondeadero-puntos">{{ f.puntos|join('\n') }}</pre>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<style>
+.fondeadero-puntos {
+  background: #f7fafd; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
+  font-family: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; margin: 0;
+}
+</style>
+<script>
+document.querySelectorAll('.fondeadero-copiar').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(btn.dataset.texto);
+      const original = btn.textContent;
+      btn.textContent = '¡Copiado!';
+      setTimeout(() => (btn.textContent = original), 1500);
+    } catch (e) {
+      alert('No se pudo copiar: ' + e.message);
+    }
+  });
+});
+</script>
+{% endblock %}

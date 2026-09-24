@@ -13,6 +13,7 @@ from ..auth import current_user
 from ..config import BASE_DIR
 from ..costos_templates import PLANTILLAS as COSTOS_PLANTILLAS
 from ..database import get_db
+from ..fondeaderos_templates import FONDEADEROS
 from ..migraciones_docs import Tripulante, build_acta_reconduccion, build_nota_migraciones, build_shore_pass
 from ..models import Client, User
 from ..templating import templates
@@ -51,6 +52,13 @@ def utilidades_page(request: Request, user: User = Depends(current_user)):
 def costos_page(request: Request, user: User = Depends(current_user)):
     return templates.TemplateResponse(request, "utilidades/costos.html", {
         "user": user, "plantillas": COSTOS_PLANTILLAS,
+    })
+
+
+@router.get("/operaciones/utilidades/fondeaderos", response_class=HTMLResponse)
+def fondeaderos_page(request: Request, user: User = Depends(current_user)):
+    return templates.TemplateResponse(request, "utilidades/fondeaderos.html", {
+        "user": user, "fondeaderos": FONDEADEROS,
     })
 
 
