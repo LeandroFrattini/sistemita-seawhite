@@ -17,17 +17,25 @@
     <h3>{{ f.nombre }}</h3>
     <button type="button" class="btn mini fondeadero-copiar" data-texto="{{ f.texto_plano() }}">Copiar</button>
   </div>
-  <pre class="fondeadero-puntos">{{ f.puntos|join('\n') }}</pre>
+  <table class="fondeadero-tabla">
+    <thead><tr><th>Vértice</th><th>Latitud</th><th>Longitud</th></tr></thead>
+    <tbody>
+    {% for lat, lon in f.puntos %}
+      <tr><td class="muted">{{ loop.index }}</td><td>{{ lat }}</td><td>{{ lon }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
 </div>
 {% endfor %}
 {% endblock %}
 
 {% block scripts %}
 <style>
-.fondeadero-puntos {
-  background: #f7fafd; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px;
-  font-family: inherit; font-size: 13px; line-height: 1.6; white-space: pre-wrap; margin: 0;
-}
+table.fondeadero-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.fondeadero-tabla th, table.fondeadero-tabla td { padding: 7px 10px; border-bottom: 1px solid var(--line-soft); text-align: left; }
+table.fondeadero-tabla th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .02em; }
+table.fondeadero-tabla td { font-variant-numeric: tabular-nums; }
+table.fondeadero-tabla tr:last-child td { border-bottom: 0; }
 </style>
 <script>
 document.querySelectorAll('.fondeadero-copiar').forEach((btn) => {
