@@ -21,10 +21,11 @@
     <thead><tr><th>Vértice</th><th>Latitud</th><th>Longitud</th></tr></thead>
     <tbody>
     {% for lat, lon in f.puntos %}
-      <tr><td class="muted">{{ loop.index }}</td><td>{{ lat }}</td><td>{{ lon }}</td></tr>
+      <tr><td class="muted">{{ "abcdefgh"[loop.index0] }})</td><td>{{ lat }}</td><td>{{ lon }}</td></tr>
     {% endfor %}
     </tbody>
   </table>
+  {% if f.nota %}<p class="muted fondeadero-nota">{{ f.nota }}</p>{% endif %}
 </div>
 {% endfor %}
 {% endblock %}
@@ -36,6 +37,7 @@ table.fondeadero-tabla th, table.fondeadero-tabla td { padding: 7px 10px; border
 table.fondeadero-tabla th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .02em; }
 table.fondeadero-tabla td { font-variant-numeric: tabular-nums; }
 table.fondeadero-tabla tr:last-child td { border-bottom: 0; }
+.fondeadero-nota { margin: 12px 0 0; font-size: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
 </style>
 <script>
 document.querySelectorAll('.fondeadero-copiar').forEach((btn) => {
