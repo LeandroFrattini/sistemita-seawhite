@@ -10,14 +10,16 @@
   </div>
 </div>
 
-<p class="muted"><b>Abrir en Outlook</b> arma el mail directo (con tu firma). <b>Copiar</b> pega el cuerpo en
-un mail nuevo. Para que "Abrir en Outlook" funcione en esta PC hace falta el ayudante instalado:
-<a href="/static/downloads/ayudante-outlook.zip">⬇ Descargar ayudante de Outlook (.zip)</a>.</p>
+<p class="muted"><b>Abrir en Outlook</b> arma el mail directo (con tu firma) -- necesita el ayudante instalado
+(Outlook clásico): <a href="/static/downloads/ayudante-outlook.zip">⬇ Descargar ayudante (.zip)</a>.
+<b>.eml</b> descarga el mail ya armado como borrador editable (anda con doble clic en Outlook clásico
+<u>y</u> en Outlook nuevo, sin instalar nada). <b>Copiar</b> pega el cuerpo en un mail nuevo.</p>
 
 {% if items|length > 1 %}
 <div class="bulk-bar">
   <label class="bulk-all"><input type="checkbox" id="select-all" checked> Seleccionar todos</label>
   <button id="btn-bulk-outlook" class="btn primary">✉ Abrir seleccionados en Outlook (<span id="bulk-count">0</span>)</button>
+  <a class="btn" href="/reports/all.zip?kind={{ kind }}">⬇ Descargar todos (.eml)</a>
   <span id="bulk-status" class="muted"></span>
 </div>
 {% endif %}
@@ -39,6 +41,7 @@ un mail nuevo. Para que "Abrir en Outlook" funcione en esta PC hace falta el ayu
     </div>
     <div class="rc-actions">
       <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
+      <a class="btn" href="/reports/flammable-full.eml">⬇ .eml</a>
       <button class="btn" data-copy>Copiar cuerpo</button>
       <span class="hint" hidden></span>
     </div>
@@ -77,6 +80,7 @@ un mail nuevo. Para que "Abrir en Outlook" funcione en esta PC hace falta el ayu
     </div>
     <div class="rc-actions">
       <button class="btn primary" data-outlook>✉ Abrir en Outlook</button>
+      <a class="btn" href="/reports/{{ it.call_id }}/client/{{ it.client_id }}.eml?kind={{ kind }}">⬇ .eml</a>
       <button class="btn" data-copy>Copiar cuerpo</button>
       <span class="hint" hidden></span>
     </div>
