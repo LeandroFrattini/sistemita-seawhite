@@ -21,6 +21,7 @@ PORT_FILL = PatternFill("solid", fgColor="FF009874")
 HEADER_FILL = PatternFill("solid", fgColor="C6E0B4")
 WHITE_FILL = PatternFill("solid", fgColor="FFFFFFFF")
 NOTICE_FILL = PatternFill("solid", fgColor="FFB45309")
+NOTE_FILL = PatternFill("solid", fgColor="FFFCE9C9")  # nota de estado del muelle (mas suave que NOTICE_FILL)
 THIN = Side(style="thin", color="FFBFBFBF")
 
 # (encabezado, atributo del VesselCall, ancho de columna, es_fecha)
@@ -84,12 +85,10 @@ def build_lineup_xlsx(lineup, terminals, calls_by_terminal, *, internal: bool) -
     for term in terminals:
         term_calls = calls_by_terminal.get(term.id, [])
 
-        # Encabezado del bloque -- si hay nota de estado del muelle (ej.
-        # "En mantenimiento"), se ve al lado del codigo de terminal.
-        terminal_titulo = f"{term.code}   ({term.status_note})" if term.status_note else term.code
+        # Encabezado del bloque
         for i, (head, _, _, is_date) in enumerate(cols):
             c = ws.cell(row=row, column=first_col + i)
-            c.value = terminal_titulo if head == "__TERMINAL__" else head
+            c.value = term.code if head == "__TERMINAL__" else head
             c.font = Font(name=FONT, size=10, bold=True)
             c.fill = HEADER_FILL
             c.alignment = Alignment(horizontal="left", vertical="center")
@@ -104,6 +103,17 @@ def build_lineup_xlsx(lineup, terminals, calls_by_terminal, *, internal: bool) -
                 c.font = Font(name=FONT, size=10)
                 c.fill = WHITE_FILL
                 c.alignment = Alignment(horizontal="left", vertical="center")
+            row += 1
+
+        # Nota de estado del muelle (ej. "En mantenimiento") -- como renglon
+        # extra al pie del bloque, no pegada al codigo de terminal (ahi se
+        # comia la celda de al lado si era larga).
+        if term.status_note:
+            ws.merge_cells(start_row=row, start_column=first_col, end_row=row, end_column=last_col)
+            note = ws.cell(row=row, column=first_col, value=f"⚠ {term.status_note}")
+            note.font = Font(name=FONT, size=9.5, bold=True, italic=True, color="FF9C5700")
+            note.fill = NOTE_FILL
+            note.alignment = Alignment(horizontal="left", vertical="center")
             row += 1
 
         row += 1  # fila en blanco entre bloques
