@@ -1,7 +1,7 @@
 """Helpers de dominio compartidos por los routers."""
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
@@ -118,10 +118,17 @@ def sync_is_ours(call: VesselCall) -> None:
         call.is_ours = True
 
 
+_MISMO_BARCO_DIAS = 45  # ventana para considerar "mismo paso por puerto" (ver lineup._archive_operated)
+
+
 def ensure_vessel_file(db: Session, call: VesselCall, user: User | None) -> VesselFile | None:
-    """Crea (o reutiliza si ya hay uno abierto para ese barco+muelle) el
-    legajo con ID de un barco marcado "Nuestro", y sincroniza cliente y
-    otras agencias. No hace nada si el barco no es nuestro."""
+    """Crea (o reutiliza) el legajo con ID de un barco marcado "Nuestro", y
+    sincroniza cliente y otras agencias. No hace nada si el barco no es
+    nuestro.
+
+    Reutiliza un legajo ya abierto en ESE muelle (caso normal), y si no,
+    uno recien cerrado con el mismo IMO (se movio de muelle y se volvio a
+    cargar en otra terminal: mismo paso por puerto, no un legajo nuevo)."""
     if not call.is_ours or not (call.vessel_name or "").strip():
         return None
 
@@ -132,6 +139,16 @@ def ensure_vessel_file(db: Session, call: VesselCall, user: User | None) -> Vess
             VesselFile.terminal_id == call.terminal_id,
         )
     )
+    if not vf and (call.imo or "").strip():
+        desde = datetime.utcnow() - timedelta(days=_MISMO_BARCO_DIAS)
+        vf = db.scalar(
+            select(VesselFile)
+            .where(VesselFile.status == "closed", VesselFile.imo == call.imo.strip(), VesselFile.closed_at >= desde)
+            .order_by(VesselFile.closed_at.desc())
+        )
+        if vf:
+            vf.status = "open"
+            vf.closed_at = None
     if not vf:
         term = call.terminal
         vf = VesselFile(
@@ -145,6 +162,9 @@ def ensure_vessel_file(db: Session, call: VesselCall, user: User | None) -> Vess
         db.add(vf)
         db.flush()
 
+    vf.imo = (call.imo or vf.imo or "").strip()
+    vf.terminal_id = call.terminal_id
+    vf.terminal_code = (call.terminal.code if call.terminal else "") or vf.terminal_code
     vf.vessel_type = call.vessel_type or vf.vessel_type
     vf.principal_client_id = call.principal_client_id
     vf.principal_text = call.principal_text

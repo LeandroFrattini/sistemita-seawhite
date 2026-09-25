@@ -96,6 +96,7 @@ _MIGRATIONS = [
     ("operated_vessels", "fin_operacion", "TEXT DEFAULT ''"),
     ("operated_vessels", "zarpe", "TEXT DEFAULT ''"),
     ("operated_vessels", "cantidad_operada", "TEXT DEFAULT ''"),
+    ("vessel_files", "imo", "TEXT DEFAULT ''"),
 ]
 
 

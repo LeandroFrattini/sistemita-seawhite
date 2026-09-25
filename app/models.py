@@ -299,7 +299,10 @@ VESSEL_REPORT_TYPES = [
 class VesselFile(Base):
     """Legajo de un barco propio: se crea al marcarlo "Nuestro" y persiste
     aunque el line-up se reimporte a diario. Se cierra al mandar el reporte
-    Sailed (o a mano); si el barco vuelve mas adelante, le toca un ID nuevo."""
+    Sailed (o a mano); si vuelve mas adelante con el mismo IMO dentro de la
+    ventana de "mismo paso por puerto" (ver ensure_vessel_file), se reabre
+    el mismo legajo en vez de abrir uno nuevo -- solo le toca un ID nuevo
+    si ya paso esa ventana o es un IMO distinto."""
 
     __tablename__ = "vessel_files"
 
@@ -307,6 +310,7 @@ class VesselFile(Base):
     kind: Mapped[str] = mapped_column(String(20), default="GRAIN")
     vessel_name: Mapped[str] = mapped_column(String(120), default="")
     vessel_type: Mapped[str] = mapped_column(String(40), default="")
+    imo: Mapped[str] = mapped_column(String(20), default="")
 
     terminal_id: Mapped[int | None] = mapped_column(ForeignKey("terminals.id"), nullable=True)
     terminal_code: Mapped[str] = mapped_column(String(60), default="")

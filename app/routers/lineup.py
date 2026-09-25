@@ -509,22 +509,69 @@ def delete_call(call_id: int, db: Session = Depends(get_db), user: User = Depend
     return {"ok": True}
 
 
+_MISMO_BARCO_DIAS = 45  # ventana para considerar "mismo paso por puerto"
+
+
+def _buscar_operado_mismo_imo(db: Session, imo: str, principal: str, ahora: datetime) -> OperatedVessel | None:
+    """Un barco que se saca de un muelle y se vuelve a cargar en otro (mismo
+    IMO, mismo cliente facturado) es el MISMO paso por puerto, no dos -- si
+    ya hay un Operado reciente con ese IMO+cliente, se fusiona ahi en vez de
+    sumar una fila nueva al recuento mensual."""
+    imo = (imo or "").strip()
+    if not imo:
+        return None
+    desde = ahora - timedelta(days=_MISMO_BARCO_DIAS)
+    return db.scalar(
+        select(OperatedVessel)
+        .where(
+            OperatedVessel.imo == imo,
+            func.lower(OperatedVessel.principal) == principal.strip().lower(),
+            OperatedVessel.operated_at >= desde,
+        )
+        .order_by(OperatedVessel.operated_at.desc())
+    )
+
+
 def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
     """Una fila por CADA cliente (principal + otras agencias) -- si el barco
     tenia 3 clientes cuenta como 3 barcos operados para el recuento mensual,
-    no como uno solo con los otros dos pegados en un campo de texto aparte."""
+    no como uno solo con los otros dos pegados en un campo de texto aparte.
+
+    Si el mismo IMO+cliente ya tiene un Operado reciente (se movio de
+    muelle y se volvio a cargar en otra terminal), se fusiona en esa fila
+    en vez de crear una nueva -- ver _buscar_operado_mismo_imo."""
     term = call.terminal
+    ahora = datetime.utcnow()
     d = parse_date(call.etc) or parse_date(call.etb) or date.today()
+    nuevo_terminal_code = term.code if term else ""
+    nuevo_berth = (term.berth_label or term.code) if term else ""
     clients = call.recipient_clients()
     names = [c.name for c in clients] if clients else [call.principal_name]
     for name in names:
+        existente = _buscar_operado_mismo_imo(db, call.imo, name, ahora)
+        if existente:
+            if nuevo_berth and nuevo_berth not in existente.berth_label:
+                existente.berth_label = f"{existente.berth_label} → {nuevo_berth}".strip(" →")
+            if nuevo_terminal_code and nuevo_terminal_code not in existente.terminal_code:
+                existente.terminal_code = f"{existente.terminal_code} → {nuevo_terminal_code}".strip(" →")
+            if call.quantity.strip() and call.quantity.strip() not in existente.quantity:
+                existente.quantity = f"{existente.quantity} + {call.quantity}".strip(" +")
+            existente.etb = call.etb or existente.etb
+            existente.etc = call.etc or existente.etc
+            existente.destination = call.destination or existente.destination
+            existente.grade = call.grade or existente.grade
+            existente.shipper = call.shipper or existente.shipper
+            existente.vessel_type = call.vessel_type or existente.vessel_type
+            existente.period = d.strftime("%Y-%m")
+            existente.removed_by = user.username
+            continue
         db.add(
             OperatedVessel(
                 removed_by=user.username,
                 period=d.strftime("%Y-%m"),
                 lineup_date=call.lineup.lineup_date if call.lineup else "",
-                terminal_code=term.code if term else "",
-                berth_label=(term.berth_label or term.code) if term else "",
+                terminal_code=nuevo_terminal_code,
+                berth_label=nuevo_berth,
                 vessel_name=call.vessel_name,
                 vessel_type=call.vessel_type,
                 imo=call.imo,
