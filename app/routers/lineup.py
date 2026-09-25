@@ -512,24 +512,33 @@ def delete_call(call_id: int, db: Session = Depends(get_db), user: User = Depend
 _MISMO_BARCO_DIAS = 45  # ventana para considerar "mismo paso por puerto"
 
 
-def _buscar_operado_mismo_imo(db: Session, imo: str, principal: str, ahora: datetime) -> OperatedVessel | None:
+def _buscar_operado_mismo_imo(
+    db: Session, imo: str, vessel_name: str, principal: str, ahora: datetime,
+) -> OperatedVessel | None:
     """Un barco que se saca de un muelle y se vuelve a cargar en otro (mismo
-    IMO, mismo cliente facturado) es el MISMO paso por puerto, no dos -- si
-    ya hay un Operado reciente con ese IMO+cliente, se fusiona ahi en vez de
-    sumar una fila nueva al recuento mensual."""
+    cliente facturado) es el MISMO paso por puerto, no dos -- si ya hay un
+    Operado reciente para ese barco+cliente, se fusiona ahi en vez de sumar
+    una fila nueva al recuento mensual.
+
+    Matchea por IMO si esta cargado en los dos lados (mas confiable); si
+    alguno de los dos quedo sin IMO (se olvidaron de tipearlo de nuevo al
+    volver a cargar el barco en el otro muelle), cae a nombre de barco
+    -- sigue siendo el mismo cliente y la misma ventana de dias, asi que
+    el riesgo de matchear dos barcos distintos por casualidad es bajo."""
     imo = (imo or "").strip()
-    if not imo:
+    vessel_name = (vessel_name or "").strip()
+    if not imo and not vessel_name:
         return None
     desde = ahora - timedelta(days=_MISMO_BARCO_DIAS)
-    return db.scalar(
-        select(OperatedVessel)
-        .where(
-            OperatedVessel.imo == imo,
-            func.lower(OperatedVessel.principal) == principal.strip().lower(),
-            OperatedVessel.operated_at >= desde,
-        )
-        .order_by(OperatedVessel.operated_at.desc())
-    )
+    filtros = [
+        func.lower(OperatedVessel.principal) == principal.strip().lower(),
+        OperatedVessel.operated_at >= desde,
+    ]
+    if imo:
+        filtros.append((OperatedVessel.imo == imo) | (func.lower(OperatedVessel.vessel_name) == vessel_name.lower()))
+    else:
+        filtros.append(func.lower(OperatedVessel.vessel_name) == vessel_name.lower())
+    return db.scalar(select(OperatedVessel).where(*filtros).order_by(OperatedVessel.operated_at.desc()))
 
 
 def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
@@ -548,7 +557,7 @@ def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
     clients = call.recipient_clients()
     names = [c.name for c in clients] if clients else [call.principal_name]
     for name in names:
-        existente = _buscar_operado_mismo_imo(db, call.imo, name, ahora)
+        existente = _buscar_operado_mismo_imo(db, call.imo, call.vessel_name, name, ahora)
         if existente:
             if nuevo_berth and nuevo_berth not in existente.berth_label:
                 existente.berth_label = f"{existente.berth_label} → {nuevo_berth}".strip(" →")

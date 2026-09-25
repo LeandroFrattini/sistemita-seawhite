@@ -139,11 +139,18 @@ def ensure_vessel_file(db: Session, call: VesselCall, user: User | None) -> Vess
             VesselFile.terminal_id == call.terminal_id,
         )
     )
-    if not vf and (call.imo or "").strip():
+    if not vf:
         desde = datetime.utcnow() - timedelta(days=_MISMO_BARCO_DIAS)
+        # Matchea por IMO si esta cargado; si se olvidaron de retipearlo en
+        # el muelle nuevo, cae a nombre de barco (misma ventana de dias).
+        imo = (call.imo or "").strip()
+        condicion_barco = (
+            (VesselFile.imo == imo) | (func.lower(VesselFile.vessel_name) == call.vessel_name.strip().lower())
+            if imo else func.lower(VesselFile.vessel_name) == call.vessel_name.strip().lower()
+        )
         vf = db.scalar(
             select(VesselFile)
-            .where(VesselFile.status == "closed", VesselFile.imo == call.imo.strip(), VesselFile.closed_at >= desde)
+            .where(VesselFile.status == "closed", condicion_barco, VesselFile.closed_at >= desde)
             .order_by(VesselFile.closed_at.desc())
         )
         if vf:
