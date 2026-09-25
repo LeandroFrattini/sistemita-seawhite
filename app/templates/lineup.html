@@ -39,11 +39,9 @@
 {% for term in terminals %}
 <section class="terminal" data-terminal="{{ term.id }}">
   <h2>{{ term.code }} <span class="muted">· {{ term.name }}</span></h2>
-  {% if flammable %}
   <label class="note-line">Nota de estado del muelle:
-    <input data-note="{{ term.id }}" value="{{ term.status_note }}" placeholder="(vacío = sin nota)" size="70">
+    <input data-note="{{ term.id }}" value="{{ term.status_note }}" placeholder="ej. En mantenimiento hasta el 28/09" size="70">
   </label>
-  {% endif %}
   <div class="table-scroll">
     <table class="grid">
       <thead>

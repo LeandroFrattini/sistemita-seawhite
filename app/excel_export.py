@@ -84,10 +84,12 @@ def build_lineup_xlsx(lineup, terminals, calls_by_terminal, *, internal: bool) -
     for term in terminals:
         term_calls = calls_by_terminal.get(term.id, [])
 
-        # Encabezado del bloque
+        # Encabezado del bloque -- si hay nota de estado del muelle (ej.
+        # "En mantenimiento"), se ve al lado del codigo de terminal.
+        terminal_titulo = f"{term.code}   ({term.status_note})" if term.status_note else term.code
         for i, (head, _, _, is_date) in enumerate(cols):
             c = ws.cell(row=row, column=first_col + i)
-            c.value = term.code if head == "__TERMINAL__" else head
+            c.value = terminal_titulo if head == "__TERMINAL__" else head
             c.font = Font(name=FONT, size=10, bold=True)
             c.fill = HEADER_FILL
             c.alignment = Alignment(horizontal="left", vertical="center")
