@@ -50,7 +50,7 @@ from ..proformador_calc import (
     BUNKER_INFO_COEFICIENTES,
     BUNKER_INFO_MAX_DRAFT,
     BUNKER_INFO_SUPPLIER,
-    BUNKER_INFO_UCE_NOTE,
+    BUNKER_INFO_UCE_NOTE_LINES,
     BUNKER_MAIL_INFO_LINES,
     BUNKER_MAIL_INFO_LINES_BOYA3,
     calcular_bunker,
@@ -420,7 +420,8 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
         for linea in BUNKER_INFO_BOYA3_SIPA_COSTO:
             texto(linea)
         row += 1
-        texto(BUNKER_INFO_UCE_NOTE, bold=True, size=11.5)
+        for linea in BUNKER_INFO_UCE_NOTE_LINES:
+            texto(linea, bold=True, size=11.5)
         row += 1
 
         seccion("BUNKERING AREA INFO")
@@ -429,7 +430,8 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
         texto("Buoy 3 Position", bold=True)
         tabla_puntos(BUNKER_INFO_BOYA3_POSICION)
         row += 1
-        texto(f"Usual suggested anchor position for bunkering: {BUNKER_INFO_BOYA3_ANCHOR_POSITION}", italic=True)
+        texto("Usual suggested anchor position for bunkering:", bold=True)
+        texto(BUNKER_INFO_BOYA3_ANCHOR_POSITION, italic=True)
         row += 1
 
         seccion("GENERAL INFO")
@@ -463,7 +465,8 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
         texto("Fórmula Anchor Dues:", bold=True)
         texto(BUNKER_INFO_ANCHOR_DUES_FORMULA)
         row += 1
-        texto(BUNKER_INFO_UCE_NOTE, bold=True, size=11.5)
+        for linea in BUNKER_INFO_UCE_NOTE_LINES:
+            texto(linea, bold=True, size=11.5)
         row += 1
 
         seccion("BUNKERING AREA INFO")
@@ -472,7 +475,8 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
         texto("Alpha Anchorage – Buoy 11 Bunker Area", bold=True)
         tabla_puntos(BUNKER_INFO_ANCHORAGE_PUNTOS)
         row += 1
-        texto(f"Usual suggested anchor position for bunkering: {BUNKER_INFO_ANCHOR_POSITION}", italic=True)
+        texto("Usual suggested anchor position for bunkering:", bold=True)
+        texto(BUNKER_INFO_ANCHOR_POSITION, italic=True)
         row += 1
 
         seccion("BUNKER BARGES ON DUTY")

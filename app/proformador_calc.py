@@ -20,6 +20,12 @@ BUNKER_INFO_UCE_NOTE = (
     "SO FAR, UCE, NO BOAT IS REQUIRED FOR IN OR OUT CLEARANCES WITH AUTHORITIES "
     "AS CLEARANCES ARE DONE ELECTRONICALLY / BY EMAIL."
 )
+# Misma nota partida en 2 renglones -- en negrita/tamano grande (para que
+# resalte en el Excel) una sola linea se iba de margen.
+BUNKER_INFO_UCE_NOTE_LINES = [
+    "SO FAR, UCE, NO BOAT IS REQUIRED FOR IN OR OUT CLEARANCES WITH AUTHORITIES",
+    "AS CLEARANCES ARE DONE ELECTRONICALLY / BY EMAIL.",
+]
 
 # Info fija que se manda siempre junto con la PDA de Bunker en Boya 11
 # (formulas de Channel Toll/Anchor Dues, zona de fondeo, barcazas en
