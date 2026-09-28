@@ -39,11 +39,20 @@ from ..proformador_calc import (
     BUNKER_INFO_ANCHOR_POSITION,
     BUNKER_INFO_ANCHORAGE_PUNTOS,
     BUNKER_INFO_BARCAZAS,
+    BUNKER_INFO_BOYA3_ANCHOR_POSITION,
+    BUNKER_INFO_BOYA3_BARCAZA,
+    BUNKER_INFO_BOYA3_GENERAL,
+    BUNKER_INFO_BOYA3_MAX_DRAFT,
+    BUNKER_INFO_BOYA3_POSICION,
+    BUNKER_INFO_BOYA3_SIPA_COSTO,
+    BUNKER_INFO_BOYA3_SIPA_TITULO,
     BUNKER_INFO_CHANNEL_TOLL_FORMULA,
     BUNKER_INFO_COEFICIENTES,
     BUNKER_INFO_MAX_DRAFT,
     BUNKER_INFO_SUPPLIER,
+    BUNKER_INFO_UCE_NOTE,
     BUNKER_MAIL_INFO_LINES,
+    BUNKER_MAIL_INFO_LINES_BOYA3,
     calcular_bunker,
     calcular_fc,
     calcular_otamerica,
@@ -192,9 +201,10 @@ async def calcular_bunker_route(request: Request, db: Session = Depends(get_db),
     datos = _datos_bunker_from_form(form)
     lineas = calcular_bunker(db, datos)
     total = sum(l["monto_usd"] for l in lineas if not l["informativo"])
+    mail_info_lines = BUNKER_MAIL_INFO_LINES_BOYA3 if datos["boya"] == "BOYA_3" else BUNKER_MAIL_INFO_LINES
     return templates.TemplateResponse(request, "proformador/_bunker_preview.html", {
         "user": user, "datos": datos, "lineas": lineas, "total": round(total, 2), "boyas": dict(BOYAS),
-        "mail_info_lines": BUNKER_MAIL_INFO_LINES,
+        "mail_info_lines": mail_info_lines,
     })
 
 
@@ -374,64 +384,102 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
         c.alignment = Alignment(horizontal="left", vertical="center")
         row += 1
 
-    seccion("PVI")
-    texto("Fórmula Channel Toll (buques que solo toman combustible):", bold=True)
-    texto(BUNKER_INFO_CHANNEL_TOLL_FORMULA)
-    row += 1
-    coef_hdr_a = ws.cell(row=row, column=1, value="TRN")
-    coef_hdr_b = ws.cell(row=row, column=2, value="Coeficiente")
-    for cell in (coef_hdr_a, coef_hdr_b):
-        cell.font = BOLD
-        cell.fill = fill(GREY)
-        cell.border = BOX
-    ws.cell(row=row, column=3).border = BOX
-    row += 1
-    for rango, coef in BUNKER_INFO_COEFICIENTES:
-        a, b = ws.cell(row=row, column=1, value=rango), ws.cell(row=row, column=2, value=coef)
-        a.border = BOX
-        b.border = BOX
-        ws.cell(row=row, column=3).border = BOX
-        row += 1
-    row += 1
-    texto("Fórmula Anchor Dues:", bold=True)
-    texto(BUNKER_INFO_ANCHOR_DUES_FORMULA)
-    row += 1
-
-    seccion("BUNKERING AREA INFO")
-    texto(f"Max arrival/sailing draft: {BUNKER_INFO_MAX_DRAFT}", bold=True)
-    row += 1
-    texto("Alpha Anchorage – Buoy 11 Bunker Area", bold=True)
-    pt_hdr = [ws.cell(row=row, column=i, value=h) for i, h in enumerate(["Vértice", "Latitud", "Longitud"], start=1)]
-    for cell in pt_hdr:
-        cell.font = BOLD
-        cell.fill = fill(GREY)
-        cell.border = BOX
-    row += 1
-    for letra, lat, lon in BUNKER_INFO_ANCHORAGE_PUNTOS:
-        a, b, c = (ws.cell(row=row, column=1, value=letra), ws.cell(row=row, column=2, value=lat),
-                   ws.cell(row=row, column=3, value=lon))
-        for cell in (a, b, c):
+    def tabla_puntos(puntos: list[tuple[str, str, str]]) -> None:
+        nonlocal row
+        pt_hdr = [ws.cell(row=row, column=i, value=h) for i, h in enumerate(["Vértice", "Latitud", "Longitud"], start=1)]
+        for cell in pt_hdr:
+            cell.font = BOLD
+            cell.fill = fill(GREY)
             cell.border = BOX
         row += 1
-    row += 1
-    texto(f"Usual suggested anchor position for bunkering: {BUNKER_INFO_ANCHOR_POSITION}", italic=True)
-    row += 1
+        for letra, lat, lon in puntos:
+            a, b, c = (ws.cell(row=row, column=1, value=letra), ws.cell(row=row, column=2, value=lat),
+                       ws.cell(row=row, column=3, value=lon))
+            for cell in (a, b, c):
+                cell.border = BOX
+            row += 1
 
-    seccion("BUNKER BARGES ON DUTY")
-    for i, barca in enumerate(BUNKER_INFO_BARCAZAS):
+    def barcaza(barca: dict) -> None:
+        nonlocal row
         ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=last_col)
         nombre = ws.cell(row=row, column=1, value=f"{barca['nombre']}  —  Capacity: {barca['capacidad']}")
         nombre.font = Font(bold=True, size=10.5, color="FF1B5FA8")
         nombre.fill = fill(GREY)
         row += 1
+        if barca.get("delivery_rate"):
+            texto(f"Delivery rate: {barca['delivery_rate']}", italic=True)
         for label, valor in barca["dims"]:
             a, b = ws.cell(row=row, column=1, value=label), ws.cell(row=row, column=2, value=valor)
             a.font = Font(italic=True, color="FF666666")
             a.alignment = Alignment(indent=1)
             row += 1
-        if i < len(BUNKER_INFO_BARCAZAS) - 1:
+
+    if p.boya == "BOYA_3":
+        seccion("EN BOYA 3")
+        texto(BUNKER_INFO_BOYA3_SIPA_TITULO, bold=True)
+        texto(BUNKER_INFO_BOYA3_SIPA_COSTO)
+        row += 1
+        texto(BUNKER_INFO_UCE_NOTE, italic=True)
+        row += 1
+
+        seccion("BUNKERING AREA INFO")
+        texto(f"Max arrival/sailing draft: {BUNKER_INFO_BOYA3_MAX_DRAFT}", bold=True)
+        row += 1
+        texto("Buoy 3 Position", bold=True)
+        tabla_puntos(BUNKER_INFO_BOYA3_POSICION)
+        row += 1
+        texto(f"Usual suggested anchor position for bunkering: {BUNKER_INFO_BOYA3_ANCHOR_POSITION}", italic=True)
+        row += 1
+
+        seccion("GENERAL INFO")
+        for linea in BUNKER_INFO_BOYA3_GENERAL:
+            texto(f"• {linea}")
+        row += 1
+
+        seccion("ONLY BARGE ATTENDING AT OUTER ANCHORAGE AREA")
+        barcaza(BUNKER_INFO_BOYA3_BARCAZA)
+        row += 1
+    else:
+        seccion("PVI")
+        texto("Fórmula Channel Toll (buques que solo toman combustible):", bold=True)
+        texto(BUNKER_INFO_CHANNEL_TOLL_FORMULA)
+        row += 1
+        coef_hdr_a = ws.cell(row=row, column=1, value="TRN")
+        coef_hdr_b = ws.cell(row=row, column=2, value="Coeficiente")
+        for cell in (coef_hdr_a, coef_hdr_b):
+            cell.font = BOLD
+            cell.fill = fill(GREY)
+            cell.border = BOX
+        ws.cell(row=row, column=3).border = BOX
+        row += 1
+        for rango, coef in BUNKER_INFO_COEFICIENTES:
+            a, b = ws.cell(row=row, column=1, value=rango), ws.cell(row=row, column=2, value=coef)
+            a.border = BOX
+            b.border = BOX
+            ws.cell(row=row, column=3).border = BOX
             row += 1
-    row += 1
+        row += 1
+        texto("Fórmula Anchor Dues:", bold=True)
+        texto(BUNKER_INFO_ANCHOR_DUES_FORMULA)
+        row += 1
+        texto(BUNKER_INFO_UCE_NOTE, italic=True)
+        row += 1
+
+        seccion("BUNKERING AREA INFO")
+        texto(f"Max arrival/sailing draft: {BUNKER_INFO_MAX_DRAFT}", bold=True)
+        row += 1
+        texto("Alpha Anchorage – Buoy 11 Bunker Area", bold=True)
+        tabla_puntos(BUNKER_INFO_ANCHORAGE_PUNTOS)
+        row += 1
+        texto(f"Usual suggested anchor position for bunkering: {BUNKER_INFO_ANCHOR_POSITION}", italic=True)
+        row += 1
+
+        seccion("BUNKER BARGES ON DUTY")
+        for i, barca in enumerate(BUNKER_INFO_BARCAZAS):
+            barcaza(barca)
+            if i < len(BUNKER_INFO_BARCAZAS) - 1:
+                row += 1
+        row += 1
 
     texto(f"Only bunker physical supplier at Bahía Blanca: {BUNKER_INFO_SUPPLIER}.", bold=True)
 

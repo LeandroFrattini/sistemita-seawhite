@@ -15,11 +15,18 @@ from sqlalchemy.orm import Session
 
 from . import models
 
-# Info fija que se manda siempre junto con la PDA de Bunker (formulas de
-# Channel Toll/Anchor Dues, zona de fondeo, barcazas en servicio, proveedor)
-# -- una sola fuente para el bloque "Para pegar en el mail" del wizard y
-# para el pie del Excel exportado, asi no se desactualiza uno y el otro no.
-BUNKER_MAIL_INFO_LINES: list[str] = """PVI:
+# Nota que va en todos los boyas (se pide asi, tal cual, en ingles).
+BUNKER_INFO_UCE_NOTE = (
+    "SO FAR, UCE, NO BOAT IS REQUIRED FOR IN OR OUT CLEARANCES WITH AUTHORITIES "
+    "AS CLEARANCES ARE DONE ELECTRONICALLY / BY EMAIL."
+)
+
+# Info fija que se manda siempre junto con la PDA de Bunker en Boya 11
+# (formulas de Channel Toll/Anchor Dues, zona de fondeo, barcazas en
+# servicio, proveedor) -- una sola fuente para el bloque "Para pegar en el
+# mail" del wizard y para el pie del Excel exportado, asi no se
+# desactualiza uno y el otro. Boya 3 tiene su propio set, mas abajo.
+BUNKER_MAIL_INFO_LINES: list[str] = f"""PVI:
 
 FORMULA CALCULO CHANNEL TOLL PARA BUQUES QUE SOLO TOMAN COMBUSTIBLE:
 2,05 X 20%TRN X COEF X 0,7 (RECORRIDO BOYA 11)
@@ -32,6 +39,8 @@ COEFICIENTES:
 
 FORMULA CALCULO ANCHOR DUES:
 0.15 X TRN X DIA
+
+{BUNKER_INFO_UCE_NOTE}
 
 ++++++++++++
 
@@ -117,6 +126,79 @@ BUNKER_INFO_BARCAZAS = [
     },
 ]
 BUNKER_INFO_SUPPLIER = "TRAFIGURA ARGENTINA"
+
+# --------------------------------------------------------------------- #
+# Boya 3 -- mensaje totalmente distinto al de Boya 11 (sin formulas de
+# Channel Toll/Anchor Dues; tiene el aviso de SIPA, un solo punto de
+# fondeo, seccion de info general y una sola barcaza con velocidad de
+# entrega). Mismo criterio: texto plano para copiar + version
+# estructurada para el Excel.
+# --------------------------------------------------------------------- #
+BUNKER_MAIL_INFO_LINES_BOYA3: list[str] = f"""EN BOYA 3
+
+*COAST GUARD REQUIRES ADDITIONAL COASTGUARD FIRE-FIGHTING PERSONNEL (SIPA) SERVICE ON BOARD BUNKER BARGE FOR BUNKERING OPS AT BUOY 3 OUTER ANCHORAGE.
+COST: ARS 59,356.82 PER EACH 4-HOUR SHIFT, OR USD EQUIVALENT AT THE EXCHANGE RATE APPLICABLE ON THE DATE OF REQUEST. SERVICE IS COUNTED FROM THE INITIAL REQUEST UNTIL THE BARGE RETURNS TO PORT. ESTIMATED TOTAL TURNAROUND TIME: 24 HOURS WOG, PROVIDED NO DELAYS OCCUR.
+
+{BUNKER_INFO_UCE_NOTE}
+
+++++++++++++
+
+BUNKERING AREA INFO:
+
+-MAX ARRIVAL/SAILING DRAFT 11.80 MTS
+
+-BUOY 3 POSITION:
+1. LAT 39°18'32.56" S / LONG 061°36'09" W
+
+-USUAL SUGGESTED ANCHOR POSITION FOR BUNKERING:
+1 NM EAST FROM BUOY 3 – VTS OR L2N COASTGUARD STATION WILL INSTRUCT EXACT POSITION FOR ANCHOR.
+
+GENERAL INFO:
+-USUAL WAITING TIME TO TAKE BUNKER, 1 DAY WOG.
+-DUE TO ITS EXPOSURE TO OPEN SEA, BUOY 3 ANCHORAGE CAN EXPERIENCE HARSHER WEATHER AND SWELL THAN BUOY 11, POTENTIALLY LEADING TO DELAYS IN BUNKER DELIVERIES.
+
+++
+
+ONLY BARGE ATTENDING AT OUTER ANCHORAGE AREA:
+
+M/T 'SERRA THERESA' 1,220 MT IFO + 50 MT MGO
+DELIVERY RATE: SERRA THERESA ABT 200-300 MT/H
+SERRA THERESA:
+Dimensions:
+Breadth Moulded 10.5 MTS
+Depth Moulded 05.10 MTS
+Summer Draft 04.6 MTS
+Length Bp 65.15 MTS
+LOA 70.14 MTS
+
+++
+
+ONLY BUNKER PHYSICAL SUPPLIER AT BAHIA BLANCA: TRAFIGURA ARGENTINA.""".split("\n")
+
+BUNKER_INFO_BOYA3_SIPA_TITULO = (
+    "Coast Guard requires additional Coastguard fire-fighting personnel (SIPA) service on board bunker "
+    "barge for bunkering ops at Buoy 3 Outer Anchorage."
+)
+BUNKER_INFO_BOYA3_SIPA_COSTO = (
+    "Cost: ARS 59,356.82 per each 4-hour shift, or USD equivalent at the exchange rate applicable on the date "
+    "of request. Service is counted from the initial request until the barge returns to port. Estimated total "
+    "turnaround time: 24 hours WOG, provided no delays occur."
+)
+BUNKER_INFO_BOYA3_MAX_DRAFT = "11.80 MTS"
+BUNKER_INFO_BOYA3_POSICION = [("1", "LAT 39°18'32.56\" S", "LONG 061°36'09\" W")]
+BUNKER_INFO_BOYA3_ANCHOR_POSITION = (
+    "1 NM EAST FROM BUOY 3 – VTS OR L2N COASTGUARD STATION WILL INSTRUCT EXACT POSITION FOR ANCHOR."
+)
+BUNKER_INFO_BOYA3_GENERAL = [
+    "Usual waiting time to take bunker, 1 day WOG.",
+    "Due to its exposure to open sea, Buoy 3 anchorage can experience harsher weather and swell than Buoy 11, "
+    "potentially leading to delays in bunker deliveries.",
+]
+BUNKER_INFO_BOYA3_BARCAZA = {
+    "nombre": "SERRA THERESA", "capacidad": "1,220 MT IFO + 50 MT MGO", "delivery_rate": "ABT 200-300 MT/H",
+    "dims": [("Breadth Moulded", "10.5 MTS"), ("Depth Moulded", "05.10 MTS"), ("Summer Draft", "04.6 MTS"),
+             ("Length Bp", "65.15 MTS"), ("LOA", "70.14 MTS")],
+}
 
 
 def calcular_fc(eslora, manga, puntal):
