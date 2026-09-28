@@ -35,6 +35,14 @@ from ..models import (
     User,
 )
 from ..proformador_calc import (
+    BUNKER_INFO_ANCHOR_DUES_FORMULA,
+    BUNKER_INFO_ANCHOR_POSITION,
+    BUNKER_INFO_ANCHORAGE_PUNTOS,
+    BUNKER_INFO_BARCAZAS,
+    BUNKER_INFO_CHANNEL_TOLL_FORMULA,
+    BUNKER_INFO_COEFICIENTES,
+    BUNKER_INFO_MAX_DRAFT,
+    BUNKER_INFO_SUPPLIER,
     BUNKER_MAIL_INFO_LINES,
     calcular_bunker,
     calcular_fc,
@@ -343,18 +351,89 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
         ws.cell(row=row, column=col).border = BOX
     row += 2
 
-    # "Para pegar en el mail" -- para poder mandar solo el Excel, sin tener
-    # que copiar aparte este bloque desde el wizard. Sin merge de celdas
-    # (para no repetir el bug de texto largo cortado contra la columna de
-    # al lado): las lineas mas largas simplemente pisan visualmente las
-    # columnas B/C, que quedan vacias en estas filas.
-    info_title = ws.cell(row=row, column=1, value="PARA PEGAR EN EL MAIL")
-    info_title.font = Font(bold=True, size=10, color="FF9C5700")
-    row += 1
-    for linea in BUNKER_MAIL_INFO_LINES:
-        cell = ws.cell(row=row, column=1, value=linea)
-        cell.font = Font(size=9.5, color="FF444444")
+    # Info fija de bunkering (formulas, zona de fondeo, barcazas, proveedor)
+    # -- en tablitas prolijas en vez de texto plano, para que se pueda
+    # mandar el Excel solo sin tener que copiar nada aparte del wizard.
+    def seccion(titulo: str) -> None:
+        nonlocal row
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=last_col)
+        c = ws.cell(row=row, column=1, value=titulo)
+        c.font = WHITE_BOLD
+        c.fill = fill(BLUE)
+        c.alignment = Alignment(horizontal="left", indent=1)
         row += 1
+
+    def texto(valor: str, *, bold: bool = False, italic: bool = False) -> None:
+        # Sin merge/wrap: la fila queda sola (B y C vacias), asi que el
+        # texto largo desborda visualmente sin cortarse -- mergear + wrap
+        # necesitaria calcular la altura de fila a mano o se corta (mismo
+        # bug que ya pisamos con la nota de mantenimiento del muelle).
+        nonlocal row
+        c = ws.cell(row=row, column=1, value=valor)
+        c.font = Font(bold=bold, italic=italic, size=10)
+        c.alignment = Alignment(horizontal="left", vertical="center")
+        row += 1
+
+    seccion("PVI")
+    texto("Fórmula Channel Toll (buques que solo toman combustible):", bold=True)
+    texto(BUNKER_INFO_CHANNEL_TOLL_FORMULA)
+    row += 1
+    coef_hdr_a = ws.cell(row=row, column=1, value="TRN")
+    coef_hdr_b = ws.cell(row=row, column=2, value="Coeficiente")
+    for cell in (coef_hdr_a, coef_hdr_b):
+        cell.font = BOLD
+        cell.fill = fill(GREY)
+        cell.border = BOX
+    ws.cell(row=row, column=3).border = BOX
+    row += 1
+    for rango, coef in BUNKER_INFO_COEFICIENTES:
+        a, b = ws.cell(row=row, column=1, value=rango), ws.cell(row=row, column=2, value=coef)
+        a.border = BOX
+        b.border = BOX
+        ws.cell(row=row, column=3).border = BOX
+        row += 1
+    row += 1
+    texto("Fórmula Anchor Dues:", bold=True)
+    texto(BUNKER_INFO_ANCHOR_DUES_FORMULA)
+    row += 1
+
+    seccion("BUNKERING AREA INFO")
+    texto(f"Max arrival/sailing draft: {BUNKER_INFO_MAX_DRAFT}", bold=True)
+    row += 1
+    texto("Alpha Anchorage – Buoy 11 Bunker Area", bold=True)
+    pt_hdr = [ws.cell(row=row, column=i, value=h) for i, h in enumerate(["Vértice", "Latitud", "Longitud"], start=1)]
+    for cell in pt_hdr:
+        cell.font = BOLD
+        cell.fill = fill(GREY)
+        cell.border = BOX
+    row += 1
+    for letra, lat, lon in BUNKER_INFO_ANCHORAGE_PUNTOS:
+        a, b, c = (ws.cell(row=row, column=1, value=letra), ws.cell(row=row, column=2, value=lat),
+                   ws.cell(row=row, column=3, value=lon))
+        for cell in (a, b, c):
+            cell.border = BOX
+        row += 1
+    row += 1
+    texto(f"Usual suggested anchor position for bunkering: {BUNKER_INFO_ANCHOR_POSITION}", italic=True)
+    row += 1
+
+    seccion("BUNKER BARGES ON DUTY")
+    for i, barca in enumerate(BUNKER_INFO_BARCAZAS):
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=last_col)
+        nombre = ws.cell(row=row, column=1, value=f"{barca['nombre']}  —  Capacity: {barca['capacidad']}")
+        nombre.font = Font(bold=True, size=10.5, color="FF1B5FA8")
+        nombre.fill = fill(GREY)
+        row += 1
+        for label, valor in barca["dims"]:
+            a, b = ws.cell(row=row, column=1, value=label), ws.cell(row=row, column=2, value=valor)
+            a.font = Font(italic=True, color="FF666666")
+            a.alignment = Alignment(indent=1)
+            row += 1
+        if i < len(BUNKER_INFO_BARCAZAS) - 1:
+            row += 1
+    row += 1
+
+    texto(f"Only bunker physical supplier at Bahía Blanca: {BUNKER_INFO_SUPPLIER}.", bold=True)
 
     bio = io.BytesIO()
     wb.save(bio)

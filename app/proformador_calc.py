@@ -83,6 +83,41 @@ LOA 70.14 MTS
 
 ONLY BUNKER PHYSICAL SUPPLIER AT BAHIA BLANCA: TRAFIGURA ARGENTINA.""".split("\n")
 
+# Misma info que BUNKER_MAIL_INFO_LINES, pero estructurada -- la usa el
+# export.xlsx para armar tablitas prolijas (coeficientes, vertices del
+# fondeadero, cada barcaza) en vez de tirar el texto plano en la celda.
+BUNKER_INFO_CHANNEL_TOLL_FORMULA = "2,05 X 20%TRN X COEF X 0,7 (RECORRIDO BOYA 11)"
+BUNKER_INFO_COEFICIENTES = [("0 A 5K", "0,60"), ("5K A 10K", "0,85"), ("10K A 17K", "1"), ("+17K", "1,15")]
+BUNKER_INFO_ANCHOR_DUES_FORMULA = "0.15 X TRN X DIA"
+BUNKER_INFO_MAX_DRAFT = "13.716 M (45 FT SW)"
+BUNKER_INFO_ANCHORAGE_PUNTOS = [
+    ("A", "LAT. 39º 04'.16 S", "LONG. 61º 48'.60 W"),
+    ("B", "LAT. 39º 05'.20 S", "LONG. 61º 46'.48 W"),
+    ("C", "LAT. 39º 06'.35 S", "LONG. 61º 46'.60 W"),
+    ("D", "LAT. 39º 04'.86 S", "LONG. 61º 49'.20 W"),
+]
+BUNKER_INFO_ANCHOR_POSITION = (
+    "8 CABLES EAST FROM BUOY 11 – VTS OR L2N COASTGUARD STATION WILL INSTRUCT EXACT POSITION FOR ANCHOR."
+)
+BUNKER_INFO_BARCAZAS = [
+    {
+        "nombre": "SOFIA R", "capacidad": "420 MT VLSFO + 20 MT MGO",
+        "dims": [("Breadth Moulded", "8 MTS"), ("Depth Moulded", "2.95 MTS"), ("Summer Draft", "2.4 MTS"),
+                 ("Length Bp", "43.5 MTS"), ("LOA", "45.6 MTS")],
+    },
+    {
+        "nombre": "DELTAMAR IV", "capacidad": "880 MT VLSFO + 140 MT MGO",
+        "dims": [("Breadth Moulded", "10.6 MTS"), ("Breadth Registered", "10.6 MTS"), ("Depth Moulded", "3.9 MTS"),
+                 ("Summer Draft", "3.6 MTS"), ("Length Bp", "52.53 MTS"), ("LOA", "54.42 MTS")],
+    },
+    {
+        "nombre": "SERRA THERESA", "capacidad": "1,220 MT VLSFO + 50 MT MGO",
+        "dims": [("Breadth Moulded", "10.5 MTS"), ("Depth Moulded", "05.10 MTS"), ("Summer Draft", "04.6 MTS"),
+                 ("Length Bp", "65.15 MTS"), ("LOA", "70.14 MTS")],
+    },
+]
+BUNKER_INFO_SUPPLIER = "TRAFIGURA ARGENTINA"
+
 
 def calcular_fc(eslora, manga, puntal):
     if not eslora or not manga or not puntal:
