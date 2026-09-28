@@ -90,6 +90,7 @@
       </label>
       <label>Orden<input name="sort_order" type="number" value="100" size="4"></label>
       <label class="check">No incluir en Excel<input type="checkbox" name="exclude_from_excel"></label>
+      <label class="check">Columnas simples (sin Oper./Cantidad/Grado/Shipper/Destino)<input type="checkbox" name="simple_columns"></label>
     </div>
     <button type="submit">Agregar terminal</button>
   </form>
@@ -109,6 +110,7 @@
         <label>Orden<input name="sort_order" type="number" value="{{ t.sort_order }}" size="4"></label>
         <label class="check">Activa<input type="checkbox" name="active" {{ 'checked' if t.active }}></label>
         <label class="check">No incluir en Excel<input type="checkbox" name="exclude_from_excel" {{ 'checked' if t.exclude_from_excel }}></label>
+        <label class="check">Columnas simples<input type="checkbox" name="simple_columns" {{ 'checked' if t.simple_columns }}></label>
       </div>
       <div class="row end"><button type="submit">Guardar</button></div>
     </form>

@@ -52,6 +52,9 @@
           <th>ETA</th><th>ETB</th><th>ETS</th>
           <th>OPS</th><th>QTTS</th><th>PRODUCT</th><th>SHIPPER/RECEIVER</th><th>DESTINY</th>
           <th class="col-ours">2ND CALL</th>
+          {% elif term.simple_columns %}
+          <th>Type</th><th>IMO</th>
+          <th>ETA</th><th>ETB</th><th>ETC</th>
           {% else %}
           <th>Type</th><th>IMO</th>
           <th>ETA</th><th>ETB</th><th>ETC</th>
@@ -84,11 +87,13 @@
           <td><input data-f="eta" value="{{ call.eta }}" class="w-date"></td>
           <td><input data-f="etb" value="{{ call.etb }}" class="w-date"></td>
           <td><input data-f="etc" value="{{ call.etc }}" class="w-date"></td>
+          {% if not term.simple_columns %}
           <td><input data-f="operation" value="{{ call.operation }}" class="w-oper"></td>
           <td><input data-f="quantity" value="{{ call.quantity }}" class="w-qty"></td>
           <td><input data-f="grade" value="{{ call.grade }}" class="w-grade"></td>
           <td><input data-f="shipper" value="{{ call.shipper }}" class="w-grade"></td>
           <td><input data-f="destination" value="{{ call.destination }}" class="w-grade"></td>
+          {% endif %}
           {% if flammable %}
           <td class="col-ours"><input type="checkbox" data-f="second_call" {{ 'checked' if call.second_call }}></td>
           {% endif %}

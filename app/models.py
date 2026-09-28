@@ -71,6 +71,11 @@ class Terminal(Base):
     # propios (ej. Otamerica, Boyas) pero no forman parte del line-up
     # "oficial" -- no van en el Excel ni en el line-up finalizado del dia
     exclude_from_excel: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Terminal "especial" (ej. Pier 21, buques que no son de carga a granel):
+    # en vez de Oper./Quantity/Grade/Shipper/Destination muestra solo
+    # Vessel/Type/IMO/ETA/ETB/ETC -- LOCAL/PRINCIPAL/Nuestro/Otras agencias
+    # se mantienen igual, sigue funcionando con Nuestros Barcos/Reportes.
+    simple_columns: Mapped[bool] = mapped_column(Boolean, default=False)
 
     calls: Mapped[list["VesselCall"]] = relationship(
         back_populates="terminal", order_by="VesselCall.sort_order"

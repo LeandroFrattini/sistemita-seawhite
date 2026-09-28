@@ -186,6 +186,7 @@ def create_terminal(
     kind: str = Form("GRAIN"),
     sort_order: int = Form(100),
     exclude_from_excel: str = Form(""),
+    simple_columns: str = Form(""),
 ):
     db.add(
         Terminal(
@@ -196,6 +197,7 @@ def create_terminal(
             sort_order=sort_order,
             active=True,
             exclude_from_excel=exclude_from_excel == "on",
+            simple_columns=simple_columns == "on",
         )
     )
     db.commit()
@@ -214,6 +216,7 @@ def update_terminal(
     sort_order: int = Form(100),
     active: str = Form(""),
     exclude_from_excel: str = Form(""),
+    simple_columns: str = Form(""),
 ):
     t = db.get(Terminal, terminal_id)
     if t:
@@ -224,6 +227,7 @@ def update_terminal(
         t.sort_order = sort_order
         t.active = active == "on"
         t.exclude_from_excel = exclude_from_excel == "on"
+        t.simple_columns = simple_columns == "on"
         db.commit()
     return RedirectResponse(f"/admin?tab=terminales#trm-{terminal_id}", status_code=302)
 
