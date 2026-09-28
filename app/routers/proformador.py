@@ -35,6 +35,7 @@ from ..models import (
     User,
 )
 from ..proformador_calc import (
+    BUNKER_MAIL_INFO_LINES,
     calcular_bunker,
     calcular_fc,
     calcular_otamerica,
@@ -185,6 +186,7 @@ async def calcular_bunker_route(request: Request, db: Session = Depends(get_db),
     total = sum(l["monto_usd"] for l in lineas if not l["informativo"])
     return templates.TemplateResponse(request, "proformador/_bunker_preview.html", {
         "user": user, "datos": datos, "lineas": lineas, "total": round(total, 2), "boyas": dict(BOYAS),
+        "mail_info_lines": BUNKER_MAIL_INFO_LINES,
     })
 
 
@@ -339,6 +341,20 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
     for col in range(1, last_col + 1):
         ws.cell(row=row, column=col).fill = fill(BLUE)
         ws.cell(row=row, column=col).border = BOX
+    row += 2
+
+    # "Para pegar en el mail" -- para poder mandar solo el Excel, sin tener
+    # que copiar aparte este bloque desde el wizard. Sin merge de celdas
+    # (para no repetir el bug de texto largo cortado contra la columna de
+    # al lado): las lineas mas largas simplemente pisan visualmente las
+    # columnas B/C, que quedan vacias en estas filas.
+    info_title = ws.cell(row=row, column=1, value="PARA PEGAR EN EL MAIL")
+    info_title.font = Font(bold=True, size=10, color="FF9C5700")
+    row += 1
+    for linea in BUNKER_MAIL_INFO_LINES:
+        cell = ws.cell(row=row, column=1, value=linea)
+        cell.font = Font(size=9.5, color="FF444444")
+        row += 1
 
     bio = io.BytesIO()
     wb.save(bio)

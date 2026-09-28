@@ -15,6 +15,74 @@ from sqlalchemy.orm import Session
 
 from . import models
 
+# Info fija que se manda siempre junto con la PDA de Bunker (formulas de
+# Channel Toll/Anchor Dues, zona de fondeo, barcazas en servicio, proveedor)
+# -- una sola fuente para el bloque "Para pegar en el mail" del wizard y
+# para el pie del Excel exportado, asi no se desactualiza uno y el otro no.
+BUNKER_MAIL_INFO_LINES: list[str] = """PVI:
+
+FORMULA CALCULO CHANNEL TOLL PARA BUQUES QUE SOLO TOMAN COMBUSTIBLE:
+2,05 X 20%TRN X COEF X 0,7 (RECORRIDO BOYA 11)
+
+COEFICIENTES:
+0 A 5K: 0,60
+5K A 10K: 0,85
+10K A 17K: 1
++17K: 1,15
+
+FORMULA CALCULO ANCHOR DUES:
+0.15 X TRN X DIA
+
+++++++++++++
+
+BUNKERING AREA INFO:
+
+-MAX ARRIVAL/SAILING DRAFT 13.716 M (45 FT SW)
+
+-ALPHA ANCHORAGE - BUOY 11 BUNKER AREA:
+    A) LAT.39º 04'.16 S LONG. 61º 48'.60 W
+    B) LAT.39º 05'.20 S LONG. 61º 46'.48 W
+    C) LAT.39º 06'.35 S LONG. 61º 46'.60 W
+    D) LAT.39º 04'.86 S LONG. 61º 49'.20 W
+
+-USUAL SUGGESTED ANCHOR POSITION FOR BUNKERING:
+8 CABLES EAST FROM BUOY 11 – VTS OR L2N COASTGUARD STATION WILL INSTRUCT EXACT POSITION FOR ANCHOR.
+
+++
+
+BUNKER BARGES ON DUTY:
+
+SOFIA R: CAPACITY: 420 MT VLSFO + 20 MT MGO
+Dimensions
+Breadth Moulded 8 MTS
+Depth Moulded 2.95 MTS
+Summer Draft 2.4 MTS
+Length Bp 43.5 MTS
+LOA 45.6 MTS
+
+---------------------------------------------------------------------------------------------------------------------
+
+DELTAMAR IV: CAPACITY 880 MT VLSFO + 140 MT MGO
+Dimensions
+Breadth Moulded 10.6 MTS
+Breadth Registered 10.6 MTS
+Depth Moulded 3.9 MTS
+Summer Draft 3.6 MTS
+Length Bp 52.53 MTS
+LOA 54.42 MTS
+
+SERRA THERESA: CAPACITY 1,220 MT VLSFO + 50 MT MGO
+Dimensions
+Breadth Moulded 10.5 MTS
+Depth Moulded 05.10 MTS
+Summer Draft 04.6 MTS
+Length Bp 65.15 MTS
+LOA 70.14 MTS
+
+++
+
+ONLY BUNKER PHYSICAL SUPPLIER AT BAHIA BLANCA: TRAFIGURA ARGENTINA.""".split("\n")
+
 
 def calcular_fc(eslora, manga, puntal):
     if not eslora or not manga or not puntal:
