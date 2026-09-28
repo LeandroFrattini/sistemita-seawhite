@@ -179,11 +179,11 @@ BUNKER_INFO_BOYA3_SIPA_TITULO = (
     "Coast Guard requires additional Coastguard fire-fighting personnel (SIPA) service on board bunker "
     "barge for bunkering ops at Buoy 3 Outer Anchorage."
 )
-BUNKER_INFO_BOYA3_SIPA_COSTO = (
-    "Cost: ARS 59,356.82 per each 4-hour shift, or USD equivalent at the exchange rate applicable on the date "
-    "of request. Service is counted from the initial request until the barge returns to port. Estimated total "
-    "turnaround time: 24 hours WOG, provided no delays occur."
-)
+BUNKER_INFO_BOYA3_SIPA_COSTO = [
+    "Cost: ARS 59,356.82 per each 4-hour shift, or USD equivalent at the exchange rate applicable on the date of request.",
+    "Service is counted from the initial request until the barge returns to port. "
+    "Estimated total turnaround time: 24 hours WOG, provided no delays occur.",
+]
 BUNKER_INFO_BOYA3_MAX_DRAFT = "11.80 MTS"
 BUNKER_INFO_BOYA3_POSICION = [("1", "LAT 39°18'32.56\" S", "LONG 061°36'09\" W")]
 BUNKER_INFO_BOYA3_ANCHOR_POSITION = (

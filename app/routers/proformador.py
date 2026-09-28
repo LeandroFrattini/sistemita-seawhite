@@ -373,14 +373,14 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
         c.alignment = Alignment(horizontal="left", indent=1)
         row += 1
 
-    def texto(valor: str, *, bold: bool = False, italic: bool = False) -> None:
+    def texto(valor: str, *, bold: bool = False, italic: bool = False, size: float = 10) -> None:
         # Sin merge/wrap: la fila queda sola (B y C vacias), asi que el
         # texto largo desborda visualmente sin cortarse -- mergear + wrap
         # necesitaria calcular la altura de fila a mano o se corta (mismo
         # bug que ya pisamos con la nota de mantenimiento del muelle).
         nonlocal row
         c = ws.cell(row=row, column=1, value=valor)
-        c.font = Font(bold=bold, italic=italic, size=10)
+        c.font = Font(bold=bold, italic=italic, size=size)
         c.alignment = Alignment(horizontal="left", vertical="center")
         row += 1
 
@@ -417,9 +417,10 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
     if p.boya == "BOYA_3":
         seccion("EN BOYA 3")
         texto(BUNKER_INFO_BOYA3_SIPA_TITULO, bold=True)
-        texto(BUNKER_INFO_BOYA3_SIPA_COSTO)
+        for linea in BUNKER_INFO_BOYA3_SIPA_COSTO:
+            texto(linea)
         row += 1
-        texto(BUNKER_INFO_UCE_NOTE, italic=True)
+        texto(BUNKER_INFO_UCE_NOTE, bold=True, size=11.5)
         row += 1
 
         seccion("BUNKERING AREA INFO")
@@ -462,7 +463,7 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
         texto("Fórmula Anchor Dues:", bold=True)
         texto(BUNKER_INFO_ANCHOR_DUES_FORMULA)
         row += 1
-        texto(BUNKER_INFO_UCE_NOTE, italic=True)
+        texto(BUNKER_INFO_UCE_NOTE, bold=True, size=11.5)
         row += 1
 
         seccion("BUNKERING AREA INFO")
