@@ -1,6 +1,7 @@
 import io
 import re
 import urllib.request
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
@@ -63,6 +64,16 @@ from ..proformador_calc import (
 from ..templating import templates
 
 router = APIRouter()
+
+
+def _content_disposition(filename: str) -> str:
+    """Arma el header evitando que nombres de buque con tildes/enie (ej.
+    "MV SAN JOSE" con acento) generen un header invalido que el navegador
+    no puede interpretar -- ahi la descarga fallaba en silencio, sin error
+    visible, solo para las proformas de esos buques."""
+    ascii_name = filename.encode("ascii", "ignore").decode("ascii").strip() or "PDA.xlsx"
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+
 
 TIPOS_BUQUE = ["Bulk Carrier", "LPG", "Tanker"]
 TIPOS_OPERACION = ["Carga", "Descarga", "Bunker"]
@@ -495,7 +506,7 @@ def exportar_bunker_xlsx(proforma_id: int, db: Session = Depends(get_db), user: 
     return StreamingResponse(
         bio,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
@@ -727,7 +738,7 @@ def exportar_otamerica_xlsx(proforma_id: int, db: Session = Depends(get_db), use
     return StreamingResponse(
         bio,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
@@ -948,7 +959,7 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
     return StreamingResponse(
         bio,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": _content_disposition(filename)},
     )
 
 
