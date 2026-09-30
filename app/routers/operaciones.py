@@ -1,10 +1,12 @@
 import io
 import json
+import mimetypes
 import zipfile
 from datetime import date
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.datastructures import UploadFile
@@ -13,9 +15,11 @@ from ..auth import current_user
 from ..config import BASE_DIR
 from ..costos_templates import PLANTILLAS as COSTOS_PLANTILLAS
 from ..database import get_db
+from ..eml import build_eml, safe_filename
 from ..fondeaderos_templates import FONDEADEROS
 from ..migraciones_docs import Tripulante, build_acta_reconduccion, build_nota_migraciones, build_shore_pass
 from ..models import Client, User
+from ..reports import _text_to_html
 from ..templating import templates
 
 router = APIRouter()
@@ -99,6 +103,41 @@ async def pending_docs_adjuntos(request: Request, user: User = Depends(current_u
         bio, media_type="application/zip",
         headers={"Content-Disposition": 'attachment; filename="Adjuntos Pending Docs.zip"'},
     )
+
+
+@router.post("/operaciones/utilidades/pending-docs/eml")
+async def pending_docs_eml(request: Request, user: User = Depends(current_user)):
+    """Alternativa a "Abrir en Outlook" (mailto:) para quien tenga el Outlook
+    nuevo y el mailto: no le abra nada -- un .eml con X-Unsent:1 lo abre
+    Outlook como borrador editable, y de paso ya lleva los adjuntos
+    embebidos (el mailto: no puede, por eso el boton de zip aparte)."""
+    data = await request.json()
+    to_emails = [e.strip() for e in (data.get("to_emails") or []) if e.strip()]
+    subject = (data.get("subject") or "PENDING DOCS").strip()
+    body = data.get("body") or ""
+    claves = data.get("attachments") or []
+
+    attachments: list[tuple[str, bytes, str]] = []
+    for clave in claves:
+        entry = ATTACHMENT_FILES.get(clave)
+        if not entry:
+            continue
+        disk_name, display_name = entry
+        path = ATTACHMENTS_DIR / disk_name
+        if not path.exists():
+            continue
+        mime, _ = mimetypes.guess_type(disk_name)
+        attachments.append((display_name, path.read_bytes(), mime or "application/octet-stream"))
+
+    html_body = f'<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.35;">{_text_to_html(body)}</div>'
+    eml_bytes = build_eml(
+        subject=subject, to_emails=to_emails, html_body=html_body, text_body=body,
+        attachments=attachments,
+    )
+    filename = safe_filename(subject) + ".eml"
+    ascii_name = filename.encode("ascii", "ignore").decode("ascii").strip() or "PENDING DOCS.eml"
+    disposition = f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"
+    return Response(content=eml_bytes, media_type="message/rfc822", headers={"Content-Disposition": disposition})
 
 
 def _tripulantes_desde_json(raw: str) -> list[Tripulante]:
