@@ -77,6 +77,8 @@
 
 {% block scripts %}
 <script>
+const CC_EMAILS = {{ cc_emails|tojson }};
+
 // Texto sacado tal cual de los mails reales (ARGENTINIAN PORT.eml /
 // PENDING DOCS FOREIGN PORT.eml). "attachmentKey(s)" = plantilla fija --
 // se puede descargar aparte en zip (ver ATTACHMENT_FILES en
@@ -92,6 +94,7 @@ const SECTIONS = {
       { text: "Yellow fever vaccination list (with application date of each crew member)" },
       { text: "IMO Crew list with date and place of embark of each crew member" },
       { text: 'Medical Log book (Last 3 pages) updated with the date of today. Please sign and stamp the last page and put this remark: "ALL CREW ARE IN GOOD HEALTH CONDITIONS SINCE XX/XX/XXXX"' },
+      { text: "6 month valid Pest Control (If vessel do not have a valid on on board, we must to renew at this port, as it is compulsory to obtain free pratique. Cost of renewal: 850 usd)" },
     ],
   },
   immigration: {
@@ -139,6 +142,8 @@ const SECTIONS = {
       { text: "DMLC part 1 and 2 (Anex)" },
       { text: "Grain loading certificate / Fitness certificate" },
       { text: "International air pollution prevention certificate" },
+      { text: "Energy Efficiency Certificate" },
+      { text: "Anti Fouling Certificate" },
       { text: "Cargo Manifest" },
       { text: "Class Certificate" },
       { text: "Last Port Clearance", onlyForeign: true },
@@ -308,7 +313,8 @@ function datosMail() {
 
 btnAbrir.addEventListener('click', () => {
   const { emails, subject, body } = datosMail();
-  window.location.href = `mailto:${emails.join(',')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const cc = CC_EMAILS.length ? `&cc=${encodeURIComponent(CC_EMAILS.join(','))}` : '';
+  window.location.href = `mailto:${emails.join(',')}?subject=${encodeURIComponent(subject)}${cc}&body=${encodeURIComponent(body)}`;
 });
 
 btnEml.addEventListener('click', async () => {

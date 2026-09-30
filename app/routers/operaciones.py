@@ -20,6 +20,7 @@ from ..fondeaderos_templates import FONDEADEROS
 from ..migraciones_docs import Tripulante, build_acta_reconduccion, build_nota_migraciones, build_shore_pass
 from ..models import Client, User
 from ..reports import _text_to_html
+from ..service import CC_KEY, DEFAULT_CC, get_setting, split_emails
 from ..templating import templates
 
 router = APIRouter()
@@ -73,8 +74,9 @@ def pending_docs_page(request: Request, db: Session = Depends(get_db), user: Use
     clients = db.scalars(
         select(Client).where(Client.active == True, Client.client_type == "AGENCY").order_by(Client.name)
     ).all()
+    cc_emails = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
     return templates.TemplateResponse(request, "utilidades/pending_docs.html", {
-        "user": user, "clients": clients,
+        "user": user, "clients": clients, "cc_emails": cc_emails,
     })
 
 
@@ -106,7 +108,7 @@ async def pending_docs_adjuntos(request: Request, user: User = Depends(current_u
 
 
 @router.post("/operaciones/utilidades/pending-docs/eml")
-async def pending_docs_eml(request: Request, user: User = Depends(current_user)):
+async def pending_docs_eml(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
     """Alternativa a "Abrir en Outlook" (mailto:) para quien tenga el Outlook
     nuevo y el mailto: no le abra nada -- un .eml con X-Unsent:1 lo abre
     Outlook como borrador editable, y de paso ya lleva los adjuntos
@@ -116,6 +118,7 @@ async def pending_docs_eml(request: Request, user: User = Depends(current_user))
     subject = (data.get("subject") or "PENDING DOCS").strip()
     body = data.get("body") or ""
     claves = data.get("attachments") or []
+    cc_emails = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
 
     attachments: list[tuple[str, bytes, str]] = []
     for clave in claves:
@@ -131,7 +134,7 @@ async def pending_docs_eml(request: Request, user: User = Depends(current_user))
 
     html_body = f'<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.35;">{_text_to_html(body)}</div>'
     eml_bytes = build_eml(
-        subject=subject, to_emails=to_emails, html_body=html_body, text_body=body,
+        subject=subject, to_emails=to_emails, cc_emails=cc_emails, html_body=html_body, text_body=body,
         attachments=attachments,
     )
     filename = safe_filename(subject) + ".eml"
