@@ -16,7 +16,7 @@ from ..config import BASE_DIR
 from ..costos_templates import PLANTILLAS as COSTOS_PLANTILLAS
 from ..database import get_db
 from ..eml import build_eml, safe_filename
-from ..fondeaderos_templates import FONDEADEROS
+from ..fondeaderos_templates import APPROACH_SUBJECT, APPROACH_TEXT, FONDEADEROS
 from ..migraciones_docs import Tripulante, build_acta_reconduccion, build_nota_migraciones, build_shore_pass
 from ..models import Client, User
 from ..reports import _text_to_html
@@ -61,10 +61,27 @@ def costos_page(request: Request, user: User = Depends(current_user)):
 
 
 @router.get("/operaciones/utilidades/fondeaderos", response_class=HTMLResponse)
-def fondeaderos_page(request: Request, user: User = Depends(current_user)):
+def fondeaderos_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
     return templates.TemplateResponse(request, "utilidades/fondeaderos.html", {
         "user": user, "fondeaderos": FONDEADEROS,
+        "approach_subject": APPROACH_SUBJECT, "approach_text": APPROACH_TEXT,
+        "cc_emails": split_emails(get_setting(db, CC_KEY, DEFAULT_CC)),
     })
+
+
+@router.get("/operaciones/utilidades/fondeaderos/approach.eml")
+def fondeaderos_approach_eml(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    html_body = (
+        '<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.35;">'
+        f"{_text_to_html(APPROACH_TEXT)}</div>"
+    )
+    eml_bytes = build_eml(
+        subject=APPROACH_SUBJECT, to_emails=[], html_body=html_body, text_body=APPROACH_TEXT,
+        cc_emails=split_emails(get_setting(db, CC_KEY, DEFAULT_CC)),
+    )
+    filename = "Approach Instructions Bahia Blanca.eml"
+    return Response(content=eml_bytes, media_type="message/rfc822",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 @router.get("/operaciones/utilidades/pending-docs", response_class=HTMLResponse)

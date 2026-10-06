@@ -11,6 +11,19 @@
   </div>
 </div>
 
+<div class="card">
+  <div class="section-head">
+    <h3>Mail de Approach Instructions</h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button type="button" class="btn mini" id="approach-copiar">Copiar</button>
+      <button type="button" class="btn mini" id="approach-outlook">✉ Abrir en Outlook</button>
+      <a class="btn mini primary" href="/operaciones/utilidades/fondeaderos/approach.eml">⬇ .eml</a>
+    </div>
+  </div>
+  <p class="muted" style="margin:0 0 8px;font-size:12px">Asunto: <b>{{ approach_subject }}</b></p>
+  <pre class="approach-texto" id="approach-texto">{{ approach_text }}</pre>
+</div>
+
 {% for f in fondeaderos %}
 <div class="card">
   <div class="section-head">
@@ -38,8 +51,30 @@ table.fondeadero-tabla th { color: var(--muted); font-weight: 600; font-size: 11
 table.fondeadero-tabla td { font-variant-numeric: tabular-nums; }
 table.fondeadero-tabla tr:last-child td { border-bottom: 0; }
 .fondeadero-nota { margin: 12px 0 0; font-size: 12px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
+pre.approach-texto { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 12.5px; line-height: 1.5; background: var(--bg-soft, #f6f8fb); border: 1px solid var(--line-soft); border-radius: 8px; padding: 12px 14px; max-height: 340px; overflow: auto; }
 </style>
 <script>
+const APPROACH_SUBJECT = {{ approach_subject|tojson }};
+const APPROACH_CC = {{ cc_emails|tojson }};
+const approachTexto = document.getElementById('approach-texto').textContent;
+
+document.getElementById('approach-copiar').addEventListener('click', async (ev) => {
+  const btn = ev.currentTarget;
+  try {
+    await navigator.clipboard.writeText(approachTexto);
+    const original = btn.textContent;
+    btn.textContent = '¡Copiado!';
+    setTimeout(() => (btn.textContent = original), 1500);
+  } catch (e) {
+    alert('No se pudo copiar: ' + e.message);
+  }
+});
+
+document.getElementById('approach-outlook').addEventListener('click', () => {
+  const cc = APPROACH_CC.length ? `&cc=${encodeURIComponent(APPROACH_CC.join(','))}` : '';
+  window.location.href = `mailto:?subject=${encodeURIComponent(APPROACH_SUBJECT)}${cc}&body=${encodeURIComponent(approachTexto)}`;
+});
+
 document.querySelectorAll('.fondeadero-copiar').forEach((btn) => {
   btn.addEventListener('click', async () => {
     try {
