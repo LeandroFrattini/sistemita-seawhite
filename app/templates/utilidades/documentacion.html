@@ -43,220 +43,289 @@
 </div>
 
 <div id="dg-form" hidden>
-<p class="muted" id="dg-current" style="margin:0 0 10px;font-size:13px"></p>
 
-<div class="card">
-  <div class="section-head">
-    <h3>Buque</h3>
-    <button type="button" class="btn mini" id="btn-guardar-barco">Guardar datos del buque</button>
+<div class="dg-banner">
+  <div class="dg-banner-info">
+    <span class="dg-banner-label">Trabajando con</span>
+    <span id="dg-current" class="dg-banner-text"></span>
   </div>
-  <div class="row">
-    <label>IMO<input data-v="imo" inputmode="numeric" maxlength="12"></label>
-    <label>Nombre del buque<input data-v="name" style="min-width:220px"></label>
-    <label>Tipo de buque
-      <select data-v="kind">
-        <option value="BULK_CARRIER">BULK CARRIER — MV</option>
-        <option value="TANKER">TANKER — MT</option>
-      </select>
-    </label>
-    <label>Bandera<input data-v="flag"></label>
-  </div>
-  <div class="row" style="margin-top:10px">
-    <label>Eslora<input data-v="eslora" style="min-width:90px;width:100px"></label>
-    <label>Manga<input data-v="manga" style="min-width:90px;width:100px"></label>
-    <label>Puntal<input data-v="puntal" style="min-width:90px;width:100px"></label>
-    <label>TRN<input data-v="trn" style="min-width:90px;width:110px"></label>
-    <label>TRB<input data-v="trb" style="min-width:90px;width:110px"></label>
-    <label>Call sign<input data-v="call_sign" style="min-width:110px;width:120px"></label>
-    <label>Matrícula<input data-v="matricula"></label>
-    <label>Puerto de registro<input data-v="puerto_registro"></label>
-    <label>Armador<input data-v="armador" style="min-width:220px"></label>
-  </div>
-  <div class="row" style="margin-top:10px">
-    <label>Clasificación<input data-v="clasificacion"></label>
-    <label>Velocidad<input data-v="velocidad" style="min-width:90px;width:110px"></label>
-    <label>INMARSAT<input data-v="inmarsat"></label>
+  <div class="dg-banner-actions">
+    <button type="button" class="btn mini" id="btn-escala-guardar">Guardar escala</button>
+    <button type="button" class="btn mini primary" id="btn-escala-nueva">＋ Agregar escala</button>
   </div>
 </div>
 
-<details class="card dg-certs" id="certs-card">
+<!-- 1 · BUQUE -->
+<details class="card dg-sec" id="sec-buque" open>
   <summary>
-    <h3 style="display:inline">Certificados</h3>
-    <span class="muted" id="certs-count" style="font-size:12px;margin-left:8px"></span>
+    <span class="dg-num">1</span>
+    <span class="dg-sec-title">Buque <small>datos fijos del barco</small></span>
+    <span class="dg-sum" id="sum-buque"></span>
+    <button type="button" class="btn mini dg-sec-action" id="btn-guardar-barco">Guardar buque</button>
+    <span class="dg-chev" aria-hidden="true"></span>
   </summary>
-  <p class="muted" style="margin:10px 0 10px;font-size:12px">Vencimientos de los certificados del buque. No hace falta completarlos: quedan guardados con el buque (no dependen de la escala) para las planillas que los usan.</p>
-  <div class="dg-cert-grid">
-    {% for c in certificados %}
-    <label>{{ c.label }}<input type="date" data-cert="{{ c.key }}"></label>
-    {% endfor %}
-  </div>
-  <div class="row end" style="margin-top:12px">
-    <button type="button" class="btn mini" id="btn-guardar-certs">Guardar certificados</button>
+  <div class="dg-sec-body">
+    <div class="dg-group">
+      <h4>Identificación</h4>
+      <div class="dg-grid">
+        <label>IMO<input data-v="imo" inputmode="numeric" maxlength="12"></label>
+        <label class="w2">Nombre del buque<input data-v="name"></label>
+        <label>Tipo de buque
+          <select data-v="kind">
+            <option value="BULK_CARRIER">BULK CARRIER — MV</option>
+            <option value="TANKER">TANKER — MT</option>
+          </select>
+        </label>
+        <label>Bandera<input data-v="flag"></label>
+      </div>
+    </div>
+    <div class="dg-group">
+      <h4>Medidas y tonelaje</h4>
+      <div class="dg-grid dg-grid-sm">
+        <label>Eslora<input data-v="eslora"></label>
+        <label>Manga<input data-v="manga"></label>
+        <label>Puntal<input data-v="puntal"></label>
+        <label>TRN<input data-v="trn"></label>
+        <label>TRB<input data-v="trb"></label>
+        <label>Velocidad<input data-v="velocidad"></label>
+      </div>
+    </div>
+    <div class="dg-group">
+      <h4>Registro y clasificación</h4>
+      <div class="dg-grid">
+        <label>Call sign<input data-v="call_sign"></label>
+        <label>Matrícula<input data-v="matricula"></label>
+        <label>Puerto de registro<input data-v="puerto_registro"></label>
+        <label>Clasificación<input data-v="clasificacion"></label>
+        <label>INMARSAT<input data-v="inmarsat"></label>
+        <label class="w2">Armador<input data-v="armador"></label>
+      </div>
+    </div>
   </div>
 </details>
 
-<div class="card">
-  <div class="section-head">
-    <h3>Escala</h3>
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button type="button" class="btn mini" id="btn-escala-guardar">Guardar escala</button>
-      <button type="button" class="btn mini primary" id="btn-escala-nueva">＋ Agregar escala</button>
+<!-- CERTIFICADOS (opcional) -->
+<details class="card dg-sec dg-sec-minor" id="certs-card">
+  <summary>
+    <span class="dg-num dg-num-minor">★</span>
+    <span class="dg-sec-title">Certificados <small>opcional · vencimientos del buque</small></span>
+    <span class="dg-sum" id="certs-count"></span>
+    <span class="dg-chev" aria-hidden="true"></span>
+  </summary>
+  <div class="dg-sec-body">
+    <p class="dg-hint">No hace falta completarlos. Quedan guardados con el buque (no dependen de la escala) para las planillas que los usan.</p>
+    <div class="dg-grid dg-grid-sm">
+      {% for c in certificados %}
+      <label>{{ c.label }}<input type="date" data-cert="{{ c.key }}"></label>
+      {% endfor %}
+    </div>
+    <div class="dg-sec-foot">
+      <button type="button" class="btn mini" id="btn-guardar-certs">Guardar certificados</button>
     </div>
   </div>
-  <div class="row">
-    <label>Capitán<input data-c="capitan"></label>
-    <label>Terminal / sitio de atraque<input data-c="terminal"></label>
-    <label>Último puerto extranjero<input data-c="ultimo_puerto" style="min-width:220px"></label>
-    <label>Procedencia<input data-c="procedencia" style="min-width:220px"></label>
-    <label>Destino<input data-c="destino" style="min-width:220px"></label>
-  </div>
-  <div class="row" style="margin-top:10px">
-    <label style="flex:1 1 100%">Descripción del viaje
-      <input data-c="descripcion_viaje" style="width:100%" placeholder="ROSARIO, ARGENTINA - BAHIA BLANCA, ARGENTINA - CHATTOGRAM, BANGLADESH">
-    </label>
-  </div>
-  <div class="row" style="margin-top:10px">
-    <label>En lastre / cargado (detallar)<input data-c="carga_detalle" style="min-width:220px" placeholder="CARGADO CON MAIZ"></label>
-    <label>Estadía (días)<input data-c="estadia" style="min-width:90px;width:100px"></label>
-    <label>Tripulantes (cantidad)<input data-c="tripulantes" style="min-width:90px;width:120px"></label>
-    <label>Pasajeros (no/sí - cantidad)<input data-c="pasajeros" style="min-width:90px;width:150px" value="NO"></label>
-    <label>Lista de pasajeros (no/sí)<input data-c="lista_pasajeros" style="min-width:90px;width:150px" value="NO"></label>
-  </div>
-  <div class="row" style="margin-top:10px">
-    <label>Exportador (Pedido de Carga)<input data-c="exportador" style="min-width:240px" placeholder="CARGILL S.A.C.I"></label>
-    <label>Ciudad del exportador<input data-c="ciudad_exportador" value="Bahia Blanca"></label>
-    <label>Carga<input data-c="carga" placeholder="MAIZE"></label>
-  </div>
-  <h4 class="dg-sub">Para uso oficial (DECLA PNA)</h4>
-  <div class="row">
-    <label>Calado proa (Mts.)<input data-c="calado_proa" style="min-width:90px;width:120px"></label>
-    <label>Calado popa (Mts.)<input data-c="calado_popa" style="min-width:90px;width:120px"></label>
-    <label>Calado máximo (Mts.)<input data-c="calado_max" style="min-width:90px;width:120px"></label>
-    <label>Práctico de puerto<input data-c="practico"></label>
-    <label>Remolques: proa<input data-c="remolque_proa" style="min-width:90px;width:120px"></label>
-    <label>Remolques: popa<input data-c="remolque_popa" style="min-width:90px;width:120px"></label>
-  </div>
-  <div class="row" style="margin-top:10px">
-    <label>(*) Estima cargar/descargar<input data-c="estima" style="min-width:200px"></label>
-  </div>
-</div>
+</details>
 
-<div class="card">
-  <div class="section-head">
-    <h3>Agencia</h3>
-    <button type="button" class="btn mini" id="btn-agencias">Administrar agencias</button>
+<!-- 2 · ESCALA -->
+<details class="card dg-sec" id="sec-escala" open>
+  <summary>
+    <span class="dg-num">2</span>
+    <span class="dg-sec-title">Escala <small>datos de esta recalada</small></span>
+    <span class="dg-sum" id="sum-escala"></span>
+    <span class="dg-chev" aria-hidden="true"></span>
+  </summary>
+  <div class="dg-sec-body">
+    <div class="dg-group">
+      <h4>Viaje</h4>
+      <div class="dg-grid">
+        <label>Capitán<input data-c="capitan"></label>
+        <label>Terminal / sitio de atraque<input data-c="terminal"></label>
+        <label>Último puerto extranjero<input data-c="ultimo_puerto"></label>
+        <label>Procedencia<input data-c="procedencia"></label>
+        <label>Destino<input data-c="destino"></label>
+        <label>Estadía (días)<input data-c="estadia"></label>
+        <label class="wall">Descripción del viaje
+          <input data-c="descripcion_viaje" placeholder="ROSARIO, ARGENTINA - BAHIA BLANCA, ARGENTINA - CHATTOGRAM, BANGLADESH">
+        </label>
+      </div>
+    </div>
+    <div class="dg-group">
+      <h4>Carga y tripulación</h4>
+      <div class="dg-grid">
+        <label class="w2">En lastre / cargado (detallar)<input data-c="carga_detalle" placeholder="CARGADO CON MAIZ"></label>
+        <label>Tripulantes<input data-c="tripulantes"></label>
+        <label>Pasajeros (no / sí - cantidad)<input data-c="pasajeros" value="NO"></label>
+        <label>Lista de pasajeros (no / sí)<input data-c="lista_pasajeros" value="NO"></label>
+      </div>
+    </div>
+    <div class="dg-group">
+      <h4>Pedido de carga</h4>
+      <div class="dg-grid">
+        <label class="w2">Exportador<input data-c="exportador" placeholder="CARGILL S.A.C.I"></label>
+        <label>Ciudad del exportador<input data-c="ciudad_exportador" value="Bahia Blanca"></label>
+        <label>Carga<input data-c="carga" placeholder="MAIZE"></label>
+      </div>
+    </div>
+    <details class="dg-group dg-subsec">
+      <summary><h4>Para uso oficial <small>DECLA PNA</small></h4></summary>
+      <div class="dg-grid dg-grid-sm">
+        <label>Calado proa (Mts.)<input data-c="calado_proa"></label>
+        <label>Calado popa (Mts.)<input data-c="calado_popa"></label>
+        <label>Calado máximo (Mts.)<input data-c="calado_max"></label>
+        <label>Práctico de puerto<input data-c="practico"></label>
+        <label>Remolques: proa<input data-c="remolque_proa"></label>
+        <label>Remolques: popa<input data-c="remolque_popa"></label>
+        <label class="w2">(*) Estima cargar/descargar<input data-c="estima"></label>
+      </div>
+    </details>
   </div>
-  <div class="row">
-    <label>Agencia (Pedido de Carga y BILL)
-      <select id="agency-select" style="min-width:300px"></select>
-    </label>
-    <img id="agency-logo-prev" class="dg-logo" alt="" hidden>
-  </div>
-  <p class="muted" id="agency-info" style="margin:8px 0 0;font-size:12px"></p>
+</details>
 
-  <div id="agency-panel" hidden class="dg-panel">
-    <table class="list" style="width:100%">
-      <thead><tr><th>Logo</th><th>Agencia</th><th>Dirección</th><th>Formato</th><th></th></tr></thead>
-      <tbody id="agency-rows"></tbody>
+<!-- 3 · AGENCIA -->
+<details class="card dg-sec" id="sec-agencia" open>
+  <summary>
+    <span class="dg-num">3</span>
+    <span class="dg-sec-title">Agencia <small>para Pedido de Carga y BILL</small></span>
+    <span class="dg-sum" id="sum-agencia"></span>
+    <span class="dg-chev" aria-hidden="true"></span>
+  </summary>
+  <div class="dg-sec-body">
+    <div class="dg-agency-pick">
+      <label>Agencia
+        <select id="agency-select"></select>
+      </label>
+      <img id="agency-logo-prev" class="dg-logo" alt="" hidden>
+      <button type="button" class="btn mini" id="btn-agencias">Administrar agencias</button>
+    </div>
+    <p class="dg-hint" id="agency-info"></p>
+
+    <div id="agency-panel" hidden class="dg-panel">
+      <table class="list" style="width:100%">
+        <thead><tr><th>Logo</th><th>Agencia</th><th>Dirección</th><th>Formato</th><th></th></tr></thead>
+        <tbody id="agency-rows"></tbody>
+      </table>
+      <form id="agency-form" class="dg-agency-form" autocomplete="off">
+        <h4 id="agency-form-title" class="dg-form-title">Agregar agencia</h4>
+        <input type="hidden" name="id">
+        <div class="dg-grid">
+          <label class="w2">Nombre<input name="name" required></label>
+          <label>Formato
+            <select name="doc_format">
+              <option value="GENERAL">General (Excel)</option>
+              <option value="HEINLEIN">Heinlein (Word)</option>
+            </select>
+          </label>
+          <label class="w2">Logo (PNG o JPG, máx. 2 MB)<input type="file" name="logo" accept="image/png,image/jpeg"></label>
+          <label class="check" id="remove-logo-wrap" hidden><input type="checkbox" name="remove_logo"> Quitar logo actual</label>
+          <label class="wall">Dirección (un renglón por línea)
+            <textarea name="address" rows="3" placeholder="Buenos Aires&#10;Argentina"></textarea>
+          </label>
+        </div>
+        <div class="dg-sec-foot">
+          <button type="button" class="btn" id="agency-cancel" hidden>Cancelar edición</button>
+          <button type="submit" class="btn primary">Guardar agencia</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</details>
+
+<!-- 4 · DOCUMENTOS -->
+<details class="card dg-sec" id="sec-docs" open>
+  <summary>
+    <span class="dg-num">4</span>
+    <span class="dg-sec-title">Documentos <small>elegí qué generar y con qué fecha</small></span>
+    <span class="dg-sum" id="sum-docs"></span>
+    <span class="dg-chev" aria-hidden="true"></span>
+  </summary>
+  <div class="dg-sec-body">
+    <div class="dg-docs-top">
+      <div class="dg-tabs" role="tablist">
+        <button type="button" class="dg-tab active" data-stage="ENTRADA" role="tab">ENTRADA</button>
+        <button type="button" class="dg-tab" data-stage="SALIDA" role="tab">SALIDA</button>
+      </div>
+      <label class="dg-general">Fecha general
+        <input type="date" id="fecha-general" value="{{ today }}">
+      </label>
+    </div>
+    {% for stage in ['ENTRADA', 'SALIDA'] %}
+    <div class="dg-stage" data-stage="{{ stage }}"{% if stage != 'ENTRADA' %} hidden{% endif %}>
+    {% if docs|selectattr('stage', 'equalto', stage)|list %}
+    <table class="list dg-docs-table" style="width:100%">
+      <thead><tr><th style="width:34px"></th><th>Documento</th><th>Fecha</th></tr></thead>
+      <tbody class="docs-body" id="docs-rows-{{ stage }}">
+      {% for d in docs if d.stage == stage %}
+        <tr data-key="{{ d.key }}">
+          <td><input type="checkbox" class="doc-check"{% if d.checked %} checked{% endif %}></td>
+          <td>
+            <span class="dg-doc-name">{{ d.label }}</span> <span class="muted">· {{ d.reg }}</span>
+            {% if d.key == 'dec_migra' %}<br><select id="migra-modo" title="El archivo baja con el selector Entrada/Salida adentro">
+                        <option value="ENTRADA">Marcar: Entrada</option>
+                        <option value="SALIDA">Marcar: Salida</option>
+                      </select>{% endif %}
+            {% if d.key == 'decla_pna' %}<br><select id="pna-modo" title="El archivo baja con el selector Entrada/Salida adentro">
+                        <option value="ENTRADA">Marcar: Entrada</option>
+                        <option value="SALIDA">Marcar: Salida</option>
+                      </select>{% endif %}
+          </td>
+          <td class="dg-date-cell">
+            {% if d.key == 'serenos' %}<button type="button" class="btn mini" id="btn-serenos">Fechas de Serenos ▾</button>
+            {% else %}<input type="date" class="doc-date" value="{{ today }}">
+            <label class="dg-blank"><input type="checkbox" class="doc-blank"> en blanco</label>{% endif %}
+          </td>
+        </tr>
+        {% if d.key == 'serenos' %}
+        <tr class="dg-serenos-row" id="serenos-row" hidden>
+          <td></td>
+          <td colspan="2">
+            <p class="dg-hint" style="margin:0 0 10px">Los cuatro turnos se piden siempre. Elegí cada fecha a mano; con «en blanco» sale vacía para escribirla.</p>
+            <div class="dg-grid dg-grid-sm">
+              <div class="dg-dt"><label>Fecha de solicitud<input type="date" data-s="solicitud"></label><label class="dg-blank"><input type="checkbox" data-sb="solicitud"> en blanco</label></div>
+              <div class="dg-dt"><label>Turno 00-06<input type="date" data-s="t0006"></label><label class="dg-blank"><input type="checkbox" data-sb="t0006"> en blanco</label></div>
+              <div class="dg-dt"><label>Turno 06-12<input type="date" data-s="t0612"></label><label class="dg-blank"><input type="checkbox" data-sb="t0612"> en blanco</label></div>
+              <div class="dg-dt"><label>Turno 12-18<input type="date" data-s="t1218"></label><label class="dg-blank"><input type="checkbox" data-sb="t1218"> en blanco</label></div>
+              <div class="dg-dt"><label>Turno 18-24<input type="date" data-s="t1824"></label><label class="dg-blank"><input type="checkbox" data-sb="t1824"> en blanco</label></div>
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+      </tbody>
     </table>
-    <form id="agency-form" class="dg-agency-form" autocomplete="off">
-      <h3 id="agency-form-title" style="margin:14px 0 8px">Agregar agencia</h3>
-      <input type="hidden" name="id">
-      <div class="row">
-        <label>Nombre<input name="name" required style="min-width:260px"></label>
-        <label>Formato
-          <select name="doc_format">
-            <option value="GENERAL">General (Excel)</option>
-            <option value="HEINLEIN">Heinlein (Word)</option>
-          </select>
-        </label>
-        <label>Logo (PNG o JPG, máx. 2 MB)<input type="file" name="logo" accept="image/png,image/jpeg"></label>
-        <label class="check" id="remove-logo-wrap" hidden><input type="checkbox" name="remove_logo"> Quitar logo actual</label>
-      </div>
-      <div class="row" style="margin-top:10px">
-        <label style="flex:1 1 100%">Dirección (un renglón por línea)
-          <textarea name="address" rows="3" style="width:100%" placeholder="Buenos Aires&#10;Argentina"></textarea>
-        </label>
-      </div>
-      <div class="row end">
-        <button type="button" class="btn" id="agency-cancel" hidden>Cancelar edición</button>
-        <button type="submit" class="btn primary">Guardar agencia</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="card">
-  <h3>Serenos</h3>
-  <div class="row">
-    <div class="dg-dt"><label>Fecha de solicitud<input type="date" data-s="solicitud"></label><label class="dg-blank"><input type="checkbox" data-sb="solicitud"> en blanco</label></div>
-    <div class="dg-dt"><label>Turno 00-06<input type="date" data-s="t0006"></label><label class="dg-blank"><input type="checkbox" data-sb="t0006"> en blanco</label></div>
-    <div class="dg-dt"><label>Turno 06-12<input type="date" data-s="t0612"></label><label class="dg-blank"><input type="checkbox" data-sb="t0612"> en blanco</label></div>
-    <div class="dg-dt"><label>Turno 12-18<input type="date" data-s="t1218"></label><label class="dg-blank"><input type="checkbox" data-sb="t1218"> en blanco</label></div>
-    <div class="dg-dt"><label>Turno 18-24<input type="date" data-s="t1824"></label><label class="dg-blank"><input type="checkbox" data-sb="t1824"> en blanco</label></div>
-  </div>
-  <p class="muted" style="margin:8px 0 0;font-size:12px">Los cuatro turnos se piden siempre. Cada fecha se elige a mano; con «en blanco» la fecha sale vacía para escribirla a mano.</p>
-</div>
-
-<div class="card">
-  <div class="section-head">
-    <h3>Documentos</h3>
-    <label class="dg-general">Fecha general
-      <input type="date" id="fecha-general" value="{{ today }}">
-    </label>
-  </div>
-  <div class="dg-tabs" role="tablist">
-    <button type="button" class="dg-tab active" data-stage="ENTRADA" role="tab">ENTRADA</button>
-    <button type="button" class="dg-tab" data-stage="SALIDA" role="tab">SALIDA</button>
-  </div>
-  {% for stage in ['ENTRADA', 'SALIDA'] %}
-  <div class="dg-stage" data-stage="{{ stage }}"{% if stage != 'ENTRADA' %} hidden{% endif %}>
-  {% if docs|selectattr('stage', 'equalto', stage)|list %}
-  <table class="list" style="width:100%">
-    <thead><tr><th style="width:34px"></th><th>Documento</th><th style="width:250px">Fecha</th></tr></thead>
-    <tbody class="docs-body" id="docs-rows-{{ stage }}">
-    {% for d in docs if d.stage == stage %}
-      <tr data-key="{{ d.key }}">
-        <td><input type="checkbox" class="doc-check"{% if d.checked %} checked{% endif %}></td>
-        <td>{{ d.label }} <span class="muted">· {{ d.reg }}</span>
-          {% if d.key == 'dec_migra' %}<br><select id="migra-modo" title="El archivo baja con el selector Entrada/Salida adentro">
-                      <option value="ENTRADA">Marcar: Entrada</option>
-                      <option value="SALIDA">Marcar: Salida</option>
-                    </select>{% endif %}
-          {% if d.key == 'decla_pna' %}<br><select id="pna-modo" title="El archivo baja con el selector Entrada/Salida adentro">
-                      <option value="ENTRADA">Marcar: Entrada</option>
-                      <option value="SALIDA">Marcar: Salida</option>
-                    </select>{% endif %}</td>
-        <td class="dg-date-cell">
-          {% if d.key == 'serenos' %}<span class="muted" style="font-size:12px">usa las fechas de Serenos</span>
-          {% else %}<input type="date" class="doc-date" value="{{ today }}">
-          <label class="dg-blank"><input type="checkbox" class="doc-blank"> en blanco</label>{% endif %}
-        </td>
-      </tr>
+    {% else %}
+    <p class="muted dg-stage-empty">Todavía no hay documentos cargados en esta solapa.</p>
+    {% endif %}
+    </div>
     {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="muted dg-stage-empty">Todavía no hay documentos cargados en esta solapa.</p>
-  {% endif %}
+    <details class="dg-help">
+      <summary>Cómo se descargan</summary>
+      <p>Con un solo documento tildado baja el archivo suelto; con más de uno, un zip. En «un solo libro» cada documento queda en su hoja (imprimí con «Todo el libro»); los Word de Heinlein no se pueden unir y bajan aparte, en un zip. En los Word, una fecha en blanco sale como una línea para completar. Los archivos no se guardan en el sistema, solo los datos del buque y de la escala.</p>
+    </details>
   </div>
-  {% endfor %}
-  <div class="row end">
-    <label class="dg-general">Descarga
-      <select id="download-mode">
-        <option value="archivos">Archivo por archivo (zip si son varios)</option>
-        <option value="libro">Todos los Excel juntos en un solo libro</option>
-      </select>
-    </label>
-    <button type="button" class="btn primary" id="btn-generar">⬇ Generar y descargar</button>
-  </div>
-  <p class="muted" style="margin:8px 0 0;font-size:12px">Con un solo documento tildado baja el archivo suelto; con más de uno, un zip. En «un solo libro» cada documento queda en su hoja (imprimí con «Todo el libro»); los Word de Heinlein no se pueden unir y bajan aparte, en un zip. En los Word, una fecha en blanco sale como una línea para completar. Los archivos no se guardan en el sistema, solo los datos del buque.</p>
-</div>
+</details>
 
-<div class="card" id="calls-card" hidden>
-  <h3>Últimas escalas</h3>
-  <p class="muted" style="margin:0 0 8px;font-size:12px">Escalas guardadas de este buque. Se guardan solas al generar los documentos (o con «Guardar escala») e incluyen los datos de la tarjeta Escala y las fechas.</p>
-  <div id="calls-list" class="dg-calls"></div>
+<!-- ÚLTIMAS ESCALAS -->
+<details class="card dg-sec dg-sec-minor" id="calls-card" open hidden>
+  <summary>
+    <span class="dg-num dg-num-minor">↺</span>
+    <span class="dg-sec-title">Últimas escalas <small>historial de este buque</small></span>
+    <span class="dg-sum" id="calls-count"></span>
+    <span class="dg-chev" aria-hidden="true"></span>
+  </summary>
+  <div class="dg-sec-body">
+    <p class="dg-hint">Se guardan solas al generar los documentos (o con «Guardar escala») e incluyen los datos de la sección Escala y las fechas.</p>
+    <div id="calls-list" class="dg-calls"></div>
+  </div>
+</details>
+
+<div class="dg-actionbar">
+  <div class="dg-actionbar-info" id="bar-info"></div>
+  <label class="dg-general">Descarga
+    <select id="download-mode">
+      <option value="archivos">Archivo por archivo (zip si son varios)</option>
+      <option value="libro">Todos los Excel juntos en un solo libro</option>
+    </select>
+  </label>
+  <button type="button" class="btn primary" id="btn-generar">⬇ Generar y descargar</button>
 </div>
 </div>
 </div>
@@ -300,19 +369,101 @@
 td .dg-blank { margin-left: 8px; vertical-align: middle; }
 td.dg-date-cell { white-space: nowrap; }
 @media (max-width: 700px) { td.dg-date-cell { white-space: normal; } td.dg-date-cell .doc-date { min-width: 0 !important; width: 130px !important; } .docs-body td:first-child { width: 34px; padding-left: 4px; padding-right: 4px; } #migra-modo, #pna-modo { min-width: 0 !important; max-width: 100%; } table.list th:nth-child(3) { width: auto !important; } .dg-call { flex-wrap: wrap; } }
-.dg-sub { margin: 16px 0 8px; font-size: 13px; color: var(--navy); }
-.dg-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--line-soft); margin: 4px 0 10px; }
-.dg-tabs .dg-tab { border: 0 !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; padding: 8px 18px; font: inherit; font-weight: 700; font-size: 13px; letter-spacing: .04em; color: var(--muted); cursor: pointer; margin-bottom: -2px; }
-.dg-tabs .dg-tab:hover { color: var(--navy); }
-.dg-tabs .dg-tab.active { color: var(--navy); border-bottom-color: var(--blue) !important; }
 .dg-stage-empty { padding: 18px 4px; margin: 0; }
 .doc-check { width: 16px !important; min-width: 0 !important; height: 16px; padding: 0; margin: 0; }
-.dg-certs > summary { cursor: pointer; list-style: none; }
-.dg-certs > summary::-webkit-details-marker { display: none; }
-.dg-certs > summary::before { content: '▸'; margin-right: 8px; color: var(--muted); }
-.dg-certs[open] > summary::before { content: '▾'; }
-.dg-cert-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; }
-.dg-cert-grid input { width: 100%; box-sizing: border-box; min-width: 0 !important; }
+
+/* ---- secciones desplegables ---- */
+.dg-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--head-blue); border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; }
+.dg-banner-info { display: flex; flex-direction: column; min-width: 0; }
+.dg-banner-label { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.dg-banner-text { font-size: 14px; font-weight: 700; color: var(--navy); }
+.dg-banner-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.card.dg-sec { padding: 0; margin-bottom: 12px; overflow: hidden; }
+.dg-sec > summary { display: flex; align-items: center; gap: 12px; padding: 14px 18px; cursor: pointer; list-style: none; user-select: none; }
+.dg-sec > summary::-webkit-details-marker { display: none; }
+.dg-sec > summary:hover { background: #f7fafd; }
+.dg-sec[open] > summary { border-bottom: 1px solid var(--line-soft); }
+.dg-num { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--blue); color: #fff; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; }
+.dg-num-minor { background: var(--head-blue); color: var(--navy); }
+.dg-sec-title { font-weight: 700; color: var(--navy); font-size: 15px; white-space: nowrap; }
+.dg-sec-title small { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.dg-sum { flex: 1; min-width: 0; text-align: right; font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-sec[open] > summary .dg-sum { opacity: .0; }
+.dg-sec[open] > summary .dg-sum:empty { opacity: 1; }
+.dg-sec-action { flex: none; }
+.dg-chev { flex: none; width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: 0 4px 3px 2px; transition: transform .15s; }
+.dg-sec[open] > summary .dg-chev { transform: rotate(-135deg); margin-top: 5px; }
+.dg-sec-body { padding: 16px 18px 18px; }
+.dg-sec-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.dg-hint { margin: 0 0 12px; font-size: 12px; color: var(--muted); }
+.dg-hint:empty { display: none; }
+.dg-sec-minor > summary .dg-sec-title { font-weight: 600; }
+
+/* ---- campos en grilla ---- */
+.dg-group { margin-top: 18px; }
+.dg-group:first-child { margin-top: 0; }
+.dg-group > h4, .dg-subsec > summary h4 { margin: 0 0 10px; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.dg-group > h4::after { content: ''; flex: 1; height: 1px; background: var(--line-soft); }
+.dg-group h4 small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.dg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px 14px; }
+.dg-grid-sm { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.dg-grid .w2 { grid-column: span 2; }
+.dg-grid .wall { grid-column: 1 / -1; }
+.dg-grid input::placeholder { color: #b3bdcb; font-style: italic; }
+.dg-grid label { font-size: 12px; color: var(--muted); font-weight: 600; min-width: 0; }
+.dg-grid input:not([type=checkbox]), .dg-grid select, .dg-grid textarea { width: 100%; min-width: 0 !important; box-sizing: border-box; font-weight: 400; }
+.dg-subsec { margin-top: 18px; border-top: 1px dashed var(--line-soft); padding-top: 12px; }
+.dg-subsec > summary { cursor: pointer; list-style: none; margin-bottom: 0; }
+.dg-subsec > summary::-webkit-details-marker { display: none; }
+.dg-subsec > summary h4::before { content: '▸'; color: var(--muted); }
+.dg-subsec[open] > summary h4::before { content: '▾'; }
+.dg-subsec[open] > summary { margin-bottom: 10px; }
+.dg-agency-pick { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.dg-agency-pick label { min-width: 260px; flex: 1 1 260px; max-width: 420px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.dg-agency-pick select { width: 100%; }
+.dg-form-title { margin: 16px 0 10px; font-size: 13px; color: var(--navy); }
+
+/* ---- documentos ---- */
+.dg-docs-top { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; border-bottom: 2px solid var(--line-soft); margin-bottom: 10px; }
+.dg-tabs { display: flex; gap: 4px; margin-bottom: -2px; }
+.dg-tabs .dg-tab { border: 0 !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; padding: 8px 18px; font: inherit; font-weight: 700; font-size: 13px; letter-spacing: .04em; color: var(--muted); cursor: pointer; }
+.dg-tabs .dg-tab:hover { color: var(--navy); }
+.dg-tabs .dg-tab.active { color: var(--navy); border-bottom-color: var(--blue) !important; }
+.dg-docs-top .dg-general { padding-bottom: 6px; font-size: 12px; color: var(--muted); }
+.dg-doc-name { font-weight: 600; color: var(--navy); }
+.dg-docs-table tr.dg-serenos-row td { background: #f7fafd; }
+.dg-help { margin-top: 12px; font-size: 12px; color: var(--muted); }
+.dg-help summary { cursor: pointer; font-weight: 600; }
+.dg-help p { margin: 6px 0 0; }
+.dg-stage-empty { padding: 18px 4px; margin: 0; }
+
+/* ---- barra de generar, siempre a mano ---- */
+.dg-actionbar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: wrap; background: rgba(255, 255, 255, .96); backdrop-filter: blur(4px); border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 14px; margin-top: 12px; box-shadow: 0 -4px 16px rgba(15, 40, 80, .08); }
+.dg-actionbar-info { margin-right: auto; font-size: 12.5px; color: var(--muted); }
+.dg-actionbar .dg-general { font-size: 12px; color: var(--muted); }
+@media (max-width: 640px) {
+  .dg-sec-title small { display: none; }
+  .dg-sec > summary { flex-wrap: wrap; row-gap: 2px; padding: 12px 14px; }
+  .dg-sec-title { flex: 1; }
+  .dg-sum { flex: 1 1 100%; order: 9; text-align: left; margin-left: 38px; }
+  .dg-sec[open] > summary .dg-sum { display: none; }
+  .dg-sec-body { padding: 14px; }
+  .dg-grid .w2 { grid-column: 1 / -1; }
+  .dg-banner { padding: 10px 12px; }
+  .dg-docs-table thead { display: none; }
+  .dg-docs-table, .dg-docs-table tbody { display: block; }
+  .dg-docs-table tr[data-key] { display: grid; grid-template-columns: 28px 1fr; gap: 6px 8px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
+  .dg-docs-table td { display: block; border: 0 !important; padding: 0 !important; }
+  .dg-docs-table td.dg-date-cell { grid-column: 2; }
+  .dg-docs-table tr.dg-serenos-row { display: block; padding: 10px; border-radius: 8px; background: #f7fafd; }
+  .dg-docs-table tr.dg-serenos-row td:first-child { display: none; }
+  .dg-actionbar { padding: 8px 12px; gap: 8px; }
+  .dg-actionbar-info { display: none; }
+  .dg-actionbar .dg-general { flex: 1 1 100%; }
+  .dg-actionbar .dg-general select { flex: 1; min-width: 0; }
+  .dg-actionbar .btn.primary { flex: 1 1 100%; }
+}
 .dg-calls { display: flex; flex-direction: column; gap: 4px; }
 .dg-call { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-soft); border-radius: 8px; padding: 7px 10px; background: #fff; }
 .dg-call.active { border-color: var(--blue); background: var(--head-blue); }
@@ -369,11 +520,13 @@ function fillVessel(v) {
   $$('[data-cert]').forEach((el) => (el.value = (v.certificados || {})[el.dataset.cert] || ''));
   updateCertsCount();
   vesselSnap = JSON.stringify(vesselData());
+  updateSummaries();
 }
 document.addEventListener('input', (e) => { if (e.target.dataset && e.target.dataset.cert) updateCertsCount(); });
 
 const CALL_DEFAULTS = { pasajeros: 'NO', lista_pasajeros: 'NO', ciudad_exportador: 'Bahia Blanca' };
 const TODAY = {{ today|tojson }};
+let activeStage = 'ENTRADA';
 
 // Estado de la escala: tarjeta Escala + fechas de los documentos y de Serenos.
 function getState() {
@@ -407,10 +560,28 @@ function setState(st) {
     $(`[data-sb="${el.dataset.s}"]`).checked = blank;
   });
   $('#fecha-general').value = TODAY;
+  updateSummaries();
 }
 
 // Escala nueva: se limpia todo lo de la escala (agencia, Entrada/Salida y documentos tildados no se tocan)
 const resetState = () => setState({});
+
+// ---- resumenes de las cabeceras (se ven cuando la seccion esta cerrada)
+const val = (sel) => ($(sel)?.value || '').trim();
+function updateSummaries() {
+  const name = val('[data-v=name]');
+  $('#sum-buque').textContent = name ? [name, val('[data-v=imo]') && 'IMO ' + val('[data-v=imo]'), val('[data-v=flag]')].filter(Boolean).join(' · ') : 'sin completar';
+  const esc = [val('[data-c=capitan]') && 'Cap. ' + val('[data-c=capitan]'), val('[data-c=terminal]'), val('[data-c=carga]')].filter(Boolean);
+  $('#sum-escala').textContent = esc.length ? esc.join(' · ') : 'sin completar';
+  const ag = $('#agency-select');
+  $('#sum-agencia').textContent = ag && ag.value ? ag.selectedOptions[0].textContent : 'sin elegir';
+  const rows = $$(`.docs-body[id="docs-rows-${activeStage}"] tr[data-key]`).filter((tr) => $('.doc-check', tr).checked);
+  $('#sum-docs').textContent = `${rows.length} tildados · ${activeStage}`;
+  $('#bar-info').textContent = rows.length ? `${rows.length} documento${rows.length > 1 ? 's' : ''} de ${activeStage}` : `Ningún documento tildado en ${activeStage}`;
+}
+document.addEventListener('input', updateSummaries);
+document.addEventListener('change', updateSummaries);
+
 
 // ------------------------------------------------------------- historial --
 let vessels = [];
@@ -489,6 +660,7 @@ function updateCurrentLabel() {
 
 function renderCalls() {
   $('#calls-card').hidden = !currentImo;
+  $('#calls-count').textContent = calls.length ? `${calls.length} guardada${calls.length > 1 ? 's' : ''}` : '';
   const list = $('#calls-list');
   list.replaceChildren();
   if (!calls.length) {
@@ -625,6 +797,17 @@ $('#del-form').addEventListener('submit', async (e) => {
   flash('Escala borrada.');
 });
 
+$('#btn-serenos').addEventListener('click', () => {
+  const row = $('#serenos-row');
+  row.hidden = !row.hidden;
+  $('#btn-serenos').textContent = row.hidden ? 'Fechas de Serenos ▾' : 'Fechas de Serenos ▴';
+});
+function openSerenos() {
+  $('#serenos-row').hidden = false;
+  $('#btn-serenos').textContent = 'Fechas de Serenos ▴';
+  $('#serenos-row').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 $('#btn-escala-nueva').addEventListener('click', newCall);
 $('#btn-escala-guardar').addEventListener('click', async () => {
   const c = await saveCall(true);
@@ -636,6 +819,7 @@ async function selectVessel(v) {
   currentImo = v.imo;
   fillVessel(v);
   showForm('');
+  $('#sec-buque').open = false;  // ya esta cargado: se ve el resumen
   await loadCalls();
   if (calls.length) loadState(calls[0].state, calls[0].id);
   else loadState({}, null);
@@ -652,6 +836,7 @@ async function newVessel() {
   if (/^\d+$/.test(raw)) $('[data-v=imo]').value = raw;
   else if (raw) $('[data-v=name]').value = raw;
   showForm('');
+  $('#sec-buque').open = true;
   renderCalls();
   loadState({}, null);
   $('#dg-current').textContent = 'Barco nuevo: completá los datos del buque (quedan guardados en el historial al generar).';
@@ -711,6 +896,7 @@ function updateAgencyInfo() {
   if (!a) { img.hidden = true; info.textContent = ''; return; }
   if (a.has_logo) { img.src = `/operaciones/utilidades/documentacion/agencias/${a.id}/logo?t=${Date.now()}`; img.hidden = false; }
   else img.hidden = true;
+  updateSummaries();
   info.textContent = a.doc_format === 'HEINLEIN'
     ? 'Con esta agencia, el Pedido de Carga y el BILL salen en Word con el formato de Heinlein.'
     : (a.has_logo ? '' : 'Esta agencia no tiene logo cargado: el Pedido de Carga y el BILL saldrán sin logo.');
@@ -780,11 +966,11 @@ document.addEventListener('change', (e) => {
 });
 
 // solapas ENTRADA / SALIDA: cada una tiene sus documentos y se genera solo la solapa abierta
-let activeStage = 'ENTRADA';
 $$('.dg-tab').forEach((tab) => tab.addEventListener('click', () => {
   activeStage = tab.dataset.stage;
   $$('.dg-tab').forEach((t) => t.classList.toggle('active', t === tab));
   $$('.dg-stage').forEach((st) => (st.hidden = st.dataset.stage !== activeStage));
+  updateSummaries();
 }));
 
 $('#fecha-general').addEventListener('change', (e) => {
@@ -792,7 +978,7 @@ $('#fecha-general').addEventListener('change', (e) => {
 });
 
 $('#btn-generar').addEventListener('click', async () => {
-  const docs = $$(`.docs-body[id="docs-rows-${activeStage}"] tr`)
+  const docs = $$(`.docs-body[id="docs-rows-${activeStage}"] tr[data-key]`)
     .filter((tr) => $('.doc-check', tr).checked)
     .map((tr) => ({
       key: tr.dataset.key, date: $('.doc-date', tr)?.value || '', blank: !!$('.doc-blank', tr)?.checked,
@@ -815,6 +1001,7 @@ $('#btn-generar').addEventListener('click', async () => {
     if (!res.ok) {
       let msg = 'No se pudo generar.';
       try { msg = (await res.json()).error || msg; } catch (_) {}
+      if (/Serenos/i.test(msg)) openSerenos();
       flash(msg, false);
       return;
     }
@@ -850,5 +1037,6 @@ $('#btn-generar').addEventListener('click', async () => {
 
 renderAgencies();
 loadHistory();
+updateSummaries();
 </script>
 {% endblock %}
