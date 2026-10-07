@@ -206,7 +206,7 @@ async def generate(request: Request, db: Session = Depends(get_db), user: User =
     if not call["ciudad_exportador"]:
         call["ciudad_exportador"] = "Bahia Blanca"
 
-    wanted = {d.get("key"): d.get("date") for d in (data.get("docs") or []) if d.get("key")}
+    wanted = {d.get("key"): d for d in (data.get("docs") or []) if d.get("key")}
     order = [k for k, _, _ in DOCS if k in wanted]
     if not order:
         return fail("Tildá al menos un documento")
@@ -220,23 +220,26 @@ async def generate(request: Request, db: Session = Depends(get_db), user: User =
         for k in order:
             if k == "serenos":
                 continue
-            d = _date(wanted[k])
+            if wanted[k].get("blank"):
+                continue  # fecha en blanco: sale vacia para completarla a mano
+            d = _date(wanted[k].get("date"))
             if d is None:
-                return fail("Falta la fecha de uno de los documentos")
+                return fail("Falta la fecha de uno de los documentos (o tildá «en blanco»)")
             dates[k] = d
-        serenos = {k: _date((data.get("serenos") or {}).get(k))
+        s_dates, s_blank = data.get("serenos") or {}, data.get("serenos_blank") or {}
+        serenos = {k: (None if s_blank.get(k) else _date(s_dates.get(k)))
                    for k in ("solicitud", "t0006", "t0612", "t1218", "t1824")}
+        if "serenos" in order and any(v is None and not s_blank.get(k) for k, v in serenos.items()):
+            return fail("Completá las 5 fechas de Serenos (o tildá «en blanco»)")
     except ValueError as e:
         return fail(str(e))
-    if "serenos" in order and not all(serenos.values()):
-        return fail("Completá la fecha de solicitud y las 4 fechas de turno de Serenos")
 
     if imo:
         _upsert_vessel(db, imo, vessel)  # queda el historial del buque para la proxima escala
 
     ctx = Ctx(vessel=vessel, call=call, agency=agency, dates=dates, serenos=serenos,
               migra_modo="SALIDA" if data.get("migra_modo") == "SALIDA" else "ENTRADA")
-    name, content, mime = build_many(order, ctx)
+    name, content, mime = build_many(order, ctx, single_workbook=data.get("download_mode") == "libro")
     ascii_name = name.encode("ascii", "ignore").decode("ascii").strip() or "documentacion"
     return Response(
         content=content, media_type=mime,

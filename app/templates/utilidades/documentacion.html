@@ -150,13 +150,13 @@
 <div class="card">
   <h3>Serenos</h3>
   <div class="row">
-    <label>Fecha de solicitud<input type="date" data-s="solicitud"></label>
-    <label>Turno 00-06<input type="date" data-s="t0006"></label>
-    <label>Turno 06-12<input type="date" data-s="t0612"></label>
-    <label>Turno 12-18<input type="date" data-s="t1218"></label>
-    <label>Turno 18-24<input type="date" data-s="t1824"></label>
+    <div class="dg-dt"><label>Fecha de solicitud<input type="date" data-s="solicitud"></label><label class="dg-blank"><input type="checkbox" data-sb="solicitud"> en blanco</label></div>
+    <div class="dg-dt"><label>Turno 00-06<input type="date" data-s="t0006"></label><label class="dg-blank"><input type="checkbox" data-sb="t0006"> en blanco</label></div>
+    <div class="dg-dt"><label>Turno 06-12<input type="date" data-s="t0612"></label><label class="dg-blank"><input type="checkbox" data-sb="t0612"> en blanco</label></div>
+    <div class="dg-dt"><label>Turno 12-18<input type="date" data-s="t1218"></label><label class="dg-blank"><input type="checkbox" data-sb="t1218"> en blanco</label></div>
+    <div class="dg-dt"><label>Turno 18-24<input type="date" data-s="t1824"></label><label class="dg-blank"><input type="checkbox" data-sb="t1824"> en blanco</label></div>
   </div>
-  <p class="muted" style="margin:8px 0 0;font-size:12px">Los cuatro turnos se piden siempre. Cada fecha se elige a mano.</p>
+  <p class="muted" style="margin:8px 0 0;font-size:12px">Los cuatro turnos se piden siempre. Cada fecha se elige a mano; con «en blanco» la fecha sale vacía para escribirla a mano.</p>
 </div>
 
 <div class="card">
@@ -167,32 +167,35 @@
     </label>
   </div>
   <table class="list" style="width:100%">
-    <thead><tr><th style="width:34px"></th><th>Documento</th><th style="width:170px">Fecha</th><th></th></tr></thead>
+    <thead><tr><th style="width:34px"></th><th>Documento</th><th style="width:250px">Fecha</th></tr></thead>
     <tbody id="docs-rows">
     {% for d in docs %}
       <tr data-key="{{ d.key }}">
         <td><input type="checkbox" class="doc-check" checked></td>
-        <td>{{ d.label }} <span class="muted">· {{ d.reg }}</span></td>
-        <td>
+        <td>{{ d.label }} <span class="muted">· {{ d.reg }}</span>
+          {% if d.key == 'dec_migra' %}<br><select id="migra-modo" title="El archivo baja con el selector Entrada/Salida adentro">
+                      <option value="ENTRADA">Marcar: Entrada</option>
+                      <option value="SALIDA">Marcar: Salida</option>
+                    </select>{% endif %}</td>
+        <td class="dg-date-cell">
           {% if d.key == 'serenos' %}<span class="muted" style="font-size:12px">usa las fechas de Serenos</span>
-          {% else %}<input type="date" class="doc-date" value="{{ today }}">{% endif %}
-        </td>
-        <td>
-          {% if d.key == 'dec_migra' %}
-          <select id="migra-modo" title="El archivo baja con el selector Entrada/Salida adentro">
-            <option value="ENTRADA">Marcar: Entrada</option>
-            <option value="SALIDA">Marcar: Salida</option>
-          </select>
-          {% endif %}
+          {% else %}<input type="date" class="doc-date" value="{{ today }}">
+          <label class="dg-blank"><input type="checkbox" class="doc-blank"> en blanco</label>{% endif %}
         </td>
       </tr>
     {% endfor %}
     </tbody>
   </table>
   <div class="row end">
+    <label class="dg-general">Descarga
+      <select id="download-mode">
+        <option value="archivos">Archivo por archivo (zip si son varios)</option>
+        <option value="libro">Todos los Excel juntos en un solo libro</option>
+      </select>
+    </label>
     <button type="button" class="btn primary" id="btn-generar">⬇ Generar y descargar</button>
   </div>
-  <p class="muted" style="margin:8px 0 0;font-size:12px">Con un solo documento tildado baja el archivo suelto; con más de uno, un zip. Los archivos no se guardan en el sistema, solo los datos del buque.</p>
+  <p class="muted" style="margin:8px 0 0;font-size:12px">Con un solo documento tildado baja el archivo suelto; con más de uno, un zip. En «un solo libro» cada documento queda en su hoja (imprimí con «Todo el libro»); los Word de Heinlein no se pueden unir y bajan aparte, en un zip. En los Word, una fecha en blanco sale como una línea para completar. Los archivos no se guardan en el sistema, solo los datos del buque.</p>
 </div>
 </div>
 </div>
@@ -217,6 +220,11 @@
 .dg-hist-empty { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
 .dg-logo { max-height: 46px; max-width: 160px; border: 1px solid var(--line-soft); border-radius: 6px; padding: 3px; background: #fff; }
 .dg-panel { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.dg-dt { display: flex; flex-direction: column; gap: 4px; }
+.dg-blank { display: inline-flex !important; width: auto !important; justify-content: flex-start !important; flex-direction: row !important; align-items: center; gap: 5px !important; font-size: 12px !important; font-weight: 400 !important; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.dg-blank input { width: 15px !important; min-width: 0 !important; height: 15px; flex: none; margin: 0; padding: 0; }
+td .dg-blank { margin-left: 8px; vertical-align: middle; }
+td.dg-date-cell { white-space: nowrap; }
 .dg-general { flex-direction: row !important; align-items: center; gap: 8px !important; }
 table.list td img.dg-logo { max-height: 30px; max-width: 90px; }
 </style>
@@ -444,6 +452,15 @@ form.addEventListener('submit', async (e) => {
 });
 
 // -------------------------------------------------------------- documentos --
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.classList && t.classList.contains('doc-blank')) {
+    const inp = $('.doc-date', t.closest('tr')); inp.disabled = t.checked;
+  } else if (t.dataset && t.dataset.sb) {
+    $(`[data-s="${t.dataset.sb}"]`).disabled = t.checked;
+  }
+});
+
 $('#fecha-general').addEventListener('change', (e) => {
   $$('.doc-date').forEach((el) => (el.value = e.target.value));
 });
@@ -451,12 +468,16 @@ $('#fecha-general').addEventListener('change', (e) => {
 $('#btn-generar').addEventListener('click', async () => {
   const docs = $$('#docs-rows tr')
     .filter((tr) => $('.doc-check', tr).checked)
-    .map((tr) => ({ key: tr.dataset.key, date: $('.doc-date', tr)?.value || '' }));
-  const serenos = {};
+    .map((tr) => ({
+      key: tr.dataset.key, date: $('.doc-date', tr)?.value || '', blank: !!$('.doc-blank', tr)?.checked,
+    }));
+  const serenos = {}, serenos_blank = {};
   $$('[data-s]').forEach((el) => (serenos[el.dataset.s] = el.value));
+  $$('[data-sb]').forEach((el) => (serenos_blank[el.dataset.sb] = el.checked));
   const payload = {
     vessel: vesselData(), call: callData(), agency_id: sel.value || null,
-    migra_modo: $('#migra-modo').value, docs, serenos,
+    migra_modo: $('#migra-modo').value, docs, serenos, serenos_blank,
+    download_mode: $('#download-mode').value,
   };
   const btn = $('#btn-generar');
   const original = btn.textContent;

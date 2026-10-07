@@ -14,6 +14,7 @@ import docx
 
 from .fechas import en_ordinal_upper, en_parts_heinlein
 from .xlsx_fill import Xlsx
+from .xlsx_merge import merge_workbooks
 
 TEMPLATES = Path(__file__).parent / "templates"
 
@@ -215,10 +216,18 @@ def _save(doc) -> bytes:
     return buf.getvalue()
 
 
+BLANK_DATE_LINE = "_" * 22  # fecha en blanco en los Word: queda una linea para escribirla a mano
+
+
+def _heinlein_date(d: date | None) -> tuple[str, str, str, str]:
+    if d is None:
+        return BLANK_DATE_LINE, "", "", ""
+    return en_parts_heinlein(d)
+
+
 def gen_heinlein_bl(ctx: Ctx) -> bytes:
     doc = docx.Document(TEMPLATES / "heinlein_bl.docx")
-    d = ctx.dates["bill"]
-    month, day, suffix, year = en_parts_heinlein(d)
+    month, day, suffix, year = _heinlein_date(ctx.dates.get("bill"))
 
     r = _runs(doc, 4, "TAMBLING")           # M.T. “TAMBLING”
     r[1].text = ctx.letter
@@ -226,7 +235,7 @@ def gen_heinlein_bl(ctx: Ctx) -> bytes:
 
     r = _runs(doc, 6, "Bahia Blanca")       # Port of Bahia Blanca, October 04th, 2026.-
     r[4].text, r[6].text, r[7].text = month, day, suffix
-    r[8].text, r[9].text, r[10].text = f", {year}", "", ""
+    r[8].text, r[9].text, r[10].text = (f", {year}" if year else ""), "", ""
 
     a = ctx.agency
     lines = _agency_lines(a) if a else []
@@ -243,8 +252,7 @@ def gen_heinlein_bl(ctx: Ctx) -> bytes:
 
 def gen_heinlein_cargo(ctx: Ctx) -> bytes:
     doc = docx.Document(TEMPLATES / "heinlein_cargo.docx")
-    d = ctx.dates["ped_carga"]
-    month, day, suffix, year = en_parts_heinlein(d)
+    month, day, suffix, year = _heinlein_date(ctx.dates.get("ped_carga"))
 
     r = _runs(doc, 3, "TAMBLING")           # M.V. “TAMBLING”
     r[0].text = f"M.{ctx.letter}. “"
@@ -252,7 +260,7 @@ def gen_heinlein_cargo(ctx: Ctx) -> bytes:
 
     r = _runs(doc, 5, "Bahia Blanca")       # Port of Bahia Blanca, October 04th., 2026.-
     r[4].text, r[6].text = month, f"{day}{suffix}"
-    r[7].text, r[8].text, r[9].text = f"., {year}", "", ""
+    r[7].text, r[8].text, r[9].text = (f"., {year}" if year else ""), "", ""
 
     r = _runs(doc, 8, "ACEITERA")           # exportador
     r[0].text, r[1].text = ctx.c("exportador"), ""
@@ -293,19 +301,36 @@ def build(key: str, ctx: Ctx) -> tuple[str, bytes]:
     return f"{base} - {suffix}.xlsx", _XLSX_GEN[key](ctx)
 
 
-def build_many(keys: list[str], ctx: Ctx) -> tuple[str, bytes, str]:
-    """Devuelve (nombre, contenido, mime). Uno solo sale suelto; varios, en un zip."""
-    files = [build(k, ctx) for k in keys]
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+
+def build_many(keys: list[str], ctx: Ctx, single_workbook: bool = False) -> tuple[str, bytes, str]:
+    """Devuelve (nombre, contenido, mime). Uno solo sale suelto; varios, en un zip.
+
+    Con single_workbook, los Excel salen juntos en un solo libro (una hoja por
+    documento) para imprimir todo de una vez; los Word de Heinlein no se pueden
+    unir y van aparte, en un zip junto con ese libro.
+    """
+    files = [(k, *build(k, ctx)) for k in keys]
+    if single_workbook:
+        sheets = [(SHORT_NAMES[k], data) for k, name, data in files if name.endswith(".xlsx")]
+        others = [(name, data) for k, name, data in files if not name.endswith(".xlsx")]
+        if len(sheets) >= 2:
+            book = (f"Documentacion - {_safe(ctx.name)}.xlsx", merge_workbooks(sheets))
+            if not others:
+                return book[0], book[1], XLSX_MIME
+            files = [(None, *book)] + [(None, n, d) for n, d in others]
+            return _zip(ctx, files)
     if len(files) == 1:
-        name, data = files[0]
-        mime = (
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            if name.endswith(".docx")
-            else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        return name, data, mime
+        _, name, data = files[0]
+        return name, data, DOCX_MIME if name.endswith(".docx") else XLSX_MIME
+    return _zip(ctx, files)
+
+
+def _zip(ctx: Ctx, files) -> tuple[str, bytes, str]:
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        for name, data in files:
+        for _, name, data in files:
             z.writestr(name, data)
     return f"Documentacion - {_safe(ctx.name)}.zip", buf.getvalue(), "application/zip"
