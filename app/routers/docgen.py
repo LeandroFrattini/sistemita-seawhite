@@ -28,7 +28,7 @@ CALL_FIELDS = ["capitan", "ultimo_puerto", "procedencia", "destino", "descripcio
                "carga_detalle", "estadia", "tripulantes", "pasajeros", "lista_pasajeros",
                "terminal", "exportador", "ciudad_exportador", "carga",
                "calado_proa", "calado_popa", "calado_max", "practico", "remolque_proa",
-               "remolque_popa", "estima", "puerto_inicio"]
+               "remolque_popa", "estima"]
 MAX_LOGO = 2 * 1024 * 1024
 
 # Vencimientos de certificados del buque (orden de la pantalla). Se guardan siempre con el buque.

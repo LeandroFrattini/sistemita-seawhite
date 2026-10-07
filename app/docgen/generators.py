@@ -245,7 +245,7 @@ def gen_decla_pna(ctx: Ctx) -> bytes:
     x.set_date("F7", d)
     x.set_text("A9", ctx.v("flag"))
     x.set_text("B9", ctx.c("capitan"))
-    x.set_text("A11", ctx.v("matricula"))
+    x.set_text("A11", ctx.vessel.get("imo") or "")  # numero del certificado de matricula = IMO
     x.set_text("C11", ctx.v("puerto_registro"))
     x.set_value("A13", ctx.v("trb"))
     x.set_value("C13", ctx.v("trn"))
@@ -270,13 +270,12 @@ def gen_decla_pna(ctx: Ctx) -> bytes:
     x.set_text("C52", ctx.c("remolque_proa"))
     x.set_text("C54", ctx.c("remolque_popa"))
     x.set_text("C56", ctx.c("estima"))
-    x.set_text("C58", ctx.c("puerto_inicio"))
+    x.set_text("C58", ctx.c("ultimo_puerto"))
     x.set_text("D60", ctx.c("calado_max"))  # como texto: la celda original redondea a entero
     x.set_text("C67", ctx.v("armador"))
 
     certs = dict(ctx.certificados or {})
-    if not (certs.get("iapp") or "").strip():
-        certs["iapp"] = certs.get("polucion", "")  # en la planilla original IAPP = POLUCION
+    certs["iapp"] = certs.get("polucion", "")  # igual que la planilla original: IAPP = POLUCION
     for ref in ("G56", "G62", "G64", "G66"):  # estas celdas no traian formato de fecha
         x.copy_style("G60", ref)
     for key, ref in _PNA_CERTS:
