@@ -1,4 +1,6 @@
+import json
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -9,6 +11,7 @@ from .database import Base, SessionLocal, engine
 from .models import (
     AppSetting,
     Client,
+    DocAgency,
     EventTemplate,
     Lineup,
     ProformaBunkerBoya,
@@ -311,6 +314,47 @@ DEFAULT_EVENT_TEMPLATES = [
 ]
 
 
+DOC_AGENCIES_DIR = Path(__file__).parent / "docgen" / "agencias"
+DOC_AGENCIES_KEY = "docgen_agencias_cargadas"
+
+
+def _seed_doc_agencies(db: Session, folder: Path = DOC_AGENCIES_DIR) -> None:
+    """Carga en bloque las agencias del Generador de documentacion desde
+    app/docgen/agencias/agencias.json (nombre, direccion, formato y archivo de
+    logo). Cada agencia se carga una sola vez: si despues se edita o se borra
+    desde la pantalla, el deploy no la pisa ni la vuelve a crear. Una agencia
+    con logo se espera a que el archivo exista."""
+    from .docgen.logos import normalize_logo
+
+    manifest = folder / "agencias.json"
+    if not manifest.exists():
+        return
+    done_row = db.get(AppSetting, DOC_AGENCIES_KEY)
+    done = set(json.loads(done_row.value)) if done_row and done_row.value else set()
+    for item in json.loads(manifest.read_text(encoding="utf-8")):
+        name = item["name"].strip()
+        if name in done:
+            continue
+        logo = None
+        if item.get("logo"):
+            logo_path = folder / item["logo"]
+            if not logo_path.exists():
+                continue
+            logo = normalize_logo(logo_path.read_bytes())
+        if not db.scalar(select(DocAgency).where(DocAgency.name == name)):
+            db.add(DocAgency(
+                name=name, address=(item.get("address") or "").strip(),
+                doc_format="HEINLEIN" if item.get("doc_format") == "HEINLEIN" else "GENERAL",
+                logo=logo, logo_mime="image/png" if logo else "",
+            ))
+        done.add(name)
+    value = json.dumps(sorted(done), ensure_ascii=False)
+    if done_row:
+        done_row.value = value
+    else:
+        db.add(AppSetting(key=DOC_AGENCIES_KEY, value=value))
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
     db: Session = SessionLocal()
@@ -325,6 +369,7 @@ def init_db() -> None:
         _seed_signature(db)
         _seed_event_templates(db)
         _seed_proformador(db)
+        _seed_doc_agencies(db)
         db.commit()
     finally:
         db.close()

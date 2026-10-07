@@ -7,7 +7,7 @@ import io
 from PIL import Image, ImageChops
 
 CANVAS = (800, 400)  # proporcion 2:1, parecida a la caja del encabezado de los documentos
-MAX_UPSCALE = 3.0
+MAX_UPSCALE = 12.0
 
 
 def normalize_logo(data: bytes) -> bytes:

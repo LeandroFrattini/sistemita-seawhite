@@ -174,7 +174,7 @@ class Xlsx:
         return [heights.get(i, default) for i in range(r1, r2 + 1)]
 
     def add_logo(self, data: bytes, mime: str, box: tuple[int, int, int, int],
-                 box_w_pt: float, box_h_pt: float, pad_pt: float = 8.0) -> None:
+                 box_w_pt: float, box_h_pt: float, pad_pt: float = 10.0) -> None:
         """Logo centrado dentro de la caja del encabezado (columnas c1..c2, filas r1..r2).
 
         box_w_pt/box_h_pt son las medidas reales de esa caja (se midieron en Excel);

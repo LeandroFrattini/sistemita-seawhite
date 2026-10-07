@@ -1,0 +1,33 @@
+[
+  {
+    "name": "WBL Shipping Agency",
+    "address": "Buenos Aires\nArgentina",
+    "logo": "wbl.png"
+  },
+  {
+    "name": "Blue Star Company S.A.",
+    "address": "Lima 355/369, 9 piso - Of. C/D",
+    "logo": "blue_star.png"
+  },
+  {
+    "name": "SEVEN SEAS AGENCIA MARITIMA S.A.",
+    "address": "900, EDUARDO MADERO AVE., 19TH FLOOR.",
+    "logo": "seven_seas.png"
+  },
+  {
+    "name": "ATLAS MARITIME SERVICES S.A.",
+    "address": "Reconquista 661 7th floor, C.P. 1003",
+    "logo": "atlas.jpg"
+  },
+  {
+    "name": "SERVICE MANAGEMENT",
+    "address": "ROQUE SAENZ PEÑA 608 - 2nd Floor",
+    "logo": "service_management.jpg"
+  },
+  {
+    "name": "MARITIMA HEINLEIN S.A",
+    "address": "PERU 359 09th FLOOR\nBuenos Aires",
+    "doc_format": "HEINLEIN",
+    "logo": "heinlein.jpg"
+  }
+]
