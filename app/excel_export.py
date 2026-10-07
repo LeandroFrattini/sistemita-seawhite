@@ -136,6 +136,17 @@ def build_lineup_xlsx(lineup, terminals, calls_by_terminal, *, internal: bool) -
         text.font = Font(name=FONT, size=10, bold=True, color="FFFFFFFF")
         text.fill = NOTICE_FILL
         text.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        # Excel no autoajusta la altura de celdas combinadas: se calcula a mano
+        # segun los renglones cargados (y los que se parten por ancho)
+        ancho = sum(
+            ws.column_dimensions[get_column_letter(c)].width or 8.43
+            for c in range(first_col, end_col + 1)
+        )
+        por_linea = max(10, int(ancho * 0.85))
+        renglones = sum(
+            max(1, -(-len(linea) // por_linea)) for linea in notice.replace("\r", "").split("\n")
+        )
+        ws.row_dimensions[row].height = renglones * 13.5 + 8
 
     bio = io.BytesIO()
     wb.save(bio)
