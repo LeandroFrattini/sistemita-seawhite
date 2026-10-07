@@ -3,7 +3,7 @@ autoridades con los datos del buque y de la escala. Se guardan solo los datos
 de buques por IMO y las agencias; los archivos generados no se guardan.
 """
 import re
-from datetime import date
+from datetime import date, datetime
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from ..auth import current_user
 from ..database import get_db
 from ..docgen.generators import DOCS, Ctx, build_many
+from ..docgen.logos import normalize_logo
 from ..models import DocAgency, DocVessel, User
 from ..templating import templates
 
@@ -32,7 +33,8 @@ def _imo(raw: str) -> str:
 
 
 def _vessel_dict(v: DocVessel) -> dict:
-    return {"imo": v.imo, **{f: getattr(v, f) for f in VESSEL_FIELDS}}
+    updated = v.updated_at.isoformat() + "Z" if v.updated_at else ""
+    return {"imo": v.imo, "updated_at": updated, **{f: getattr(v, f) for f in VESSEL_FIELDS}}
 
 
 def _agency_dict(a: DocAgency) -> dict:
@@ -62,6 +64,7 @@ def _upsert_vessel(db: Session, imo: str, data: dict) -> DocVessel:
         db.add(v)
     for f, val in _clean_vessel(data).items():
         setattr(v, f, val)
+    v.updated_at = datetime.utcnow()  # "ultima modificacion" tambien cuando se vuelve a generar
     db.commit()
     return v
 
@@ -78,13 +81,11 @@ def page(request: Request, db: Session = Depends(get_db), user: User = Depends(c
 
 
 # ------------------------------------------------------------ buques -------
-@router.get("/barco")
-def get_vessel(imo: str = "", db: Session = Depends(get_db), user: User = Depends(current_user)):
-    n = _imo(imo)
-    if not n:
-        return JSONResponse({"found": False, "error": "Ingresá un IMO"}, status_code=400)
-    v = db.scalar(select(DocVessel).where(DocVessel.imo == n))
-    return {"found": bool(v), "imo": n, "vessel": _vessel_dict(v) if v else None}
+@router.get("/barcos.json")
+def list_vessels(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Historial: todos los buques, con todos sus datos, ordenados por nombre."""
+    rows = db.scalars(select(DocVessel).order_by(DocVessel.name)).all()
+    return [_vessel_dict(v) for v in rows]
 
 
 @router.post("/barco")

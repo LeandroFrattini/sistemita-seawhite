@@ -13,14 +13,37 @@
 
 <p id="flash" class="flash" hidden></p>
 
-<div class="card dg-top">
-  <button type="button" class="btn primary" id="btn-nuevo">＋ Nuevo barco</button>
-  <div class="dg-search">
-    <input id="imo-search" inputmode="numeric" placeholder="Buscar por IMO (si el barco ya vino)" autocomplete="off">
-    <button type="button" class="btn" id="btn-buscar">Buscar</button>
+<div class="dg-layout">
+<aside class="dg-aside">
+  <div class="card dg-hist">
+    <div class="section-head">
+      <h3>Historial de buques</h3>
+      <button type="button" class="btn primary mini" id="btn-nuevo">＋ Nuevo barco</button>
+    </div>
+    <input id="hist-search" placeholder="Buscar por nombre o IMO" autocomplete="off">
+    <div class="dg-hist-sort muted">
+      <span id="hist-count"></span>
+      <select id="hist-sort" title="Orden">
+        <option value="az">Orden A–Z</option>
+        <option value="recent">Más recientes</option>
+      </select>
+    </div>
+    <div id="hist-list" class="dg-hist-list"></div>
+    <div id="hist-empty" class="dg-hist-empty" hidden>
+      <p class="muted" id="hist-empty-msg" style="margin:0 0 8px"></p>
+      <button type="button" class="btn primary" id="btn-agregar-nuevo">＋ Agregar nuevo barco</button>
+    </div>
   </div>
-  <span class="muted" id="search-msg"></span>
+</aside>
+
+<div class="dg-main">
+<div class="card" id="dg-empty">
+  <h3>Elegí un barco</h3>
+  <p class="muted" style="margin:0">Buscalo en el historial de la derecha, o tocá <b>＋ Nuevo barco</b> si todavía no está cargado.</p>
 </div>
+
+<div id="dg-form" hidden>
+<p class="muted" id="dg-current" style="margin:0 0 10px;font-size:13px"></p>
 
 <div class="card">
   <div class="section-head">
@@ -171,13 +194,27 @@
   </div>
   <p class="muted" style="margin:8px 0 0;font-size:12px">Con un solo documento tildado baja el archivo suelto; con más de uno, un zip. Los archivos no se guardan en el sistema, solo los datos del buque.</p>
 </div>
+</div>
+</div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <style>
-.dg-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.dg-search { display: flex; gap: 8px; align-items: center; }
-.dg-search input { min-width: 280px; }
+.dg-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+.dg-aside { order: 2; position: sticky; top: 12px; }
+.dg-main { order: 1; min-width: 0; }
+@media (max-width: 960px) { .dg-layout { grid-template-columns: minmax(0, 1fr); } .dg-aside { order: 0; position: static; } }
+.dg-hist input { width: 100%; box-sizing: border-box; }
+.dg-hist-sort { display: flex; justify-content: space-between; align-items: center; margin: 8px 0 6px; font-size: 12px; }
+.dg-hist-sort select { min-width: 0 !important; padding: 3px 6px !important; font-size: 12px !important; }
+.dg-hist-list { max-height: 62vh; overflow: auto; display: flex; flex-direction: column; gap: 3px; }
+.dg-hist-item { text-align: left; background: #fff; border: 1px solid var(--line-soft); border-radius: 8px; padding: 7px 10px; cursor: pointer; font: inherit; display: block; width: 100%; }
+.dg-hist-item:hover { border-color: var(--blue); background: #f7fafd; }
+.dg-hist-item.active { border-color: var(--blue); background: var(--head-blue); }
+.dg-hist-item b { display: block; font-size: 13.5px; color: var(--navy); }
+.dg-hist-item span { font-size: 11.5px; color: var(--muted); }
+.dg-hist-empty { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-soft); }
 .dg-logo { max-height: 46px; max-width: 160px; border: 1px solid var(--line-soft); border-radius: 6px; padding: 3px; background: #fff; }
 .dg-panel { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
 .dg-general { flex-direction: row !important; align-items: center; gap: 8px !important; }
@@ -219,40 +256,101 @@ function fillVessel(v) {
   $$('[data-v]').forEach((el) => (el.value = v[el.dataset.v] ?? (el.dataset.v === 'kind' ? 'BULK_CARRIER' : '')));
 }
 
-$('#btn-nuevo').addEventListener('click', () => {
-  fillVessel({});
-  $$('[data-c]').forEach((el) => {
-    const d = { pasajeros: 'NO', lista_pasajeros: 'NO', ciudad_exportador: 'Bahia Blanca' };
-    el.value = d[el.dataset.c] ?? '';
-  });
-  $('#imo-search').value = '';
-  $('#search-msg').textContent = '';
-  $('[data-v=imo]').focus();
-});
+const CALL_DEFAULTS = { pasajeros: 'NO', lista_pasajeros: 'NO', ciudad_exportador: 'Bahia Blanca' };
+function resetCall() {
+  $$('[data-c]').forEach((el) => (el.value = CALL_DEFAULTS[el.dataset.c] ?? ''));
+}
 
-async function buscarIMO() {
-  const imo = $('#imo-search').value.trim();
-  const msg = $('#search-msg');
-  if (!imo) { msg.textContent = 'Ingresá un IMO.'; return; }
-  const res = await fetch('/operaciones/utilidades/documentacion/barco?imo=' + encodeURIComponent(imo));
-  const data = await res.json();
-  if (!res.ok) { msg.textContent = data.error || 'No se pudo buscar.'; return; }
-  if (data.found) {
-    fillVessel({ ...data.vessel });
-    msg.textContent = 'Barco encontrado: ' + data.vessel.name + '. Revisá los datos y completá la escala.';
+// ------------------------------------------------------------- historial --
+let vessels = [];
+let currentImo = '';
+
+const norm = (t) => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
+
+function showForm(label) {
+  $('#dg-empty').hidden = true;
+  $('#dg-form').hidden = false;
+  $('#dg-current').textContent = label;
+}
+
+function renderHistory() {
+  const q = norm($('#hist-search').value.trim());
+  let rows = vessels.filter((v) => !q || norm(v.name).includes(q) || v.imo.includes(q.replace(/\D/g, '') || '\u0000'));
+  rows = rows.slice().sort($('#hist-sort').value === 'recent'
+    ? (a, b) => b.updated_at.localeCompare(a.updated_at)
+    : (a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+  $('#hist-count').textContent = `${rows.length} de ${vessels.length} buques`;
+
+  const list = $('#hist-list');
+  list.replaceChildren();
+  rows.forEach((v) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dg-hist-item' + (v.imo === currentImo ? ' active' : '');
+    const b = document.createElement('b');
+    b.textContent = v.name || '(sin nombre)';
+    const sp = document.createElement('span');
+    sp.textContent = `IMO ${v.imo} · última modificación ${fmtDate(v.updated_at)}`;
+    btn.append(b, sp);
+    btn.addEventListener('click', () => selectVessel(v));
+    list.appendChild(btn);
+  });
+
+  const empty = $('#hist-empty');
+  const raw = $('#hist-search').value.trim();
+  if (!rows.length) {
+    empty.hidden = false;
+    $('#hist-empty-msg').textContent = raw ? `No se encontró «${raw}» en el historial.` : 'Todavía no hay buques cargados.';
   } else {
-    fillVessel({ imo: data.imo });
-    msg.textContent = 'IMO ' + data.imo + ' no estaba cargado. Completá los datos del buque (se guardan al generar).';
-    $('[data-v=name]').focus();
+    empty.hidden = true;
   }
 }
-$('#btn-buscar').addEventListener('click', buscarIMO);
-$('#imo-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarIMO(); } });
+
+async function loadHistory() {
+  const res = await fetch('/operaciones/utilidades/documentacion/barcos.json');
+  vessels = res.ok ? await res.json() : [];
+  renderHistory();
+}
+
+function selectVessel(v) {
+  currentImo = v.imo;
+  fillVessel(v);
+  resetCall();
+  showForm(`Barco: ${v.name} (IMO ${v.imo}). Revisá los datos y completá la escala.`);
+  renderHistory();
+  $('[data-c=capitan]').focus();
+}
+
+function newVessel() {
+  const raw = $('#hist-search').value.trim();
+  currentImo = '';
+  fillVessel({});
+  resetCall();
+  if (/^\d+$/.test(raw)) $('[data-v=imo]').value = raw;
+  else if (raw) $('[data-v=name]').value = raw;
+  showForm('Barco nuevo: completá los datos del buque (quedan guardados en el historial al generar).');
+  renderHistory();
+  $((/^\d+$/.test(raw) ? '[data-v=name]' : '[data-v=imo]')).focus();
+}
+
+$('#btn-nuevo').addEventListener('click', newVessel);
+$('#btn-agregar-nuevo').addEventListener('click', newVessel);
+$('#hist-search').addEventListener('input', renderHistory);
+$('#hist-sort').addEventListener('change', renderHistory);
+$('#hist-search').addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const items = $$('.dg-hist-item');
+  if (items.length === 1) items[0].click();
+  else if (!items.length) newVessel();
+});
 
 $('#btn-guardar-barco').addEventListener('click', async () => {
   const res = await postJSON('/operaciones/utilidades/documentacion/barco', vesselData());
   const data = await res.json();
   flash(res.ok ? 'Datos del buque guardados.' : data.error, res.ok);
+  if (res.ok) { currentImo = data.vessel.imo; await loadHistory(); }
 });
 
 // --------------------------------------------------------------- agencias --
@@ -384,6 +482,8 @@ $('#btn-generar').addEventListener('click', async () => {
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
     flash('Listo: ' + name);
+    const imoGen = payload.vessel.imo.replace(/\D/g, '');
+    if (imoGen) { currentImo = imoGen; await loadHistory(); }
   } catch (err) {
     flash('Ocurrió un error al generar. Probá de nuevo.', false);
   } finally {
@@ -393,5 +493,6 @@ $('#btn-generar').addEventListener('click', async () => {
 });
 
 renderAgencies();
+loadHistory();
 </script>
 {% endblock %}
