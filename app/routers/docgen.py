@@ -28,14 +28,32 @@ CALL_FIELDS = ["capitan", "ultimo_puerto", "procedencia", "destino", "descripcio
                "terminal", "exportador", "ciudad_exportador", "carga"]
 MAX_LOGO = 2 * 1024 * 1024
 
+# Vencimientos de certificados del buque (orden de la pantalla). Se guardan siempre con el buque.
+CERTIFICADOS = [
+    ("iapp", "IAPP"), ("radio", "RADIO"), ("equipo", "EQUIPO"), ("francobordo", "FRANCOBORDO"),
+    ("construccion", "CONSTRUCCION"), ("desratizacion", "DESRATIZACION"), ("polucion", "POLUCION"),
+    ("cgs", "C.G.S."), ("doc", "D.O.C."), ("isps", "I.S.P.S."), ("imo", "IMO"),
+    ("inmarsat", "INMARSAT"), ("mlc", "MLC"), ("fitness", "FITNESS"), ("sewage", "SEWAGE"), ("clc", "CLC"),
+]
+CERT_KEYS = [k for k, _ in CERTIFICADOS]
+
 
 def _imo(raw: str) -> str:
     return re.sub(r"\D", "", raw or "")
 
 
+def _certs_load(raw: str) -> dict:
+    try:
+        data = json.loads(raw or "{}")
+    except ValueError:
+        data = {}
+    return {k: str(data.get(k) or "") for k in CERT_KEYS}
+
+
 def _vessel_dict(v: DocVessel) -> dict:
     updated = v.updated_at.isoformat() + "Z" if v.updated_at else ""
-    return {"imo": v.imo, "updated_at": updated, **{f: getattr(v, f) for f in VESSEL_FIELDS}}
+    return {"imo": v.imo, "updated_at": updated, "certificados": _certs_load(v.certificados),
+            **{f: getattr(v, f) for f in VESSEL_FIELDS}}
 
 
 def _agency_dict(a: DocAgency) -> dict:
@@ -55,7 +73,13 @@ def _date(raw) -> date | None:
 def _clean_vessel(data: dict) -> dict:
     out = {f: (data.get(f) or "").strip() for f in VESSEL_FIELDS}
     out["kind"] = out["kind"] if out["kind"] in ("BULK_CARRIER", "TANKER") else "BULK_CARRIER"
+    if isinstance(data.get("certificados"), dict):  # sin la clave, no se pisan los guardados
+        out["certificados"] = {k: _iso_or_text(data["certificados"].get(k)) for k in CERT_KEYS}
     return out
+
+
+def _iso_or_text(raw) -> str:
+    return str(raw or "").strip()[:40]
 
 
 def _upsert_vessel(db: Session, imo: str, data: dict) -> DocVessel:
@@ -64,7 +88,10 @@ def _upsert_vessel(db: Session, imo: str, data: dict) -> DocVessel:
         v = DocVessel(imo=imo)
         db.add(v)
     for f, val in _clean_vessel(data).items():
-        setattr(v, f, val)
+        if f == "certificados":
+            v.certificados = json.dumps(val, ensure_ascii=False)
+        else:
+            setattr(v, f, val)
     v.updated_at = datetime.utcnow()  # "ultima modificacion" tambien cuando se vuelve a generar
     db.commit()
     return v
@@ -76,6 +103,7 @@ def page(request: Request, db: Session = Depends(get_db), user: User = Depends(c
     return templates.TemplateResponse(request, "utilidades/documentacion.html", {
         "user": user,
         "docs": [{"key": k, "label": label, "reg": reg} for k, label, reg in DOCS],
+        "certificados": [{"key": k, "label": label} for k, label in CERTIFICADOS],
         "agencies": [_agency_dict(a) for a in agencies],
         "today": date.today().isoformat(),
     })

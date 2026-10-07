@@ -82,6 +82,7 @@ _MIGRATIONS = [
     ("vessel_calls", "needs_report", "BOOLEAN DEFAULT TRUE"),
     ("lineups", "notice", "TEXT DEFAULT ''"),
     ("users", "is_pda_admin", "BOOLEAN DEFAULT FALSE"),
+    ("doc_vessels", "certificados", "TEXT DEFAULT ''"),
     ("proformas", "remolques_in", "INTEGER DEFAULT 0"),
     ("proformas", "remolques_out", "INTEGER DEFAULT 0"),
     ("proformas", "immigration_in_boya", "BOOLEAN DEFAULT FALSE"),

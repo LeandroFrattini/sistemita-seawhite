@@ -74,6 +74,22 @@
   </div>
 </div>
 
+<details class="card dg-certs" id="certs-card">
+  <summary>
+    <h3 style="display:inline">Certificados</h3>
+    <span class="muted" id="certs-count" style="font-size:12px;margin-left:8px"></span>
+  </summary>
+  <p class="muted" style="margin:10px 0 10px;font-size:12px">Vencimientos de los certificados del buque. No hace falta completarlos: quedan guardados con el buque (no dependen de la escala) para las planillas que los usan.</p>
+  <div class="dg-cert-grid">
+    {% for c in certificados %}
+    <label>{{ c.label }}<input type="date" data-cert="{{ c.key }}"></label>
+    {% endfor %}
+  </div>
+  <div class="row end" style="margin-top:12px">
+    <button type="button" class="btn mini" id="btn-guardar-certs">Guardar certificados</button>
+  </div>
+</details>
+
 <div class="card">
   <div class="section-head">
     <h3>Escala</h3>
@@ -252,6 +268,12 @@ td .dg-blank { margin-left: 8px; vertical-align: middle; }
 td.dg-date-cell { white-space: nowrap; }
 @media (max-width: 700px) { td.dg-date-cell { white-space: normal; } td.dg-date-cell .doc-date { min-width: 0 !important; width: 130px !important; } #docs-rows td:first-child { width: 34px; padding-left: 4px; padding-right: 4px; } #migra-modo { min-width: 0 !important; max-width: 100%; } table.list th:nth-child(3) { width: auto !important; } .dg-call { flex-wrap: wrap; } }
 .doc-check { width: 16px !important; min-width: 0 !important; height: 16px; padding: 0; margin: 0; }
+.dg-certs > summary { cursor: pointer; list-style: none; }
+.dg-certs > summary::-webkit-details-marker { display: none; }
+.dg-certs > summary::before { content: '▸'; margin-right: 8px; color: var(--muted); }
+.dg-certs[open] > summary::before { content: '▾'; }
+.dg-cert-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; }
+.dg-cert-grid input { width: 100%; box-sizing: border-box; min-width: 0 !important; }
 .dg-calls { display: flex; flex-direction: column; gap: 4px; }
 .dg-call { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-soft); border-radius: 8px; padding: 7px 10px; background: #fff; }
 .dg-call.active { border-color: var(--blue); background: var(--head-blue); }
@@ -289,6 +311,8 @@ async function postJSON(url, body) {
 function vesselData() {
   const o = {};
   $$('[data-v]').forEach((el) => (o[el.dataset.v] = el.value));
+  o.certificados = {};
+  $$('[data-cert]').forEach((el) => (o.certificados[el.dataset.cert] = el.value));
   return o;
 }
 function callData() {
@@ -296,9 +320,18 @@ function callData() {
   $$('[data-c]').forEach((el) => (o[el.dataset.c] = el.value));
   return o;
 }
+let vesselSnap = '';
+function updateCertsCount() {
+  const n = $$('[data-cert]').filter((el) => el.value).length;
+  $('#certs-count').textContent = n ? `${n} cargados` : 'sin cargar';
+}
 function fillVessel(v) {
   $$('[data-v]').forEach((el) => (el.value = v[el.dataset.v] ?? (el.dataset.v === 'kind' ? 'BULK_CARRIER' : '')));
+  $$('[data-cert]').forEach((el) => (el.value = (v.certificados || {})[el.dataset.cert] || ''));
+  updateCertsCount();
+  vesselSnap = JSON.stringify(vesselData());
 }
+document.addEventListener('input', (e) => { if (e.target.dataset && e.target.dataset.cert) updateCertsCount(); });
 
 const CALL_DEFAULTS = { pasajeros: 'NO', lista_pasajeros: 'NO', ciudad_exportador: 'Bahia Blanca' };
 const TODAY = {{ today|tojson }};
@@ -473,6 +506,7 @@ async function saveCall(withVessel) {
     const d = await r.json();
     if (!r.ok) { flash(d.error, false); return null; }
     currentImo = d.vessel.imo;
+    vesselSnap = JSON.stringify(vesselData());
     await loadHistory();
   }
   const res = await postJSON('/operaciones/utilidades/documentacion/escalas', { imo: currentImo, id: currentCallId, state: getState() });
@@ -486,7 +520,12 @@ async function saveCall(withVessel) {
 
 // Antes de cambiar de escala o de buque: lo que se tocó se guarda solo.
 async function leaveCurrent() {
-  if ($('#dg-form').hidden || !isDirty()) return true;
+  if ($('#dg-form').hidden) return true;
+  if (currentImo && JSON.stringify(vesselData()) !== vesselSnap) {  // datos del buque / certificados tocados
+    const r = await postJSON('/operaciones/utilidades/documentacion/barco', vesselData());
+    if (r.ok) { vesselSnap = JSON.stringify(vesselData()); flash('Se guardaron los cambios del buque.'); }
+  }
+  if (!isDirty()) return true;
   if (!currentImo) return confirm('Los datos de esta escala no se pueden guardar porque el buque todavía no tiene IMO guardado. ¿Seguir igual?');
   const saved = await saveCall(false);
   if (saved) flash('Se guardó la escala que estabas editando.');
@@ -593,11 +632,12 @@ $('#hist-search').addEventListener('keydown', (e) => {
   else if (!items.length) newVessel();
 });
 
+$('#btn-guardar-certs').addEventListener('click', () => $('#btn-guardar-barco').click());
 $('#btn-guardar-barco').addEventListener('click', async () => {
   const res = await postJSON('/operaciones/utilidades/documentacion/barco', vesselData());
   const data = await res.json();
   flash(res.ok ? 'Datos del buque guardados.' : data.error, res.ok);
-  if (res.ok) { currentImo = data.vessel.imo; await loadHistory(); await loadCalls(); }
+  if (res.ok) { currentImo = data.vessel.imo; vesselSnap = JSON.stringify(vesselData()); await loadHistory(); await loadCalls(); }
 });
 
 // --------------------------------------------------------------- agencias --
@@ -749,6 +789,7 @@ $('#btn-generar').addEventListener('click', async () => {
       const id = res.headers.get('X-Escala-Id');
       if (id) currentCallId = Number(id);
       savedSnap = JSON.stringify(payload.state);
+      vesselSnap = JSON.stringify(vesselData());
       await loadHistory();
       await loadCalls();
     }
