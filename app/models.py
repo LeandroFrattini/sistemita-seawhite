@@ -788,3 +788,17 @@ class DocVessel(Base):
     puerto_registro: Mapped[str] = mapped_column(String(80), default="")
     armador: Mapped[str] = mapped_column(String(160), default="")
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class DocCall(Base):
+    """Escala (recalada) de un buque del generador de documentacion: guarda los datos
+    de la tarjeta Escala y las fechas de los documentos y de Serenos, como JSON.
+    Un buque (por IMO) puede tener muchas escalas."""
+
+    __tablename__ = "doc_calls"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    imo: Mapped[str] = mapped_column(String(20), index=True)
+    data: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

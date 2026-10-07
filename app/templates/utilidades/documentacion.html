@@ -75,7 +75,13 @@
 </div>
 
 <div class="card">
-  <h3>Escala</h3>
+  <div class="section-head">
+    <h3>Escala</h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button type="button" class="btn mini" id="btn-escala-guardar">Guardar escala</button>
+      <button type="button" class="btn mini primary" id="btn-escala-nueva">＋ Agregar escala</button>
+    </div>
+  </div>
   <div class="row">
     <label>Capitán<input data-c="capitan"></label>
     <label>Terminal / sitio de atraque<input data-c="terminal"></label>
@@ -197,9 +203,28 @@
   </div>
   <p class="muted" style="margin:8px 0 0;font-size:12px">Con un solo documento tildado baja el archivo suelto; con más de uno, un zip. En «un solo libro» cada documento queda en su hoja (imprimí con «Todo el libro»); los Word de Heinlein no se pueden unir y bajan aparte, en un zip. En los Word, una fecha en blanco sale como una línea para completar. Los archivos no se guardan en el sistema, solo los datos del buque.</p>
 </div>
+
+<div class="card" id="calls-card" hidden>
+  <h3>Últimas escalas</h3>
+  <p class="muted" style="margin:0 0 8px;font-size:12px">Escalas guardadas de este buque. Se guardan solas al generar los documentos (o con «Guardar escala») e incluyen los datos de la tarjeta Escala y las fechas.</p>
+  <div id="calls-list" class="dg-calls"></div>
 </div>
 </div>
 </div>
+</div>
+
+<dialog id="del-dialog" class="dg-dialog">
+  <form id="del-form" autocomplete="off">
+    <h3 style="margin:0 0 8px">Borrar escala</h3>
+    <p id="del-msg" style="margin:0 0 10px"></p>
+    <label>Tu contraseña para confirmar<input type="password" id="del-pass" autocomplete="current-password" style="width:100%"></label>
+    <p id="del-err" class="flash err" hidden style="margin:8px 0 0"></p>
+    <div class="row end" style="margin-top:12px">
+      <button type="button" class="btn" id="del-cancel">Cancelar</button>
+      <button type="submit" class="btn danger" id="del-ok">Borrar escala</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}
 
 {% block scripts %}
@@ -225,6 +250,17 @@
 .dg-blank input { width: 15px !important; min-width: 0 !important; height: 15px; flex: none; margin: 0; padding: 0; }
 td .dg-blank { margin-left: 8px; vertical-align: middle; }
 td.dg-date-cell { white-space: nowrap; }
+@media (max-width: 700px) { td.dg-date-cell { white-space: normal; } td.dg-date-cell .doc-date { min-width: 0 !important; width: 130px !important; } #docs-rows td:first-child { width: 34px; padding-left: 4px; padding-right: 4px; } #migra-modo { min-width: 0 !important; max-width: 100%; } table.list th:nth-child(3) { width: auto !important; } .dg-call { flex-wrap: wrap; } }
+.doc-check { width: 16px !important; min-width: 0 !important; height: 16px; padding: 0; margin: 0; }
+.dg-calls { display: flex; flex-direction: column; gap: 4px; }
+.dg-call { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-soft); border-radius: 8px; padding: 7px 10px; background: #fff; }
+.dg-call.active { border-color: var(--blue); background: var(--head-blue); }
+.dg-call .dg-call-main { flex: 1; min-width: 0; cursor: pointer; }
+.dg-call b { font-size: 13.5px; color: var(--navy); }
+.dg-call .dg-call-sub { display: block; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dg-call .dg-open { font-size: 11px; font-weight: 600; color: var(--blue); margin-left: 6px; }
+.dg-dialog { border: 1px solid var(--line-soft); border-radius: 12px; padding: 18px; width: min(380px, 92vw); }
+.dg-dialog::backdrop { background: rgba(0, 0, 0, .35); }
 .dg-general { flex-direction: row !important; align-items: center; gap: 8px !important; }
 table.list td img.dg-logo { max-height: 30px; max-width: 90px; }
 </style>
@@ -265,9 +301,44 @@ function fillVessel(v) {
 }
 
 const CALL_DEFAULTS = { pasajeros: 'NO', lista_pasajeros: 'NO', ciudad_exportador: 'Bahia Blanca' };
-function resetCall() {
-  $$('[data-c]').forEach((el) => (el.value = CALL_DEFAULTS[el.dataset.c] ?? ''));
+const TODAY = {{ today|tojson }};
+
+// Estado de la escala: tarjeta Escala + fechas de los documentos y de Serenos.
+function getState() {
+  const dates = {}, blank = {}, serenos = {}, serenos_blank = {};
+  $$('#docs-rows tr').forEach((tr) => {
+    const inp = $('.doc-date', tr);
+    if (!inp) return;
+    dates[tr.dataset.key] = inp.value;
+    blank[tr.dataset.key] = $('.doc-blank', tr).checked;
+  });
+  $$('[data-s]').forEach((el) => (serenos[el.dataset.s] = el.value));
+  $$('[data-sb]').forEach((el) => (serenos_blank[el.dataset.sb] = el.checked));
+  return { call: callData(), dates, blank, serenos, serenos_blank };
 }
+
+function setState(st) {
+  st = st || {};
+  $$('[data-c]').forEach((el) => (el.value = (st.call || {})[el.dataset.c] ?? CALL_DEFAULTS[el.dataset.c] ?? ''));
+  $$('#docs-rows tr').forEach((tr) => {
+    const inp = $('.doc-date', tr);
+    if (!inp) return;
+    const blank = !!(st.blank || {})[tr.dataset.key];
+    inp.value = (st.dates || {})[tr.dataset.key] ?? TODAY;
+    $('.doc-blank', tr).checked = blank;
+    inp.disabled = blank;
+  });
+  $$('[data-s]').forEach((el) => {
+    const blank = !!(st.serenos_blank || {})[el.dataset.s];
+    el.value = (st.serenos || {})[el.dataset.s] ?? '';
+    el.disabled = blank;
+    $(`[data-sb="${el.dataset.s}"]`).checked = blank;
+  });
+  $('#fecha-general').value = TODAY;
+}
+
+// Escala nueva: se limpia todo lo de la escala (agencia, Entrada/Salida y documentos tildados no se tocan)
+const resetState = () => setState({});
 
 // ------------------------------------------------------------- historial --
 let vessels = [];
@@ -321,23 +392,191 @@ async function loadHistory() {
   renderHistory();
 }
 
-function selectVessel(v) {
+// ----------------------------------------------------------------- escalas --
+let calls = [];
+let currentCallId = null;
+let savedSnap = '';
+const snapshot = () => JSON.stringify(getState());
+const isDirty = () => snapshot() !== savedSnap;
+const fmtShort = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '');
+
+function callLabel(c) {
+  const day = fmtShort(c.created_at);
+  const same = calls.filter((x) => fmtShort(x.created_at) === day);
+  if (same.length < 2) return `Escala ${day}`;
+  const n = same.slice().sort((x, y) => x.id - y.id).findIndex((x) => x.id === c.id) + 1;
+  return `Escala ${day} (${n})`;
+}
+
+function updateCurrentLabel() {
+  const v = vessels.find((x) => x.imo === currentImo);
+  const who = v ? `Barco: ${v.name} (IMO ${v.imo}). ` : '';
+  const c = calls.find((x) => x.id === currentCallId);
+  $('#dg-current').textContent = who + (c ? `${callLabel(c)} (guardada)` : 'Escala nueva (todavía sin guardar)') + '.';
+}
+
+function renderCalls() {
+  $('#calls-card').hidden = !currentImo;
+  const list = $('#calls-list');
+  list.replaceChildren();
+  if (!calls.length) {
+    const p = document.createElement('p');
+    p.className = 'muted';
+    p.style.margin = '0';
+    p.textContent = 'Todavía no hay escalas guardadas para este buque.';
+    list.appendChild(p);
+    return;
+  }
+  calls.forEach((c) => {
+    const row = document.createElement('div');
+    row.className = 'dg-call' + (c.id === currentCallId ? ' active' : '');
+    const main = document.createElement('div');
+    main.className = 'dg-call-main';
+    const b = document.createElement('b');
+    b.textContent = callLabel(c);
+    if (c.id === currentCallId) {
+      const tag = document.createElement('span');
+      tag.className = 'dg-open';
+      tag.textContent = 'abierta';
+      b.appendChild(tag);
+    }
+    const cl = (c.state && c.state.call) || {};
+    const sub = document.createElement('span');
+    sub.className = 'dg-call-sub';
+    sub.textContent = [cl.terminal, cl.carga, cl.capitan && 'Cap. ' + cl.capitan].filter(Boolean).join(' · ') || 'sin datos de escala';
+    main.append(b, sub);
+    main.addEventListener('click', () => openCall(c));
+    const open = document.createElement('button');
+    open.type = 'button'; open.className = 'btn mini'; open.textContent = 'Abrir';
+    open.addEventListener('click', () => openCall(c));
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'btn mini danger'; del.textContent = 'Borrar';
+    del.addEventListener('click', () => askDelete(c));
+    row.append(main, open, del);
+    list.appendChild(row);
+  });
+}
+
+async function loadCalls() {
+  calls = [];
+  if (currentImo) {
+    const res = await fetch(`/operaciones/utilidades/documentacion/barco/${encodeURIComponent(currentImo)}/escalas.json`);
+    calls = res.ok ? await res.json() : [];
+  }
+  renderCalls();
+  updateCurrentLabel();
+}
+
+async function saveCall(withVessel) {
+  if (withVessel || !currentImo) {
+    const r = await postJSON('/operaciones/utilidades/documentacion/barco', vesselData());
+    const d = await r.json();
+    if (!r.ok) { flash(d.error, false); return null; }
+    currentImo = d.vessel.imo;
+    await loadHistory();
+  }
+  const res = await postJSON('/operaciones/utilidades/documentacion/escalas', { imo: currentImo, id: currentCallId, state: getState() });
+  const data = await res.json();
+  if (!res.ok) { flash(data.error || 'No se pudo guardar la escala.', false); return null; }
+  currentCallId = data.call.id;
+  savedSnap = snapshot();
+  await loadCalls();
+  return data.call;
+}
+
+// Antes de cambiar de escala o de buque: lo que se tocó se guarda solo.
+async function leaveCurrent() {
+  if ($('#dg-form').hidden || !isDirty()) return true;
+  if (!currentImo) return confirm('Los datos de esta escala no se pueden guardar porque el buque todavía no tiene IMO guardado. ¿Seguir igual?');
+  const saved = await saveCall(false);
+  if (saved) flash('Se guardó la escala que estabas editando.');
+  return !!saved;
+}
+
+function loadState(st, id) {
+  setState(st);
+  currentCallId = id;
+  savedSnap = snapshot();
+  updateCurrentLabel();
+  renderCalls();
+}
+
+async function openCall(c) {
+  if (c.id === currentCallId) return;
+  if (!(await leaveCurrent())) return;
+  loadState(c.state, c.id);
+  $('#dg-current').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function newCall() {
+  if (!(await leaveCurrent())) return;
+  loadState({}, null);
+  flash('Escala nueva en limpio. Los datos del buque se mantienen.');
+  $('[data-c=capitan]').focus();
+}
+
+// ---- borrar con contraseña
+let deleting = null;
+function askDelete(c) {
+  deleting = c;
+  $('#del-msg').textContent = `Se borra «${callLabel(c)}» con sus datos y fechas. No se puede deshacer.`;
+  $('#del-pass').value = '';
+  $('#del-err').hidden = true;
+  $('#del-dialog').showModal();
+  $('#del-pass').focus();
+}
+$('#del-cancel').addEventListener('click', () => $('#del-dialog').close());
+$('#del-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!deleting) return;
+  const res = await postJSON(`/operaciones/utilidades/documentacion/escalas/${deleting.id}/borrar`, { password: $('#del-pass').value });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    $('#del-err').textContent = data.error || 'No se pudo borrar.';
+    $('#del-err').hidden = false;
+    return;
+  }
+  const wasOpen = deleting.id === currentCallId;
+  $('#del-dialog').close();
+  deleting = null;
+  await loadCalls();
+  if (wasOpen) {
+    if (calls.length) loadState(calls[0].state, calls[0].id);
+    else loadState({}, null);
+  }
+  flash('Escala borrada.');
+});
+
+$('#btn-escala-nueva').addEventListener('click', newCall);
+$('#btn-escala-guardar').addEventListener('click', async () => {
+  const c = await saveCall(true);
+  if (c) flash(`Escala guardada: ${callLabel(c)}.`);
+});
+
+async function selectVessel(v) {
+  if (!(await leaveCurrent())) return;
   currentImo = v.imo;
   fillVessel(v);
-  resetCall();
-  showForm(`Barco: ${v.name} (IMO ${v.imo}). Revisá los datos y completá la escala.`);
+  showForm('');
+  await loadCalls();
+  if (calls.length) loadState(calls[0].state, calls[0].id);
+  else loadState({}, null);
   renderHistory();
   $('[data-c=capitan]').focus();
 }
 
-function newVessel() {
+async function newVessel() {
+  if (!(await leaveCurrent())) return;
   const raw = $('#hist-search').value.trim();
   currentImo = '';
+  calls = [];
   fillVessel({});
-  resetCall();
   if (/^\d+$/.test(raw)) $('[data-v=imo]').value = raw;
   else if (raw) $('[data-v=name]').value = raw;
-  showForm('Barco nuevo: completá los datos del buque (quedan guardados en el historial al generar).');
+  showForm('');
+  renderCalls();
+  loadState({}, null);
+  $('#dg-current').textContent = 'Barco nuevo: completá los datos del buque (quedan guardados en el historial al generar).';
   renderHistory();
   $((/^\d+$/.test(raw) ? '[data-v=name]' : '[data-v=imo]')).focus();
 }
@@ -358,7 +597,7 @@ $('#btn-guardar-barco').addEventListener('click', async () => {
   const res = await postJSON('/operaciones/utilidades/documentacion/barco', vesselData());
   const data = await res.json();
   flash(res.ok ? 'Datos del buque guardados.' : data.error, res.ok);
-  if (res.ok) { currentImo = data.vessel.imo; await loadHistory(); }
+  if (res.ok) { currentImo = data.vessel.imo; await loadHistory(); await loadCalls(); }
 });
 
 // --------------------------------------------------------------- agencias --
@@ -477,6 +716,7 @@ $('#btn-generar').addEventListener('click', async () => {
   const payload = {
     vessel: vesselData(), call: callData(), agency_id: sel.value || null,
     migra_modo: $('#migra-modo').value, docs, serenos, serenos_blank,
+    state: getState(), call_id: currentCallId,
     download_mode: $('#download-mode').value,
   };
   const btn = $('#btn-generar');
@@ -504,7 +744,14 @@ $('#btn-generar').addEventListener('click', async () => {
     URL.revokeObjectURL(url);
     flash('Listo: ' + name);
     const imoGen = payload.vessel.imo.replace(/\D/g, '');
-    if (imoGen) { currentImo = imoGen; await loadHistory(); }
+    if (imoGen) {
+      currentImo = imoGen;
+      const id = res.headers.get('X-Escala-Id');
+      if (id) currentCallId = Number(id);
+      savedSnap = JSON.stringify(payload.state);
+      await loadHistory();
+      await loadCalls();
+    }
   } catch (err) {
     flash('Ocurrió un error al generar. Probá de nuevo.', false);
   } finally {

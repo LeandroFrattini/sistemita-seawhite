@@ -2,6 +2,7 @@
 autoridades con los datos del buque y de la escala. Se guardan solo los datos
 de buques por IMO y las agencias; los archivos generados no se guardan.
 """
+import json
 import re
 from datetime import date, datetime
 from urllib.parse import quote
@@ -11,11 +12,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..auth import current_user
+from ..auth import current_user, verify_password
 from ..database import get_db
-from ..docgen.generators import DOCS, Ctx, build_many
+from ..docgen.generators import DOCS, DOC_KEYS, Ctx, build_many
 from ..docgen.logos import normalize_logo
-from ..models import DocAgency, DocVessel, User
+from ..models import DocAgency, DocCall, DocVessel, User
 from ..templating import templates
 
 router = APIRouter(prefix="/operaciones/utilidades/documentacion")
@@ -95,6 +96,81 @@ async def save_vessel(request: Request, db: Session = Depends(get_db), user: Use
     if not imo or not (data.get("name") or "").strip():
         return JSONResponse({"ok": False, "error": "Faltan el IMO y el nombre del buque"}, status_code=400)
     return {"ok": True, "vessel": _vessel_dict(_upsert_vessel(db, imo, data))}
+
+
+# ----------------------------------------------------------- escalas -------
+SERENO_KEYS = ("solicitud", "t0006", "t0612", "t1218", "t1824")
+
+
+def _iso(raw) -> str:
+    try:
+        return date.fromisoformat(str(raw)).isoformat() if raw else ""
+    except ValueError:
+        return ""
+
+
+def _clean_state(data: dict) -> dict:
+    """Lo que guarda una escala: tarjeta Escala + fechas de documentos y de Serenos."""
+    call = data.get("call") or {}
+    dates, blank = data.get("dates") or {}, data.get("blank") or {}
+    ser, ser_blank = data.get("serenos") or {}, data.get("serenos_blank") or {}
+    return {
+        "call": {f: str(call.get(f) or "")[:500] for f in CALL_FIELDS},
+        "dates": {k: _iso(dates.get(k)) for k in DOC_KEYS},
+        "blank": {k: bool(blank.get(k)) for k in DOC_KEYS},
+        "serenos": {k: _iso(ser.get(k)) for k in SERENO_KEYS},
+        "serenos_blank": {k: bool(ser_blank.get(k)) for k in SERENO_KEYS},
+    }
+
+
+def _call_dict(c: DocCall) -> dict:
+    try:
+        state = json.loads(c.data or "{}")
+    except ValueError:
+        state = {}
+    return {"id": c.id, "imo": c.imo, "state": state,
+            "created_at": c.created_at.isoformat() + "Z" if c.created_at else "",
+            "updated_at": c.updated_at.isoformat() + "Z" if c.updated_at else ""}
+
+
+def _save_call(db: Session, imo: str, call_id, state: dict) -> DocCall:
+    c = db.get(DocCall, int(call_id)) if call_id else None
+    if c is None or c.imo != imo:
+        c = DocCall(imo=imo)
+        db.add(c)
+    c.data = json.dumps(_clean_state(state), ensure_ascii=False)
+    c.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(c)
+    return c
+
+
+@router.get("/barco/{imo}/escalas.json")
+def list_calls(imo: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    rows = db.scalars(select(DocCall).where(DocCall.imo == _imo(imo)).order_by(DocCall.created_at.desc(), DocCall.id.desc())).all()
+    return [_call_dict(c) for c in rows]
+
+
+@router.post("/escalas")
+async def save_call(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    data = await request.json()
+    imo = _imo(data.get("imo"))
+    if not imo or not db.scalar(select(DocVessel).where(DocVessel.imo == imo)):
+        return JSONResponse({"ok": False, "error": "Guardá primero los datos del buque (hace falta el IMO)"}, status_code=400)
+    return {"ok": True, "call": _call_dict(_save_call(db, imo, data.get("id"), data.get("state") or {}))}
+
+
+@router.post("/escalas/{call_id}/borrar")
+async def delete_call(call_id: int, request: Request, db: Session = Depends(get_db),
+                      user: User = Depends(current_user)):
+    data = await request.json()
+    if not verify_password(str(data.get("password") or ""), user.password_hash):
+        return JSONResponse({"ok": False, "error": "Contraseña incorrecta"}, status_code=403)
+    c = db.get(DocCall, call_id)
+    if c:
+        db.delete(c)
+        db.commit()
+    return {"ok": True}
 
 
 # ---------------------------------------------------------- agencias -------
@@ -234,14 +310,17 @@ async def generate(request: Request, db: Session = Depends(get_db), user: User =
     except ValueError as e:
         return fail(str(e))
 
+    call_id = None
     if imo:
         _upsert_vessel(db, imo, vessel)  # queda el historial del buque para la proxima escala
+        state = dict(data.get("state") or {}, call=call)
+        call_id = _save_call(db, imo, data.get("call_id"), state).id  # y la escala, con sus fechas
 
     ctx = Ctx(vessel=vessel, call=call, agency=agency, dates=dates, serenos=serenos,
               migra_modo="SALIDA" if data.get("migra_modo") == "SALIDA" else "ENTRADA")
     name, content, mime = build_many(order, ctx, single_workbook=data.get("download_mode") == "libro")
     ascii_name = name.encode("ascii", "ignore").decode("ascii").strip() or "documentacion"
-    return Response(
-        content=content, media_type=mime,
-        headers={"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"},
-    )
+    headers = {"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"}
+    if call_id:
+        headers["X-Escala-Id"] = str(call_id)
+    return Response(content=content, media_type=mime, headers=headers)
