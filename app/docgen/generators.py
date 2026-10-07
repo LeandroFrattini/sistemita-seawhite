@@ -1,0 +1,311 @@
+"""Un generador por documento. Cada uno abre su plantilla, completa solo las
+celdas que antes salian por formula del libro viejo, y devuelve (nombre, bytes).
+"""
+from __future__ import annotations
+
+import io
+import re
+import zipfile
+from dataclasses import dataclass, field
+from datetime import date
+from pathlib import Path
+
+import docx
+
+from .fechas import en_ordinal_upper, en_parts_heinlein
+from .xlsx_fill import Xlsx
+
+TEMPLATES = Path(__file__).parent / "templates"
+
+# clave, nombre largo, codigo REG-AM
+DOCS: list[tuple[str, str, str]] = [
+    ("dec_migra", "Declaración de Migraciones", "REG-AM-11"),
+    ("dec_ana", "Declaración General Aduana (DEC. ANA)", "REG-AM-19"),
+    ("permanencia", "Permanencia y Navegación", "REG-AM-20"),
+    ("calados_ent", "Calados Entrada", "REG-AM-21"),
+    ("rancho", "Recepción de Lista de Rancho", "REG-AM-23"),
+    ("serenos", "Pedido de Serenos", "REG-AM-09"),
+    ("ped_carga", "Pedido de Carga", "REG-AM-25"),
+    ("bill", "Autorización BILL OF LADING", "REG-AM-26"),
+]
+DOC_KEYS = [d[0] for d in DOCS]
+
+SHORT_NAMES = {
+    "dec_migra": "DEC. MIGRA", "dec_ana": "DEC. ANA", "permanencia": "Permanencia",
+    "calados_ent": "Calados Entrada", "rancho": "Rancho", "serenos": "Serenos",
+    "ped_carga": "Pedido de Carga", "bill": "BILL",
+}
+
+KIND_LETTER = {"BULK_CARRIER": "V", "TANKER": "T"}  # MV / MT
+
+
+@dataclass
+class Ctx:
+    vessel: dict
+    call: dict
+    agency: object | None  # DocAgency o None
+    dates: dict[str, date] = field(default_factory=dict)
+    serenos: dict[str, date | None] = field(default_factory=dict)
+    migra_modo: str = "ENTRADA"  # ENTRADA | SALIDA
+
+    @property
+    def name(self) -> str:
+        return (self.vessel.get("name") or "").strip()
+
+    @property
+    def letter(self) -> str:
+        return KIND_LETTER.get(self.vessel.get("kind"), "V")
+
+    @property
+    def is_heinlein(self) -> bool:
+        return bool(self.agency) and self.agency.doc_format == "HEINLEIN"
+
+    def v(self, key: str) -> str:
+        return (self.vessel.get(key) or "").strip()
+
+    def c(self, key: str) -> str:
+        return (self.call.get(key) or "").strip()
+
+
+def _agency_lines(agency) -> list[str]:
+    return [l.strip() for l in (agency.address or "").splitlines() if l.strip()]
+
+
+# ------------------------------------------------------------- Excel -------
+def gen_dec_ana(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "dec_ana.xlsx")
+    x.set_date("M4", ctx.dates.get("dec_ana"))
+    x.set_text("K7", ctx.name)
+    x.set_text("C8", ctx.v("flag"))
+    x.set_text("K8", ctx.c("capitan"))
+    x.set_text("N9", ctx.c("ultimo_puerto"))
+    x.set_text("N37", ctx.c("terminal"))
+    x.set_value("M39", ctx.v("trn"))
+    return x.to_bytes()
+
+
+def gen_dec_migra(ctx: Ctx) -> bytes:
+    entrada = ctx.migra_modo != "SALIDA"
+    x = Xlsx(TEMPLATES / "dec_migra.xlsx")
+    d = ctx.dates.get("dec_migra")
+    x.set_text("D4", "X Entrada" if entrada else "X Salida")
+    # resultados guardados de las formulas que dependen del selector D4
+    x.set_formula_result("D5", "2.Puerto de Entrada" if entrada else "2.Puerto de Salida")
+    x.set_formula_result("E5", "3. Fecha y Hora de Entrada" if entrada else "3. Fecha y Hora de Salida")
+    x.set_formula_result("E7", "6.Puerto de procedencia" if entrada else "6.Puerto de destino")
+    x.set_formula_result("D13", "11. Calados de Entrada" if entrada else "11. Calados de Salida")
+    x.set_text("AB7", ctx.c("procedencia"))
+    x.set_text("AB8", ctx.c("destino"))
+    x.set_formula_result("E8", ctx.c("procedencia") if entrada else ctx.c("destino"))
+
+    x.set_text("A6", ctx.name)
+    x.set_text("D6", "Bahia Blanca")
+    x.set_date("E6", d)
+    x.set_text("A8", ctx.v("flag"))
+    x.set_text("D8", ctx.c("capitan"))
+    x.set_value("A10", ctx.v("matricula"))
+    x.set_text("C10", ctx.v("puerto_registro"))
+    x.set_value("A12", ctx.v("trb"))
+    x.set_value("C12", ctx.v("trn"))
+    x.set_text("A14", ctx.c("terminal"))
+    x.set_text("A16", ctx.c("descripcion_viaje"))
+    x.set_text("A19", ctx.c("carga_detalle"))
+    x.set_value("A22", ctx.c("tripulantes"))
+    x.set_value("B22", ctx.c("pasajeros"))
+    x.set_text("B27", ctx.c("lista_pasajeros"))
+    x.set_date("D32", d)
+    x.set_text("B52", ctx.c("destino"))
+    return x.to_bytes()
+
+
+def gen_permanencia(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "permanencia.xlsx")
+    for ref in ("G12", "G13"):
+        x.set_text(ref, ctx.name)
+    for ref in ("L12", "L13"):
+        x.set_text(ref, ctx.v("flag"))
+    for ref in ("B15", "B16"):
+        x.set_text(ref, ctx.c("terminal"))
+    for ref in ("B18", "C19"):
+        x.set_value(ref, ctx.c("estadia"))
+    x.set_date("A23", ctx.dates.get("permanencia"))
+    return x.to_bytes()
+
+
+def gen_calados(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "calados_ent.xlsx")
+    d = ctx.dates.get("calados_ent")
+    x.set_text("B9", ctx.name)
+    x.set_text("E9", ctx.v("flag"))
+    x.set_date("E32", d)
+    x.set_date("D45", d)
+    return x.to_bytes()
+
+
+def gen_rancho(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "rancho.xlsx")
+    x.set_date("G8", ctx.dates.get("rancho"))
+    return x.to_bytes()
+
+
+# cada bloque del pedido de serenos: fila de la fecha de solicitud, de buque/bandera,
+# de muelle y de la fecha de inicio del turno
+_SERENO_BLOCKS = [
+    ("t0006", 7, 11, 13, 15),
+    ("t0612", 58, 62, 64, 66),
+    ("t1218", 108, 112, 114, 116),
+    ("t1824", 158, 162, 164, 166),
+]
+
+
+def gen_serenos(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "serenos.xlsx")
+    for turno, r_sol, r_buque, r_muelle, r_turno in _SERENO_BLOCKS:
+        x.set_date(f"F{r_sol}", ctx.serenos.get("solicitud"))
+        x.set_text(f"B{r_buque}", ctx.name)
+        x.set_text(f"G{r_buque}", ctx.v("flag"))
+        x.set_text(f"B{r_muelle}", ctx.c("terminal"))
+        x.set_date(f"D{r_turno}", ctx.serenos.get(turno))
+    return x.to_bytes()
+
+
+def _agency_logo(x: Xlsx, ctx: Ctx, box, box_w, box_h) -> None:
+    a = ctx.agency
+    if a is not None and a.logo:
+        x.add_logo(a.logo, a.logo_mime, box, box_w, box_h)
+
+
+def gen_ped_carga(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "ped_carga.xlsx")
+    x.set_text("K7", en_ordinal_upper(ctx.dates["ped_carga"]) if ctx.dates.get("ped_carga") else "")
+    x.set_text("A10", ctx.c("exportador"))
+    x.set_text("A11", ctx.c("ciudad_exportador"))
+    x.set_text("H18", ctx.c("carga"))
+    x.set_text("I29", ctx.name)
+    _agency_logo(x, ctx, (1, 1, 4, 5), 124.2, 67.2)
+    return x.to_bytes()
+
+
+def gen_bill(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "bill.xlsx")
+    x.set_text("E7", en_ordinal_upper(ctx.dates["bill"]) if ctx.dates.get("bill") else "")
+    lines = _agency_lines(ctx.agency) if ctx.agency else []
+    x.set_text("A10", ctx.agency.name if ctx.agency else "")
+    x.set_text("A11", lines[0] if lines else "")
+    x.set_text("A12", ", ".join(lines[1:]) if len(lines) > 1 else "")
+    x.set_text("A22", ctx.v("flag"))
+    x.set_text("D22", ctx.name)
+    x.set_text("E31", ctx.name)
+    x.set_text("D32", ctx.c("capitan"))
+    _agency_logo(x, ctx, (1, 1, 2, 5), 145.2, 72.6)
+    return x.to_bytes()
+
+
+# ------------------------------------------------------------- Word --------
+def _runs(doc, idx: int, expect: str):
+    p = doc.paragraphs[idx]
+    if expect not in p.text:
+        raise RuntimeError(f"La plantilla de Heinlein cambió (párrafo {idx}: se esperaba «{expect}»)")
+    return p.runs
+
+
+def _save(doc) -> bytes:
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def gen_heinlein_bl(ctx: Ctx) -> bytes:
+    doc = docx.Document(TEMPLATES / "heinlein_bl.docx")
+    d = ctx.dates["bill"]
+    month, day, suffix, year = en_parts_heinlein(d)
+
+    r = _runs(doc, 4, "TAMBLING")           # M.T. “TAMBLING”
+    r[1].text = ctx.letter
+    r[3].text = ctx.name
+
+    r = _runs(doc, 6, "Bahia Blanca")       # Port of Bahia Blanca, October 04th, 2026.-
+    r[4].text, r[6].text, r[7].text = month, day, suffix
+    r[8].text, r[9].text, r[10].text = f", {year}", "", ""
+
+    a = ctx.agency
+    lines = _agency_lines(a) if a else []
+    _runs(doc, 9, "MARITIMA")[0].text = a.name if a else ""
+    r = _runs(doc, 10, "PERU")
+    r[0].text, r[1].text = (lines[0] if lines else ""), ""
+    _runs(doc, 11, "Buenos Aires")[0].text = lines[1] if len(lines) > 1 else ""
+
+    r = _runs(doc, 19, "TAMBLING")          # M/T “TAMBLING”
+    r[1].text = ctx.letter
+    r[3].text = ctx.name
+    return _save(doc)
+
+
+def gen_heinlein_cargo(ctx: Ctx) -> bytes:
+    doc = docx.Document(TEMPLATES / "heinlein_cargo.docx")
+    d = ctx.dates["ped_carga"]
+    month, day, suffix, year = en_parts_heinlein(d)
+
+    r = _runs(doc, 3, "TAMBLING")           # M.V. “TAMBLING”
+    r[0].text = f"M.{ctx.letter}. “"
+    r[1].text = ctx.name
+
+    r = _runs(doc, 5, "Bahia Blanca")       # Port of Bahia Blanca, October 04th., 2026.-
+    r[4].text, r[6].text = month, f"{day}{suffix}"
+    r[7].text, r[8].text, r[9].text = f"., {year}", "", ""
+
+    r = _runs(doc, 8, "ACEITERA")           # exportador
+    r[0].text, r[1].text = ctx.c("exportador"), ""
+
+    r = _runs(doc, 13, "TAMBLING")          # the Singapore flag M.T. “TAMBLING” ...
+    r[1].text = ctx.v("flag")
+    r[3].text = ctx.letter
+    r[5].text = ctx.name
+
+    r = _runs(doc, 21, "TAMBLING")          # Master of M/T “TAMBLING”
+    r[2].text = f"{ctx.letter} “"
+    r[3].text = ctx.name
+
+    cargo_cell = doc.tables[0].rows[1].cells[4]
+    cargo_cell.paragraphs[0].runs[0].text = "    " + ctx.c("carga")
+    return _save(doc)
+
+
+# ---------------------------------------------------------- entrada --------
+_XLSX_GEN = {
+    "dec_migra": gen_dec_migra, "dec_ana": gen_dec_ana, "permanencia": gen_permanencia,
+    "calados_ent": gen_calados, "rancho": gen_rancho, "serenos": gen_serenos,
+    "ped_carga": gen_ped_carga, "bill": gen_bill,
+}
+
+
+def _safe(text: str) -> str:
+    return re.sub(r'[\\/:*?"<>|]+', "-", text).strip() or "buque"
+
+
+def build(key: str, ctx: Ctx) -> tuple[str, bytes]:
+    base = SHORT_NAMES[key]
+    suffix = _safe(ctx.name)
+    if key in ("ped_carga", "bill") and ctx.is_heinlein:
+        if key == "ped_carga":
+            return f"Cargo Declaration (Heinlein) - {suffix}.docx", gen_heinlein_cargo(ctx)
+        return f"Authorization BL (Heinlein) - {suffix}.docx", gen_heinlein_bl(ctx)
+    return f"{base} - {suffix}.xlsx", _XLSX_GEN[key](ctx)
+
+
+def build_many(keys: list[str], ctx: Ctx) -> tuple[str, bytes, str]:
+    """Devuelve (nombre, contenido, mime). Uno solo sale suelto; varios, en un zip."""
+    files = [build(k, ctx) for k in keys]
+    if len(files) == 1:
+        name, data = files[0]
+        mime = (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            if name.endswith(".docx")
+            else "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+        return name, data, mime
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for name, data in files:
+            z.writestr(name, data)
+    return f"Documentacion - {_safe(ctx.name)}.zip", buf.getvalue(), "application/zip"

@@ -7,6 +7,7 @@ data/*.db
 *.xlsx
 !app/static/template/*.xlsx
 !app/migraciones_templates/*.xlsx
+!app/docgen/templates/*.xlsx
 
 # build del ayudante: carpetas de trabajo de PyInstaller, no van al repo.
 # El .zip final (app/static/downloads/) SI va al repo -- lo sirve la app

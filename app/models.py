@@ -7,6 +7,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -747,3 +748,43 @@ class ProformaOtaRemolcadorTarifa(Base):
     hasta_loa: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = ultimo tramo
     valor_usd: Mapped[float] = mapped_column(Float, default=0)
     orden: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class DocAgency(Base):
+    """Agencia/cliente para el Generador de documentacion: su nombre y
+    direccion salen como destinatario (Messrs.) y su logo va en el
+    encabezado de Pedido de Carga y BILL. HEINLEIN es la unica con
+    formato propio (Word)."""
+
+    __tablename__ = "doc_agencies"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(160), unique=True)
+    address: Mapped[str] = mapped_column(Text, default="")  # una linea por renglon
+    doc_format: Mapped[str] = mapped_column(String(12), default="GENERAL")  # GENERAL | HEINLEIN
+    logo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    logo_mime: Mapped[str] = mapped_column(String(30), default="")
+
+
+class DocVessel(Base):
+    """Datos fijos de un buque por IMO, para que en la proxima escala
+    aparezcan solos. Solo se guardan los datos del buque, nunca los
+    archivos generados."""
+
+    __tablename__ = "doc_vessels"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    imo: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120), default="")
+    kind: Mapped[str] = mapped_column(String(20), default="BULK_CARRIER")  # BULK_CARRIER (MV) | TANKER (MT)
+    flag: Mapped[str] = mapped_column(String(80), default="")
+    eslora: Mapped[str] = mapped_column(String(20), default="")
+    manga: Mapped[str] = mapped_column(String(20), default="")
+    puntal: Mapped[str] = mapped_column(String(20), default="")
+    trn: Mapped[str] = mapped_column(String(20), default="")
+    trb: Mapped[str] = mapped_column(String(20), default="")
+    call_sign: Mapped[str] = mapped_column(String(30), default="")
+    matricula: Mapped[str] = mapped_column(String(40), default="")
+    puerto_registro: Mapped[str] = mapped_column(String(80), default="")
+    armador: Mapped[str] = mapped_column(String(160), default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

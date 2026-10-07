@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block nav_utilidades %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Generador de documentación</h1>
+    <span class="muted">Completá los datos del buque y de la escala y bajá los documentos para las autoridades.</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/operaciones/utilidades">← Utilidades</a>
+  </div>
+</div>
+
+<p id="flash" class="flash" hidden></p>
+
+<div class="card dg-top">
+  <button type="button" class="btn primary" id="btn-nuevo">＋ Nuevo barco</button>
+  <div class="dg-search">
+    <input id="imo-search" inputmode="numeric" placeholder="Buscar por IMO (si el barco ya vino)" autocomplete="off">
+    <button type="button" class="btn" id="btn-buscar">Buscar</button>
+  </div>
+  <span class="muted" id="search-msg"></span>
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <h3>Buque</h3>
+    <button type="button" class="btn mini" id="btn-guardar-barco">Guardar datos del buque</button>
+  </div>
+  <div class="row">
+    <label>IMO<input data-v="imo" inputmode="numeric" maxlength="12"></label>
+    <label>Nombre del buque<input data-v="name" style="min-width:220px"></label>
+    <label>Tipo de buque
+      <select data-v="kind">
+        <option value="BULK_CARRIER">BULK CARRIER — MV</option>
+        <option value="TANKER">TANKER — MT</option>
+      </select>
+    </label>
+    <label>Bandera<input data-v="flag"></label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label>Eslora<input data-v="eslora" style="min-width:90px;width:100px"></label>
+    <label>Manga<input data-v="manga" style="min-width:90px;width:100px"></label>
+    <label>Puntal<input data-v="puntal" style="min-width:90px;width:100px"></label>
+    <label>TRN<input data-v="trn" style="min-width:90px;width:110px"></label>
+    <label>TRB<input data-v="trb" style="min-width:90px;width:110px"></label>
+    <label>Call sign<input data-v="call_sign" style="min-width:110px;width:120px"></label>
+    <label>Matrícula<input data-v="matricula"></label>
+    <label>Puerto de registro<input data-v="puerto_registro"></label>
+    <label>Armador<input data-v="armador" style="min-width:220px"></label>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Escala</h3>
+  <div class="row">
+    <label>Capitán<input data-c="capitan"></label>
+    <label>Terminal / sitio de atraque<input data-c="terminal"></label>
+    <label>Último puerto extranjero<input data-c="ultimo_puerto" style="min-width:220px"></label>
+    <label>Procedencia<input data-c="procedencia" style="min-width:220px"></label>
+    <label>Destino<input data-c="destino" style="min-width:220px"></label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label style="flex:1 1 100%">Descripción del viaje
+      <input data-c="descripcion_viaje" style="width:100%" placeholder="ROSARIO, ARGENTINA - BAHIA BLANCA, ARGENTINA - CHATTOGRAM, BANGLADESH">
+    </label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label>En lastre / cargado (detallar)<input data-c="carga_detalle" style="min-width:220px" placeholder="CARGADO CON MAIZ"></label>
+    <label>Estadía (días)<input data-c="estadia" style="min-width:90px;width:100px"></label>
+    <label>Tripulantes (cantidad)<input data-c="tripulantes" style="min-width:90px;width:120px"></label>
+    <label>Pasajeros (no/sí - cantidad)<input data-c="pasajeros" style="min-width:90px;width:150px" value="NO"></label>
+    <label>Lista de pasajeros (no/sí)<input data-c="lista_pasajeros" style="min-width:90px;width:150px" value="NO"></label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label>Exportador (Pedido de Carga)<input data-c="exportador" style="min-width:240px" placeholder="CARGILL S.A.C.I"></label>
+    <label>Ciudad del exportador<input data-c="ciudad_exportador" value="Bahia Blanca"></label>
+    <label>Carga<input data-c="carga" placeholder="MAIZE"></label>
+  </div>
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <h3>Agencia</h3>
+    <button type="button" class="btn mini" id="btn-agencias">Administrar agencias</button>
+  </div>
+  <div class="row">
+    <label>Agencia (Pedido de Carga y BILL)
+      <select id="agency-select" style="min-width:300px"></select>
+    </label>
+    <img id="agency-logo-prev" class="dg-logo" alt="" hidden>
+  </div>
+  <p class="muted" id="agency-info" style="margin:8px 0 0;font-size:12px"></p>
+
+  <div id="agency-panel" hidden class="dg-panel">
+    <table class="list" style="width:100%">
+      <thead><tr><th>Logo</th><th>Agencia</th><th>Dirección</th><th>Formato</th><th></th></tr></thead>
+      <tbody id="agency-rows"></tbody>
+    </table>
+    <form id="agency-form" class="dg-agency-form" autocomplete="off">
+      <h3 id="agency-form-title" style="margin:14px 0 8px">Agregar agencia</h3>
+      <input type="hidden" name="id">
+      <div class="row">
+        <label>Nombre<input name="name" required style="min-width:260px"></label>
+        <label>Formato
+          <select name="doc_format">
+            <option value="GENERAL">General (Excel)</option>
+            <option value="HEINLEIN">Heinlein (Word)</option>
+          </select>
+        </label>
+        <label>Logo (PNG o JPG, máx. 2 MB)<input type="file" name="logo" accept="image/png,image/jpeg"></label>
+        <label class="check" id="remove-logo-wrap" hidden><input type="checkbox" name="remove_logo"> Quitar logo actual</label>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <label style="flex:1 1 100%">Dirección (un renglón por línea)
+          <textarea name="address" rows="3" style="width:100%" placeholder="Buenos Aires&#10;Argentina"></textarea>
+        </label>
+      </div>
+      <div class="row end">
+        <button type="button" class="btn" id="agency-cancel" hidden>Cancelar edición</button>
+        <button type="submit" class="btn primary">Guardar agencia</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Serenos</h3>
+  <div class="row">
+    <label>Fecha de solicitud<input type="date" data-s="solicitud"></label>
+    <label>Turno 00-06<input type="date" data-s="t0006"></label>
+    <label>Turno 06-12<input type="date" data-s="t0612"></label>
+    <label>Turno 12-18<input type="date" data-s="t1218"></label>
+    <label>Turno 18-24<input type="date" data-s="t1824"></label>
+  </div>
+  <p class="muted" style="margin:8px 0 0;font-size:12px">Los cuatro turnos se piden siempre. Cada fecha se elige a mano.</p>
+</div>
+
+<div class="card">
+  <div class="section-head">
+    <h3>Documentos</h3>
+    <label class="dg-general">Fecha general
+      <input type="date" id="fecha-general" value="{{ today }}">
+    </label>
+  </div>
+  <table class="list" style="width:100%">
+    <thead><tr><th style="width:34px"></th><th>Documento</th><th style="width:170px">Fecha</th><th></th></tr></thead>
+    <tbody id="docs-rows">
+    {% for d in docs %}
+      <tr data-key="{{ d.key }}">
+        <td><input type="checkbox" class="doc-check" checked></td>
+        <td>{{ d.label }} <span class="muted">· {{ d.reg }}</span></td>
+        <td>
+          {% if d.key == 'serenos' %}<span class="muted" style="font-size:12px">usa las fechas de Serenos</span>
+          {% else %}<input type="date" class="doc-date" value="{{ today }}">{% endif %}
+        </td>
+        <td>
+          {% if d.key == 'dec_migra' %}
+          <select id="migra-modo" title="El archivo baja con el selector Entrada/Salida adentro">
+            <option value="ENTRADA">Marcar: Entrada</option>
+            <option value="SALIDA">Marcar: Salida</option>
+          </select>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="row end">
+    <button type="button" class="btn primary" id="btn-generar">⬇ Generar y descargar</button>
+  </div>
+  <p class="muted" style="margin:8px 0 0;font-size:12px">Con un solo documento tildado baja el archivo suelto; con más de uno, un zip. Los archivos no se guardan en el sistema, solo los datos del buque.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+.dg-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.dg-search { display: flex; gap: 8px; align-items: center; }
+.dg-search input { min-width: 280px; }
+.dg-logo { max-height: 46px; max-width: 160px; border: 1px solid var(--line-soft); border-radius: 6px; padding: 3px; background: #fff; }
+.dg-panel { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.dg-general { flex-direction: row !important; align-items: center; gap: 8px !important; }
+table.list td img.dg-logo { max-height: 30px; max-width: 90px; }
+</style>
+<script>
+const AGENCIES = {{ agencies|tojson }};
+let agencies = AGENCIES.slice();
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+const flashEl = $('#flash');
+
+function flash(msg, ok = true) {
+  flashEl.textContent = msg;
+  flashEl.className = 'flash ' + (ok ? 'ok' : 'err');
+  flashEl.hidden = false;
+  clearTimeout(flash._t);
+  flash._t = setTimeout(() => (flashEl.hidden = true), ok ? 3500 : 7000);
+}
+
+async function postJSON(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  return res;
+}
+
+// ------------------------------------------------------------------ buque --
+function vesselData() {
+  const o = {};
+  $$('[data-v]').forEach((el) => (o[el.dataset.v] = el.value));
+  return o;
+}
+function callData() {
+  const o = {};
+  $$('[data-c]').forEach((el) => (o[el.dataset.c] = el.value));
+  return o;
+}
+function fillVessel(v) {
+  $$('[data-v]').forEach((el) => (el.value = v[el.dataset.v] ?? (el.dataset.v === 'kind' ? 'BULK_CARRIER' : '')));
+}
+
+$('#btn-nuevo').addEventListener('click', () => {
+  fillVessel({});
+  $$('[data-c]').forEach((el) => {
+    const d = { pasajeros: 'NO', lista_pasajeros: 'NO', ciudad_exportador: 'Bahia Blanca' };
+    el.value = d[el.dataset.c] ?? '';
+  });
+  $('#imo-search').value = '';
+  $('#search-msg').textContent = '';
+  $('[data-v=imo]').focus();
+});
+
+async function buscarIMO() {
+  const imo = $('#imo-search').value.trim();
+  const msg = $('#search-msg');
+  if (!imo) { msg.textContent = 'Ingresá un IMO.'; return; }
+  const res = await fetch('/operaciones/utilidades/documentacion/barco?imo=' + encodeURIComponent(imo));
+  const data = await res.json();
+  if (!res.ok) { msg.textContent = data.error || 'No se pudo buscar.'; return; }
+  if (data.found) {
+    fillVessel({ ...data.vessel });
+    msg.textContent = 'Barco encontrado: ' + data.vessel.name + '. Revisá los datos y completá la escala.';
+  } else {
+    fillVessel({ imo: data.imo });
+    msg.textContent = 'IMO ' + data.imo + ' no estaba cargado. Completá los datos del buque (se guardan al generar).';
+    $('[data-v=name]').focus();
+  }
+}
+$('#btn-buscar').addEventListener('click', buscarIMO);
+$('#imo-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscarIMO(); } });
+
+$('#btn-guardar-barco').addEventListener('click', async () => {
+  const res = await postJSON('/operaciones/utilidades/documentacion/barco', vesselData());
+  const data = await res.json();
+  flash(res.ok ? 'Datos del buque guardados.' : data.error, res.ok);
+});
+
+// --------------------------------------------------------------- agencias --
+const sel = $('#agency-select');
+function renderAgencies(selectedId) {
+  const keep = selectedId ?? sel.value;
+  sel.replaceChildren(new Option('— Elegí una agencia —', ''));
+  agencies.forEach((a) => sel.add(new Option(a.name + (a.doc_format === 'HEINLEIN' ? ' (formato Heinlein)' : ''), a.id)));
+  if (keep && agencies.some((a) => String(a.id) === String(keep))) sel.value = keep;
+  updateAgencyInfo();
+
+  const tbody = $('#agency-rows');
+  tbody.innerHTML = agencies.length ? '' : '<tr><td colspan="5" class="muted">Todavía no hay agencias cargadas.</td></tr>';
+  agencies.forEach((a) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${a.has_logo ? `<img class="dg-logo" src="/operaciones/utilidades/documentacion/agencias/${a.id}/logo?t=${Date.now()}" alt="">` : '<span class="muted">sin logo</span>'}</td>
+      <td></td><td style="white-space:pre-line"></td>
+      <td>${a.doc_format === 'HEINLEIN' ? 'Heinlein (Word)' : 'General (Excel)'}</td>
+      <td style="white-space:nowrap"><button type="button" class="btn mini" data-edit="${a.id}">Editar</button>
+          <button type="button" class="btn mini danger" data-del="${a.id}">Borrar</button></td>`;
+    tr.children[1].textContent = a.name;
+    tr.children[2].textContent = a.address;
+    tbody.appendChild(tr);
+  });
+}
+
+function updateAgencyInfo() {
+  const a = agencies.find((x) => String(x.id) === sel.value);
+  const img = $('#agency-logo-prev');
+  const info = $('#agency-info');
+  if (!a) { img.hidden = true; info.textContent = ''; return; }
+  if (a.has_logo) { img.src = `/operaciones/utilidades/documentacion/agencias/${a.id}/logo?t=${Date.now()}`; img.hidden = false; }
+  else img.hidden = true;
+  info.textContent = a.doc_format === 'HEINLEIN'
+    ? 'Con esta agencia, el Pedido de Carga y el BILL salen en Word con el formato de Heinlein.'
+    : (a.has_logo ? '' : 'Esta agencia no tiene logo cargado: el Pedido de Carga y el BILL saldrán sin logo.');
+}
+sel.addEventListener('change', updateAgencyInfo);
+
+$('#btn-agencias').addEventListener('click', () => { const p = $('#agency-panel'); p.hidden = !p.hidden; });
+
+const form = $('#agency-form');
+function resetAgencyForm() {
+  form.reset();
+  form.elements.id.value = '';
+  $('#agency-form-title').textContent = 'Agregar agencia';
+  $('#agency-cancel').hidden = true;
+  $('#remove-logo-wrap').hidden = true;
+}
+$('#agency-cancel').addEventListener('click', resetAgencyForm);
+
+$('#agency-rows').addEventListener('click', async (e) => {
+  const edit = e.target.closest('[data-edit]');
+  const del = e.target.closest('[data-del]');
+  if (edit) {
+    const a = agencies.find((x) => String(x.id) === edit.dataset.edit);
+    form.elements.id.value = a.id;
+    form.elements.name.value = a.name;
+    form.elements.address.value = a.address;
+    form.elements.doc_format.value = a.doc_format;
+    $('#agency-form-title').textContent = 'Editar agencia';
+    $('#agency-cancel').hidden = false;
+    $('#remove-logo-wrap').hidden = !a.has_logo;
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else if (del) {
+    const a = agencies.find((x) => String(x.id) === del.dataset.del);
+    if (!confirm(`¿Borrar la agencia "${a.name}"?`)) return;
+    await fetch(`/operaciones/utilidades/documentacion/agencias/${a.id}/borrar`, { method: 'POST' });
+    agencies = agencies.filter((x) => x.id !== a.id);
+    renderAgencies();
+    flash('Agencia borrada.');
+  }
+});
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = form.elements.id.value;
+  const fd = new FormData(form);
+  fd.delete('id');
+  const url = '/operaciones/utilidades/documentacion/agencias' + (id ? '/' + id : '');
+  const res = await fetch(url, { method: 'POST', body: fd });
+  const data = await res.json();
+  if (!res.ok) { flash(data.error || 'No se pudo guardar la agencia.', false); return; }
+  if (id) agencies = agencies.map((x) => (String(x.id) === id ? data.agency : x));
+  else agencies.push(data.agency);
+  agencies.sort((a, b) => a.name.localeCompare(b.name));
+  renderAgencies(data.agency.id);
+  resetAgencyForm();
+  flash('Agencia guardada.');
+});
+
+// -------------------------------------------------------------- documentos --
+$('#fecha-general').addEventListener('change', (e) => {
+  $$('.doc-date').forEach((el) => (el.value = e.target.value));
+});
+
+$('#btn-generar').addEventListener('click', async () => {
+  const docs = $$('#docs-rows tr')
+    .filter((tr) => $('.doc-check', tr).checked)
+    .map((tr) => ({ key: tr.dataset.key, date: $('.doc-date', tr)?.value || '' }));
+  const serenos = {};
+  $$('[data-s]').forEach((el) => (serenos[el.dataset.s] = el.value));
+  const payload = {
+    vessel: vesselData(), call: callData(), agency_id: sel.value || null,
+    migra_modo: $('#migra-modo').value, docs, serenos,
+  };
+  const btn = $('#btn-generar');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Generando...';
+  try {
+    const res = await postJSON('/operaciones/utilidades/documentacion/generar', payload);
+    if (!res.ok) {
+      let msg = 'No se pudo generar.';
+      try { msg = (await res.json()).error || msg; } catch (_) {}
+      flash(msg, false);
+      return;
+    }
+    const cd = res.headers.get('Content-Disposition') || '';
+    let name = 'documentacion';
+    const star = cd.match(/filename\*=UTF-8''([^;]+)/i);
+    const plain = cd.match(/filename="([^"]+)"/i);
+    if (star) name = decodeURIComponent(star[1]); else if (plain) name = plain[1];
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    flash('Listo: ' + name);
+  } catch (err) {
+    flash('Ocurrió un error al generar. Probá de nuevo.', false);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+});
+
+renderAgencies();
+</script>
+{% endblock %}

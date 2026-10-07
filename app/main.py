@@ -11,6 +11,7 @@ from .routers import (
     administracion,
     auth,
     clients,
+    docgen,
     exports,
     imports,
     lineup,
@@ -88,4 +89,5 @@ app.include_router(reports.router)
 app.include_router(vessels.router)
 app.include_router(proformador.router)
 app.include_router(operaciones.router)
+app.include_router(docgen.router)
 app.include_router(administracion.router)
