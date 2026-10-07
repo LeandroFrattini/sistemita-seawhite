@@ -29,5 +29,10 @@
     "address": "PERU 359 09th FLOOR\nBuenos Aires",
     "doc_format": "HEINLEIN",
     "logo": "heinlein.jpg"
+  },
+  {
+    "name": "OCEANWAY S.A",
+    "address": "Ciudad Autonoma de Buenos Aires",
+    "logo": "oceanway.jpg"
   }
 ]
