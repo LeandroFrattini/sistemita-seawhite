@@ -787,6 +787,9 @@ class DocVessel(Base):
     matricula: Mapped[str] = mapped_column(String(40), default="")
     puerto_registro: Mapped[str] = mapped_column(String(80), default="")
     armador: Mapped[str] = mapped_column(String(160), default="")
+    clasificacion: Mapped[str] = mapped_column(String(80), default="")
+    velocidad: Mapped[str] = mapped_column(String(20), default="")
+    inmarsat: Mapped[str] = mapped_column(String(40), default="")
     certificados: Mapped[str] = mapped_column(Text, default="")  # JSON {clave: fecha de vencimiento}
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

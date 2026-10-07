@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import current_user, verify_password
 from ..database import get_db
-from ..docgen.generators import DOCS, DOC_KEYS, Ctx, build_many
+from ..docgen.generators import DOCS, DOC_KEYS, NOT_DEFAULT, STAGES, Ctx, build_many
 from ..docgen.logos import normalize_logo
 from ..models import DocAgency, DocCall, DocVessel, User
 from ..templating import templates
@@ -22,10 +22,13 @@ from ..templating import templates
 router = APIRouter(prefix="/operaciones/utilidades/documentacion")
 
 VESSEL_FIELDS = ["name", "kind", "flag", "eslora", "manga", "puntal", "trn", "trb",
-                 "call_sign", "matricula", "puerto_registro", "armador"]
+                 "call_sign", "matricula", "puerto_registro", "armador",
+                 "clasificacion", "velocidad", "inmarsat"]
 CALL_FIELDS = ["capitan", "ultimo_puerto", "procedencia", "destino", "descripcion_viaje",
                "carga_detalle", "estadia", "tripulantes", "pasajeros", "lista_pasajeros",
-               "terminal", "exportador", "ciudad_exportador", "carga"]
+               "terminal", "exportador", "ciudad_exportador", "carga",
+               "calado_proa", "calado_popa", "calado_max", "practico", "remolque_proa",
+               "remolque_popa", "estima", "puerto_inicio"]
 MAX_LOGO = 2 * 1024 * 1024
 
 # Vencimientos de certificados del buque (orden de la pantalla). Se guardan siempre con el buque.
@@ -102,7 +105,8 @@ def page(request: Request, db: Session = Depends(get_db), user: User = Depends(c
     agencies = db.scalars(select(DocAgency).order_by(DocAgency.name)).all()
     return templates.TemplateResponse(request, "utilidades/documentacion.html", {
         "user": user,
-        "docs": [{"key": k, "label": label, "reg": reg} for k, label, reg in DOCS],
+        "docs": [{"key": k, "label": label, "reg": reg, "stage": STAGES.get(k, "ENTRADA"),
+                  "checked": k not in NOT_DEFAULT} for k, label, reg in DOCS],
         "certificados": [{"key": k, "label": label} for k, label in CERTIFICADOS],
         "agencies": [_agency_dict(a) for a in agencies],
         "today": date.today().isoformat(),
@@ -345,7 +349,9 @@ async def generate(request: Request, db: Session = Depends(get_db), user: User =
         call_id = _save_call(db, imo, data.get("call_id"), state).id  # y la escala, con sus fechas
 
     ctx = Ctx(vessel=vessel, call=call, agency=agency, dates=dates, serenos=serenos,
-              migra_modo="SALIDA" if data.get("migra_modo") == "SALIDA" else "ENTRADA")
+              migra_modo="SALIDA" if data.get("migra_modo") == "SALIDA" else "ENTRADA",
+              pna_modo="SALIDA" if data.get("pna_modo") == "SALIDA" else "ENTRADA",
+              certificados=vessel.get("certificados") or {})
     name, content, mime = build_many(order, ctx, single_workbook=data.get("download_mode") == "libro")
     ascii_name = name.encode("ascii", "ignore").decode("ascii").strip() or "documentacion"
     headers = {"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"}

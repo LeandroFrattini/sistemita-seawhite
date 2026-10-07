@@ -72,6 +72,11 @@
     <label>Puerto de registro<input data-v="puerto_registro"></label>
     <label>Armador<input data-v="armador" style="min-width:220px"></label>
   </div>
+  <div class="row" style="margin-top:10px">
+    <label>Clasificación<input data-v="clasificacion"></label>
+    <label>Velocidad<input data-v="velocidad" style="min-width:90px;width:110px"></label>
+    <label>INMARSAT<input data-v="inmarsat"></label>
+  </div>
 </div>
 
 <details class="card dg-certs" id="certs-card">
@@ -121,6 +126,19 @@
     <label>Exportador (Pedido de Carga)<input data-c="exportador" style="min-width:240px" placeholder="CARGILL S.A.C.I"></label>
     <label>Ciudad del exportador<input data-c="ciudad_exportador" value="Bahia Blanca"></label>
     <label>Carga<input data-c="carga" placeholder="MAIZE"></label>
+  </div>
+  <h4 class="dg-sub">Para uso oficial (DECLA PNA)</h4>
+  <div class="row">
+    <label>Calado proa (Mts.)<input data-c="calado_proa" style="min-width:90px;width:120px"></label>
+    <label>Calado popa (Mts.)<input data-c="calado_popa" style="min-width:90px;width:120px"></label>
+    <label>Calado máximo (Mts.)<input data-c="calado_max" style="min-width:90px;width:120px"></label>
+    <label>Práctico de puerto<input data-c="practico"></label>
+    <label>Remolques: proa<input data-c="remolque_proa" style="min-width:90px;width:120px"></label>
+    <label>Remolques: popa<input data-c="remolque_popa" style="min-width:90px;width:120px"></label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <label>(*) Estima cargar/descargar<input data-c="estima" style="min-width:200px"></label>
+    <label>(x) Puerto inicio de navegación<input data-c="puerto_inicio" style="min-width:240px"></label>
   </div>
 </div>
 
@@ -188,14 +206,25 @@
       <input type="date" id="fecha-general" value="{{ today }}">
     </label>
   </div>
+  <div class="dg-tabs" role="tablist">
+    <button type="button" class="dg-tab active" data-stage="ENTRADA" role="tab">ENTRADA</button>
+    <button type="button" class="dg-tab" data-stage="SALIDA" role="tab">SALIDA</button>
+  </div>
+  {% for stage in ['ENTRADA', 'SALIDA'] %}
+  <div class="dg-stage" data-stage="{{ stage }}"{% if stage != 'ENTRADA' %} hidden{% endif %}>
+  {% if docs|selectattr('stage', 'equalto', stage)|list %}
   <table class="list" style="width:100%">
     <thead><tr><th style="width:34px"></th><th>Documento</th><th style="width:250px">Fecha</th></tr></thead>
-    <tbody id="docs-rows">
-    {% for d in docs %}
+    <tbody class="docs-body" id="docs-rows-{{ stage }}">
+    {% for d in docs if d.stage == stage %}
       <tr data-key="{{ d.key }}">
-        <td><input type="checkbox" class="doc-check" checked></td>
+        <td><input type="checkbox" class="doc-check"{% if d.checked %} checked{% endif %}></td>
         <td>{{ d.label }} <span class="muted">· {{ d.reg }}</span>
           {% if d.key == 'dec_migra' %}<br><select id="migra-modo" title="El archivo baja con el selector Entrada/Salida adentro">
+                      <option value="ENTRADA">Marcar: Entrada</option>
+                      <option value="SALIDA">Marcar: Salida</option>
+                    </select>{% endif %}
+          {% if d.key == 'decla_pna' %}<br><select id="pna-modo" title="El archivo baja con el selector Entrada/Salida adentro">
                       <option value="ENTRADA">Marcar: Entrada</option>
                       <option value="SALIDA">Marcar: Salida</option>
                     </select>{% endif %}</td>
@@ -208,6 +237,11 @@
     {% endfor %}
     </tbody>
   </table>
+  {% else %}
+  <p class="muted dg-stage-empty">Todavía no hay documentos cargados en esta solapa.</p>
+  {% endif %}
+  </div>
+  {% endfor %}
   <div class="row end">
     <label class="dg-general">Descarga
       <select id="download-mode">
@@ -266,7 +300,13 @@
 .dg-blank input { width: 15px !important; min-width: 0 !important; height: 15px; flex: none; margin: 0; padding: 0; }
 td .dg-blank { margin-left: 8px; vertical-align: middle; }
 td.dg-date-cell { white-space: nowrap; }
-@media (max-width: 700px) { td.dg-date-cell { white-space: normal; } td.dg-date-cell .doc-date { min-width: 0 !important; width: 130px !important; } #docs-rows td:first-child { width: 34px; padding-left: 4px; padding-right: 4px; } #migra-modo { min-width: 0 !important; max-width: 100%; } table.list th:nth-child(3) { width: auto !important; } .dg-call { flex-wrap: wrap; } }
+@media (max-width: 700px) { td.dg-date-cell { white-space: normal; } td.dg-date-cell .doc-date { min-width: 0 !important; width: 130px !important; } .docs-body td:first-child { width: 34px; padding-left: 4px; padding-right: 4px; } #migra-modo, #pna-modo { min-width: 0 !important; max-width: 100%; } table.list th:nth-child(3) { width: auto !important; } .dg-call { flex-wrap: wrap; } }
+.dg-sub { margin: 16px 0 8px; font-size: 13px; color: var(--navy); }
+.dg-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--line-soft); margin: 4px 0 10px; }
+.dg-tabs .dg-tab { border: 0 !important; border-bottom: 3px solid transparent !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; padding: 8px 18px; font: inherit; font-weight: 700; font-size: 13px; letter-spacing: .04em; color: var(--muted); cursor: pointer; margin-bottom: -2px; }
+.dg-tabs .dg-tab:hover { color: var(--navy); }
+.dg-tabs .dg-tab.active { color: var(--navy); border-bottom-color: var(--blue) !important; }
+.dg-stage-empty { padding: 18px 4px; margin: 0; }
 .doc-check { width: 16px !important; min-width: 0 !important; height: 16px; padding: 0; margin: 0; }
 .dg-certs > summary { cursor: pointer; list-style: none; }
 .dg-certs > summary::-webkit-details-marker { display: none; }
@@ -339,7 +379,7 @@ const TODAY = {{ today|tojson }};
 // Estado de la escala: tarjeta Escala + fechas de los documentos y de Serenos.
 function getState() {
   const dates = {}, blank = {}, serenos = {}, serenos_blank = {};
-  $$('#docs-rows tr').forEach((tr) => {
+  $$('.docs-body tr').forEach((tr) => {
     const inp = $('.doc-date', tr);
     if (!inp) return;
     dates[tr.dataset.key] = inp.value;
@@ -353,7 +393,7 @@ function getState() {
 function setState(st) {
   st = st || {};
   $$('[data-c]').forEach((el) => (el.value = (st.call || {})[el.dataset.c] ?? CALL_DEFAULTS[el.dataset.c] ?? ''));
-  $$('#docs-rows tr').forEach((tr) => {
+  $$('.docs-body tr').forEach((tr) => {
     const inp = $('.doc-date', tr);
     if (!inp) return;
     const blank = !!(st.blank || {})[tr.dataset.key];
@@ -740,12 +780,20 @@ document.addEventListener('change', (e) => {
   }
 });
 
+// solapas ENTRADA / SALIDA: cada una tiene sus documentos y se genera solo la solapa abierta
+let activeStage = 'ENTRADA';
+$$('.dg-tab').forEach((tab) => tab.addEventListener('click', () => {
+  activeStage = tab.dataset.stage;
+  $$('.dg-tab').forEach((t) => t.classList.toggle('active', t === tab));
+  $$('.dg-stage').forEach((st) => (st.hidden = st.dataset.stage !== activeStage));
+}));
+
 $('#fecha-general').addEventListener('change', (e) => {
   $$('.doc-date').forEach((el) => (el.value = e.target.value));
 });
 
 $('#btn-generar').addEventListener('click', async () => {
-  const docs = $$('#docs-rows tr')
+  const docs = $$(`.docs-body[id="docs-rows-${activeStage}"] tr`)
     .filter((tr) => $('.doc-check', tr).checked)
     .map((tr) => ({
       key: tr.dataset.key, date: $('.doc-date', tr)?.value || '', blank: !!$('.doc-blank', tr)?.checked,
@@ -755,7 +803,7 @@ $('#btn-generar').addEventListener('click', async () => {
   $$('[data-sb]').forEach((el) => (serenos_blank[el.dataset.sb] = el.checked));
   const payload = {
     vessel: vesselData(), call: callData(), agency_id: sel.value || null,
-    migra_modo: $('#migra-modo').value, docs, serenos, serenos_blank,
+    migra_modo: $('#migra-modo').value, pna_modo: $('#pna-modo').value, docs, serenos, serenos_blank,
     state: getState(), call_id: currentCallId,
     download_mode: $('#download-mode').value,
   };

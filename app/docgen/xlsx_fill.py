@@ -134,6 +134,15 @@ class Xlsx:
         else:
             self.set_number(ref, excel_serial(d))
 
+    def copy_style(self, src: str, dst: str) -> None:
+        """Le pone a una celda el mismo formato (fecha, alineacion, fuente) que a otra."""
+        s = self._cell(src).get("s")
+        c = self._cell(dst)
+        if s is None:
+            c.attrib.pop("s", None)
+        else:
+            c.set("s", s)
+
     def set_formula_result(self, ref: str, text: str) -> None:
         """Deja la formula y actualiza su valor guardado (para visores que no recalculan)."""
         c = self._cell(ref)

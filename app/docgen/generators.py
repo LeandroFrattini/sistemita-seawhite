@@ -28,13 +28,19 @@ DOCS: list[tuple[str, str, str]] = [
     ("serenos", "Pedido de Serenos", "REG-AM-09"),
     ("ped_carga", "Pedido de Carga", "REG-AM-25"),
     ("bill", "Autorización BILL OF LADING", "REG-AM-26"),
+    ("decla_pna", "Declaración General (DECLA PNA)", "REG-AM-10"),
 ]
 DOC_KEYS = [d[0] for d in DOCS]
+
+# solapa de la pantalla en la que sale cada documento (por ahora todos son de ENTRADA)
+STAGES = {k: "ENTRADA" for k in DOC_KEYS}
+# documentos que no salen tildados por defecto
+NOT_DEFAULT = {"decla_pna"}
 
 SHORT_NAMES = {
     "dec_migra": "DEC. MIGRA", "dec_ana": "DEC. ANA", "permanencia": "Permanencia",
     "calados_ent": "Calados Entrada", "rancho": "Rancho", "serenos": "Serenos",
-    "ped_carga": "Pedido de Carga", "bill": "BILL",
+    "ped_carga": "Pedido de Carga", "bill": "BILL", "decla_pna": "DECLA PNA",
 }
 
 KIND_LETTER = {"BULK_CARRIER": "V", "TANKER": "T"}  # MV / MT
@@ -48,6 +54,8 @@ class Ctx:
     dates: dict[str, date] = field(default_factory=dict)
     serenos: dict[str, date | None] = field(default_factory=dict)
     migra_modo: str = "ENTRADA"  # ENTRADA | SALIDA
+    pna_modo: str = "ENTRADA"  # ENTRADA | SALIDA (selector de DECLA PNA)
+    certificados: dict = field(default_factory=dict)  # vencimientos guardados con el buque
 
     @property
     def name(self) -> str:
@@ -202,6 +210,81 @@ def gen_bill(ctx: Ctx) -> bytes:
     return x.to_bytes()
 
 
+def _cert(x: Xlsx, ref: str, raw: str) -> None:
+    """Vencimiento de certificado: fecha si viene como AAAA-MM-DD, si no tal cual."""
+    raw = (raw or "").strip()
+    try:
+        x.set_date(ref, date.fromisoformat(raw)) if raw else x.set_text(ref, "")
+    except ValueError:
+        x.set_text(ref, raw)
+
+
+# celda de DECLA PNA de cada certificado
+_PNA_CERTS = [
+    ("iapp", "G36"), ("radio", "G38"), ("equipo", "G40"), ("francobordo", "G42"),
+    ("construccion", "G44"), ("desratizacion", "G46"), ("polucion", "G48"), ("cgs", "G50"),
+    ("doc", "G52"), ("isps", "G54"), ("imo", "G56"), ("mlc", "G60"), ("fitness", "G62"),
+    ("sewage", "G64"), ("clc", "G66"),
+]
+
+
+def gen_decla_pna(ctx: Ctx) -> bytes:
+    entrada = ctx.pna_modo != "SALIDA"
+    x = Xlsx(TEMPLATES / "decla_pna.xlsx")
+    d = ctx.dates.get("decla_pna")
+    x.set_text("D5", "X Entrada" if entrada else "X Salida")
+    # resultados guardados de las formulas que dependen del selector D5
+    x.set_formula_result("D6", "2.Puerto de Entrada" if entrada else "2.Puerto de Salida")
+    x.set_formula_result("F6", "3. Fecha y Hora de Entrada" if entrada else "3. Fecha y Hora de Salida")
+    x.set_formula_result("D8", "Puerto de procedencia" if entrada else "Puerto de destino")
+    x.set_text("AA9", ctx.c("procedencia"))
+    x.set_text("AA10", ctx.c("destino"))
+    x.set_formula_result("D9", ctx.c("procedencia") if entrada else ctx.c("destino"))
+
+    x.set_text("A7", ctx.name)
+    x.set_date("F7", d)
+    x.set_text("A9", ctx.v("flag"))
+    x.set_text("B9", ctx.c("capitan"))
+    x.set_text("A11", ctx.v("matricula"))
+    x.set_text("C11", ctx.v("puerto_registro"))
+    x.set_value("A13", ctx.v("trb"))
+    x.set_value("C13", ctx.v("trn"))
+    x.set_text("A15", ctx.c("terminal"))
+    x.set_text("A18", ctx.c("descripcion_viaje"))
+    x.set_text("A21", ctx.c("carga_detalle"))
+    x.set_value("A25", ctx.c("tripulantes"))
+    x.set_value("B25", ctx.c("pasajeros"))
+    x.set_text("B31", ctx.c("lista_pasajeros"))
+    x.set_date("D32", d)
+
+    # para uso oficial
+    x.set_text("C38", ctx.v("call_sign"))
+    x.set_value("E38", ctx.v("eslora"))
+    x.set_text("C40", ctx.v("clasificacion"))
+    x.set_value("E40", ctx.v("manga"))
+    x.set_value("C42", ctx.v("velocidad"))
+    x.set_value("E42", ctx.v("puntal"))
+    x.set_text("C46", ctx.c("calado_proa"))
+    x.set_text("C48", ctx.c("calado_popa"))
+    x.set_text("C50", ctx.c("practico"))
+    x.set_text("C52", ctx.c("remolque_proa"))
+    x.set_text("C54", ctx.c("remolque_popa"))
+    x.set_text("C56", ctx.c("estima"))
+    x.set_text("C58", ctx.c("puerto_inicio"))
+    x.set_text("D60", ctx.c("calado_max"))  # como texto: la celda original redondea a entero
+    x.set_text("C67", ctx.v("armador"))
+
+    certs = dict(ctx.certificados or {})
+    if not (certs.get("iapp") or "").strip():
+        certs["iapp"] = certs.get("polucion", "")  # en la planilla original IAPP = POLUCION
+    for ref in ("G56", "G62", "G64", "G66"):  # estas celdas no traian formato de fecha
+        x.copy_style("G60", ref)
+    for key, ref in _PNA_CERTS:
+        _cert(x, ref, certs.get(key, ""))
+    x.set_text("G58", (ctx.v("inmarsat")))
+    return x.to_bytes()
+
+
 # ------------------------------------------------------------- Word --------
 def _runs(doc, idx: int, expect: str):
     p = doc.paragraphs[idx]
@@ -283,7 +366,7 @@ def gen_heinlein_cargo(ctx: Ctx) -> bytes:
 _XLSX_GEN = {
     "dec_migra": gen_dec_migra, "dec_ana": gen_dec_ana, "permanencia": gen_permanencia,
     "calados_ent": gen_calados, "rancho": gen_rancho, "serenos": gen_serenos,
-    "ped_carga": gen_ped_carga, "bill": gen_bill,
+    "ped_carga": gen_ped_carga, "bill": gen_bill, "decla_pna": gen_decla_pna,
 }
 
 
