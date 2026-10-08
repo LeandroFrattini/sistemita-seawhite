@@ -233,9 +233,9 @@ def gen_heinlein(ctx) -> bytes:
                         x.shrink(ref)  # un nombre largo se achica en vez de pasarse de la bodega
         if len(cargos) == 2:
             x.set_bottom_border(f"{col}23")
-        if len(cargos) == 1 and hold["estado"] == "FULL" and hold["cf"]:
+        if cargos and hold["estado"] == "FULL" and hold["cf"]:  # SF = CF / toneladas totales de la bodega
             x.copy_style(f"{canon}30", f"{col}30")
-            x.set_text(f"{col}30", f"SF: {hold['cf'] / (cargos[0]['kg'] / 1000):.2f}")
+            x.set_text(f"{col}30", f"SF: {hold['cf'] / (sum(c['kg'] for c in cargos) / 1000):.2f}")
 
     # ---- totales
     P = len(ports)

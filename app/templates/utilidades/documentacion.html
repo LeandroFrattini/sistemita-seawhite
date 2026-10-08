@@ -295,29 +295,29 @@
       </div>
     </div>
     <div class="dg-group">
-      <h4>Cargas por bodega <small>la 1 es la de proa</small></h4>
+      <h4>Cargas por bodega <small>la 1 es la de proa · con FULL se calcula el SF solo</small></h4>
       <div class="dg-holds" id="plan-holds-grid">
+        <div class="dg-hold-head" aria-hidden="true">
+          <span>Bodega</span><span>Estado</span><span>SF</span><span>Cubicaje (CF)</span><span>Puerto</span><span>Kilos</span><span></span><span>2º puerto</span><span>Kilos</span>
+        </div>
         {% for n in range(1, 8) %}
         <div class="dg-hold" data-hold="{{ n }}">
-          <div class="dg-hold-h">
-            <b>Bodega Nº {{ n }}</b>
-            <select data-hf="estado" aria-label="Estado de la bodega {{ n }}"><option value="FULL">FULL</option><option value="SLACK">SLACK</option></select>
-          </div>
-          <label class="dg-hold-cf">Cubicaje (CF)<input data-cf="{{ n }}" inputmode="numeric" placeholder="549742"></label>
-          <div class="dg-hold-cargo">
-            <select data-hf="a_p" aria-label="Puerto de la bodega {{ n }}"></select>
-            <input data-hf="a_kg" inputmode="numeric" placeholder="Kilos" aria-label="Kilos de la bodega {{ n }}">
-          </div>
-          <label class="check dg-hold-shared"><input type="checkbox" data-hf="shared"> Bodega compartida</label>
-          <div class="dg-hold-cargo" data-hb hidden>
+          <b class="dg-hold-n">Bodega Nº {{ n }}</b>
+          <select data-hf="estado" aria-label="Estado de la bodega {{ n }}"><option value="FULL">FULL</option><option value="SLACK">SLACK</option></select>
+          <span class="dg-hold-sf" aria-live="polite"></span>
+          <input data-cf="{{ n }}" inputmode="numeric" placeholder="Cubicaje (CF)" aria-label="Cubicaje en CF de la bodega {{ n }}">
+          <select data-hf="a_p" aria-label="Puerto de la bodega {{ n }}"></select>
+          <input data-hf="a_kg" inputmode="numeric" placeholder="Kilos" aria-label="Kilos de la bodega {{ n }}">
+          <label class="check dg-hold-shared"><input type="checkbox" data-hf="shared"> Compartida</label>
+          <span class="dg-hb" data-hb hidden>
             <select data-hf="b_p" aria-label="Segundo puerto de la bodega {{ n }}"></select>
             <input data-hf="b_kg" inputmode="numeric" placeholder="Kilos" aria-label="Kilos del segundo puerto de la bodega {{ n }}">
-          </div>
+          </span>
         </div>
         {% endfor %}
       </div>
       <div class="dg-plan-totals" id="plan-totals"></div>
-      <p class="dg-hint" style="margin:10px 0 0">El cubicaje (CF) es un dato fijo del buque: lo cargás una vez y queda guardado. Los totales por puerto y el total general se calculan solos.</p>
+      <p class="dg-hint" style="margin:10px 0 0">El cubicaje (CF) es un dato fijo del buque: lo cargás una vez y queda guardado. El SF de una bodega FULL es el CF dividido las toneladas cargadas en esa bodega. Los totales por puerto y el total general se calculan solos.</p>
     </div>
   </div>
 </details>
@@ -585,17 +585,25 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-port-n { font-size: 12px; font-weight: 700; color: var(--muted); }
 .dg-port-row input { width: 100%; min-width: 0 !important; box-sizing: border-box; }
 .dg-port-total { text-align: right; font-size: 12px; font-weight: 700; color: var(--navy); white-space: nowrap; }
-.dg-holds { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
-.dg-hold { border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 12px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+.dg-holds { display: flex; flex-direction: column; gap: 8px; }
+.dg-hold-head, .dg-hold { display: grid; grid-template-columns: 84px 92px 96px 112px minmax(96px, 1fr) 100px 100px minmax(96px, 1fr) 100px; gap: 8px; align-items: center; }
+.dg-hold-head { padding: 0 12px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.dg-hold { border: 1px solid var(--line-soft); border-radius: 12px; padding: 8px 12px; background: #fff; }
 .dg-hold[hidden] { display: none; }
-.dg-hold-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--navy); }
-.dg-hold-h select { min-width: 0 !important; width: auto !important; }
-.dg-hold-cf { font-size: 11.5px; font-weight: 600; color: var(--muted); }
-.dg-hold-cf input, .dg-hold-cargo input, .dg-hold-cargo select { width: 100%; min-width: 0 !important; box-sizing: border-box; }
-.dg-hold-cargo { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.dg-hold-cargo[hidden] { display: none; }
-.dg-hold-shared { font-size: 12px; }
 .dg-hold.shared { border-color: #f0a830; background: #fffaf0; }
+.dg-hold-n { color: var(--navy); white-space: nowrap; }
+.dg-hold select, .dg-hold input:not([type=checkbox]) { width: 100%; min-width: 0 !important; box-sizing: border-box; }
+.dg-hold-sf { font-size: 13px; font-weight: 800; color: #1c7a3a; white-space: nowrap; }
+.dg-hold-sf.na { color: var(--muted); font-weight: 600; }
+.dg-hb { display: contents; }
+.dg-hb[hidden] { display: none !important; }
+.dg-hold-shared { font-size: 12px; white-space: nowrap; }
+@media (max-width: 1180px) {
+  .dg-hold-head { display: none; }
+  .dg-hold { grid-template-columns: 1fr 1fr; }
+  .dg-hold-n, .dg-hold-sf { grid-column: auto; }
+  .dg-hold-shared { grid-column: 1 / -1; }
+}
 .dg-plan-totals { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: var(--head-blue); color: var(--navy); font-size: 13px; font-weight: 700; }
 .dg-plan-totals:empty { display: none; }
 .dg-pending td { opacity: .55; }
@@ -811,6 +819,15 @@ function updatePlanTotals() {
   for (let n = 1; n <= planHolds; n++) {
     const b = getPlano().bodegas[n - 1];
     [b.a, ...(b.shared ? [b.b] : [])].forEach((e) => { if (e.p !== null && kgNum(e.kg)) totals[e.p] += kgNum(e.kg); });
+  }
+  for (let n = 1; n <= 7; n++) {  // SF de las bodegas FULL = CF / toneladas totales de la bodega
+    const pl = getPlano().bodegas[n - 1];
+    const kg = [pl.a, ...(pl.shared ? [pl.b] : [])].reduce((acc, e) => acc + (e.p !== null ? kgNum(e.kg) : 0), 0);
+    const cf = kgNum($(`[data-cf="${n}"]`).value);
+    const el = $('.dg-hold-sf', holdEl(n));
+    if (pl.estado !== 'FULL') { el.textContent = ''; el.classList.remove('na'); }
+    else if (cf && kg) { el.textContent = `- SF: ${(cf / (kg / 1000)).toFixed(2)}`; el.classList.remove('na'); }
+    else { el.textContent = '- SF: —'; el.classList.add('na'); }
   }
   const names = [0, 1, 2].map((i) => pp(i, 'port').value.trim());
   [0, 1, 2].forEach((i) => ($(`#port-total-${i}`).textContent = names[i] && totals[i] ? `${fmtKg(totals[i])} kg` : ''));
