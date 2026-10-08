@@ -148,6 +148,33 @@ class Xlsx:
         self.parts["xl/styles.xml"] = etree.tostring(styles, xml_declaration=True, encoding="UTF-8", standalone=True)
         c.set("s", str(len(xfs) - 1))
 
+    def shrink(self, ref: str) -> None:
+        """Si el texto no entra en la celda, se achica solo (en lugar de pasarse del recuadro)."""
+        styles = etree.fromstring(self.parts["xl/styles.xml"])
+        xfs = styles.find(M + "cellXfs")
+        c = self._cell(ref)
+        new = copy.deepcopy(xfs[int(c.get("s", "0"))])
+        al = new.find(M + "alignment")
+        if al is None:
+            al = etree.SubElement(new, M + "alignment")
+        al.set("shrinkToFit", "1")
+        if "wrapText" in al.attrib:
+            del al.attrib["wrapText"]
+        new.set("applyAlignment", "1")
+        xfs.append(new)
+        xfs.set("count", str(len(xfs)))
+        self.parts["xl/styles.xml"] = etree.tostring(styles, xml_declaration=True, encoding="UTF-8", standalone=True)
+        c.set("s", str(len(xfs) - 1))
+
+    def merge(self, rng: str) -> None:
+        """Une celdas (la hoja ya debe tener otras combinadas)."""
+        merges = self.root.find(M + "mergeCells")
+        if merges is None:
+            raise RuntimeError("la plantilla no tiene celdas combinadas")
+        el = etree.SubElement(merges, M + "mergeCell")
+        el.set("ref", rng)
+        merges.set("count", str(len(merges)))
+
     def copy_style(self, src: str, dst: str) -> None:
         """Le pone a una celda el mismo formato (fecha, alineacion, fuente) que a otra."""
         s = self._cell(src).get("s")

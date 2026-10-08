@@ -382,12 +382,16 @@ def gen_cargo_manifest(ctx: Ctx) -> bytes:
     x.set_text("D12", ctx.c("destino"))
     x.set_text("F12", date_txt)
     x.set_text("M27", date_txt)
+    x.merge("B20:D20")  # el shipper y el producto usan todo el ancho de su columna
+    x.merge("G20:I20")
     x.set_text("B20", ctx.c("shipper") or ctx.c("exportador"))
     product = ctx.c("carga").upper()
     x.set_text("G20", f"{product} IN BULK".strip())
     x.set_value("J20", ctx.c("cantidad"))
     x.set_value("J24", ctx.c("cantidad"))
     x.set_text("K36", ctx.name)
+    for ref in ("B8", "F8", "I8", "D12", "B20", "G20", "K36"):  # un texto largo se achica en vez de salirse
+        x.shrink(ref)
     _agency_logo(x, ctx, (13, 2, 14, 8), 126.6, 83.4, pad=3.0)
     return x.to_bytes()
 
@@ -399,6 +403,8 @@ def gen_cargo_manifest_heinlein(ctx: Ctx) -> bytes:
     x.set_value("C10", ctx.v("trn"))
     x.set_value("F10", ctx.vessel.get("imo") or "")
     x.set_value("I10", ctx.c("tripulantes"))
+    x.merge("C13:D13")  # mas lugar para la procedencia
+    x.merge("C14:D14")
     x.set_text("C13", ctx.c("procedencia"))
     x.set_text("C14", ctx.c("procedencia"))
     x.set_text("F13", ctx.c("capitan"))
@@ -410,6 +416,8 @@ def gen_cargo_manifest_heinlein(ctx: Ctx) -> bytes:
     x.set_value("F32", ctx.c("cantidad"))
     parts = _cargo_date(ctx)
     x.set_text("F35", "BAHIA BLANCA, " + (f"{parts[0][:3].upper()}. {parts[1]}{parts[2].upper()}, {parts[3]}.-" if parts else ""))
+    for ref in ("C13", "C14", "F13", "I13", "H20", "E20", "A7"):  # un texto largo se achica en vez de salirse
+        x.shrink(ref)
     return x.to_bytes()
 
 
