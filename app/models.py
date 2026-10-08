@@ -762,6 +762,7 @@ class DocAgency(Base):
     name: Mapped[str] = mapped_column(String(160), unique=True)
     address: Mapped[str] = mapped_column(Text, default="")  # una linea por renglon
     doc_format: Mapped[str] = mapped_column(String(12), default="GENERAL")  # GENERAL | HEINLEIN
+    word_docs: Mapped[str] = mapped_column(Text, default="")  # documentos con formato propio en Word, separados por coma
     logo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     logo_mime: Mapped[str] = mapped_column(String(30), default="")
 

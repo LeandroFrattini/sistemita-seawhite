@@ -33,11 +33,15 @@ DOCS: list[tuple[str, str, str]] = [
     ("malvinas", "Declaración Jurada Malvinas", "Anexo 2"),
     ("pbip_entrada", "PBIP Entrada", "REG-AM-14"),
     ("pbip_salida", "PBIP Salida", "REG-AM-15"),
+    ("free_damage", "Free Damage (Safety Stowage)", "Certificado de estiba"),
+    ("seaworthy", "Seaworthy Certificate", "Certificado"),
 ]
 DOC_KEYS = [d[0] for d in DOCS]
 
 # solapa de la pantalla en la que sale cada documento
 STAGES = {k: "ENTRADA" for k in DOC_KEYS}
+STAGES["free_damage"] = "SALIDA"
+STAGES["seaworthy"] = "SALIDA"
 # documentos que no salen tildados por defecto (los que a veces piden y a veces no)
 NOT_DEFAULT = set(DOC_KEYS)  # ahora ninguno sale tildado: se tildan solo los que se van a sacar
 # los que a veces piden y a veces no (van bajo "A pedido")
@@ -50,6 +54,7 @@ SHORT_NAMES = {
     "calados_ent": "Calados Entrada", "rancho": "Rancho", "serenos": "Serenos",
     "ped_carga": "Pedido de Carga", "bill": "BILL", "decla_pna": "DECLA PNA",
     "boyado": "BOYADO", "malvinas": "MALVINAS", "pbip_entrada": "PBIP ENTRADA", "pbip_salida": "PBIP SALIDA",
+    "free_damage": "FREE DAMAGE", "seaworthy": "SEAWORTHY",
 }
 
 KIND_LETTER = {"BULK_CARRIER": "V", "TANKER": "T"}  # MV / MT
@@ -75,6 +80,15 @@ class Ctx:
     @property
     def letter(self) -> str:
         return KIND_LETTER.get(self.vessel.get("kind"), "V")
+
+    def agency_word(self, key: str) -> bool:
+        """True si la agencia elegida usa su propio formato en Word para este documento."""
+        a = self.agency
+        if not a:
+            return False
+        if key in ("ped_carga", "bill") and a.doc_format == "HEINLEIN":
+            return True
+        return key in [w for w in (getattr(a, "word_docs", "") or "").split(",") if w]
 
     @property
     def is_heinlein(self) -> bool:
@@ -189,10 +203,10 @@ def gen_serenos(ctx: Ctx) -> bytes:
     return x.to_bytes()
 
 
-def _agency_logo(x: Xlsx, ctx: Ctx, box, box_w, box_h) -> None:
+def _agency_logo(x: Xlsx, ctx: Ctx, box, box_w, box_h, pad: float = 10.0) -> None:
     a = ctx.agency
     if a is not None and a.logo:
-        x.add_logo(a.logo, a.logo_mime, box, box_w, box_h)
+        x.add_logo(a.logo, a.logo_mime, box, box_w, box_h, pad_pt=pad)
 
 
 def gen_ped_carga(ctx: Ctx) -> bytes:
@@ -348,6 +362,60 @@ gen_pbip_entrada = _gen_pbip("pbip_entrada.xlsx")
 gen_pbip_salida = _gen_pbip("pbip_salida.xlsx")
 
 
+# ---------------------------------------------------------- salida ---------
+STOWAGE_TEXT = ("I hereby confirm that the loading operations of {carga} in bulk, carried out at this port, "
+                "has been done under my ")
+
+
+def _salida_header(x: Xlsx, ctx: Ctx, key: str) -> None:
+    x.set_date("G7", ctx.dates.get(key))
+    x.set_text("E21", ctx.name)
+    _agency_logo(x, ctx, (1, 1, 2, 4), 111.6, 54.0, pad=8.0)
+
+
+def gen_free_damage(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "free_damage.xlsx")
+    _salida_header(x, ctx, "free_damage")
+    x.set_text("A9", STOWAGE_TEXT.format(carga=ctx.c("carga") or "__________"))
+    return x.to_bytes()
+
+
+def gen_seaworthy(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "seaworthy.xlsx")
+    _salida_header(x, ctx, "seaworthy")
+    return x.to_bytes()
+
+
+def gen_free_damage_word(ctx: Ctx) -> bytes:
+    """Free Damage en el formato propio de la agencia (Word). El texto y los datos del buque
+    se cambian dentro de las mismas partes del texto, asi queda todo con el formato original."""
+    doc = docx.Document(TEMPLATES / "free_damage_word.docx")
+    month, day, suffix, year = _heinlein_date(ctx.dates.get("free_damage"), zero_pad=False)
+    blank = not year
+    mv = f"M{ctx.letter}"
+
+    r = _runs(doc, 0, "PUKA")  # MV PUKA   BAHIA BLANCA port, Septemeber 19th, 2026
+    r[0].text, r[1].text = f"{mv} ", ctx.name
+    r[5].text, r[7].text, r[8].text, r[9].text = month, day, ("" if blank else f"{suffix}, {year}"), ""
+    if blank:
+        r[6].text = ""
+
+    r = _runs(doc, 3, "SINGAPUR")  # Captain of the SINGAPUR flag MV TEXEL ISLAND ... on Septemeber 19th, 2026
+    r[1].text = ctx.v("flag")
+    r[3].text, r[4].text = f"{mv} ", ctx.name
+    r[9].text, r[11].text = month, day
+    r[12].text, r[13].text, r[14].text = ("" if blank else f"{suffix},"), ("" if blank else f" {year}"), ""
+    if blank:
+        r[10].text = ""
+
+    r = _runs(doc, 4, "Septemeber")  # I sign this free of damage certificate ... on Septemeber 19th, 2026.
+    r[3].text, r[4].text, r[5].text = month, ("" if blank else f" {day}{suffix},"), ("" if blank else f" {year}")
+
+    r = _runs(doc, 13, "TEXEL")  # Master of M/V TEXEL ISLAND
+    r[0].text, r[2].text = f"Master of M/{ctx.letter}", ctx.name
+    return _save(doc)
+
+
 # ------------------------------------------------------------- Word --------
 def _runs(doc, idx: int, expect: str):
     p = doc.paragraphs[idx]
@@ -365,10 +433,11 @@ def _save(doc) -> bytes:
 BLANK_DATE_LINE = "_" * 22  # fecha en blanco en los Word: queda una linea para escribirla a mano
 
 
-def _heinlein_date(d: date | None) -> tuple[str, str, str, str]:
+def _heinlein_date(d: date | None, zero_pad: bool = True) -> tuple[str, str, str, str]:
     if d is None:
         return BLANK_DATE_LINE, "", "", ""
-    return en_parts_heinlein(d)
+    month, day, suffix, year = en_parts_heinlein(d)
+    return month, (day if zero_pad else str(int(day))), suffix, year
 
 
 def gen_heinlein_bl(ctx: Ctx) -> bytes:
@@ -432,6 +501,7 @@ _XLSX_GEN = {
     "ped_carga": gen_ped_carga, "bill": gen_bill, "decla_pna": gen_decla_pna,
     "boyado": gen_boyado, "malvinas": gen_malvinas,
     "pbip_entrada": gen_pbip_entrada, "pbip_salida": gen_pbip_salida,
+    "free_damage": gen_free_damage, "seaworthy": gen_seaworthy,
 }
 
 
@@ -452,6 +522,8 @@ FIRMA_BOXES: dict[str, tuple[tuple[int, int, int, int], float, float, str, float
     "malvinas": ((7, 52, 8, 55), 212.4, 52.8, "center", 46),
     "pbip_entrada": ((3, 60, 8, 62), 372.0, 45.0, "center", 40),
     "pbip_salida": ((3, 41, 8, 43), 429.6, 43.2, "center", 40),
+    "free_damage": ((4, 16, 8, 20), 274.2, 78.0, "center", 56),
+    "seaworthy": ((4, 16, 8, 20), 274.2, 78.0, "center", 56),
 }
 FIRMA_DOCS = set(FIRMA_BOXES)
 
@@ -467,6 +539,8 @@ def _firmar(data: bytes, key: str, ctx: Ctx) -> bytes:
 def build(key: str, ctx: Ctx) -> tuple[str, bytes]:
     base = SHORT_NAMES[key]
     suffix = _safe(ctx.name)
+    if key == "free_damage" and ctx.agency_word("free_damage"):
+        return f"Free Damage (formato agencia) - {suffix}.docx", gen_free_damage_word(ctx)
     if key in ("ped_carga", "bill") and ctx.is_heinlein:
         if key == "ped_carga":
             return f"Cargo Declaration (Heinlein) - {suffix}.docx", gen_heinlein_cargo(ctx)

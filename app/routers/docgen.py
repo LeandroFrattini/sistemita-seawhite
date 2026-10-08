@@ -33,6 +33,11 @@ CALL_FIELDS = ["capitan", "ultimo_puerto", "procedencia", "destino", "descripcio
                "remolque_popa", "estima"]
 MAX_LOGO = 2 * 1024 * 1024
 
+# documentos que una agencia puede tener en su propio formato Word (ademas del Excel general)
+WORD_VARIANTS = {"free_damage": "Free Damage"}
+# documentos que llevan el logo de la agencia elegida (y por eso piden elegirla)
+AGENCY_DOCS = {"ped_carga", "bill", "free_damage", "seaworthy"}
+
 # Vencimientos de certificados del buque (orden de la pantalla). Se guardan siempre con el buque.
 CERTIFICADOS = [
     ("iapp", "IAPP"), ("radio", "RADIO"), ("equipo", "EQUIPO"), ("francobordo", "FRANCOBORDO"),
@@ -61,9 +66,15 @@ def _vessel_dict(v: DocVessel, favorito: bool = False) -> dict:
             **{f: getattr(v, f) for f in VESSEL_FIELDS}}
 
 
+def _word_docs(raw) -> str:
+    """Normaliza la lista de documentos en Word de una agencia (solo los que existen)."""
+    items = raw if isinstance(raw, list) else str(raw or "").split(",")
+    return ",".join(sorted({w.strip() for w in items if w.strip() in WORD_VARIANTS}))
+
+
 def _agency_dict(a: DocAgency) -> dict:
     return {"id": a.id, "name": a.name, "address": a.address, "doc_format": a.doc_format,
-            "has_logo": bool(a.logo)}
+            "has_logo": bool(a.logo), "word_docs": [w for w in (a.word_docs or "").split(",") if w]}
 
 
 def _date(raw) -> date | None:
@@ -111,6 +122,8 @@ def page(request: Request, db: Session = Depends(get_db), user: User = Depends(c
                   "checked": k not in NOT_DEFAULT, "has_date": k not in NO_DATE,
                   "has_firma": k in FIRMA_DOCS, "optional": k in OPTIONAL} for k, label, reg in DOCS],
         "certificados": [{"key": k, "label": label} for k, label in CERTIFICADOS],
+        "word_variants": [{"key": k, "label": label} for k, label in WORD_VARIANTS.items()],
+        "pending_docs": [{"label": "Cargo Manifest"}, {"label": "Stowage Plan"}],
         "agencies": [_agency_dict(a) for a in agencies],
         "today": date.today().isoformat(),
     })
@@ -289,6 +302,7 @@ def _logo_from_upload(upload: UploadFile | None) -> tuple[bytes, str] | None:
 @router.post("/agencias")
 def create_agency(
     name: str = Form(...), address: str = Form(""), doc_format: str = Form("GENERAL"),
+    word_docs: list[str] = Form([]),
     logo: UploadFile | None = File(None),
     db: Session = Depends(get_db), user: User = Depends(current_user),
 ):
@@ -297,7 +311,7 @@ def create_agency(
         return JSONResponse({"ok": False, "error": "Falta el nombre de la agencia"}, status_code=400)
     if db.scalar(select(DocAgency).where(DocAgency.name == name)):
         return JSONResponse({"ok": False, "error": "Ya existe una agencia con ese nombre"}, status_code=400)
-    a = DocAgency(name=name, address=address.strip(),
+    a = DocAgency(name=name, address=address.strip(), word_docs=_word_docs(word_docs),
                   doc_format="HEINLEIN" if doc_format == "HEINLEIN" else "GENERAL")
     try:
         got = _logo_from_upload(logo)
@@ -314,6 +328,7 @@ def create_agency(
 def update_agency(
     agency_id: int,
     name: str = Form(...), address: str = Form(""), doc_format: str = Form("GENERAL"),
+    word_docs: list[str] = Form([]),
     remove_logo: str = Form(""), logo: UploadFile | None = File(None),
     db: Session = Depends(get_db), user: User = Depends(current_user),
 ):
@@ -332,6 +347,7 @@ def update_agency(
         return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
     a.name, a.address = name, address.strip()
     a.doc_format = "HEINLEIN" if doc_format == "HEINLEIN" else "GENERAL"
+    a.word_docs = _word_docs(word_docs)
     if got:
         a.logo, a.logo_mime = got
     elif remove_logo == "on":
@@ -382,8 +398,8 @@ async def generate(request: Request, db: Session = Depends(get_db), user: User =
         return fail("Tildá al menos un documento")
 
     agency = db.get(DocAgency, int(data["agency_id"])) if data.get("agency_id") else None
-    if {"ped_carga", "bill"} & set(order) and agency is None:
-        return fail("Elegí la agencia para el Pedido de Carga y el BILL")
+    if AGENCY_DOCS & set(order) and agency is None:
+        return fail("Elegí la agencia (sección 3): hace falta para el logo y el formato de los documentos que tildaste")
 
     dates: dict[str, date] = {}
     try:

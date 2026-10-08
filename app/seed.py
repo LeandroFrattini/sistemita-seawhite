@@ -88,6 +88,7 @@ _MIGRATIONS = [
     ("doc_vessels", "inmarsat", "TEXT DEFAULT ''"),
     ("doc_vessels", "company_id", "TEXT DEFAULT ''"),
     ("doc_calls", "firma", "TEXT DEFAULT ''"),
+    ("doc_agencies", "word_docs", "TEXT DEFAULT ''"),
     ("proformas", "remolques_in", "INTEGER DEFAULT 0"),
     ("proformas", "remolques_out", "INTEGER DEFAULT 0"),
     ("proformas", "immigration_in_boya", "BOOLEAN DEFAULT FALSE"),
@@ -359,6 +360,14 @@ def _seed_doc_agencies(db: Session, folder: Path = DOC_AGENCIES_DIR) -> None:
         done_row.value = value
     else:
         db.add(AppSetting(key=DOC_AGENCIES_KEY, value=value))
+
+    # OCEANWAY usa su propio formato en Word para el Free Damage (una sola vez; despues se edita desde la pantalla)
+    if not db.get(AppSetting, "docgen_oceanway_free_damage"):
+        ocean = db.scalar(select(DocAgency).where(DocAgency.name.like("OCEANWAY%")))
+        if ocean is not None:
+            if "free_damage" not in (ocean.word_docs or ""):
+                ocean.word_docs = ",".join([w for w in (ocean.word_docs or "").split(",") if w] + ["free_damage"])
+            db.add(AppSetting(key="docgen_oceanway_free_damage", value="1"))
 
 
 def init_db() -> None:
