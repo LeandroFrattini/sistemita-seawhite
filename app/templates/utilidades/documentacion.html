@@ -191,7 +191,7 @@
       <h4>Cargo Manifest</h4>
       <div class="dg-grid">
         <label class="w2">Shipper<input data-c="shipper" placeholder="Si lo dejás vacío usa el Exportador"></label>
-        <label>Cantidad (kilos)<input data-c="cantidad" inputmode="numeric" placeholder="19745000"></label>
+        <label>Cantidad (kilos)<input data-c="cantidad" inputmode="numeric" placeholder="Vacío = total de Bahía Blanca del plano"></label>
       </div>
       <p class="dg-hint" style="margin:6px 0 0">El producto es el campo «Carga» de arriba. Buque, bandera, capitán y destino salen de los datos que ya cargaste.</p>
     </div>
@@ -263,10 +263,69 @@
   </div>
 </details>
 
-<!-- 4 · DOCUMENTOS -->
-<details class="card dg-sec" id="sec-docs" open>
+<!-- 4 · PLANO DE ESTIBA -->
+<details class="card dg-sec" id="sec-plano">
   <summary>
     <span class="dg-num">4</span>
+    <span class="dg-sec-title">Plano de estiba <small>solo para el Stowage Plan</small></span>
+    <span class="dg-sum" id="sum-plano"></span>
+    <span class="dg-chev" aria-hidden="true"></span>
+  </summary>
+  <div class="dg-sec-body">
+    <div class="dg-group">
+      <h4>Bodegas</h4>
+      <div class="dg-seg" id="plan-holds-seg" role="group" aria-label="Cantidad de bodegas">
+        <button type="button" class="dg-seg-btn active" data-holds="5">5 bodegas</button>
+        <button type="button" class="dg-seg-btn" data-holds="7">7 bodegas</button>
+      </div>
+    </div>
+    <div class="dg-group">
+      <h4>Puertos de carga <small>en orden de carga</small></h4>
+      <p class="dg-hint">El último puerto es Bahía Blanca: si dejás su carga o su exportador vacíos, usa la Carga y el Shipper de la escala.</p>
+      <div class="dg-ports">
+        {% for i in range(3) %}
+        <div class="dg-port-row">
+          <span class="dg-port-n">Puerto {{ i + 1 }}</span>
+          <input data-pp="port" data-pi="{{ i }}" placeholder="{{ ['Rosario', 'San Lorenzo', 'Bahia Blanca'][i] }}" aria-label="Puerto {{ i + 1 }}">
+          <input data-pp="product" data-pi="{{ i }}" placeholder="Carga (Maize, Corn, SBM…)" aria-label="Carga del puerto {{ i + 1 }}">
+          <input data-pp="shipper" data-pi="{{ i }}" placeholder="Exportador" aria-label="Exportador del puerto {{ i + 1 }}">
+          <span class="dg-port-total" id="port-total-{{ i }}"></span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="dg-group">
+      <h4>Cargas por bodega <small>la 1 es la de proa</small></h4>
+      <div class="dg-holds" id="plan-holds-grid">
+        {% for n in range(1, 8) %}
+        <div class="dg-hold" data-hold="{{ n }}">
+          <div class="dg-hold-h">
+            <b>Bodega Nº {{ n }}</b>
+            <select data-hf="estado" aria-label="Estado de la bodega {{ n }}"><option value="FULL">FULL</option><option value="SLACK">SLACK</option></select>
+          </div>
+          <label class="dg-hold-cf">Cubicaje (CF)<input data-cf="{{ n }}" inputmode="numeric" placeholder="549742"></label>
+          <div class="dg-hold-cargo">
+            <select data-hf="a_p" aria-label="Puerto de la bodega {{ n }}"></select>
+            <input data-hf="a_kg" inputmode="numeric" placeholder="Kilos" aria-label="Kilos de la bodega {{ n }}">
+          </div>
+          <label class="check dg-hold-shared"><input type="checkbox" data-hf="shared"> Bodega compartida</label>
+          <div class="dg-hold-cargo" data-hb hidden>
+            <select data-hf="b_p" aria-label="Segundo puerto de la bodega {{ n }}"></select>
+            <input data-hf="b_kg" inputmode="numeric" placeholder="Kilos" aria-label="Kilos del segundo puerto de la bodega {{ n }}">
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="dg-plan-totals" id="plan-totals"></div>
+      <p class="dg-hint" style="margin:10px 0 0">El cubicaje (CF) es un dato fijo del buque: lo cargás una vez y queda guardado. Los totales por puerto y el total general se calculan solos.</p>
+    </div>
+  </div>
+</details>
+
+<!-- 5 · DOCUMENTOS -->
+<details class="card dg-sec" id="sec-docs" open>
+  <summary>
+    <span class="dg-num">5</span>
     <span class="dg-sec-title">Documentos <small>elegí qué generar y con qué fecha</small></span>
     <span class="dg-sum" id="sum-docs"></span>
     <span class="dg-chev" aria-hidden="true"></span>
@@ -522,6 +581,23 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-docs-top .dg-general { padding-bottom: 6px; font-size: 12px; color: var(--muted); }
 .docs-body tr.dg-divider td { background: var(--head-blue); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--navy); padding: 6px 12px; }
 .docs-body tr.dg-divider td span { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.dg-port-row { display: grid; grid-template-columns: 70px 1fr 1fr 1.2fr 120px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.dg-port-n { font-size: 12px; font-weight: 700; color: var(--muted); }
+.dg-port-row input { width: 100%; min-width: 0 !important; box-sizing: border-box; }
+.dg-port-total { text-align: right; font-size: 12px; font-weight: 700; color: var(--navy); white-space: nowrap; }
+.dg-holds { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+.dg-hold { border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 12px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+.dg-hold[hidden] { display: none; }
+.dg-hold-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--navy); }
+.dg-hold-h select { min-width: 0 !important; width: auto !important; }
+.dg-hold-cf { font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.dg-hold-cf input, .dg-hold-cargo input, .dg-hold-cargo select { width: 100%; min-width: 0 !important; box-sizing: border-box; }
+.dg-hold-cargo { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dg-hold-cargo[hidden] { display: none; }
+.dg-hold-shared { font-size: 12px; }
+.dg-hold.shared { border-color: #f0a830; background: #fffaf0; }
+.dg-plan-totals { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: var(--head-blue); color: var(--navy); font-size: 13px; font-weight: 700; }
+.dg-plan-totals:empty { display: none; }
 .dg-pending td { opacity: .55; }
 .dg-grid label.check, .dg-wordv label.check { flex-direction: row !important; align-items: center; gap: 7px !important; color: var(--navy); font-weight: 600; cursor: pointer; }
 .dg-grid label.check input[type=checkbox], .dg-wordv label.check input[type=checkbox] { width: 16px !important; min-width: 0 !important; height: 16px; margin: 0; padding: 0; flex: none; }
@@ -542,6 +618,8 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-seg { display: inline-flex; background: #eef2f8; border-radius: 13px; padding: 4px; gap: 4px; }
 .dg-actionbar .dg-seg-btn { border: 0 !important; background: transparent !important; padding: 10px 15px; border-radius: 10px !important; font: inherit; font-weight: 700; font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; box-shadow: none !important; }
 .dg-actionbar .dg-seg-btn:hover { color: var(--navy); }
+#plan-holds-seg .dg-seg-btn { border: 0 !important; background: transparent !important; padding: 10px 18px; border-radius: 10px !important; font: inherit; font-weight: 700; font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; box-shadow: none !important; }
+#plan-holds-seg .dg-seg-btn.active { background: #fff !important; color: var(--navy); box-shadow: 0 1px 5px rgba(15, 40, 80, .20) !important; }
 .dg-actionbar .dg-seg-btn.active { background: #fff !important; color: var(--navy); box-shadow: 0 1px 5px rgba(15, 40, 80, .20) !important; }
 .dg-actionbar .dg-gobtn { border: 0 !important; border-radius: 13px !important; padding: 15px 28px; font: inherit; font-weight: 800; font-size: 15px; letter-spacing: .02em; color: #fff !important; cursor: pointer; background: linear-gradient(135deg, #2f86ec, #1a4c98) !important; box-shadow: 0 8px 18px rgba(26, 76, 152, .38) !important; transition: transform .08s, box-shadow .08s; }
 .dg-actionbar .dg-gobtn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(26, 76, 152, .45) !important; }
@@ -565,6 +643,9 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-favbtn { font-size: 13px; font-weight: 700; padding: 2px 8px; margin-left: 6px; border-radius: 8px !important; }
 .dg-hist-row.fav .dg-hist-item { border-color: #f0d27a; background: #fffbea; }
 @media (max-width: 640px) {
+  .dg-port-row { grid-template-columns: 1fr 1fr; }
+  .dg-port-n { grid-column: 1 / -1; }
+  .dg-port-total { grid-column: 1 / -1; text-align: left; }
   .dg-sec-title small { display: none; }
   .dg-sec > summary { flex-wrap: wrap; row-gap: 2px; padding: 12px 14px; }
   .dg-sec-title { flex: 1; }
@@ -626,6 +707,7 @@ function vesselData() {
   $$('[data-v]').forEach((el) => (o[el.dataset.v] = el.value));
   o.certificados = {};
   $$('[data-cert]').forEach((el) => (o.certificados[el.dataset.cert] = el.value));
+  o.cubicaje = [1, 2, 3, 4, 5, 6, 7].map((n) => $(`[data-cf="${n}"]`).value);
   return o;
 }
 function callData() {
@@ -641,6 +723,7 @@ function updateCertsCount() {
 function fillVessel(v) {
   $$('[data-v]').forEach((el) => (el.value = v[el.dataset.v] ?? (el.dataset.v === 'kind' ? 'BULK_CARRIER' : '')));
   $$('[data-cert]').forEach((el) => (el.value = (v.certificados || {})[el.dataset.cert] || ''));
+  $$('[data-cf]').forEach((el) => (el.value = (v.cubicaje || [])[Number(el.dataset.cf) - 1] || ''));
   updateCertsCount();
   vesselSnap = JSON.stringify(vesselData());
   updateSummaries();
@@ -652,6 +735,110 @@ const TODAY = {{ today|tojson }};
 let activeStage = 'ENTRADA';
 
 // Estado de la escala: tarjeta Escala + fechas de los documentos y de Serenos.
+// ---- plano de estiba
+let planHolds = 5;
+const PLAN_DEFAULT_PORTS = ['', '', 'Bahia Blanca'];
+const holdEl = (n) => $(`.dg-hold[data-hold="${n}"]`);
+const hf = (n, f) => $(`[data-hf="${f}"]`, holdEl(n));
+const pp = (i, f) => $(`[data-pp="${f}"][data-pi="${i}"]`);
+
+function getPlano() {
+  return {
+    holds: planHolds,
+    ports: [0, 1, 2].map((i) => ({ port: pp(i, 'port').value, product: pp(i, 'product').value, shipper: pp(i, 'shipper').value })),
+    bodegas: [1, 2, 3, 4, 5, 6, 7].map((n) => ({
+      estado: hf(n, 'estado').value, shared: hf(n, 'shared').checked,
+      a: { p: hf(n, 'a_p').value === '' ? null : Number(hf(n, 'a_p').value), kg: hf(n, 'a_kg').value },
+      b: { p: hf(n, 'b_p').value === '' ? null : Number(hf(n, 'b_p').value), kg: hf(n, 'b_kg').value },
+    })),
+  };
+}
+
+// los selectores de puerto de cada bodega se arman con los puertos cargados arriba
+function refreshPortOptions() {
+  const names = [0, 1, 2].map((i) => pp(i, 'port').value.trim());
+  const filled = names.map((n, i) => (n ? i : -1)).filter((i) => i >= 0);
+  [1, 2, 3, 4, 5, 6, 7].forEach((n) => ['a_p', 'b_p'].forEach((f) => {
+    const sel = hf(n, f);
+    const keep = sel.value;
+    sel.replaceChildren(new Option('— puerto —', ''));
+    filled.forEach((i) => sel.add(new Option(names[i], String(i))));
+    sel.value = filled.map(String).includes(keep) ? keep : '';
+    if (sel.value === '' && filled.length === 1 && f === 'a_p') sel.value = String(filled[0]);  // un solo puerto: se elige solo
+  }));
+}
+
+function showHolds() {
+  [1, 2, 3, 4, 5, 6, 7].forEach((n) => (holdEl(n).hidden = n > planHolds));
+  $$('#plan-holds-seg .dg-seg-btn').forEach((b) => b.classList.toggle('active', Number(b.dataset.holds) === planHolds));
+}
+
+function setPlano(pl) {
+  pl = pl || {};
+  planHolds = Number(pl.holds) === 7 ? 7 : 5;
+  [0, 1, 2].forEach((i) => {
+    const p = (pl.ports || [])[i] || {};
+    pp(i, 'port').value = p.port ?? PLAN_DEFAULT_PORTS[i];
+    pp(i, 'product').value = p.product || '';
+    pp(i, 'shipper').value = p.shipper || '';
+  });
+  refreshPortOptions();
+  [1, 2, 3, 4, 5, 6, 7].forEach((n) => {
+    const b = (pl.bodegas || [])[n - 1] || {};
+    hf(n, 'estado').value = b.estado === 'SLACK' ? 'SLACK' : 'FULL';
+    hf(n, 'shared').checked = !!b.shared;
+    const a = b.a || {}, bb = b.b || {};
+    if (a.p !== null && a.p !== undefined) hf(n, 'a_p').value = String(a.p);
+    hf(n, 'a_kg').value = a.kg || '';
+    hf(n, 'b_p').value = bb.p !== null && bb.p !== undefined ? String(bb.p) : '';
+    hf(n, 'b_kg').value = bb.kg || '';
+    syncHold(n);
+  });
+  showHolds();
+  updatePlanTotals();
+}
+
+function syncHold(n) {
+  const shared = hf(n, 'shared').checked;
+  $('[data-hb]', holdEl(n)).hidden = !shared;
+  holdEl(n).classList.toggle('shared', shared);
+}
+
+const kgNum = (t) => Number(String(t || '').replace(/\./g, '').replace(/,/g, '')) || 0;
+const fmtKg = (n) => Math.round(n).toLocaleString('es-AR');
+function updatePlanTotals() {
+  const totals = [0, 0, 0];
+  for (let n = 1; n <= planHolds; n++) {
+    const b = getPlano().bodegas[n - 1];
+    [b.a, ...(b.shared ? [b.b] : [])].forEach((e) => { if (e.p !== null && kgNum(e.kg)) totals[e.p] += kgNum(e.kg); });
+  }
+  const names = [0, 1, 2].map((i) => pp(i, 'port').value.trim());
+  [0, 1, 2].forEach((i) => ($(`#port-total-${i}`).textContent = names[i] && totals[i] ? `${fmtKg(totals[i])} kg` : ''));
+  const used = [0, 1, 2].filter((i) => names[i]);
+  const grand = used.reduce((a, i) => a + totals[i], 0);
+  $('#plan-totals').textContent = grand
+    ? used.map((i) => `${names[i]}: ${fmtKg(totals[i])} kg`).join('  ·  ') + `  ·  TOTAL: ${fmtKg(grand)} kg`
+    : '';
+  const last = used.length ? used[used.length - 1] : null;
+  return { grand, ports: used.length, last: last === null ? 0 : totals[last] };
+}
+
+document.addEventListener('input', (e) => {
+  if (e.target.dataset && (e.target.dataset.pp === 'port')) refreshPortOptions();
+  if (e.target.closest && e.target.closest('#sec-plano')) updatePlanTotals();
+});
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (t.dataset && t.dataset.hf === 'shared') syncHold(Number(t.closest('.dg-hold').dataset.hold));
+  if (t.closest && t.closest('#sec-plano')) updatePlanTotals();
+});
+$$('#plan-holds-seg .dg-seg-btn').forEach((b) => b.addEventListener('click', () => {
+  planHolds = Number(b.dataset.holds);
+  showHolds();
+  updatePlanTotals();
+  updateSummaries();
+}));
+
 function getState() {
   const dates = {}, blank = {}, serenos = {}, serenos_blank = {};
   $$('.docs-body tr').forEach((tr) => {
@@ -662,7 +849,7 @@ function getState() {
   });
   $$('[data-s]').forEach((el) => (serenos[el.dataset.s] = el.value));
   $$('[data-sb]').forEach((el) => (serenos_blank[el.dataset.sb] = el.checked));
-  return { call: callData(), dates, blank, serenos, serenos_blank };
+  return { call: callData(), dates, blank, serenos, serenos_blank, plano: getPlano() };
 }
 
 function setState(st) {
@@ -683,6 +870,7 @@ function setState(st) {
     $(`[data-sb="${el.dataset.s}"]`).checked = blank;
   });
   $('#fecha-general').value = TODAY;
+  setPlano(st.plano);
   updateSummaries();
 }
 
@@ -700,6 +888,8 @@ function updateSummaries() {
   $('#sum-agencia').textContent = ag && ag.value ? ag.selectedOptions[0].textContent : 'sin elegir';
   const rows = $$(`.docs-body[id="docs-rows-${activeStage}"] tr[data-key]`).filter((tr) => $('.doc-check', tr).checked);
   $('#sum-docs').textContent = `${rows.length} tildados · ${activeStage}`;
+  const pt = updatePlanTotals();
+  $('#sum-plano').textContent = pt.grand ? `${planHolds} bodegas · ${pt.ports} puerto${pt.ports > 1 ? 's' : ''} · ${fmtKg(pt.grand)} kg` : `${planHolds} bodegas · sin cargar`;
   updateBanner();
   const firmas = rows.filter((tr) => $('.doc-firma', tr)?.checked).length;
   const bar = $('#bar-info');
@@ -1245,9 +1435,9 @@ document.addEventListener('change', (e) => {
 });
 
 // descarga: archivo por archivo / todo en un solo Excel
-$$('.dg-seg-btn').forEach((b) => b.addEventListener('click', () => {
+$$('.dg-actionbar .dg-seg-btn').forEach((b) => b.addEventListener('click', () => {
   $('#download-mode').value = b.dataset.mode;
-  $$('.dg-seg-btn').forEach((x) => x.classList.toggle('active', x === b));
+  $$('.dg-actionbar .dg-seg-btn').forEach((x) => x.classList.toggle('active', x === b));
 }));
 
 // volver al historial (con el aviso de cambios sin guardar si hace falta)

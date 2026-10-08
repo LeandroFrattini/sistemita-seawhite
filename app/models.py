@@ -792,6 +792,7 @@ class DocVessel(Base):
     velocidad: Mapped[str] = mapped_column(String(20), default="")
     inmarsat: Mapped[str] = mapped_column(String(40), default="")
     company_id: Mapped[str] = mapped_column(String(40), default="")  # Nro. de identificacion de la compania
+    cubicaje: Mapped[str] = mapped_column(Text, default="")  # JSON: cubicaje en CF de cada bodega (1 a 7)
     certificados: Mapped[str] = mapped_column(Text, default="")  # JSON {clave: fecha de vencimiento}
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 

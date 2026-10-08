@@ -175,6 +175,95 @@ class Xlsx:
         el.set("ref", rng)
         merges.set("count", str(len(merges)))
 
+    def unmerge(self, rng: str) -> None:
+        merges = self.root.find(M + "mergeCells")
+        if merges is None:
+            return
+        for el in list(merges):
+            if el.get("ref") == rng:
+                merges.remove(el)
+        if len(merges):
+            merges.set("count", str(len(merges)))
+        else:
+            self.root.remove(merges)
+
+    def blank_row(self, n: int) -> None:
+        for c in self._row(n).findall(M + "c"):
+            self._wipe(c)
+
+    def show_row(self, n: int, height: float | None = None) -> None:
+        """Muestra una fila oculta (y le puede fijar la altura)."""
+        row = self._row(n)
+        row.attrib.pop("hidden", None)
+        if height is not None:
+            row.set("ht", str(height))
+            row.set("customHeight", "1")
+
+    def set_bottom_border(self, ref: str) -> None:
+        """Le agrega una linea fina abajo a la celda, conservando el resto de su formato."""
+        styles = etree.fromstring(self.parts["xl/styles.xml"])
+        borders = styles.find(M + "borders")
+        xfs = styles.find(M + "cellXfs")
+        c = self._cell(ref)
+        new_xf = copy.deepcopy(xfs[int(c.get("s", "0"))])
+        border = copy.deepcopy(borders[int(new_xf.get("borderId", "0"))])
+        bottom = border.find(M + "bottom")
+        if bottom is None:
+            bottom = etree.SubElement(border, M + "bottom")
+        bottom.set("style", "thin")
+        for ch in list(bottom):
+            bottom.remove(ch)
+        etree.SubElement(bottom, M + "color", auto="1")
+        borders.append(border)
+        borders.set("count", str(len(borders)))
+        new_xf.set("borderId", str(len(borders) - 1))
+        new_xf.set("applyBorder", "1")
+        xfs.append(new_xf)
+        xfs.set("count", str(len(xfs)))
+        self.parts["xl/styles.xml"] = etree.tostring(styles, xml_declaration=True, encoding="UTF-8", standalone=True)
+        c.set("s", str(len(xfs) - 1))
+
+    def insert_rows(self, at: int, count: int) -> None:
+        """Baja `count` filas todo lo que esta desde la fila `at` (celdas, combinadas, imagenes y area de impresion)."""
+        for row in self.sheet_data.findall(M + "row"):
+            r = int(row.get("r"))
+            if r >= at:
+                row.set("r", str(r + count))
+                for c in row.findall(M + "c"):
+                    col, _ = _split(c.get("r"))
+                    c.set("r", f"{col}{r + count}")
+        merges = self.root.find(M + "mergeCells")
+        if merges is not None:
+            for el in merges:
+                a, b = el.get("ref").split(":")
+                (ca, ra), (cb, rb) = _split(a), _split(b)
+                if ra >= at:
+                    ra += count
+                if rb >= at:
+                    rb += count
+                el.set("ref", f"{ca}{ra}:{cb}{rb}")
+        dim = self.root.find(M + "dimension")
+        if dim is not None and ":" in dim.get("ref", ""):
+            a, b = dim.get("ref").split(":")
+            cb, rb = _split(b)
+            dim.set("ref", f"{a}:{cb}{rb + count}")
+        # imagenes y formas ancladas a celdas
+        for name in [n for n in self.parts if n.startswith("xl/drawings/drawing") and n.endswith(".xml")]:
+            dr = etree.fromstring(self.parts[name])
+            for el in dr.iter("{%s}row" % NS_XDR):
+                if int(el.text) >= at - 1:
+                    el.text = str(int(el.text) + count)
+            self.parts[name] = etree.tostring(dr, xml_declaration=True, encoding="UTF-8", standalone=True)
+        # area de impresion
+        wbx = self.parts["xl/workbook.xml"].decode("utf-8")
+
+        def bump(m):
+            col1, r1, col2, r2 = m.group(1), int(m.group(2)), m.group(3), int(m.group(4))
+            return f"${col1}${r1}:${col2}${r2 + count if r2 >= at else r2}"
+
+        wbx = re.sub(r"\$([A-Z]+)\$(\d+):\$([A-Z]+)\$(\d+)", bump, wbx)
+        self.parts["xl/workbook.xml"] = wbx.encode("utf-8")
+
     def copy_style(self, src: str, dst: str) -> None:
         """Le pone a una celda el mismo formato (fecha, alineacion, fuente) que a otra."""
         s = self._cell(src).get("s")

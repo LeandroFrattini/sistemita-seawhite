@@ -13,6 +13,7 @@ from pathlib import Path
 import docx
 
 from .fechas import en_ordinal_upper, en_parts_heinlein
+from . import plano as _plano
 from .xlsx_fill import Xlsx
 from .xlsx_merge import merge_workbooks
 
@@ -36,6 +37,7 @@ DOCS: list[tuple[str, str, str]] = [
     ("free_damage", "Free Damage (Safety Stowage)", "Certificado de estiba"),
     ("seaworthy", "Seaworthy Certificate", "Certificado"),
     ("cargo_manifest", "Cargo Manifest", "REG-AM-33"),
+    ("stowage_plan", "Stowage Plan (plano de estiba)", "REG-G-34"),
 ]
 DOC_KEYS = [d[0] for d in DOCS]
 
@@ -44,6 +46,7 @@ STAGES = {k: "ENTRADA" for k in DOC_KEYS}
 STAGES["free_damage"] = "SALIDA"
 STAGES["seaworthy"] = "SALIDA"
 STAGES["cargo_manifest"] = "SALIDA"
+STAGES["stowage_plan"] = "SALIDA"
 # documentos que no salen tildados por defecto (los que a veces piden y a veces no)
 NOT_DEFAULT = set(DOC_KEYS)  # ahora ninguno sale tildado: se tildan solo los que se van a sacar
 # los que a veces piden y a veces no (van bajo "A pedido")
@@ -57,6 +60,7 @@ SHORT_NAMES = {
     "ped_carga": "Pedido de Carga", "bill": "BILL", "decla_pna": "DECLA PNA",
     "boyado": "BOYADO", "malvinas": "MALVINAS", "pbip_entrada": "PBIP ENTRADA", "pbip_salida": "PBIP SALIDA",
     "free_damage": "FREE DAMAGE", "seaworthy": "SEAWORTHY", "cargo_manifest": "CARGO MANIFEST",
+    "stowage_plan": "STOWAGE PLAN",
 }
 
 KIND_LETTER = {"BULK_CARRIER": "V", "TANKER": "T"}  # MV / MT
@@ -72,6 +76,7 @@ class Ctx:
     migra_modo: str = "ENTRADA"  # ENTRADA | SALIDA
     pna_modo: str = "ENTRADA"  # ENTRADA | SALIDA (selector de DECLA PNA)
     certificados: dict = field(default_factory=dict)  # vencimientos guardados con el buque
+    plano: dict = field(default_factory=dict)  # plano de estiba cargado en la pantalla
     firma: bytes | None = None  # firma del capitan de esta escala (PNG ya preparado)
     firma_keys: set = field(default_factory=set)  # documentos en los que se pega
 
@@ -370,6 +375,12 @@ def _cargo_date(ctx: Ctx) -> tuple[str, str, str, str] | None:
     return _heinlein_date(d) if d else None
 
 
+def _plan_total(ctx: Ctx) -> str:
+    """Total del ultimo puerto (el actual) segun el plano de estiba, si esta cargado."""
+    total = _plano.last_port_total(ctx)
+    return str(total) if total else ""
+
+
 def gen_cargo_manifest(ctx: Ctx) -> bytes:
     """Cargo Manifest general: buque, bandera, capitan y destino salen de la planilla;
     shipper, producto (la carga) y cantidad se completan en la escala."""
@@ -387,8 +398,9 @@ def gen_cargo_manifest(ctx: Ctx) -> bytes:
     x.set_text("B20", ctx.c("shipper") or ctx.c("exportador"))
     product = ctx.c("carga").upper()
     x.set_text("G20", f"{product} IN BULK".strip())
-    x.set_value("J20", ctx.c("cantidad"))
-    x.set_value("J24", ctx.c("cantidad"))
+    cantidad = ctx.c("cantidad") or _plan_total(ctx)
+    x.set_value("J20", cantidad)
+    x.set_value("J24", cantidad)
     x.set_text("K36", ctx.name)
     for ref in ("B8", "F8", "I8", "D12", "B20", "G20", "K36"):  # un texto largo se achica en vez de salirse
         x.shrink(ref)
@@ -411,9 +423,10 @@ def gen_cargo_manifest_heinlein(ctx: Ctx) -> bytes:
     x.set_text("I13", ctx.c("destino"))
     x.set_text("H20", ctx.c("shipper") or ctx.c("exportador"))
     x.set_text("E20", ctx.c("carga").upper())
-    x.set_value("F20", ctx.c("cantidad"))
+    cantidad = ctx.c("cantidad") or _plan_total(ctx)
+    x.set_value("F20", cantidad)
     x.set_numfmt("F20", 3)  # #,##0: la plantilla traia 3 decimales
-    x.set_value("F32", ctx.c("cantidad"))
+    x.set_value("F32", cantidad)
     parts = _cargo_date(ctx)
     x.set_text("F35", "BAHIA BLANCA, " + (f"{parts[0][:3].upper()}. {parts[1]}{parts[2].upper()}, {parts[3]}.-" if parts else ""))
     for ref in ("C13", "C14", "F13", "I13", "H20", "E20", "A7"):  # un texto largo se achica en vez de salirse
@@ -421,7 +434,8 @@ def gen_cargo_manifest_heinlein(ctx: Ctx) -> bytes:
     return x.to_bytes()
 
 
-_XLSX_VARIANT = {"cargo_manifest": gen_cargo_manifest_heinlein}  # formato propio de la agencia (Excel)
+_XLSX_VARIANT = {"cargo_manifest": gen_cargo_manifest_heinlein,  # formato propio de la agencia (Excel)
+                 "stowage_plan": _plano.gen_heinlein}
 STOWAGE_TEXT = ("I hereby confirm that the loading operations of {carga} in bulk, carried out at this port, "
                 "has been done under my ")
 
@@ -562,6 +576,7 @@ _XLSX_GEN = {
     "boyado": gen_boyado, "malvinas": gen_malvinas,
     "pbip_entrada": gen_pbip_entrada, "pbip_salida": gen_pbip_salida,
     "free_damage": gen_free_damage, "seaworthy": gen_seaworthy, "cargo_manifest": gen_cargo_manifest,
+    "stowage_plan": _plano.gen_general,
 }
 
 

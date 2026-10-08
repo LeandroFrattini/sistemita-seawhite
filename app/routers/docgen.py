@@ -34,9 +34,10 @@ CALL_FIELDS = ["capitan", "ultimo_puerto", "procedencia", "destino", "descripcio
 MAX_LOGO = 2 * 1024 * 1024
 
 # documentos que una agencia puede tener en su propio formato Word (ademas del Excel general)
-WORD_VARIANTS = {"free_damage": "Free Damage en Word", "cargo_manifest": "Cargo Manifest con su formato"}
+WORD_VARIANTS = {"free_damage": "Free Damage en Word", "cargo_manifest": "Cargo Manifest con su formato",
+                 "stowage_plan": "Stowage Plan con su formato"}
 # documentos que llevan el logo de la agencia elegida (y por eso piden elegirla)
-AGENCY_DOCS = {"ped_carga", "bill", "free_damage", "seaworthy", "cargo_manifest"}
+AGENCY_DOCS = {"ped_carga", "bill", "free_damage", "seaworthy", "cargo_manifest", "stowage_plan"}
 
 # Vencimientos de certificados del buque (orden de la pantalla). Se guardan siempre con el buque.
 CERTIFICADOS = [
@@ -60,9 +61,19 @@ def _certs_load(raw: str) -> dict:
     return {k: str(data.get(k) or "") for k in CERT_KEYS}
 
 
+def _cubicaje_load(raw: str) -> list[str]:
+    try:
+        data = json.loads(raw or "[]")
+    except ValueError:
+        data = []
+    data = data if isinstance(data, list) else []
+    return [str(data[i]) if i < len(data) else "" for i in range(7)]
+
+
 def _vessel_dict(v: DocVessel, favorito: bool = False) -> dict:
     updated = v.updated_at.isoformat() + "Z" if v.updated_at else ""
     return {"imo": v.imo, "updated_at": updated, "certificados": _certs_load(v.certificados), "favorito": favorito,
+            "cubicaje": _cubicaje_load(v.cubicaje),
             **{f: getattr(v, f) for f in VESSEL_FIELDS}}
 
 
@@ -89,6 +100,9 @@ def _date(raw) -> date | None:
 def _clean_vessel(data: dict) -> dict:
     out = {f: (data.get(f) or "").strip() for f in VESSEL_FIELDS}
     out["kind"] = out["kind"] if out["kind"] in ("BULK_CARRIER", "TANKER") else "BULK_CARRIER"
+    if isinstance(data.get("cubicaje"), list):  # cubicaje (CF) de cada bodega; sin la clave, no se pisa lo guardado
+        out["cubicaje"] = [re.sub(r"[^\d.,]", "", str(data["cubicaje"][i]))[:20] if i < len(data["cubicaje"]) else ""
+                           for i in range(7)]
     if isinstance(data.get("certificados"), dict):  # sin la clave, no se pisan los guardados
         out["certificados"] = {k: _iso_or_text(data["certificados"].get(k)) for k in CERT_KEYS}
     return out
@@ -104,7 +118,9 @@ def _upsert_vessel(db: Session, imo: str, data: dict) -> DocVessel:
         v = DocVessel(imo=imo)
         db.add(v)
     for f, val in _clean_vessel(data).items():
-        if f == "certificados":
+        if f == "cubicaje":
+            v.cubicaje = json.dumps(val)
+        elif f == "certificados":
             v.certificados = json.dumps(val, ensure_ascii=False)
         else:
             setattr(v, f, val)
@@ -123,7 +139,7 @@ def page(request: Request, db: Session = Depends(get_db), user: User = Depends(c
                   "has_firma": k in FIRMA_DOCS, "optional": k in OPTIONAL} for k, label, reg in DOCS],
         "certificados": [{"key": k, "label": label} for k, label in CERTIFICADOS],
         "word_variants": [{"key": k, "label": label} for k, label in WORD_VARIANTS.items()],
-        "pending_docs": [{"label": "Stowage Plan"}],
+        "pending_docs": [],
         "agencies": [_agency_dict(a) for a in agencies],
         "today": date.today().isoformat(),
     })
@@ -175,6 +191,27 @@ def _iso(raw) -> str:
         return ""
 
 
+def _clean_plano(pl) -> dict:
+    """Plano de estiba de la escala: cantidad de bodegas, puertos (hasta 3) y la carga de cada bodega."""
+    pl = pl if isinstance(pl, dict) else {}
+    ports = []
+    for i in range(3):
+        p = (pl.get("ports") or [])[i] if i < len(pl.get("ports") or []) and isinstance(pl["ports"][i], dict) else {}
+        ports.append({k: str(p.get(k) or "").strip()[:80] for k in ("port", "product", "shipper")})
+
+    def entry(e):
+        e = e if isinstance(e, dict) else {}
+        p = str(e.get("p") if e.get("p") is not None else "").strip()
+        return {"p": int(p) if p in ("0", "1", "2") else None, "kg": re.sub(r"[^\d.,]", "", str(e.get("kg") or ""))[:20]}
+
+    bodegas = []
+    for i in range(7):
+        b = (pl.get("bodegas") or [])[i] if i < len(pl.get("bodegas") or []) and isinstance(pl["bodegas"][i], dict) else {}
+        bodegas.append({"estado": "SLACK" if b.get("estado") == "SLACK" else "FULL", "shared": bool(b.get("shared")),
+                        "a": entry(b.get("a")), "b": entry(b.get("b"))})
+    return {"holds": 7 if str(pl.get("holds")) == "7" else 5, "ports": ports, "bodegas": bodegas}
+
+
 def _clean_state(data: dict) -> dict:
     """Lo que guarda una escala: tarjeta Escala + fechas de documentos y de Serenos."""
     call = data.get("call") or {}
@@ -186,6 +223,7 @@ def _clean_state(data: dict) -> dict:
         "blank": {k: bool(blank.get(k)) for k in DOC_KEYS},
         "serenos": {k: _iso(ser.get(k)) for k in SERENO_KEYS},
         "serenos_blank": {k: bool(ser_blank.get(k)) for k in SERENO_KEYS},
+        "plano": _clean_plano(data.get("plano")),
     }
 
 
@@ -437,7 +475,8 @@ async def generate(request: Request, db: Session = Depends(get_db), user: User =
     ctx = Ctx(vessel=vessel, call=call, agency=agency, dates=dates, serenos=serenos,
               migra_modo="SALIDA" if data.get("migra_modo") == "SALIDA" else "ENTRADA",
               pna_modo="SALIDA" if data.get("pna_modo") == "SALIDA" else "ENTRADA",
-              certificados=vessel.get("certificados") or {}, firma=firma, firma_keys=firma_keys)
+              certificados=vessel.get("certificados") or {}, firma=firma, firma_keys=firma_keys,
+              plano=_clean_plano((data.get("state") or {}).get("plano")))
     name, content, mime = build_many(order, ctx, single_workbook=data.get("download_mode") == "libro")
     ascii_name = name.encode("ascii", "ignore").decode("ascii").strip() or "documentacion"
     headers = {"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"}

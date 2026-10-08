@@ -87,6 +87,7 @@ _MIGRATIONS = [
     ("doc_vessels", "velocidad", "TEXT DEFAULT ''"),
     ("doc_vessels", "inmarsat", "TEXT DEFAULT ''"),
     ("doc_vessels", "company_id", "TEXT DEFAULT ''"),
+    ("doc_vessels", "cubicaje", "TEXT DEFAULT ''"),
     ("doc_calls", "firma", "TEXT DEFAULT ''"),
     ("doc_agencies", "word_docs", "TEXT DEFAULT ''"),
     ("proformas", "remolques_in", "INTEGER DEFAULT 0"),
@@ -376,6 +377,14 @@ def _seed_doc_agencies(db: Session, folder: Path = DOC_AGENCIES_DIR) -> None:
             if "cargo_manifest" not in (hein.word_docs or ""):
                 hein.word_docs = ",".join([w for w in (hein.word_docs or "").split(",") if w] + ["cargo_manifest"])
             db.add(AppSetting(key="docgen_heinlein_cargo_manifest", value="1"))
+
+    # HEINLEIN usa su propio Stowage Plan (una sola vez; despues se edita desde la pantalla)
+    if not db.get(AppSetting, "docgen_heinlein_stowage_plan"):
+        hein = db.scalar(select(DocAgency).where(DocAgency.name.like("MARITIMA HEINLEIN%")))
+        if hein is not None:
+            if "stowage_plan" not in (hein.word_docs or ""):
+                hein.word_docs = ",".join([w for w in (hein.word_docs or "").split(",") if w] + ["stowage_plan"])
+            db.add(AppSetting(key="docgen_heinlein_stowage_plan", value="1"))
 
 
 def init_db() -> None:
