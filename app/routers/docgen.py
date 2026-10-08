@@ -35,8 +35,8 @@ MAX_LOGO = 2 * 1024 * 1024
 CERTIFICADOS = [
     ("iapp", "IAPP"), ("radio", "RADIO"), ("equipo", "EQUIPO"), ("francobordo", "FRANCOBORDO"),
     ("construccion", "CONSTRUCCION"), ("desratizacion", "DESRATIZACION"), ("polucion", "POLUCION"),
-    ("cgs", "C.G.S."), ("doc", "D.O.C."), ("isps", "I.S.P.S."), ("imo", "IMO"),
-    ("inmarsat", "INMARSAT"), ("mlc", "MLC"), ("fitness", "FITNESS"), ("sewage", "SEWAGE"), ("clc", "CLC"),
+    ("cgs", "C.G.S."), ("doc", "D.O.C."), ("isps", "I.S.P.S."),
+    ("mlc", "MLC"), ("fitness", "FITNESS"), ("sewage", "SEWAGE"), ("clc", "CLC"),
 ]
 CERT_KEYS = [k for k, _ in CERTIFICADOS]
 

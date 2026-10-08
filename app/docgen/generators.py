@@ -230,7 +230,7 @@ def _cert(x: Xlsx, ref: str, raw: str) -> None:
 _PNA_CERTS = [
     ("iapp", "G36"), ("radio", "G38"), ("equipo", "G40"), ("francobordo", "G42"),
     ("construccion", "G44"), ("desratizacion", "G46"), ("polucion", "G48"), ("cgs", "G50"),
-    ("doc", "G52"), ("isps", "G54"), ("imo", "G56"), ("mlc", "G60"), ("fitness", "G62"),
+    ("doc", "G52"), ("isps", "G54"), ("mlc", "G60"), ("fitness", "G62"),
     ("sewage", "G64"), ("clc", "G66"),
 ]
 
@@ -283,11 +283,12 @@ def gen_decla_pna(ctx: Ctx) -> bytes:
 
     certs = dict(ctx.certificados or {})
     certs["iapp"] = certs.get("polucion", "")  # igual que la planilla original: IAPP = POLUCION
-    for ref in ("G56", "G62", "G64", "G66"):  # estas celdas no traian formato de fecha
+    for ref in ("G62", "G64", "G66"):  # estas celdas no traian formato de fecha
         x.copy_style("G60", ref)
     for key, ref in _PNA_CERTS:
         _cert(x, ref, certs.get(key, ""))
-    x.set_text("G58", (ctx.v("inmarsat")))
+    x.set_text("G56", ctx.vessel.get("imo") or "")  # IMO e INMARSAT salen de los datos del buque
+    x.set_text("G58", ctx.v("inmarsat"))
     return x.to_bytes()
 
 
