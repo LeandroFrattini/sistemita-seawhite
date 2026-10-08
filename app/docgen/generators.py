@@ -390,7 +390,7 @@ def gen_free_damage_word(ctx: Ctx) -> bytes:
     """Free Damage en el formato propio de la agencia (Word). El texto y los datos del buque
     se cambian dentro de las mismas partes del texto, asi queda todo con el formato original."""
     doc = docx.Document(TEMPLATES / "free_damage_word.docx")
-    month, day, suffix, year = _heinlein_date(ctx.dates.get("free_damage"), zero_pad=False)
+    month, day, suffix, year = _heinlein_date(ctx.dates.get("free_damage"))  # dia siempre con 2 digitos
     blank = not year
     mv = f"M{ctx.letter}"
 
@@ -403,6 +403,7 @@ def gen_free_damage_word(ctx: Ctx) -> bytes:
     r = _runs(doc, 3, "SINGAPUR")  # Captain of the SINGAPUR flag MV TEXEL ISLAND ... on Septemeber 19th, 2026
     r[1].text = ctx.v("flag")
     r[3].text, r[4].text = f"{mv} ", ctx.name
+    r[5].text = r[5].text.replace("discharge", "loading")  # siempre carga; cuando es descarga se cambia a mano
     r[9].text, r[11].text = month, day
     r[12].text, r[13].text, r[14].text = ("" if blank else f"{suffix},"), ("" if blank else f" {year}"), ""
     if blank:

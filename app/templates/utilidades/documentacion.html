@@ -454,6 +454,8 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-firma { color: var(--navy) !important; font-weight: 600 !important; }
 .dg-firma[data-off="1"] { cursor: pointer; color: var(--muted) !important; }
 .dg-firma[data-off="1"]::after { content: "— primero subí la firma (sección Escala)"; color: #c0771b; font-weight: 700; font-size: 11.5px; margin-left: 4px; }
+.dg-firma[data-off="word"] { color: var(--muted) !important; cursor: default; }
+.dg-firma[data-off="word"]::after { content: "— sale en Word: la firma va en original"; color: var(--muted); font-weight: 600; font-size: 11.5px; margin-left: 4px; }
 .dg-firma input:disabled { pointer-events: none; }
 .dg-flash-box { animation: dg-flash-box 1.6s ease-out 1; }
 @keyframes dg-flash-box { 0% { box-shadow: 0 0 0 0 rgba(240, 168, 48, .9); } 100% { box-shadow: 0 0 0 16px rgba(240, 168, 48, 0); } }
@@ -846,7 +848,11 @@ function updateFirmaUI() {
   $$('.doc-firma').forEach((el) => {
     el.disabled = !has;
     if (!has) el.checked = false;
-    el.closest('label').dataset.off = has ? '' : '1';
+    const row = el.closest('tr');
+    const agency = agencies.find((a) => String(a.id) === $('#agency-select').value);
+    const wordDoc = !!(agency && (agency.word_docs || []).includes(row.dataset.key));
+    if (wordDoc) { el.checked = false; el.disabled = true; }
+    el.closest('label').dataset.off = wordDoc ? 'word' : (has ? '' : '1');
   });
   const all = $('#btn-firma-todos');
   all.disabled = !has;
@@ -1165,7 +1171,7 @@ function updateAgencyInfo() {
     ? 'Con esta agencia, el Pedido de Carga y el BILL salen en Word con el formato de Heinlein.'
     : (a.has_logo ? '' : 'Esta agencia no tiene logo cargado: el Pedido de Carga y el BILL saldrán sin logo.');
 }
-sel.addEventListener('change', updateAgencyInfo);
+sel.addEventListener('change', () => { updateAgencyInfo(); updateFirmaUI(); });
 
 $('#btn-agencias').addEventListener('click', () => { const p = $('#agency-panel'); p.hidden = !p.hidden; });
 
