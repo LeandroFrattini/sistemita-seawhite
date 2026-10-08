@@ -6,6 +6,7 @@ import base64
 import json
 import re
 from datetime import date, datetime
+from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -38,6 +39,22 @@ WORD_VARIANTS = {"free_damage": "Free Damage en Word", "cargo_manifest": "Cargo 
                  "stowage_plan": "Stowage Plan con su formato"}
 # documentos que llevan el logo de la agencia elegida (y por eso piden elegirla)
 AGENCY_DOCS = {"ped_carga", "bill", "free_damage", "seaworthy", "cargo_manifest", "stowage_plan"}
+
+# Archivos extra que cada agencia pide y que se bajan tal cual (no se completan): se ofrecen al elegir la agencia.
+# La agencia se reconoce por el comienzo de su nombre.
+EXTRAS_DIR = Path(__file__).resolve().parent.parent / "docgen" / "extras"
+AGENCY_EXTRAS = {
+    "OCEANWAY": [{"key": "oceanway_customer_survey", "label": "Customer satisfaction survey",
+                  "file": "oceanway_customer_survey.pdf", "download": "DG-SGI04-Rev1-Customer_survey.pdf"}],
+}
+EXTRAS = {e["key"]: e for lst in AGENCY_EXTRAS.values() for e in lst}
+
+
+def _agency_extras(a: DocAgency) -> list[dict]:
+    name = (a.name or "").strip().upper()
+    return [{"key": e["key"], "label": e["label"]}
+            for prefix, lst in AGENCY_EXTRAS.items() if name.startswith(prefix) for e in lst]
+
 
 # Vencimientos de certificados del buque (orden de la pantalla). Se guardan siempre con el buque.
 CERTIFICADOS = [
@@ -85,7 +102,8 @@ def _word_docs(raw) -> str:
 
 def _agency_dict(a: DocAgency) -> dict:
     return {"id": a.id, "name": a.name, "address": a.address, "doc_format": a.doc_format,
-            "has_logo": bool(a.logo), "word_docs": [w for w in (a.word_docs or "").split(",") if w]}
+            "has_logo": bool(a.logo), "word_docs": [w for w in (a.word_docs or "").split(",") if w],
+            "extras": _agency_extras(a)}
 
 
 def _date(raw) -> date | None:
@@ -410,6 +428,16 @@ def agency_logo(agency_id: int, db: Session = Depends(get_db), user: User = Depe
         return Response(status_code=404)
     return Response(content=a.logo, media_type=a.logo_mime or "image/png",
                     headers={"Cache-Control": "private, max-age=60"})
+
+
+@router.get("/extras/{key}")
+def agency_extra(key: str, user: User = Depends(current_user)):
+    e = EXTRAS.get(key)
+    path = EXTRAS_DIR / e["file"] if e else None
+    if not path or not path.is_file():
+        return Response(status_code=404)
+    return Response(content=path.read_bytes(), media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(e['download'])}"})
 
 
 # ---------------------------------------------------------- generacion -----

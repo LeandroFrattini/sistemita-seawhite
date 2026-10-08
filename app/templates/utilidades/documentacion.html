@@ -227,6 +227,7 @@
       <button type="button" class="btn mini" id="btn-agencias">Administrar agencias</button>
     </div>
     <p class="dg-hint" id="agency-info"></p>
+    <div class="dg-extras" data-extras hidden></div>
 
     <div id="agency-panel" hidden class="dg-panel">
       <table class="list" style="width:100%">
@@ -404,6 +405,7 @@
     {% endif %}
     </div>
     {% endfor %}
+    <div class="dg-extras" data-extras hidden></div>
     <details class="dg-help">
       <summary>Cómo se descargan</summary>
       <p>Con un solo documento tildado baja el archivo suelto; con más de uno, un zip. En «un solo libro» cada documento queda en su hoja (imprimí con «Todo el libro»); los Word de Heinlein no se pueden unir y bajan aparte, en un zip. En los Word, una fecha en blanco sale como una línea para completar. Los archivos no se guardan en el sistema, solo los datos del buque y de la escala.</p>
@@ -609,6 +611,11 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-plan-totals { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: var(--head-blue); color: var(--navy); font-size: 13px; font-weight: 700; }
 .dg-plan-totals:empty { display: none; }
 .dg-pending td { opacity: .55; }
+.dg-extras { margin: 12px 0; padding: 10px 14px; border: 1px dashed #c9d4e5; border-radius: 12px; background: #f7f9fd; }
+.dg-extras[hidden] { display: none; }
+.dg-extras-t { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.dg-extras a.btn { text-decoration: none; }
+.dg-extras small { color: var(--muted); margin-left: 8px; }
 .dg-grid label.check, .dg-wordv label.check { flex-direction: row !important; align-items: center; gap: 7px !important; color: var(--navy); font-weight: 600; cursor: pointer; }
 .dg-grid label.check input[type=checkbox], .dg-wordv label.check input[type=checkbox] { width: 16px !important; min-width: 0 !important; height: 16px; margin: 0; padding: 0; flex: none; }
 .dg-wordv { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
@@ -1399,10 +1406,34 @@ function renderAgencies(selectedId) {
   });
 }
 
+// Archivos extra de la agencia elegida: se bajan tal cual, no se completan
+function renderExtras(a) {
+  const extras = (a && a.extras) || [];
+  $$('[data-extras]').forEach((box) => {
+    box.hidden = !extras.length;
+    box.replaceChildren();
+    if (!extras.length) return;
+    const t = document.createElement('div');
+    t.className = 'dg-extras-t';
+    t.textContent = `Archivos extra de ${a.name}`;
+    box.appendChild(t);
+    extras.forEach((e) => {
+      const link = document.createElement('a');
+      link.className = 'btn mini';
+      link.href = `/operaciones/utilidades/documentacion/extras/${encodeURIComponent(e.key)}`;
+      link.textContent = `⬇ ${e.label} (PDF)`;
+      const note = document.createElement('small');
+      note.textContent = 'se baja tal cual, para completar a mano';
+      box.append(link, note);
+    });
+  });
+}
+
 function updateAgencyInfo() {
   const a = agencies.find((x) => String(x.id) === sel.value);
   const img = $('#agency-logo-prev');
   const info = $('#agency-info');
+  renderExtras(a);
   if (!a) { img.hidden = true; info.textContent = ''; return; }
   if (a.has_logo) { img.src = `/operaciones/utilidades/documentacion/agencias/${a.id}/logo?t=${Date.now()}`; img.hidden = false; }
   else img.hidden = true;
