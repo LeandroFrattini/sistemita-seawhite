@@ -445,6 +445,11 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-firma-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; flex: 1 1 220px; }
 .dg-firma-row { margin-top: 6px; }
 .dg-firma { color: var(--navy) !important; font-weight: 600 !important; }
+.dg-firma[data-off="1"] { cursor: pointer; color: var(--muted) !important; }
+.dg-firma[data-off="1"]::after { content: "— primero subí la firma (sección Escala)"; color: #c0771b; font-weight: 700; font-size: 11.5px; margin-left: 4px; }
+.dg-firma input:disabled { pointer-events: none; }
+.dg-flash-box { animation: dg-flash-box 1.6s ease-out 1; }
+@keyframes dg-flash-box { 0% { box-shadow: 0 0 0 0 rgba(240, 168, 48, .9); } 100% { box-shadow: 0 0 0 16px rgba(240, 168, 48, 0); } }
 .dg-quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
 .card.dg-sec { padding: 0; margin-bottom: 12px; overflow: hidden; }
 .dg-sec > summary { display: flex; align-items: center; gap: 12px; padding: 14px 18px; cursor: pointer; list-style: none; user-select: none; }
@@ -828,11 +833,13 @@ function updateFirmaUI() {
   $$('.doc-firma').forEach((el) => {
     el.disabled = !has;
     if (!has) el.checked = false;
-    el.closest('label').title = has ? '' : 'Primero subí la firma del capitán en la sección Escala';
+    el.closest('label').dataset.off = has ? '' : '1';
   });
   const all = $('#btn-firma-todos');
   all.disabled = !has;
   all.title = has ? 'Pone la firma en todos los documentos tildados que la admiten' : 'Primero subí la firma del capitán en la sección Escala';
+  all.disabled = false;
+  all.classList.toggle('muted-btn', !has);
 }
 
 async function uploadFirma(file) {
@@ -853,6 +860,21 @@ async function uploadFirma(file) {
 }
 
 $('#btn-firma-subir').addEventListener('click', () => $('#firma-file').click());
+
+// tocar "con firma del capitán" cuando todavía no hay firma: lleva a donde se sube
+function goToFirma() {
+  $('#sec-escala').open = true;
+  const box = $('.dg-firma-box');
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  box.classList.remove('dg-flash-box');
+  void box.offsetWidth;
+  box.classList.add('dg-flash-box');
+  flash('Primero subí la firma del capitán acá. Después volvé a tildar los documentos.', false);
+}
+document.addEventListener('click', (e) => {
+  const lab = e.target.closest && e.target.closest('.dg-firma[data-off="1"]');
+  if (lab) { e.preventDefault(); goToFirma(); }
+});
 $('#firma-file').addEventListener('change', async (e) => {
   const f = e.target.files[0];
   e.target.value = '';
@@ -1219,6 +1241,7 @@ const stageRows = () => $$(`.docs-body[id="docs-rows-${activeStage}"] tr[data-ke
 $('#btn-tildar-todos').addEventListener('click', () => { stageRows().forEach((tr) => ($('.doc-check', tr).checked = true)); updateSummaries(); });
 $('#btn-tildar-ninguno').addEventListener('click', () => { stageRows().forEach((tr) => { $('.doc-check', tr).checked = false; const f = $('.doc-firma', tr); if (f) f.checked = false; }); updateSummaries(); });
 $('#btn-firma-todos').addEventListener('click', () => {
+  if (!currentCall() || !currentCall().has_firma) { goToFirma(); return; }
   const boxes = stageRows().filter((tr) => $('.doc-check', tr).checked).map((tr) => $('.doc-firma', tr)).filter((f) => f && !f.disabled);
   if (!boxes.length) { flash('Primero tildá los documentos que vas a sacar.', false); return; }
   const all = boxes.every((f) => f.checked);

@@ -5,10 +5,11 @@ from __future__ import annotations
 
 import io
 
-from PIL import Image, ImageStat
+from PIL import Image, ImageOps, ImageStat
 
 MAX_SIZE = (900, 360)
-WHITE_FROM = 235  # lo mas claro que esto es fondo y queda transparente
+WORK_SIZE = 2200  # las fotos grandes se achican antes de procesarlas
+PAPER_MARGIN = 22  # cuanto mas oscuro que el papel tiene que ser un punto para contar como trazo
 INK_RANGE = 120  # que tan rapido el trazo pasa de transparente a opaco
 
 
@@ -20,12 +21,25 @@ def normalize_firma(data: bytes) -> bytes:
     except Exception as exc:  # noqa: BLE001 - cualquier archivo ilegible
         raise ValueError("No se pudo leer la imagen de la firma") from exc
 
+    img = ImageOps.exif_transpose(img)  # fotos del celular: respeta la rotacion
+    img.thumbnail((WORK_SIZE, WORK_SIZE), Image.LANCZOS)
     img = img.convert("RGBA")
     rgb = img.convert("RGB")
     gray = rgb.convert("L")
 
+    # el "papel" no siempre es blanco puro (foto del celular): se toma como fondo lo claro que predomina
+    hist = gray.histogram()
+    total, acc, paper = sum(hist), 0, 255
+    for level, count in enumerate(hist):
+        acc += count
+        if acc >= total * 0.6:
+            paper = level
+            break
+    paper = max(150, min(250, paper + 8))
+    white_from = paper - PAPER_MARGIN
+
     # transparencia segun lo oscuro del trazo (y respetando una transparencia que ya traiga)
-    alpha = gray.point(lambda v: 0 if v >= WHITE_FROM else min(255, int((WHITE_FROM - v) * 255 / INK_RANGE)))
+    alpha = gray.point(lambda v: 0 if v >= white_from else min(255, int((white_from - v) * 255 / INK_RANGE)))
     original_alpha = img.getchannel("A")
     alpha = Image.eval(alpha, lambda v: v)  # copia
     if original_alpha.getextrema() != (255, 255):

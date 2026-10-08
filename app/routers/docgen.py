@@ -213,7 +213,7 @@ async def save_call(request: Request, db: Session = Depends(get_db), user: User 
     return {"ok": True, "call": _call_dict(_save_call(db, imo, data.get("id"), data.get("state") or {}))}
 
 
-MAX_FIRMA = 4 * 1024 * 1024
+MAX_FIRMA = 20 * 1024 * 1024
 
 
 @router.post("/escalas/{call_id}/firma")
@@ -224,7 +224,7 @@ def upload_firma(call_id: int, firma: UploadFile = File(...), db: Session = Depe
         return JSONResponse({"ok": False, "error": "Primero guardá la escala"}, status_code=404)
     data = firma.file.read(MAX_FIRMA + 1)
     if len(data) > MAX_FIRMA:
-        return JSONResponse({"ok": False, "error": "La imagen pesa más de 4 MB"}, status_code=400)
+        return JSONResponse({"ok": False, "error": "La imagen pesa más de 20 MB"}, status_code=400)
     if not (data[:8] == b"\x89PNG\r\n\x1a\n" or data[:2] == b"\xff\xd8"):
         return JSONResponse({"ok": False, "error": "La firma tiene que ser un JPG o PNG"}, status_code=400)
     try:
