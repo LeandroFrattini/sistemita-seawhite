@@ -35,6 +35,7 @@ DOCS: list[tuple[str, str, str]] = [
     ("pbip_salida", "PBIP Salida", "REG-AM-15"),
     ("free_damage", "Free Damage (Safety Stowage)", "Certificado de estiba"),
     ("seaworthy", "Seaworthy Certificate", "Certificado"),
+    ("cargo_manifest", "Cargo Manifest", "REG-AM-33"),
 ]
 DOC_KEYS = [d[0] for d in DOCS]
 
@@ -42,6 +43,7 @@ DOC_KEYS = [d[0] for d in DOCS]
 STAGES = {k: "ENTRADA" for k in DOC_KEYS}
 STAGES["free_damage"] = "SALIDA"
 STAGES["seaworthy"] = "SALIDA"
+STAGES["cargo_manifest"] = "SALIDA"
 # documentos que no salen tildados por defecto (los que a veces piden y a veces no)
 NOT_DEFAULT = set(DOC_KEYS)  # ahora ninguno sale tildado: se tildan solo los que se van a sacar
 # los que a veces piden y a veces no (van bajo "A pedido")
@@ -54,7 +56,7 @@ SHORT_NAMES = {
     "calados_ent": "Calados Entrada", "rancho": "Rancho", "serenos": "Serenos",
     "ped_carga": "Pedido de Carga", "bill": "BILL", "decla_pna": "DECLA PNA",
     "boyado": "BOYADO", "malvinas": "MALVINAS", "pbip_entrada": "PBIP ENTRADA", "pbip_salida": "PBIP SALIDA",
-    "free_damage": "FREE DAMAGE", "seaworthy": "SEAWORTHY",
+    "free_damage": "FREE DAMAGE", "seaworthy": "SEAWORTHY", "cargo_manifest": "CARGO MANIFEST",
 }
 
 KIND_LETTER = {"BULK_CARRIER": "V", "TANKER": "T"}  # MV / MT
@@ -363,6 +365,55 @@ gen_pbip_salida = _gen_pbip("pbip_salida.xlsx")
 
 
 # ---------------------------------------------------------- salida ---------
+def _cargo_date(ctx: Ctx) -> tuple[str, str, str, str] | None:
+    d = ctx.dates.get("cargo_manifest")
+    return _heinlein_date(d) if d else None
+
+
+def gen_cargo_manifest(ctx: Ctx) -> bytes:
+    """Cargo Manifest general: buque, bandera, capitan y destino salen de la planilla;
+    shipper, producto (la carga) y cantidad se completan en la escala."""
+    x = Xlsx(TEMPLATES / "cargo_manifest.xlsx")
+    parts = _cargo_date(ctx)
+    date_txt = f"{parts[0]} {parts[1]}{parts[2]} {parts[3]}.-" if parts else ""
+    x.set_text("B8", ctx.name)
+    x.set_text("F8", ctx.v("flag"))
+    x.set_text("I8", ctx.c("capitan"))
+    x.set_text("D12", ctx.c("destino"))
+    x.set_text("F12", date_txt)
+    x.set_text("M27", date_txt)
+    x.set_text("B20", ctx.c("shipper") or ctx.c("exportador"))
+    product = ctx.c("carga").upper()
+    x.set_text("G20", f"{product} IN BULK".strip())
+    x.set_value("J20", ctx.c("cantidad"))
+    x.set_value("J24", ctx.c("cantidad"))
+    x.set_text("K36", ctx.name)
+    _agency_logo(x, ctx, (13, 2, 14, 8), 126.6, 83.4, pad=3.0)
+    return x.to_bytes()
+
+
+def gen_cargo_manifest_heinlein(ctx: Ctx) -> bytes:
+    """Cargo Manifest con el formato de Heinlein: ademas pide procedencia, matricula (IMO), tripulantes y tonelaje."""
+    x = Xlsx(TEMPLATES / "cargo_manifest_heinlein.xlsx")
+    x.set_text("A7", f'M/{ctx.letter} "{ctx.name}"')
+    x.set_value("C10", ctx.v("trn"))
+    x.set_value("F10", ctx.vessel.get("imo") or "")
+    x.set_value("I10", ctx.c("tripulantes"))
+    x.set_text("C13", ctx.c("procedencia"))
+    x.set_text("C14", ctx.c("procedencia"))
+    x.set_text("F13", ctx.c("capitan"))
+    x.set_text("I13", ctx.c("destino"))
+    x.set_text("H20", ctx.c("shipper") or ctx.c("exportador"))
+    x.set_text("E20", ctx.c("carga").upper())
+    x.set_value("F20", ctx.c("cantidad"))
+    x.set_numfmt("F20", 3)  # #,##0: la plantilla traia 3 decimales
+    x.set_value("F32", ctx.c("cantidad"))
+    parts = _cargo_date(ctx)
+    x.set_text("F35", "BAHIA BLANCA, " + (f"{parts[0][:3].upper()}. {parts[1]}{parts[2].upper()}, {parts[3]}.-" if parts else ""))
+    return x.to_bytes()
+
+
+_XLSX_VARIANT = {"cargo_manifest": gen_cargo_manifest_heinlein}  # formato propio de la agencia (Excel)
 STOWAGE_TEXT = ("I hereby confirm that the loading operations of {carga} in bulk, carried out at this port, "
                 "has been done under my ")
 
@@ -502,7 +553,7 @@ _XLSX_GEN = {
     "ped_carga": gen_ped_carga, "bill": gen_bill, "decla_pna": gen_decla_pna,
     "boyado": gen_boyado, "malvinas": gen_malvinas,
     "pbip_entrada": gen_pbip_entrada, "pbip_salida": gen_pbip_salida,
-    "free_damage": gen_free_damage, "seaworthy": gen_seaworthy,
+    "free_damage": gen_free_damage, "seaworthy": gen_seaworthy, "cargo_manifest": gen_cargo_manifest,
 }
 
 
@@ -523,8 +574,6 @@ FIRMA_BOXES: dict[str, tuple[tuple[int, int, int, int], float, float, str, float
     "malvinas": ((7, 52, 8, 55), 212.4, 52.8, "center", 46),
     "pbip_entrada": ((3, 60, 8, 62), 372.0, 45.0, "center", 40),
     "pbip_salida": ((3, 41, 8, 43), 429.6, 43.2, "center", 40),
-    "free_damage": ((4, 16, 8, 20), 274.2, 78.0, "center", 56),
-    "seaworthy": ((4, 16, 8, 20), 274.2, 78.0, "center", 56),
 }
 FIRMA_DOCS = set(FIRMA_BOXES)
 
@@ -546,6 +595,8 @@ def build(key: str, ctx: Ctx) -> tuple[str, bytes]:
         if key == "ped_carga":
             return f"Cargo Declaration (Heinlein) - {suffix}.docx", gen_heinlein_cargo(ctx)
         return f"Authorization BL (Heinlein) - {suffix}.docx", gen_heinlein_bl(ctx)
+    if key in _XLSX_VARIANT and ctx.agency_word(key):
+        return f"{base} (formato agencia) - {suffix}.xlsx", _XLSX_VARIANT[key](ctx)
     data = _XLSX_GEN[key](ctx)
     if ctx.firma and key in ctx.firma_keys and key in FIRMA_BOXES:
         data = _firmar(data, key, ctx)

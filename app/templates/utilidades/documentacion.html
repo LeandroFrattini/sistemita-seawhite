@@ -187,6 +187,14 @@
         <label>Carga<input data-c="carga" placeholder="MAIZE"></label>
       </div>
     </div>
+    <div class="dg-group">
+      <h4>Cargo Manifest</h4>
+      <div class="dg-grid">
+        <label class="w2">Shipper<input data-c="shipper" placeholder="Si lo dejás vacío usa el Exportador"></label>
+        <label>Cantidad (kilos)<input data-c="cantidad" inputmode="numeric" placeholder="19745000"></label>
+      </div>
+      <p class="dg-hint" style="margin:6px 0 0">El producto es el campo «Carga» de arriba. Buque, bandera, capitán y destino salen de los datos que ya cargaste.</p>
+    </div>
     <details class="dg-group dg-subsec">
       <summary><h4>Para uso oficial <small>DECLA PNA</small></h4></summary>
       <div class="dg-grid dg-grid-sm">
@@ -212,7 +220,7 @@
   </summary>
   <div class="dg-sec-body">
     <div class="dg-agency-pick">
-      <label>Agencia (Pedido de Carga, BILL, Free Damage y Seaworthy)
+      <label>Agencia (se usa para el logo y el formato de los documentos)
         <select id="agency-select"></select>
       </label>
       <img id="agency-logo-prev" class="dg-logo" alt="" hidden>
@@ -238,7 +246,7 @@
           </label>
           <label class="w2">Logo (PNG o JPG, máx. 2 MB)<input type="file" name="logo" accept="image/png,image/jpeg"></label>
           <div class="wall dg-wordv">
-            <span class="dg-wordv-t">Formato propio en Word (en lugar del Excel general)</span>
+            <span class="dg-wordv-t">Documentos con formato propio de esta agencia (en lugar del general)</span>
             {% for w in word_variants %}<label class="check"><input type="checkbox" name="word_docs" value="{{ w.key }}"> {{ w.label }}</label>{% endfor %}
           </div>
           <label class="check" id="remove-logo-wrap" hidden><input type="checkbox" name="remove_logo"> Quitar logo actual</label>
@@ -1150,7 +1158,7 @@ function renderAgencies(selectedId) {
     tr.innerHTML = `
       <td>${a.has_logo ? `<img class="dg-logo" src="/operaciones/utilidades/documentacion/agencias/${a.id}/logo?t=${Date.now()}" alt="">` : '<span class="muted">sin logo</span>'}</td>
       <td></td><td style="white-space:pre-line"></td>
-      <td>${a.doc_format === 'HEINLEIN' ? 'Heinlein (Word)' : 'General (Excel)'}${WORD_VARIANTS.filter((w) => (a.word_docs || []).includes(w.key)).map((w) => `<br><small>${w.label} en Word</small>`).join('')}</td>
+      <td>${a.doc_format === 'HEINLEIN' ? 'Heinlein (Word)' : 'General (Excel)'}${WORD_VARIANTS.filter((w) => (a.word_docs || []).includes(w.key)).map((w) => `<br><small>${w.label}</small>`).join('')}</td>
       <td style="white-space:nowrap"><button type="button" class="btn mini" data-edit="${a.id}">Editar</button>
           <button type="button" class="btn mini danger" data-del="${a.id}">Borrar</button></td>`;
     tr.children[1].textContent = a.name;

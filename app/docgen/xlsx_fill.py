@@ -6,6 +6,7 @@ todo lo demas (formato, imagenes, impresion) queda byte a byte como estaba.
 """
 from __future__ import annotations
 
+import copy
 import io
 import re
 import zipfile
@@ -133,6 +134,19 @@ class Xlsx:
             self.set_text(ref, "")
         else:
             self.set_number(ref, excel_serial(d))
+
+    def set_numfmt(self, ref: str, num_fmt_id: int) -> None:
+        """Le cambia a una celda el formato de numero (por ejemplo 3 = #,##0) sin tocar el resto de su formato."""
+        styles = etree.fromstring(self.parts["xl/styles.xml"])
+        xfs = styles.find(M + "cellXfs")
+        c = self._cell(ref)
+        new = copy.deepcopy(xfs[int(c.get("s", "0"))])
+        new.set("numFmtId", str(num_fmt_id))
+        new.set("applyNumberFormat", "1")
+        xfs.append(new)
+        xfs.set("count", str(len(xfs)))
+        self.parts["xl/styles.xml"] = etree.tostring(styles, xml_declaration=True, encoding="UTF-8", standalone=True)
+        c.set("s", str(len(xfs) - 1))
 
     def copy_style(self, src: str, dst: str) -> None:
         """Le pone a una celda el mismo formato (fecha, alineacion, fuente) que a otra."""

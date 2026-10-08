@@ -28,15 +28,15 @@ VESSEL_FIELDS = ["name", "kind", "flag", "eslora", "manga", "puntal", "trn", "tr
                  "clasificacion", "velocidad", "inmarsat", "company_id"]
 CALL_FIELDS = ["capitan", "ultimo_puerto", "procedencia", "destino", "descripcion_viaje",
                "carga_detalle", "estadia", "tripulantes", "pasajeros", "lista_pasajeros",
-               "terminal", "exportador", "ciudad_exportador", "carga",
+               "terminal", "exportador", "ciudad_exportador", "carga", "shipper", "cantidad",
                "calado_proa", "calado_popa", "calado_max", "practico", "remolque_proa",
                "remolque_popa", "estima"]
 MAX_LOGO = 2 * 1024 * 1024
 
 # documentos que una agencia puede tener en su propio formato Word (ademas del Excel general)
-WORD_VARIANTS = {"free_damage": "Free Damage"}
+WORD_VARIANTS = {"free_damage": "Free Damage en Word", "cargo_manifest": "Cargo Manifest con su formato"}
 # documentos que llevan el logo de la agencia elegida (y por eso piden elegirla)
-AGENCY_DOCS = {"ped_carga", "bill", "free_damage", "seaworthy"}
+AGENCY_DOCS = {"ped_carga", "bill", "free_damage", "seaworthy", "cargo_manifest"}
 
 # Vencimientos de certificados del buque (orden de la pantalla). Se guardan siempre con el buque.
 CERTIFICADOS = [
@@ -123,7 +123,7 @@ def page(request: Request, db: Session = Depends(get_db), user: User = Depends(c
                   "has_firma": k in FIRMA_DOCS, "optional": k in OPTIONAL} for k, label, reg in DOCS],
         "certificados": [{"key": k, "label": label} for k, label in CERTIFICADOS],
         "word_variants": [{"key": k, "label": label} for k, label in WORD_VARIANTS.items()],
-        "pending_docs": [{"label": "Cargo Manifest"}, {"label": "Stowage Plan"}],
+        "pending_docs": [{"label": "Stowage Plan"}],
         "agencies": [_agency_dict(a) for a in agencies],
         "today": date.today().isoformat(),
     })
