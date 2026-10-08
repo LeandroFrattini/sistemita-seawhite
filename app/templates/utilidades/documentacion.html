@@ -44,14 +44,16 @@
 
 <div id="dg-form" hidden>
 
-<div class="dg-banner">
+<div class="dg-banner" id="dg-banner" data-state="new">
   <div class="dg-banner-info">
-    <span class="dg-banner-label">Trabajando con</span>
-    <span id="dg-current" class="dg-banner-text"></span>
+    <div class="dg-banner-kicker" id="bn-kicker">ESTÁS CREANDO UNA ESCALA NUEVA</div>
+    <div class="dg-banner-title" id="bn-title">ESCALA NUEVA</div>
+    <div class="dg-banner-ship" id="bn-ship"></div>
+    <div class="dg-banner-status" id="bn-status"></div>
   </div>
   <div class="dg-banner-actions">
-    <button type="button" class="btn mini" id="btn-escala-guardar">Guardar escala</button>
-    <button type="button" class="btn mini primary" id="btn-escala-nueva">＋ Agregar escala</button>
+    <button type="button" class="dg-bigbtn primary" id="btn-escala-guardar">GUARDAR ESCALA</button>
+    <button type="button" class="dg-bigbtn" id="btn-escala-nueva">＋ NUEVA ESCALA</button>
   </div>
 </div>
 
@@ -147,6 +149,21 @@
         <label class="wall">Descripción del viaje
           <input data-c="descripcion_viaje" placeholder="ROSARIO, ARGENTINA - BAHIA BLANCA, ARGENTINA - CHATTOGRAM, BANGLADESH">
         </label>
+      </div>
+    </div>
+    <div class="dg-group">
+      <h4>Firma del capitán</h4>
+      <div class="dg-firma-box">
+        <div class="dg-firma-prev">
+          <span class="muted" id="firma-none">Sin firma cargada</span>
+          <img id="firma-img" alt="Firma del capitán" hidden>
+        </div>
+        <div class="dg-firma-actions">
+          <button type="button" class="btn" id="btn-firma-subir">⬆ Subir firma (JPG o PNG)</button>
+          <button type="button" class="btn danger" id="btn-firma-quitar" hidden>Quitar firma</button>
+          <input type="file" id="firma-file" accept="image/jpeg,image/png" hidden>
+          <p class="dg-hint" style="margin:8px 0 0">Se guarda con esta escala. Después tildás en qué documentos va, en la sección Documentos.</p>
+        </div>
       </div>
     </div>
     <div class="dg-group">
@@ -248,16 +265,21 @@
         <input type="date" id="fecha-general" value="{{ today }}">
       </label>
     </div>
+    <div class="dg-quick">
+      <button type="button" class="btn mini" id="btn-tildar-todos">Tildar todos</button>
+      <button type="button" class="btn mini" id="btn-tildar-ninguno">Ninguno</button>
+      <button type="button" class="btn mini" id="btn-firma-todos" disabled title="Primero subí la firma del capitán en la sección Escala">Firma en todos</button>
+    </div>
     {% for stage in ['ENTRADA', 'SALIDA'] %}
     <div class="dg-stage" data-stage="{{ stage }}"{% if stage != 'ENTRADA' %} hidden{% endif %}>
     {% if docs|selectattr('stage', 'equalto', stage)|list %}
     <table class="list dg-docs-table" style="width:100%">
       <thead><tr><th style="width:34px"></th><th>Documento</th><th>Fecha</th></tr></thead>
       <tbody class="docs-body" id="docs-rows-{{ stage }}">
-      {% set seen = namespace(optional=false, regular=false) %}
+      {% set seen = namespace(optional=false) %}
       {% for d in docs if d.stage == stage %}
-        {% if d.checked %}{% set seen.regular = true %}{% elif not seen.optional %}{% set seen.optional = true %}
-        <tr class="dg-divider"><td colspan="3">A pedido{% if seen.regular %} <span>· los pide Prefectura a veces; no se tildan solos</span>{% endif %}</td></tr>
+        {% if d.optional and not seen.optional %}{% set seen.optional = true %}
+        <tr class="dg-divider"><td colspan="3">A pedido <span>· los piden a veces</span></td></tr>
         {% endif %}
         <tr data-key="{{ d.key }}">
           <td><input type="checkbox" class="doc-check"{% if d.checked %} checked{% endif %}></td>
@@ -277,6 +299,7 @@
             {% elif not d.has_date %}<span class="muted dg-nodate">sin fecha</span>
             {% else %}<input type="date" class="doc-date" value="{{ today }}">
             <label class="dg-blank"><input type="checkbox" class="doc-blank"> en blanco</label>{% endif %}
+            {% if d.has_firma %}<div class="dg-firma-row"><label class="dg-blank dg-firma"><input type="checkbox" class="doc-firma" disabled> con firma del capitán</label></div>{% endif %}
           </td>
         </tr>
         {% if d.key == 'serenos' %}
@@ -337,6 +360,16 @@
 </div>
 </div>
 
+<dialog id="leave-dialog" class="dg-dialog">
+  <h3 style="margin:0 0 8px">TENÉS CAMBIOS SIN GUARDAR</h3>
+  <p id="leave-msg" style="margin:0 0 14px"></p>
+  <div class="dg-leave-btns">
+    <button type="button" class="dg-bigbtn primary" id="leave-save">GUARDAR Y SEGUIR</button>
+    <button type="button" class="dg-bigbtn danger" id="leave-discard">SEGUIR SIN GUARDAR</button>
+    <button type="button" class="dg-bigbtn" id="leave-cancel">VOLVER</button>
+  </div>
+</dialog>
+
 <dialog id="del-dialog" class="dg-dialog">
   <form id="del-form" autocomplete="off">
     <h3 style="margin:0 0 8px">Borrar escala</h3>
@@ -379,12 +412,34 @@ td.dg-date-cell { white-space: nowrap; }
 .doc-check { width: 16px !important; min-width: 0 !important; height: 16px; padding: 0; margin: 0; }
 
 /* ---- secciones desplegables ---- */
-.dg-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--head-blue); border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; }
-.dg-banner-info { display: flex; flex-direction: column; min-width: 0; }
-.dg-banner-label { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-.dg-banner-text { font-size: 14px; font-weight: 700; color: var(--navy); }
-.dg-banner-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-
+.dg-banner { position: sticky; top: 0; z-index: 7; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; border: 2px solid var(--blue); border-radius: 14px; padding: 14px 18px; margin-bottom: 14px; background: var(--head-blue); box-shadow: 0 4px 14px rgba(15, 40, 80, .10); }
+.dg-banner[data-state="saved"] { background: #eefaf1; border-color: #5fb878; }
+.dg-banner[data-state="dirty"] { background: #fff6e5; border-color: #f0a830; }
+.dg-banner-info { min-width: 0; flex: 1 1 280px; }
+.dg-banner-kicker { font-size: 12px; letter-spacing: .08em; font-weight: 800; color: var(--muted); }
+.dg-banner-title { font-size: 30px; line-height: 1.1; font-weight: 900; color: var(--navy); margin: 2px 0; }
+.dg-banner-ship { font-size: 14px; font-weight: 700; color: var(--navy); }
+.dg-banner-status { margin-top: 6px; font-size: 13px; font-weight: 800; }
+.dg-banner[data-state="saved"] .dg-banner-status { color: #1c7a3a; }
+.dg-banner[data-state="dirty"] .dg-banner-status { color: #a35f00; }
+.dg-banner[data-state="new"] .dg-banner-status { color: var(--blue); }
+.dg-banner-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.dg-bigbtn { min-height: 54px; padding: 12px 22px; border-radius: 12px; border: 2px solid var(--blue); background: #fff; color: var(--navy); font: inherit; font-size: 15px; font-weight: 800; letter-spacing: .03em; cursor: pointer; }
+.dg-bigbtn:hover { background: #f1f6fc; }
+.dg-bigbtn.primary { background: var(--blue); color: #fff; }
+.dg-bigbtn.primary:hover { filter: brightness(1.08); }
+.dg-bigbtn.danger { border-color: #c0392b; color: #c0392b; }
+.dg-banner[data-state="saved"] .dg-bigbtn.primary { background: #fff; color: #1c7a3a; border-color: #5fb878; }
+.dg-banner[data-state="dirty"] .dg-bigbtn.primary { animation: dg-pulse 1.4s ease-in-out infinite; }
+@keyframes dg-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240, 168, 48, .55); } 50% { box-shadow: 0 0 0 8px rgba(240, 168, 48, 0); } }
+.dg-leave-btns { display: flex; flex-direction: column; gap: 10px; }
+.dg-firma-box { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.dg-firma-prev { width: 240px; min-height: 90px; border: 1px dashed var(--line); border-radius: 10px; display: flex; align-items: center; justify-content: center; background: #fff; padding: 6px; }
+.dg-firma-prev img { max-width: 100%; max-height: 80px; }
+.dg-firma-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; flex: 1 1 220px; }
+.dg-firma-row { margin-top: 6px; }
+.dg-firma { color: var(--navy) !important; font-weight: 600 !important; }
+.dg-quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
 .card.dg-sec { padding: 0; margin-bottom: 12px; overflow: hidden; }
 .dg-sec > summary { display: flex; align-items: center; gap: 12px; padding: 14px 18px; cursor: pointer; list-style: none; user-select: none; }
 .dg-sec > summary::-webkit-details-marker { display: none; }
@@ -459,7 +514,7 @@ td.dg-date-cell { white-space: nowrap; }
   .dg-sec[open] > summary .dg-sum { display: none; }
   .dg-sec-body { padding: 14px; }
   .dg-grid .w2 { grid-column: 1 / -1; }
-  .dg-banner { padding: 10px 12px; }
+  .dg-banner { position: static; padding: 12px; } .dg-banner-title { font-size: 24px; } .dg-banner-actions { width: 100%; } .dg-banner-actions .dg-bigbtn { flex: 1 1 100%; }
   .dg-docs-table thead { display: none; }
   .dg-docs-table, .dg-docs-table tbody { display: block; }
   .dg-docs-table tr[data-key] { display: grid; grid-template-columns: 28px 1fr; gap: 6px 8px; padding: 10px 0; border-bottom: 1px solid var(--line-soft); }
@@ -586,6 +641,7 @@ function updateSummaries() {
   $('#sum-agencia').textContent = ag && ag.value ? ag.selectedOptions[0].textContent : 'sin elegir';
   const rows = $$(`.docs-body[id="docs-rows-${activeStage}"] tr[data-key]`).filter((tr) => $('.doc-check', tr).checked);
   $('#sum-docs').textContent = `${rows.length} tildados · ${activeStage}`;
+  updateBanner();
   $('#bar-info').textContent = rows.length ? `${rows.length} documento${rows.length > 1 ? 's' : ''} de ${activeStage}` : `Ningún documento tildado en ${activeStage}`;
 }
 document.addEventListener('input', updateSummaries);
@@ -599,10 +655,9 @@ let currentImo = '';
 const norm = (t) => (t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—');
 
-function showForm(label) {
+function showForm() {
   $('#dg-empty').hidden = true;
   $('#dg-form').hidden = false;
-  $('#dg-current').textContent = label;
 }
 
 function renderHistory() {
@@ -650,22 +705,101 @@ let currentCallId = null;
 let savedSnap = '';
 const snapshot = () => JSON.stringify(getState());
 const isDirty = () => snapshot() !== savedSnap;
-const fmtShort = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '');
+const fmtFull = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
 
 function callLabel(c) {
-  const day = fmtShort(c.created_at);
-  const same = calls.filter((x) => fmtShort(x.created_at) === day);
-  if (same.length < 2) return `Escala ${day}`;
+  const day = fmtFull(c.created_at);
+  const same = calls.filter((x) => fmtFull(x.created_at) === day);
+  if (same.length < 2) return `Escala del día ${day}`;
   const n = same.slice().sort((x, y) => x.id - y.id).findIndex((x) => x.id === c.id) + 1;
-  return `Escala ${day} (${n})`;
+  return `Escala del día ${day} (${n})`;
+}
+const currentCall = () => calls.find((x) => x.id === currentCallId) || null;
+
+// Cartel de arriba: dice siempre en qué escala estás y si hay algo sin guardar.
+function updateBanner() {
+  const v = vessels.find((x) => x.imo === currentImo);
+  const name = v ? v.name : val('[data-v=name]');
+  const imo = v ? v.imo : val('[data-v=imo]');
+  $('#bn-ship').textContent = name ? `${name}${imo ? ' · IMO ' + imo : ''}` : 'Buque nuevo';
+  const c = currentCall();
+  const dirty = isDirty();
+  let state, kicker, title, status;
+  if (!c) {
+    state = 'new';
+    kicker = currentImo ? 'ESTÁS CREANDO UNA ESCALA NUEVA' : 'ESTÁS CARGANDO UN BUQUE NUEVO';
+    title = 'ESCALA NUEVA';
+    status = dirty ? '● TODAVÍA NO SE GUARDÓ — tocá GUARDAR ESCALA' : 'Completá los datos y tocá GUARDAR ESCALA';
+  } else if (dirty) {
+    state = 'dirty';
+    kicker = 'ESTÁS TRABAJANDO SOBRE LA ESCALA DEL DÍA';
+    title = fmtFull(c.created_at);
+    status = '● HAY CAMBIOS SIN GUARDAR — tocá GUARDAR ESCALA';
+  } else {
+    state = 'saved';
+    kicker = 'ESTÁS TRABAJANDO SOBRE LA ESCALA DEL DÍA';
+    title = fmtFull(c.created_at);
+    status = '✔ TODO GUARDADO';
+  }
+  $('#dg-banner').dataset.state = state;
+  $('#bn-kicker').textContent = kicker;
+  $('#bn-title').textContent = title;
+  $('#bn-status').textContent = status;
+  $('#btn-escala-guardar').textContent = state === 'saved' ? 'ESCALA GUARDADA ✔' : 'GUARDAR ESCALA';
+}
+const updateCurrentLabel = updateBanner;
+
+// ---- firma del capitan (se guarda con la escala)
+let firmaStamp = Date.now();
+function updateFirmaUI() {
+  const c = currentCall();
+  const has = !!(c && c.has_firma);
+  const img = $('#firma-img');
+  if (has) img.src = `/operaciones/utilidades/documentacion/escalas/${c.id}/firma?t=${firmaStamp}`;
+  img.hidden = !has;
+  $('#firma-none').hidden = has;
+  $('#btn-firma-quitar').hidden = !has;
+  $('#btn-firma-subir').textContent = has ? '⬆ Cambiar firma' : '⬆ Subir firma (JPG o PNG)';
+  $$('.doc-firma').forEach((el) => {
+    el.disabled = !has;
+    if (!has) el.checked = false;
+    el.closest('label').title = has ? '' : 'Primero subí la firma del capitán en la sección Escala';
+  });
+  const all = $('#btn-firma-todos');
+  all.disabled = !has;
+  all.title = has ? 'Pone la firma en todos los documentos tildados que la admiten' : 'Primero subí la firma del capitán en la sección Escala';
 }
 
-function updateCurrentLabel() {
-  const v = vessels.find((x) => x.imo === currentImo);
-  const who = v ? `Barco: ${v.name} (IMO ${v.imo}). ` : '';
-  const c = calls.find((x) => x.id === currentCallId);
-  $('#dg-current').textContent = who + (c ? `${callLabel(c)} (guardada)` : 'Escala nueva (todavía sin guardar)') + '.';
+async function uploadFirma(file) {
+  let c = currentCall();
+  if (!c) {
+    c = await saveCall(true);  // la firma se guarda con la escala: primero hay que guardarla
+    if (!c) return;
+    flash('Se guardó la escala para poder adjuntar la firma.');
+  }
+  const fd = new FormData();
+  fd.append('firma', file);
+  const res = await fetch(`/operaciones/utilidades/documentacion/escalas/${c.id}/firma`, { method: 'POST', body: fd });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { flash(data.error || 'No se pudo cargar la firma.', false); return; }
+  firmaStamp = Date.now();
+  await loadCalls();
+  flash('Firma cargada. Tildá en qué documentos va, en la sección Documentos.');
 }
+
+$('#btn-firma-subir').addEventListener('click', () => $('#firma-file').click());
+$('#firma-file').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (f) await uploadFirma(f);
+});
+$('#btn-firma-quitar').addEventListener('click', async () => {
+  const c = currentCall();
+  if (!c || !confirm('¿Quitar la firma de esta escala?')) return;
+  await postJSON(`/operaciones/utilidades/documentacion/escalas/${c.id}/firma/quitar`, {});
+  await loadCalls();
+  flash('Firma quitada.');
+});
 
 function renderCalls() {
   $('#calls-card').hidden = !currentImo;
@@ -690,13 +824,13 @@ function renderCalls() {
     if (c.id === currentCallId) {
       const tag = document.createElement('span');
       tag.className = 'dg-open';
-      tag.textContent = 'abierta';
+      tag.textContent = 'ESTÁS ACÁ';
       b.appendChild(tag);
     }
     const cl = (c.state && c.state.call) || {};
     const sub = document.createElement('span');
     sub.className = 'dg-call-sub';
-    sub.textContent = [cl.terminal, cl.carga, cl.capitan && 'Cap. ' + cl.capitan].filter(Boolean).join(' · ') || 'sin datos de escala';
+    sub.textContent = [cl.terminal, cl.carga, cl.capitan && 'Cap. ' + cl.capitan, c.has_firma && 'con firma'].filter(Boolean).join(' · ') || 'sin datos de escala';
     main.append(b, sub);
     main.addEventListener('click', () => openCall(c));
     const open = document.createElement('button');
@@ -717,7 +851,8 @@ async function loadCalls() {
     calls = res.ok ? await res.json() : [];
   }
   renderCalls();
-  updateCurrentLabel();
+  updateBanner();
+  updateFirmaUI();
 }
 
 async function saveCall(withVessel) {
@@ -738,17 +873,36 @@ async function saveCall(withVessel) {
   return data.call;
 }
 
-// Antes de cambiar de escala o de buque: lo que se tocó se guarda solo.
+// Pregunta clara cuando hay cambios sin guardar: 'save' | 'discard' | 'cancel'
+function askLeave() {
+  const c = currentCall();
+  $('#leave-msg').textContent = c
+    ? `Cambiaste cosas en la ${callLabel(c)} y todavía no las guardaste.`
+    : 'La escala nueva que estás cargando todavía no se guardó.';
+  const dlg = $('#leave-dialog');
+  return new Promise((resolve) => {
+    const done = (r) => { dlg.close(); resolve(r); };
+    $('#leave-save').onclick = () => done('save');
+    $('#leave-discard').onclick = () => done('discard');
+    $('#leave-cancel').onclick = () => done('cancel');
+    dlg.oncancel = (e) => { e.preventDefault(); done('cancel'); };
+    dlg.showModal();
+  });
+}
+
+// Antes de cambiar de escala o de buque.
 async function leaveCurrent() {
   if ($('#dg-form').hidden) return true;
-  if (currentImo && JSON.stringify(vesselData()) !== vesselSnap) {  // datos del buque / certificados tocados
+  if (currentImo && JSON.stringify(vesselData()) !== vesselSnap) {  // datos fijos del buque / certificados
     const r = await postJSON('/operaciones/utilidades/documentacion/barco', vesselData());
-    if (r.ok) { vesselSnap = JSON.stringify(vesselData()); flash('Se guardaron los cambios del buque.'); }
+    if (r.ok) vesselSnap = JSON.stringify(vesselData());
   }
   if (!isDirty()) return true;
-  if (!currentImo) return confirm('Los datos de esta escala no se pueden guardar porque el buque todavía no tiene IMO guardado. ¿Seguir igual?');
-  const saved = await saveCall(false);
-  if (saved) flash('Se guardó la escala que estabas editando.');
+  const choice = await askLeave();
+  if (choice === 'cancel') return false;
+  if (choice === 'discard') return true;
+  const saved = await saveCall(!currentImo);
+  if (saved) flash('Escala guardada.');
   return !!saved;
 }
 
@@ -756,21 +910,23 @@ function loadState(st, id) {
   setState(st);
   currentCallId = id;
   savedSnap = snapshot();
-  updateCurrentLabel();
+  $$('.doc-firma').forEach((el) => (el.checked = false));
   renderCalls();
+  updateBanner();
+  updateFirmaUI();
 }
 
 async function openCall(c) {
   if (c.id === currentCallId) return;
   if (!(await leaveCurrent())) return;
   loadState(c.state, c.id);
-  $('#dg-current').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#dg-banner').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function newCall() {
   if (!(await leaveCurrent())) return;
   loadState({}, null);
-  flash('Escala nueva en limpio. Los datos del buque se mantienen.');
+  flash('Escala nueva y vacía. Los datos del buque se mantienen.');
   $('[data-c=capitan]').focus();
 }
 
@@ -820,14 +976,14 @@ function openSerenos() {
 $('#btn-escala-nueva').addEventListener('click', newCall);
 $('#btn-escala-guardar').addEventListener('click', async () => {
   const c = await saveCall(true);
-  if (c) flash(`Escala guardada: ${callLabel(c)}.`);
+  if (c) flash(`Listo, quedó guardada la ${callLabel(c)}.`);
 });
 
 async function selectVessel(v) {
   if (!(await leaveCurrent())) return;
   currentImo = v.imo;
   fillVessel(v);
-  showForm('');
+  showForm();
   $('#sec-buque').open = false;  // ya esta cargado: se ve el resumen
   await loadCalls();
   if (calls.length) loadState(calls[0].state, calls[0].id);
@@ -844,11 +1000,10 @@ async function newVessel() {
   fillVessel({});
   if (/^\d+$/.test(raw)) $('[data-v=imo]').value = raw;
   else if (raw) $('[data-v=name]').value = raw;
-  showForm('');
+  showForm();
   $('#sec-buque').open = true;
   renderCalls();
   loadState({}, null);
-  $('#dg-current').textContent = 'Barco nuevo: completá los datos del buque (quedan guardados en el historial al generar).';
   renderHistory();
   $((/^\d+$/.test(raw) ? '[data-v=name]' : '[data-v=imo]')).focus();
 }
@@ -974,6 +1129,24 @@ document.addEventListener('change', (e) => {
   }
 });
 
+// botones rapidos de la lista
+const stageRows = () => $$(`.docs-body[id="docs-rows-${activeStage}"] tr[data-key]`);
+$('#btn-tildar-todos').addEventListener('click', () => { stageRows().forEach((tr) => ($('.doc-check', tr).checked = true)); updateSummaries(); });
+$('#btn-tildar-ninguno').addEventListener('click', () => { stageRows().forEach((tr) => { $('.doc-check', tr).checked = false; const f = $('.doc-firma', tr); if (f) f.checked = false; }); updateSummaries(); });
+$('#btn-firma-todos').addEventListener('click', () => {
+  const boxes = stageRows().filter((tr) => $('.doc-check', tr).checked).map((tr) => $('.doc-firma', tr)).filter((f) => f && !f.disabled);
+  if (!boxes.length) { flash('Primero tildá los documentos que vas a sacar.', false); return; }
+  const all = boxes.every((f) => f.checked);
+  boxes.forEach((f) => (f.checked = !all));
+});
+// destildar un documento le saca la firma
+document.addEventListener('change', (e) => {
+  if (e.target.classList && e.target.classList.contains('doc-check') && !e.target.checked) {
+    const f = $('.doc-firma', e.target.closest('tr'));
+    if (f) f.checked = false;
+  }
+});
+
 // solapas ENTRADA / SALIDA: cada una tiene sus documentos y se genera solo la solapa abierta
 $$('.dg-tab').forEach((tab) => tab.addEventListener('click', () => {
   activeStage = tab.dataset.stage;
@@ -999,6 +1172,7 @@ $('#btn-generar').addEventListener('click', async () => {
     vessel: vesselData(), call: callData(), agency_id: sel.value || null,
     migra_modo: $('#migra-modo').value, pna_modo: $('#pna-modo').value, docs, serenos, serenos_blank,
     state: getState(), call_id: currentCallId,
+    firma_docs: docs.map((d) => d.key).filter((k) => $(`tr[data-key="${k}"] .doc-firma`)?.checked),
     download_mode: $('#download-mode').value,
   };
   const btn = $('#btn-generar');

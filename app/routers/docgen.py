@@ -2,6 +2,7 @@
 autoridades con los datos del buque y de la escala. Se guardan solo los datos
 de buques por IMO y las agencias; los archivos generados no se guardan.
 """
+import base64
 import json
 import re
 from datetime import date, datetime
@@ -14,7 +15,8 @@ from sqlalchemy.orm import Session
 
 from ..auth import current_user, verify_password
 from ..database import get_db
-from ..docgen.generators import DOCS, DOC_KEYS, NO_DATE, NOT_DEFAULT, STAGES, Ctx, build_many
+from ..docgen.firma import normalize_firma
+from ..docgen.generators import DOCS, DOC_KEYS, FIRMA_DOCS, NO_DATE, NOT_DEFAULT, OPTIONAL, STAGES, Ctx, build_many
 from ..docgen.logos import normalize_logo
 from ..models import DocAgency, DocCall, DocVessel, User
 from ..templating import templates
@@ -106,7 +108,8 @@ def page(request: Request, db: Session = Depends(get_db), user: User = Depends(c
     return templates.TemplateResponse(request, "utilidades/documentacion.html", {
         "user": user,
         "docs": [{"key": k, "label": label, "reg": reg, "stage": STAGES.get(k, "ENTRADA"),
-                  "checked": k not in NOT_DEFAULT, "has_date": k not in NO_DATE} for k, label, reg in DOCS],
+                  "checked": k not in NOT_DEFAULT, "has_date": k not in NO_DATE,
+                  "has_firma": k in FIRMA_DOCS, "optional": k in OPTIONAL} for k, label, reg in DOCS],
         "certificados": [{"key": k, "label": label} for k, label in CERTIFICADOS],
         "agencies": [_agency_dict(a) for a in agencies],
         "today": date.today().isoformat(),
@@ -160,7 +163,7 @@ def _call_dict(c: DocCall) -> dict:
         state = json.loads(c.data or "{}")
     except ValueError:
         state = {}
-    return {"id": c.id, "imo": c.imo, "state": state,
+    return {"id": c.id, "imo": c.imo, "state": state, "has_firma": bool(c.firma),
             "created_at": c.created_at.isoformat() + "Z" if c.created_at else "",
             "updated_at": c.updated_at.isoformat() + "Z" if c.updated_at else ""}
 
@@ -190,6 +193,47 @@ async def save_call(request: Request, db: Session = Depends(get_db), user: User 
     if not imo or not db.scalar(select(DocVessel).where(DocVessel.imo == imo)):
         return JSONResponse({"ok": False, "error": "Guardá primero los datos del buque (hace falta el IMO)"}, status_code=400)
     return {"ok": True, "call": _call_dict(_save_call(db, imo, data.get("id"), data.get("state") or {}))}
+
+
+MAX_FIRMA = 4 * 1024 * 1024
+
+
+@router.post("/escalas/{call_id}/firma")
+def upload_firma(call_id: int, firma: UploadFile = File(...), db: Session = Depends(get_db),
+                 user: User = Depends(current_user)):
+    c = db.get(DocCall, call_id)
+    if not c:
+        return JSONResponse({"ok": False, "error": "Primero guardá la escala"}, status_code=404)
+    data = firma.file.read(MAX_FIRMA + 1)
+    if len(data) > MAX_FIRMA:
+        return JSONResponse({"ok": False, "error": "La imagen pesa más de 4 MB"}, status_code=400)
+    if not (data[:8] == b"\x89PNG\r\n\x1a\n" or data[:2] == b"\xff\xd8"):
+        return JSONResponse({"ok": False, "error": "La firma tiene que ser un JPG o PNG"}, status_code=400)
+    try:
+        png = normalize_firma(data)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    c.firma = base64.b64encode(png).decode("ascii")
+    db.commit()
+    return {"ok": True, "call": _call_dict(c)}
+
+
+@router.post("/escalas/{call_id}/firma/quitar")
+def remove_firma(call_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    c = db.get(DocCall, call_id)
+    if c:
+        c.firma = ""
+        db.commit()
+    return {"ok": True}
+
+
+@router.get("/escalas/{call_id}/firma")
+def get_firma(call_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    c = db.get(DocCall, call_id)
+    if not c or not c.firma:
+        return Response(status_code=404)
+    return Response(content=base64.b64decode(c.firma), media_type="image/png",
+                    headers={"Cache-Control": "private, no-store"})
 
 
 @router.post("/escalas/{call_id}/borrar")
@@ -348,10 +392,18 @@ async def generate(request: Request, db: Session = Depends(get_db), user: User =
         state = dict(data.get("state") or {}, call=call)
         call_id = _save_call(db, imo, data.get("call_id"), state).id  # y la escala, con sus fechas
 
+    firma_keys = {k for k in (data.get("firma_docs") or []) if k in FIRMA_DOCS and k in order}
+    firma = None
+    if firma_keys:
+        saved = db.get(DocCall, call_id) if call_id else None
+        if not saved or not saved.firma:
+            return fail("Subí la firma del capitán en la sección Escala (y guardá la escala) para poder usarla")
+        firma = base64.b64decode(saved.firma)
+
     ctx = Ctx(vessel=vessel, call=call, agency=agency, dates=dates, serenos=serenos,
               migra_modo="SALIDA" if data.get("migra_modo") == "SALIDA" else "ENTRADA",
               pna_modo="SALIDA" if data.get("pna_modo") == "SALIDA" else "ENTRADA",
-              certificados=vessel.get("certificados") or {})
+              certificados=vessel.get("certificados") or {}, firma=firma, firma_keys=firma_keys)
     name, content, mime = build_many(order, ctx, single_workbook=data.get("download_mode") == "libro")
     ascii_name = name.encode("ascii", "ignore").decode("ascii").strip() or "documentacion"
     headers = {"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"}

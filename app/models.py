@@ -805,5 +805,6 @@ class DocCall(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     imo: Mapped[str] = mapped_column(String(20), index=True)
     data: Mapped[str] = mapped_column(Text, default="{}")
+    firma: Mapped[str] = mapped_column(Text, default="")  # firma del capitan: PNG en base64
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())

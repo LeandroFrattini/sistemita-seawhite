@@ -183,7 +183,9 @@ class Xlsx:
         return [heights.get(i, default) for i in range(r1, r2 + 1)]
 
     def add_logo(self, data: bytes, mime: str, box: tuple[int, int, int, int],
-                 box_w_pt: float, box_h_pt: float, pad_pt: float = 10.0) -> None:
+                 box_w_pt: float, box_h_pt: float, pad_pt: float = 10.0, *,
+                 tag: str = "logo_agencia", name: str = "Logo agencia", shape_id: int = 9001,
+                 align_x: str = "center", max_h_pt: float | None = None) -> None:
         """Logo centrado dentro de la caja del encabezado (columnas c1..c2, filas r1..r2).
 
         box_w_pt/box_h_pt son las medidas reales de esa caja (se midieron en Excel);
@@ -193,9 +195,12 @@ class Xlsx:
         img = Image.open(io.BytesIO(data))
         iw, ih = img.size
         scale = min((box_w_pt - 2 * pad_pt) / iw, (box_h_pt - 2 * pad_pt) / ih)
+        if max_h_pt:
+            scale = min(scale, max_h_pt / ih)
         w_pt, h_pt = iw * scale, ih * scale
-        x_pt = (box_w_pt - w_pt) / 2
+        x_pt = {"left": pad_pt, "right": box_w_pt - w_pt - pad_pt}.get(align_x, (box_w_pt - w_pt) / 2)
         y_pt = (box_h_pt - h_pt) / 2
+        rid = "rId" + "".join(ch for ch in tag.title() if ch.isalnum()) + "Img"
 
         cw = self._col_widths_pt(c1, c2)
         kx = box_w_pt / sum(cw)
@@ -215,7 +220,7 @@ class Xlsx:
         ci, cx = locate(x_pt, cw)
         ri, ry = locate(y_pt, rh)
         ext = "png" if mime == "image/png" else "jpeg"
-        media_name = f"xl/media/logo_agencia.{ext}"
+        media_name = f"xl/media/{tag}.{ext}"
         self.parts[media_name] = data
 
         anchor_xml = (
@@ -223,9 +228,9 @@ class Xlsx:
             f"<xdr:from><xdr:col>{c1 - 1 + ci}</xdr:col><xdr:colOff>{int(cx * EMU_PER_PT)}</xdr:colOff>"
             f"<xdr:row>{r1 - 1 + ri}</xdr:row><xdr:rowOff>{int(ry * EMU_PER_PT)}</xdr:rowOff></xdr:from>"
             f'<xdr:ext cx="{int(w_pt * EMU_PER_PT)}" cy="{int(h_pt * EMU_PER_PT)}"/>'
-            '<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="9001" name="Logo agencia"/>'
+            f'<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="{shape_id}" name="{name}"/>'
             '<xdr:cNvPicPr><a:picLocks noChangeAspect="1"/></xdr:cNvPicPr></xdr:nvPicPr>'
-            '<xdr:blipFill><a:blip r:embed="rIdLogoImg"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>'
+            f'<xdr:blipFill><a:blip r:embed="{rid}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>'
             f'<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="{int(w_pt * EMU_PER_PT)}" cy="{int(h_pt * EMU_PER_PT)}"/></a:xfrm>'
             '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic>'
             "<xdr:clientData/></xdr:oneCellAnchor>"
@@ -250,9 +255,9 @@ class Xlsx:
             else:
                 drels = etree.Element("{%s}Relationships" % NS_PKG_REL, nsmap={None: NS_PKG_REL})
             rel = etree.SubElement(drels, "{%s}Relationship" % NS_PKG_REL)
-            rel.set("Id", "rIdLogoImg")
+            rel.set("Id", rid)
             rel.set("Type", img_rel)
-            rel.set("Target", f"../media/logo_agencia.{ext}")
+            rel.set("Target", f"../media/{tag}.{ext}")
             self.parts[drawing_rels_path] = etree.tostring(drels, xml_declaration=True, encoding="UTF-8", standalone=True)
             self._register_image_type(ext)
             return
@@ -260,8 +265,8 @@ class Xlsx:
         self.parts[drawing_path] = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' + wrapper).encode("utf-8")
         self.parts[drawing_rels_path] = (
             '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-            f'<Relationships xmlns="{NS_PKG_REL}"><Relationship Id="rIdLogoImg" '
-            f'Type="{img_rel}" Target="../media/logo_agencia.{ext}"/></Relationships>'
+            f'<Relationships xmlns="{NS_PKG_REL}"><Relationship Id="{rid}" '
+            f'Type="{img_rel}" Target="../media/{tag}.{ext}"/></Relationships>'
         ).encode("utf-8")
 
         # relacion hoja -> dibujo

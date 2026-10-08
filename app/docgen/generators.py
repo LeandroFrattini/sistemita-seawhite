@@ -39,7 +39,9 @@ DOC_KEYS = [d[0] for d in DOCS]
 # solapa de la pantalla en la que sale cada documento
 STAGES = {k: "ENTRADA" for k in DOC_KEYS}
 # documentos que no salen tildados por defecto (los que a veces piden y a veces no)
-NOT_DEFAULT = {"decla_pna", "boyado", "malvinas", "pbip_entrada", "pbip_salida"}
+NOT_DEFAULT = set(DOC_KEYS)  # ahora ninguno sale tildado: se tildan solo los que se van a sacar
+# los que a veces piden y a veces no (van bajo "A pedido")
+OPTIONAL = {"decla_pna", "boyado", "malvinas", "pbip_entrada", "pbip_salida"}
 # documentos que no tienen fecha para completar
 NO_DATE = {"serenos", "pbip_entrada", "pbip_salida"}
 
@@ -63,6 +65,8 @@ class Ctx:
     migra_modo: str = "ENTRADA"  # ENTRADA | SALIDA
     pna_modo: str = "ENTRADA"  # ENTRADA | SALIDA (selector de DECLA PNA)
     certificados: dict = field(default_factory=dict)  # vencimientos guardados con el buque
+    firma: bytes | None = None  # firma del capitan de esta escala (PNG ya preparado)
+    firma_keys: set = field(default_factory=set)  # documentos en los que se pega
 
     @property
     def name(self) -> str:
@@ -435,6 +439,31 @@ def _safe(text: str) -> str:
     return re.sub(r'[\\/:*?"<>|]+', "-", text).strip() or "buque"
 
 
+# Donde va la firma del capitan en cada planilla: (caja de celdas, ancho y alto de la caja en puntos
+# medidos en Excel, alineacion, alto maximo de la firma). Los Word de Heinlein no llevan firma.
+FIRMA_BOXES: dict[str, tuple[tuple[int, int, int, int], float, float, str, float]] = {
+    "dec_migra": ((5, 31, 5, 32), 194.4, 28.2, "right", 26),
+    "dec_ana": ((2, 53, 5, 55), 147.0, 45.0, "center", 40),
+    "permanencia": ((10, 19, 13, 21), 154.2, 57.6, "center", 46),
+    "calados_ent": ((2, 33, 2, 35), 144.0, 45.0, "center", 40),
+    "rancho": ((4, 37, 5, 40), 123.6, 60.0, "center", 46),
+    "decla_pna": ((7, 32, 7, 33), 108.6, 38.4, "center", 34),
+    "boyado": ((6, 29, 12, 31), 224.4, 39.6, "center", 36),
+    "malvinas": ((7, 52, 8, 55), 212.4, 52.8, "center", 46),
+    "pbip_entrada": ((3, 60, 8, 62), 372.0, 45.0, "center", 40),
+    "pbip_salida": ((3, 41, 8, 43), 429.6, 43.2, "center", 40),
+}
+FIRMA_DOCS = set(FIRMA_BOXES)
+
+
+def _firmar(data: bytes, key: str, ctx: Ctx) -> bytes:
+    box, w, h, align, max_h = FIRMA_BOXES[key]
+    x = Xlsx(io.BytesIO(data))
+    x.add_logo(ctx.firma, "image/png", box, w, h, pad_pt=2, tag="firma_capitan", name="Firma del capitan",
+               shape_id=9002, align_x=align, max_h_pt=max_h)
+    return x.to_bytes()
+
+
 def build(key: str, ctx: Ctx) -> tuple[str, bytes]:
     base = SHORT_NAMES[key]
     suffix = _safe(ctx.name)
@@ -442,7 +471,10 @@ def build(key: str, ctx: Ctx) -> tuple[str, bytes]:
         if key == "ped_carga":
             return f"Cargo Declaration (Heinlein) - {suffix}.docx", gen_heinlein_cargo(ctx)
         return f"Authorization BL (Heinlein) - {suffix}.docx", gen_heinlein_bl(ctx)
-    return f"{base} - {suffix}.xlsx", _XLSX_GEN[key](ctx)
+    data = _XLSX_GEN[key](ctx)
+    if ctx.firma and key in ctx.firma_keys and key in FIRMA_BOXES:
+        data = _firmar(data, key, ctx)
+    return f"{base} - {suffix}.xlsx", data
 
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
