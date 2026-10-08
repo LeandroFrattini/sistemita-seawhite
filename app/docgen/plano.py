@@ -47,6 +47,8 @@ def model(ctx) -> dict:
             if port is not None and kg:
                 cargos.append({"port": port, "kg": int(kg)})
                 port["total"] += int(kg)
+        # en una bodega compartida, la carga del ultimo puerto (el actual) va arriba y la del anterior abajo
+        cargos.sort(key=lambda c: 0 if c["port"] is (ports[-1] if ports else None) else 1)
         cf = parse_number(str(cubic[h - 1])) if h - 1 < len(cubic) and cubic[h - 1] else None
         holds.append({"n": h, "estado": "SLACK" if b.get("estado") == "SLACK" else "FULL", "cargos": cargos,
                       "cf": int(cf) if cf else None})

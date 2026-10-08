@@ -295,10 +295,10 @@
       </div>
     </div>
     <div class="dg-group">
-      <h4>Cargas por bodega <small>la 1 es la de proa · con FULL se calcula el SF solo</small></h4>
+      <h4>Cargas por bodega <small>la 1 es la de proa · con FULL se calcula el SF solo · en una compartida, el 2º puerto es siempre el último y va arriba</small></h4>
       <div class="dg-holds" id="plan-holds-grid">
         <div class="dg-hold-head" aria-hidden="true">
-          <span>Bodega</span><span>Estado</span><span>SF</span><span>Cubicaje (CF)</span><span>Puerto</span><span>Kilos</span><span></span><span>2º puerto</span><span>Kilos</span>
+          <span>Bodega</span><span>Estado</span><span>SF</span><span>Cubicaje (CF)</span><span>Puerto / 1er puerto</span><span>Kilos</span><span></span><span>2º puerto</span><span>Kilos</span>
         </div>
         {% for n in range(1, 8) %}
         <div class="dg-hold" data-hold="{{ n }}">
@@ -310,7 +310,8 @@
           <input data-hf="a_kg" inputmode="numeric" placeholder="Kilos" aria-label="Kilos de la bodega {{ n }}">
           <label class="check dg-hold-shared"><input type="checkbox" data-hf="shared"> Compartida</label>
           <span class="dg-hb" data-hb hidden>
-            <select data-hf="b_p" aria-label="Segundo puerto de la bodega {{ n }}"></select>
+            <span class="dg-hold-cur" title="En una bodega compartida el segundo puerto es siempre el último (Bahía Blanca) y su carga va arriba"></span>
+            <select data-hf="b_p" hidden aria-label="Segundo puerto de la bodega {{ n }}"></select>
             <input data-hf="b_kg" inputmode="numeric" placeholder="Kilos" aria-label="Kilos del segundo puerto de la bodega {{ n }}">
           </span>
         </div>
@@ -596,8 +597,9 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-hold-sf { font-size: 13px; font-weight: 800; color: #1c7a3a; white-space: nowrap; }
 .dg-hold-sf.na { color: var(--muted); font-weight: 600; }
 .dg-hb { display: contents; }
-.dg-hb[hidden] { display: none !important; }
+.dg-hb[hidden], .dg-hold select[hidden] { display: none !important; }
 .dg-hold-shared { font-size: 12px; white-space: nowrap; }
+.dg-hold-cur { display: flex; align-items: center; min-height: 36px; padding: 0 10px; border-radius: 8px; background: #eef2f8; color: var(--navy); font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1180px) {
   .dg-hold-head { display: none; }
   .dg-hold { grid-template-columns: 1fr 1fr; }
@@ -762,18 +764,33 @@ function getPlano() {
   };
 }
 
-// los selectores de puerto de cada bodega se arman con los puertos cargados arriba
+// Los selectores de puerto de cada bodega se arman con los puertos cargados arriba.
+// En una bodega compartida el 2º puerto es siempre el último (el actual): se completa solo y va arriba;
+// el "1er puerto" es otro de los puertos y su carga va abajo.
+function portNames() { return [0, 1, 2].map((i) => pp(i, 'port').value.trim()); }
+function currentPortIdx() {
+  const filled = portNames().map((n, i) => (n ? i : -1)).filter((i) => i >= 0);
+  return filled.length ? filled[filled.length - 1] : null;
+}
+
 function refreshPortOptions() {
-  const names = [0, 1, 2].map((i) => pp(i, 'port').value.trim());
+  const names = portNames();
   const filled = names.map((n, i) => (n ? i : -1)).filter((i) => i >= 0);
-  [1, 2, 3, 4, 5, 6, 7].forEach((n) => ['a_p', 'b_p'].forEach((f) => {
-    const sel = hf(n, f);
-    const keep = sel.value;
-    sel.replaceChildren(new Option('— puerto —', ''));
-    filled.forEach((i) => sel.add(new Option(names[i], String(i))));
-    sel.value = filled.map(String).includes(keep) ? keep : '';
-    if (sel.value === '' && filled.length === 1 && f === 'a_p') sel.value = String(filled[0]);  // un solo puerto: se elige solo
-  }));
+  const cur = currentPortIdx();
+  [1, 2, 3, 4, 5, 6, 7].forEach((n) => {
+    const shared = hf(n, 'shared').checked;
+    const selA = hf(n, 'a_p'), selB = hf(n, 'b_p');
+    const keep = selA.value;
+    const opts = shared ? filled.filter((i) => i !== cur) : filled;
+    selA.replaceChildren(new Option(shared ? '— 1er puerto —' : '— puerto —', ''));
+    opts.forEach((i) => selA.add(new Option(names[i], String(i))));
+    selA.value = opts.map(String).includes(keep) ? keep : '';
+    if (selA.value === '' && opts.length === 1) selA.value = String(opts[0]);  // un solo puerto posible: se elige solo
+    selB.replaceChildren();
+    if (cur !== null) selB.add(new Option(names[cur], String(cur)));
+    selB.value = shared && cur !== null ? String(cur) : '';
+    $('.dg-hold-cur', holdEl(n)).textContent = cur !== null ? names[cur] : '—';
+  });
 }
 
 function showHolds() {
@@ -790,17 +807,25 @@ function setPlano(pl) {
     pp(i, 'product').value = p.product || '';
     pp(i, 'shipper').value = p.shipper || '';
   });
-  refreshPortOptions();
-  [1, 2, 3, 4, 5, 6, 7].forEach((n) => {
+  const cur = currentPortIdx();
+  const bodegas = [1, 2, 3, 4, 5, 6, 7].map((n) => {
     const b = (pl.bodegas || [])[n - 1] || {};
+    let a = b.a || {}, bb = b.b || {};
+    if (b.shared && cur !== null && a.p === cur && bb.p !== cur) [a, bb] = [bb, a];  // el ultimo puerto va siempre en el 2º lugar
+    return { b, a, bb };
+  });
+  [1, 2, 3, 4, 5, 6, 7].forEach((n) => {
+    const { b, a, bb } = bodegas[n - 1];
     hf(n, 'estado').value = b.estado === 'SLACK' ? 'SLACK' : 'FULL';
     hf(n, 'shared').checked = !!b.shared;
-    const a = b.a || {}, bb = b.b || {};
-    if (a.p !== null && a.p !== undefined) hf(n, 'a_p').value = String(a.p);
     hf(n, 'a_kg').value = a.kg || '';
-    hf(n, 'b_p').value = bb.p !== null && bb.p !== undefined ? String(bb.p) : '';
     hf(n, 'b_kg').value = bb.kg || '';
     syncHold(n);
+  });
+  refreshPortOptions();
+  [1, 2, 3, 4, 5, 6, 7].forEach((n) => {
+    const { a } = bodegas[n - 1];
+    if (a.p !== null && a.p !== undefined && [...hf(n, 'a_p').options].some((o) => o.value === String(a.p))) hf(n, 'a_p').value = String(a.p);
   });
   showHolds();
   updatePlanTotals();
@@ -846,7 +871,7 @@ document.addEventListener('input', (e) => {
 });
 document.addEventListener('change', (e) => {
   const t = e.target;
-  if (t.dataset && t.dataset.hf === 'shared') syncHold(Number(t.closest('.dg-hold').dataset.hold));
+  if (t.dataset && t.dataset.hf === 'shared') { syncHold(Number(t.closest('.dg-hold').dataset.hold)); refreshPortOptions(); }
   if (t.closest && t.closest('#sec-plano')) updatePlanTotals();
 });
 $$('#plan-holds-seg .dg-seg-btn').forEach((b) => b.addEventListener('click', () => {
