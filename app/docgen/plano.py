@@ -238,7 +238,8 @@ def gen_heinlein(ctx) -> bytes:
                     if kind in ("prod", "port"):
                         x.shrink(ref)  # un nombre largo se achica en vez de pasarse de la bodega
         if len(cargos) == 2:
-            x.set_bottom_border(f"{col}23")
+            x.set_bottom_border(f"{col}23")  # linea entre las dos cargas
+            x.set_bottom_border(f"{col}29")  # linea de abajo de la bodega (la fila 29 trae ese borde en la plantilla)
         if cargos and hold["estado"] == "FULL" and hold["cf"]:  # SF = CF / toneladas totales de la bodega
             x.copy_style(f"{canon}30", f"{col}30")
             x.set_text(f"{col}30", f"SF: {hold['cf'] / (sum(c['kg'] for c in cargos) / 1000):.2f}")
