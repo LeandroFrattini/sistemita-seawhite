@@ -38,7 +38,6 @@ DOC_KEYS = [d[0] for d in DOCS]
 
 # solapa de la pantalla en la que sale cada documento
 STAGES = {k: "ENTRADA" for k in DOC_KEYS}
-STAGES["pbip_salida"] = "SALIDA"
 # documentos que no salen tildados por defecto (los que a veces piden y a veces no)
 NOT_DEFAULT = {"decla_pna", "boyado", "malvinas", "pbip_entrada", "pbip_salida"}
 # documentos que no tienen fecha para completar
