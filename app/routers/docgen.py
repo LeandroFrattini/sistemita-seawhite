@@ -18,7 +18,7 @@ from ..database import get_db
 from ..docgen.firma import normalize_firma
 from ..docgen.generators import DOCS, DOC_KEYS, FIRMA_DOCS, NO_DATE, NOT_DEFAULT, OPTIONAL, STAGES, Ctx, build_many
 from ..docgen.logos import normalize_logo
-from ..models import DocAgency, DocCall, DocVessel, User
+from ..models import DocAgency, DocCall, DocFavorite, DocVessel, User
 from ..templating import templates
 
 router = APIRouter(prefix="/operaciones/utilidades/documentacion")
@@ -55,9 +55,9 @@ def _certs_load(raw: str) -> dict:
     return {k: str(data.get(k) or "") for k in CERT_KEYS}
 
 
-def _vessel_dict(v: DocVessel) -> dict:
+def _vessel_dict(v: DocVessel, favorito: bool = False) -> dict:
     updated = v.updated_at.isoformat() + "Z" if v.updated_at else ""
-    return {"imo": v.imo, "updated_at": updated, "certificados": _certs_load(v.certificados),
+    return {"imo": v.imo, "updated_at": updated, "certificados": _certs_load(v.certificados), "favorito": favorito,
             **{f: getattr(v, f) for f in VESSEL_FIELDS}}
 
 
@@ -121,7 +121,25 @@ def page(request: Request, db: Session = Depends(get_db), user: User = Depends(c
 def list_vessels(db: Session = Depends(get_db), user: User = Depends(current_user)):
     """Historial: todos los buques, con todos sus datos, ordenados por nombre."""
     rows = db.scalars(select(DocVessel).order_by(DocVessel.name)).all()
-    return [_vessel_dict(v) for v in rows]
+    favs = set(db.scalars(select(DocFavorite.imo).where(DocFavorite.user_id == user.id)).all())
+    return [_vessel_dict(v, v.imo in favs) for v in rows]
+
+
+@router.post("/barco/{imo}/favorito")
+def toggle_favorite(imo: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Marca o desmarca el buque como favorito del usuario (es por usuario, no de todos)."""
+    imo = _imo(imo)
+    if not imo or not db.scalar(select(DocVessel).where(DocVessel.imo == imo)):
+        return JSONResponse({"ok": False, "error": "Primero guardá el buque"}, status_code=404)
+    fav = db.scalar(select(DocFavorite).where(DocFavorite.user_id == user.id, DocFavorite.imo == imo))
+    if fav:
+        db.delete(fav)
+        favorito = False
+    else:
+        db.add(DocFavorite(user_id=user.id, imo=imo))
+        favorito = True
+    db.commit()
+    return {"ok": True, "favorito": favorito}
 
 
 @router.post("/barco")

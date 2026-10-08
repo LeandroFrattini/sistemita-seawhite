@@ -795,6 +795,17 @@ class DocVessel(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class DocFavorite(Base):
+    """Buques favoritos de cada usuario en el generador de documentacion: salen arriba en el historial."""
+
+    __tablename__ = "doc_favorites"
+    __table_args__ = (UniqueConstraint("user_id", "imo", name="uq_doc_favorite"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    imo: Mapped[str] = mapped_column(String(20))
+
+
 class DocCall(Base):
     """Escala (recalada) de un buque del generador de documentacion: guarda los datos
     de la tarjeta Escala y las fechas de los documentos y de Serenos, como JSON.

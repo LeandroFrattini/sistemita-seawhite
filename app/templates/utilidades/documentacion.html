@@ -13,11 +13,11 @@
 
 <p id="flash" class="flash" hidden></p>
 
-<div class="dg-layout">
+<div class="dg-layout" id="dg-layout" data-mode="home">
 <aside class="dg-aside">
   <div class="card dg-hist">
     <div class="section-head">
-      <h3>Historial de buques</h3>
+      <h3>Elegí un buque</h3>
       <button type="button" class="btn primary mini" id="btn-nuevo">＋ Nuevo barco</button>
     </div>
     <input id="hist-search" placeholder="Buscar por nombre o IMO" autocomplete="off">
@@ -44,11 +44,15 @@
 
 <div id="dg-form" hidden>
 
+<div class="dg-back"><button type="button" class="btn mini" id="btn-volver">← Volver al historial de buques</button></div>
+
 <div class="dg-banner" id="dg-banner" data-state="new">
   <div class="dg-banner-info">
     <div class="dg-banner-kicker" id="bn-kicker">ESTÁS CREANDO UNA ESCALA NUEVA</div>
     <div class="dg-banner-title" id="bn-title">ESCALA NUEVA</div>
-    <div class="dg-banner-ship" id="bn-ship"></div>
+    <div class="dg-banner-ship"><span id="bn-ship"></span>
+      <button type="button" class="dg-favbtn" id="btn-fav" title="Marcar como favorito: queda arriba del historial" hidden>☆ Favorito</button>
+    </div>
     <div class="dg-banner-status" id="bn-status"></div>
   </div>
   <div class="dg-banner-actions">
@@ -347,14 +351,16 @@
 </details>
 
 <div class="dg-actionbar">
-  <div class="dg-actionbar-info" id="bar-info"></div>
-  <label class="dg-general">Descarga
-    <select id="download-mode">
-      <option value="archivos">Archivo por archivo (zip si son varios)</option>
-      <option value="libro">Todos los Excel juntos en un solo libro</option>
-    </select>
-  </label>
-  <button type="button" class="btn primary" id="btn-generar">⬇ Generar y descargar</button>
+  <div class="dg-bar-count" id="bar-info"></div>
+  <div class="dg-seg" role="group" aria-label="Cómo se descargan">
+    <button type="button" class="dg-seg-btn active" data-mode="archivos" title="Un archivo por documento (zip si son varios)">📄 Archivo por archivo</button>
+    <button type="button" class="dg-seg-btn" data-mode="libro" title="Todos los Excel juntos en un solo libro, una hoja por documento">📚 Todo en un solo Excel</button>
+  </div>
+  <select id="download-mode" hidden>
+    <option value="archivos">Archivo por archivo (zip si son varios)</option>
+    <option value="libro">Todos los Excel juntos en un solo libro</option>
+  </select>
+  <button type="button" class="dg-gobtn" id="btn-generar">⬇ Generar y descargar</button>
 </div>
 </div>
 </div>
@@ -503,9 +509,34 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-stage-empty { padding: 18px 4px; margin: 0; }
 
 /* ---- barra de generar, siempre a mano ---- */
-.dg-actionbar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: wrap; background: rgba(255, 255, 255, .96); backdrop-filter: blur(4px); border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 14px; margin-top: 12px; box-shadow: 0 -4px 16px rgba(15, 40, 80, .08); }
-.dg-actionbar-info { margin-right: auto; font-size: 12.5px; color: var(--muted); }
-.dg-actionbar .dg-general { font-size: 12px; color: var(--muted); }
+.dg-actionbar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: wrap; background: rgba(255, 255, 255, .97); backdrop-filter: blur(6px); border: 1px solid var(--line-soft); border-radius: 18px; padding: 12px 16px; margin-top: 14px; box-shadow: 0 -6px 24px rgba(15, 40, 80, .13); }
+.dg-bar-count { margin-right: auto; display: inline-flex; align-items: center; gap: 8px; background: var(--head-blue); color: var(--navy); font-weight: 800; font-size: 13px; padding: 9px 16px; border-radius: 999px; }
+.dg-bar-count.empty { background: #f1f3f6; color: var(--muted); font-weight: 600; }
+.dg-seg { display: inline-flex; background: #eef2f8; border-radius: 13px; padding: 4px; gap: 4px; }
+.dg-actionbar .dg-seg-btn { border: 0 !important; background: transparent !important; padding: 10px 15px; border-radius: 10px !important; font: inherit; font-weight: 700; font-size: 13px; color: var(--muted); cursor: pointer; white-space: nowrap; box-shadow: none !important; }
+.dg-actionbar .dg-seg-btn:hover { color: var(--navy); }
+.dg-actionbar .dg-seg-btn.active { background: #fff !important; color: var(--navy); box-shadow: 0 1px 5px rgba(15, 40, 80, .20) !important; }
+.dg-actionbar .dg-gobtn { border: 0 !important; border-radius: 13px !important; padding: 15px 28px; font: inherit; font-weight: 800; font-size: 15px; letter-spacing: .02em; color: #fff !important; cursor: pointer; background: linear-gradient(135deg, #2f86ec, #1a4c98) !important; box-shadow: 0 8px 18px rgba(26, 76, 152, .38) !important; transition: transform .08s, box-shadow .08s; }
+.dg-actionbar .dg-gobtn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(26, 76, 152, .45) !important; }
+.dg-actionbar .dg-gobtn:active { transform: translateY(1px); }
+.dg-actionbar .dg-gobtn:disabled { background: #c9d1dd !important; box-shadow: none !important; cursor: not-allowed; transform: none; }
+/* ---- historial / favoritos / modo trabajo ---- */
+.dg-layout[data-mode="work"] { grid-template-columns: minmax(0, 1fr); }
+.dg-layout[data-mode="work"] .dg-aside { display: none; }
+.dg-layout[data-mode="home"] { grid-template-columns: minmax(0, 820px); }
+.dg-layout[data-mode="home"] .dg-aside { order: 0; position: static; }
+.dg-layout[data-mode="home"] .dg-main { display: none; }
+.dg-layout[data-mode="home"] .dg-hist-list { max-height: none; }
+.dg-back { margin: 0 0 10px; }
+.dg-hist-group { margin: 10px 2px 2px; font-size: 11px; font-weight: 800; letter-spacing: .08em; color: var(--muted); }
+.dg-hist-row { display: flex; align-items: stretch; gap: 4px; }
+.dg-hist-row .dg-hist-item { flex: 1; min-width: 0; }
+.dg-hist-star, .dg-favbtn { border: 0 !important; background: transparent !important; cursor: pointer; font: inherit; color: #a9b3c3; line-height: 1; box-shadow: none !important; }
+.dg-hist-star { font-size: 22px; padding: 0 8px; }
+.dg-hist-star:hover, .dg-favbtn:hover { color: #e0a100; }
+.dg-hist-star.on, .dg-favbtn.on { color: #e0a100; }
+.dg-favbtn { font-size: 13px; font-weight: 700; padding: 2px 8px; margin-left: 6px; border-radius: 8px !important; }
+.dg-hist-row.fav .dg-hist-item { border-color: #f0d27a; background: #fffbea; }
 @media (max-width: 640px) {
   .dg-sec-title small { display: none; }
   .dg-sec > summary { flex-wrap: wrap; row-gap: 2px; padding: 12px 14px; }
@@ -522,11 +553,11 @@ td.dg-date-cell { white-space: nowrap; }
   .dg-docs-table td.dg-date-cell { grid-column: 2; }
   .dg-docs-table tr.dg-serenos-row { display: block; padding: 10px; border-radius: 8px; background: #f7fafd; }
   .dg-docs-table tr.dg-serenos-row td:first-child { display: none; }
-  .dg-actionbar { padding: 8px 12px; gap: 8px; }
-  .dg-actionbar-info { display: none; }
-  .dg-actionbar .dg-general { flex: 1 1 100%; }
-  .dg-actionbar .dg-general select { flex: 1; min-width: 0; }
-  .dg-actionbar .btn.primary { flex: 1 1 100%; }
+  .dg-actionbar { padding: 10px 12px; gap: 8px; border-radius: 16px; }
+  .dg-bar-count { flex: 1 1 100%; justify-content: center; margin-right: 0; padding: 0; background: transparent; font-size: 12.5px; }
+  .dg-seg { width: 100%; }
+  .dg-actionbar .dg-seg-btn { flex: 1; padding: 10px 6px; font-size: 12px; white-space: normal; }
+  .dg-actionbar .dg-gobtn { flex: 1 1 100%; }
 }
 .dg-calls { display: flex; flex-direction: column; gap: 4px; }
 .dg-call { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-soft); border-radius: 8px; padding: 7px 10px; background: #fff; }
@@ -642,7 +673,13 @@ function updateSummaries() {
   const rows = $$(`.docs-body[id="docs-rows-${activeStage}"] tr[data-key]`).filter((tr) => $('.doc-check', tr).checked);
   $('#sum-docs').textContent = `${rows.length} tildados · ${activeStage}`;
   updateBanner();
-  $('#bar-info').textContent = rows.length ? `${rows.length} documento${rows.length > 1 ? 's' : ''} de ${activeStage}` : `Ningún documento tildado en ${activeStage}`;
+  const firmas = rows.filter((tr) => $('.doc-firma', tr)?.checked).length;
+  const bar = $('#bar-info');
+  bar.textContent = rows.length
+    ? `✔ ${rows.length} documento${rows.length > 1 ? 's' : ''} de ${activeStage}${firmas ? ` · ✍ ${firmas} con firma` : ''}`
+    : 'Tildá los documentos que vas a sacar';
+  bar.classList.toggle('empty', !rows.length);
+  $('#btn-generar').disabled = !rows.length;
 }
 document.addEventListener('input', updateSummaries);
 document.addEventListener('change', updateSummaries);
@@ -658,19 +695,27 @@ const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('es-AR', { day:
 function showForm() {
   $('#dg-empty').hidden = true;
   $('#dg-form').hidden = false;
+  $('#dg-layout').dataset.mode = 'work';  // trabajando en un buque: se esconde el historial
 }
 
 function renderHistory() {
   const q = norm($('#hist-search').value.trim());
   let rows = vessels.filter((v) => !q || norm(v.name).includes(q) || v.imo.includes(q.replace(/\D/g, '') || '\u0000'));
-  rows = rows.slice().sort($('#hist-sort').value === 'recent'
+  const byOrder = $('#hist-sort').value === 'recent'
     ? (a, b) => b.updated_at.localeCompare(a.updated_at)
-    : (a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' }));
+    : (a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' });
+  rows = rows.slice().sort((a, b) => (b.favorito - a.favorito) || byOrder(a, b));  // los favoritos siempre arriba
   $('#hist-count').textContent = `${rows.length} de ${vessels.length} buques`;
 
   const list = $('#hist-list');
   list.replaceChildren();
+  const hasFav = rows.some((v) => v.favorito);
+  const group = (txt) => { const g = document.createElement('div'); g.className = 'dg-hist-group'; g.textContent = txt; list.appendChild(g); };
+  let lastFav = null;
   rows.forEach((v) => {
+    if (hasFav && v.favorito !== lastFav) { group(v.favorito ? '★ FAVORITOS' : 'TODOS LOS BUQUES'); lastFav = v.favorito; }
+    const row = document.createElement('div');
+    row.className = 'dg-hist-row' + (v.favorito ? ' fav' : '');
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'dg-hist-item' + (v.imo === currentImo ? ' active' : '');
@@ -680,7 +725,14 @@ function renderHistory() {
     sp.textContent = `IMO ${v.imo} · última modificación ${fmtDate(v.updated_at)}`;
     btn.append(b, sp);
     btn.addEventListener('click', () => selectVessel(v));
-    list.appendChild(btn);
+    const star = document.createElement('button');
+    star.type = 'button';
+    star.className = 'dg-hist-star' + (v.favorito ? ' on' : '');
+    star.textContent = v.favorito ? '★' : '☆';
+    star.title = v.favorito ? 'Sacar de favoritos' : 'Marcar como favorito';
+    star.addEventListener('click', (e) => { e.stopPropagation(); toggleFav(v); });
+    row.append(btn, star);
+    list.appendChild(row);
   });
 
   const empty = $('#hist-empty');
@@ -691,6 +743,16 @@ function renderHistory() {
   } else {
     empty.hidden = true;
   }
+}
+
+async function toggleFav(v) {
+  const res = await fetch(`/operaciones/utilidades/documentacion/barco/${encodeURIComponent(v.imo)}/favorito`, { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { flash(data.error || 'No se pudo marcar el favorito.', false); return; }
+  v.favorito = data.favorito;
+  renderHistory();
+  updateBanner();
+  flash(v.favorito ? `${v.name} quedó en favoritos.` : `${v.name} salió de favoritos.`);
 }
 
 async function loadHistory() {
@@ -722,6 +784,9 @@ function updateBanner() {
   const name = v ? v.name : val('[data-v=name]');
   const imo = v ? v.imo : val('[data-v=imo]');
   $('#bn-ship').textContent = name ? `${name}${imo ? ' · IMO ' + imo : ''}` : 'Buque nuevo';
+  const fb = $('#btn-fav');
+  fb.hidden = !v;
+  if (v) { fb.classList.toggle('on', !!v.favorito); fb.textContent = v.favorito ? '★ Favorito' : '☆ Marcar favorito'; }
   const c = currentCall();
   const dirty = isDirty();
   let state, kicker, title, status;
@@ -1129,6 +1194,26 @@ document.addEventListener('change', (e) => {
   }
 });
 
+// descarga: archivo por archivo / todo en un solo Excel
+$$('.dg-seg-btn').forEach((b) => b.addEventListener('click', () => {
+  $('#download-mode').value = b.dataset.mode;
+  $$('.dg-seg-btn').forEach((x) => x.classList.toggle('active', x === b));
+}));
+
+// volver al historial (con el aviso de cambios sin guardar si hace falta)
+$('#btn-volver').addEventListener('click', async () => {
+  if (!(await leaveCurrent())) return;
+  currentImo = '';
+  calls = [];
+  currentCallId = null;
+  $('#dg-form').hidden = true;
+  $('#dg-layout').dataset.mode = 'home';
+  renderHistory();
+  loadHistory();
+  window.scrollTo({ top: 0 });
+});
+$('#btn-fav').addEventListener('click', () => { const v = vessels.find((x) => x.imo === currentImo); if (v) toggleFav(v); });
+
 // botones rapidos de la lista
 const stageRows = () => $$(`.docs-body[id="docs-rows-${activeStage}"] tr[data-key]`);
 $('#btn-tildar-todos').addEventListener('click', () => { stageRows().forEach((tr) => ($('.doc-check', tr).checked = true)); updateSummaries(); });
@@ -1213,8 +1298,8 @@ $('#btn-generar').addEventListener('click', async () => {
   } catch (err) {
     flash('Ocurrió un error al generar. Probá de nuevo.', false);
   } finally {
-    btn.disabled = false;
     btn.textContent = original;
+    updateSummaries();
   }
 });
 
