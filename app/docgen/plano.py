@@ -122,7 +122,11 @@ def gen_general(ctx) -> bytes:
         col = cfg["cols"][hold["n"]]
         for r in cfg["clear"]:
             x.set_text(f"{col}{r}", "")
-        x.set_text(f"{col}{cfg['status_row']}", hold["estado"])
+        status = hold["estado"]
+        total_kg = sum(c["kg"] for c in hold["cargos"])
+        if status == "FULL" and hold["cf"] and total_kg:  # FULL - SF: CF / toneladas totales de la bodega
+            status = f"FULL - SF: {hold['cf'] / (total_kg / 1000):.2f}"
+        x.set_text(f"{col}{cfg['status_row']}", status)
         if len(hold["cargos"]) == 2:
             starts = [cfg["a"], cfg["b"]]
         else:
