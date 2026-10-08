@@ -98,6 +98,7 @@
         <label>Puerto de registro<input data-v="puerto_registro"></label>
         <label>Clasificación<input data-v="clasificacion"></label>
         <label>INMARSAT<input data-v="inmarsat"></label>
+        <label>Nro. de identificación de la compañía<input data-v="company_id"></label>
         <label class="w2">Armador<input data-v="armador"></label>
       </div>
     </div>
@@ -253,7 +254,11 @@
     <table class="list dg-docs-table" style="width:100%">
       <thead><tr><th style="width:34px"></th><th>Documento</th><th>Fecha</th></tr></thead>
       <tbody class="docs-body" id="docs-rows-{{ stage }}">
+      {% set seen = namespace(optional=false, regular=false) %}
       {% for d in docs if d.stage == stage %}
+        {% if d.checked %}{% set seen.regular = true %}{% elif not seen.optional %}{% set seen.optional = true %}
+        <tr class="dg-divider"><td colspan="3">A pedido{% if seen.regular %} <span>· los pide Prefectura a veces; no se tildan solos</span>{% endif %}</td></tr>
+        {% endif %}
         <tr data-key="{{ d.key }}">
           <td><input type="checkbox" class="doc-check"{% if d.checked %} checked{% endif %}></td>
           <td>
@@ -269,6 +274,7 @@
           </td>
           <td class="dg-date-cell">
             {% if d.key == 'serenos' %}<button type="button" class="btn mini" id="btn-serenos">Fechas de Serenos ▾</button>
+            {% elif not d.has_date %}<span class="muted dg-nodate">sin fecha</span>
             {% else %}<input type="date" class="doc-date" value="{{ today }}">
             <label class="dg-blank"><input type="checkbox" class="doc-blank"> en blanco</label>{% endif %}
           </td>
@@ -431,6 +437,9 @@ td.dg-date-cell { white-space: nowrap; }
 .dg-tabs .dg-tab:hover { color: var(--navy); }
 .dg-tabs .dg-tab.active { color: var(--navy); border-bottom-color: var(--blue) !important; }
 .dg-docs-top .dg-general { padding-bottom: 6px; font-size: 12px; color: var(--muted); }
+.docs-body tr.dg-divider td { background: var(--head-blue); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--navy); padding: 6px 12px; }
+.docs-body tr.dg-divider td span { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.dg-nodate { font-size: 12px; }
 .dg-doc-name { font-weight: 600; color: var(--navy); }
 .dg-docs-table tr.dg-serenos-row td { background: #f7fafd; }
 .dg-help { margin-top: 12px; font-size: 12px; color: var(--muted); }

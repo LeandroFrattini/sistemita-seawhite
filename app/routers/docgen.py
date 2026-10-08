@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..auth import current_user, verify_password
 from ..database import get_db
-from ..docgen.generators import DOCS, DOC_KEYS, NOT_DEFAULT, STAGES, Ctx, build_many
+from ..docgen.generators import DOCS, DOC_KEYS, NO_DATE, NOT_DEFAULT, STAGES, Ctx, build_many
 from ..docgen.logos import normalize_logo
 from ..models import DocAgency, DocCall, DocVessel, User
 from ..templating import templates
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/operaciones/utilidades/documentacion")
 
 VESSEL_FIELDS = ["name", "kind", "flag", "eslora", "manga", "puntal", "trn", "trb",
                  "call_sign", "matricula", "puerto_registro", "armador",
-                 "clasificacion", "velocidad", "inmarsat"]
+                 "clasificacion", "velocidad", "inmarsat", "company_id"]
 CALL_FIELDS = ["capitan", "ultimo_puerto", "procedencia", "destino", "descripcion_viaje",
                "carga_detalle", "estadia", "tripulantes", "pasajeros", "lista_pasajeros",
                "terminal", "exportador", "ciudad_exportador", "carga",
@@ -106,7 +106,7 @@ def page(request: Request, db: Session = Depends(get_db), user: User = Depends(c
     return templates.TemplateResponse(request, "utilidades/documentacion.html", {
         "user": user,
         "docs": [{"key": k, "label": label, "reg": reg, "stage": STAGES.get(k, "ENTRADA"),
-                  "checked": k not in NOT_DEFAULT} for k, label, reg in DOCS],
+                  "checked": k not in NOT_DEFAULT, "has_date": k not in NO_DATE} for k, label, reg in DOCS],
         "certificados": [{"key": k, "label": label} for k, label in CERTIFICADOS],
         "agencies": [_agency_dict(a) for a in agencies],
         "today": date.today().isoformat(),
@@ -326,8 +326,8 @@ async def generate(request: Request, db: Session = Depends(get_db), user: User =
     dates: dict[str, date] = {}
     try:
         for k in order:
-            if k == "serenos":
-                continue
+            if k in NO_DATE:
+                continue  # serenos tiene sus propias fechas; los PBIP no llevan fecha
             if wanted[k].get("blank"):
                 continue  # fecha en blanco: sale vacia para completarla a mano
             d = _date(wanted[k].get("date"))

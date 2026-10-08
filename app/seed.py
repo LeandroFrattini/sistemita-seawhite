@@ -86,6 +86,7 @@ _MIGRATIONS = [
     ("doc_vessels", "clasificacion", "TEXT DEFAULT ''"),
     ("doc_vessels", "velocidad", "TEXT DEFAULT ''"),
     ("doc_vessels", "inmarsat", "TEXT DEFAULT ''"),
+    ("doc_vessels", "company_id", "TEXT DEFAULT ''"),
     ("proformas", "remolques_in", "INTEGER DEFAULT 0"),
     ("proformas", "remolques_out", "INTEGER DEFAULT 0"),
     ("proformas", "immigration_in_boya", "BOOLEAN DEFAULT FALSE"),

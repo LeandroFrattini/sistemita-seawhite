@@ -29,18 +29,26 @@ DOCS: list[tuple[str, str, str]] = [
     ("ped_carga", "Pedido de Carga", "REG-AM-25"),
     ("bill", "Autorización BILL OF LADING", "REG-AM-26"),
     ("decla_pna", "Declaración General (DECLA PNA)", "REG-AM-10"),
+    ("boyado", "Declaración Jurada de Boyas (BOYADO)", "REG-AM-18"),
+    ("malvinas", "Declaración Jurada Malvinas", "Anexo 2"),
+    ("pbip_entrada", "PBIP Entrada", "REG-AM-14"),
+    ("pbip_salida", "PBIP Salida", "REG-AM-15"),
 ]
 DOC_KEYS = [d[0] for d in DOCS]
 
-# solapa de la pantalla en la que sale cada documento (por ahora todos son de ENTRADA)
+# solapa de la pantalla en la que sale cada documento
 STAGES = {k: "ENTRADA" for k in DOC_KEYS}
-# documentos que no salen tildados por defecto
-NOT_DEFAULT = {"decla_pna"}
+STAGES["pbip_salida"] = "SALIDA"
+# documentos que no salen tildados por defecto (los que a veces piden y a veces no)
+NOT_DEFAULT = {"decla_pna", "boyado", "malvinas", "pbip_entrada", "pbip_salida"}
+# documentos que no tienen fecha para completar
+NO_DATE = {"serenos", "pbip_entrada", "pbip_salida"}
 
 SHORT_NAMES = {
     "dec_migra": "DEC. MIGRA", "dec_ana": "DEC. ANA", "permanencia": "Permanencia",
     "calados_ent": "Calados Entrada", "rancho": "Rancho", "serenos": "Serenos",
     "ped_carga": "Pedido de Carga", "bill": "BILL", "decla_pna": "DECLA PNA",
+    "boyado": "BOYADO", "malvinas": "MALVINAS", "pbip_entrada": "PBIP ENTRADA", "pbip_salida": "PBIP SALIDA",
 }
 
 KIND_LETTER = {"BULK_CARRIER": "V", "TANKER": "T"}  # MV / MT
@@ -284,6 +292,58 @@ def gen_decla_pna(ctx: Ctx) -> bytes:
     return x.to_bytes()
 
 
+def _matricula(ctx: Ctx) -> str:
+    """El numero de matricula que piden las planillas de Prefectura es el IMO del buque."""
+    return ctx.vessel.get("imo") or ""
+
+
+def gen_boyado(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "boyado.xlsx")
+    x.set_date("L7", ctx.dates.get("boyado"))
+    x.set_text("D11", ctx.c("capitan"))
+    x.set_text("O11", ctx.name)
+    x.set_text("B14", ctx.v("flag"))
+    x.set_value("F14", _matricula(ctx))
+    x.set_text("D26", ctx.c("terminal"))
+    return x.to_bytes()
+
+
+def gen_malvinas(ctx: Ctx) -> bytes:
+    x = Xlsx(TEMPLATES / "malvinas.xlsx")
+    imo = _matricula(ctx)
+    owner = ctx.v("armador")
+    company = ctx.v("company_id")
+    d = ctx.dates.get("malvinas")
+    x.set_text("C20", ctx.c("capitan"))
+    x.set_text("D24", ctx.name)
+    x.set_value("H24", imo)
+    x.set_value("B28", imo)
+    x.set_text("G28", owner)
+    x.set_value("D32", company)
+    # las celdas en ingles repiten a las de arriba con una formula: se deja y se guarda su resultado
+    for ref, val in (("C22", ctx.c("capitan")), ("D26", ctx.name), ("H26", imo),
+                     ("B30", imo), ("G30", owner), ("H32", company)):
+        x.set_formula_result(ref, val)
+    x.set_text("B55", "bahia blanca" + (f" {d:%d-%m-%y}" if d else ""))
+    return x.to_bytes()
+
+
+def _gen_pbip(template: str):
+    def gen(ctx: Ctx) -> bytes:
+        x = Xlsx(TEMPLATES / template)
+        x.set_text("F5", ctx.name)
+        x.set_text("F6", ctx.v("flag"))
+        x.set_text("F7", ctx.v("call_sign"))
+        x.set_value("F8", _matricula(ctx))
+        x.set_value("F9", _matricula(ctx))
+        return x.to_bytes()
+    return gen
+
+
+gen_pbip_entrada = _gen_pbip("pbip_entrada.xlsx")
+gen_pbip_salida = _gen_pbip("pbip_salida.xlsx")
+
+
 # ------------------------------------------------------------- Word --------
 def _runs(doc, idx: int, expect: str):
     p = doc.paragraphs[idx]
@@ -366,6 +426,8 @@ _XLSX_GEN = {
     "dec_migra": gen_dec_migra, "dec_ana": gen_dec_ana, "permanencia": gen_permanencia,
     "calados_ent": gen_calados, "rancho": gen_rancho, "serenos": gen_serenos,
     "ped_carga": gen_ped_carga, "bill": gen_bill, "decla_pna": gen_decla_pna,
+    "boyado": gen_boyado, "malvinas": gen_malvinas,
+    "pbip_entrada": gen_pbip_entrada, "pbip_salida": gen_pbip_salida,
 }
 
 
