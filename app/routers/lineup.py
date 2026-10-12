@@ -559,12 +559,13 @@ def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
     for name in names:
         existente = _buscar_operado_mismo_imo(db, call.imo, call.vessel_name, name, ahora)
         if existente:
+            # tope = largo de la columna: si se pasara, Postgres rechaza el UPDATE y no deja sacar el barco
             if nuevo_berth and nuevo_berth not in existente.berth_label:
-                existente.berth_label = f"{existente.berth_label} → {nuevo_berth}".strip(" →")
+                existente.berth_label = f"{existente.berth_label} → {nuevo_berth}".strip(" →")[:255]
             if nuevo_terminal_code and nuevo_terminal_code not in existente.terminal_code:
-                existente.terminal_code = f"{existente.terminal_code} → {nuevo_terminal_code}".strip(" →")
+                existente.terminal_code = f"{existente.terminal_code} → {nuevo_terminal_code}".strip(" →")[:255]
             if call.quantity.strip() and call.quantity.strip() not in existente.quantity:
-                existente.quantity = f"{existente.quantity} + {call.quantity}".strip(" +")
+                existente.quantity = f"{existente.quantity} + {call.quantity}".strip(" +")[:255]
             existente.etb = call.etb or existente.etb
             existente.etc = call.etc or existente.etc
             existente.destination = call.destination or existente.destination

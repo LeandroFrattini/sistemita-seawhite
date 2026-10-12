@@ -256,8 +256,9 @@ class OperatedVessel(Base):
     lineup_date: Mapped[str] = mapped_column(String(10), default="")
     period: Mapped[str] = mapped_column(String(7), default="")  # YYYY-MM para el recuento
 
-    terminal_code: Mapped[str] = mapped_column(String(40), default="")
-    berth_label: Mapped[str] = mapped_column(String(120), default="")
+    # terminal_code / berth_label / quantity crecen al fusionar pasos por varios muelles ("A → B → C")
+    terminal_code: Mapped[str] = mapped_column(String(255), default="")
+    berth_label: Mapped[str] = mapped_column(String(255), default="")
 
     vessel_name: Mapped[str] = mapped_column(String(120), default="")
     vessel_type: Mapped[str] = mapped_column(String(40), default="")
@@ -266,7 +267,7 @@ class OperatedVessel(Base):
     etb: Mapped[str] = mapped_column(String(40), default="")
     etc: Mapped[str] = mapped_column(String(40), default="")
     operation: Mapped[str] = mapped_column(String(30), default="")
-    quantity: Mapped[str] = mapped_column(String(40), default="")
+    quantity: Mapped[str] = mapped_column(String(255), default="")
     grade: Mapped[str] = mapped_column(String(60), default="")
     shipper: Mapped[str] = mapped_column(String(60), default="")
     destination: Mapped[str] = mapped_column(String(60), default="")

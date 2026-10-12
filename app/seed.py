@@ -127,6 +127,10 @@ def _migrate(db: Session) -> None:
             }
         if column not in cols:
             db.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {decl}"))
+    if dialect != "sqlite":
+        # ampliar columnas que se concatenan al fusionar pasos por varios muelles (antes VARCHAR(40)/(120))
+        for column in ("terminal_code", "berth_label", "quantity"):
+            db.execute(text(f"ALTER TABLE operated_vessels ALTER COLUMN {column} TYPE VARCHAR(255)"))
     if dialect == "sqlite":
         # backfill period de barcos operados viejos, desde operated_at
         # (strftime es de SQLite -- en Postgres la base arranca vacia, no hace falta)
