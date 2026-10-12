@@ -44,6 +44,72 @@ function normalizeShortDate(raw) {
   return `${d}/${mo}/${y}`;
 }
 
+// --- ETA posterior al ETB: se marca en rojo y se avisa ---------------------- //
+// Solo se compara cuando las dos son fechas ("Alongside", "At roads" o vacio no cuentan).
+function parseShortDate(raw) {
+  const m = (raw || "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/);
+  if (!m) return null;
+  const y = m[3].length === 2 ? 2000 + +m[3] : +m[3];
+  return new Date(y, +m[2] - 1, +m[1]).getTime();
+}
+
+function rowEtaConflict(tr) {
+  const eta = parseShortDate(tr.querySelector('[data-f="eta"]')?.value);
+  const etb = parseShortDate(tr.querySelector('[data-f="etb"]')?.value);
+  return eta !== null && etb !== null && eta > etb;
+}
+
+function markEtaConflict(tr) {
+  const bad = rowEtaConflict(tr);
+  tr.classList.toggle("date-conflict", bad);
+  ["eta", "etb"].forEach((f) => {
+    const el = tr.querySelector(`[data-f="${f}"]`);
+    if (el) el.title = bad ? "El ETA es posterior al ETB: chequealo o recalculá los ETB/ETC" : "";
+  });
+  return bad;
+}
+
+function vesselOf(tr) {
+  return (tr.querySelector('[data-f="vessel_name"]')?.value || "").trim() || "(sin nombre)";
+}
+
+function showEtaAlert(names) {
+  document.getElementById("eta-alert")?.remove();
+  const dlg = document.createElement("dialog");
+  dlg.id = "eta-alert";
+  dlg.className = "eta-alert";
+  const h = document.createElement("h3");
+  h.textContent = "ETA posterior al ETB";
+  const ul = document.createElement("ul");
+  names.forEach((n) => {
+    const li = document.createElement("li");
+    li.textContent = `${n} tiene ETA posterior al ETB, chequealo o recalculá los ETB/ETC`;
+    ul.appendChild(li);
+  });
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "btn primary";
+  btn.textContent = "Entendido";
+  btn.addEventListener("click", () => dlg.close());
+  dlg.addEventListener("close", () => dlg.remove());
+  dlg.append(h, ul, btn);
+  document.body.appendChild(dlg);
+  dlg.showModal();
+}
+
+// al cargar la pagina: se marcan todas y se avisa una sola vez por conjunto de barcos
+(function checkEtaOnLoad() {
+  const bad = [...document.querySelectorAll(".grid tr[data-call]")].filter(markEtaConflict);
+  if (!bad.length) return;
+  const names = bad.map(vesselOf);
+  const sig = names.join("|");
+  try {
+    if (sessionStorage.getItem("etaAlertSeen") === sig) return;
+    sessionStorage.setItem("etaAlertSeen", sig);
+  } catch (e) {}
+  showEtaAlert(names);
+})();
+
 // --- edicion de celdas ---------------------------------------------------- //
 document.querySelectorAll(".grid [data-f]").forEach((input) => {
   const evt = input.type === "checkbox" || input.tagName === "SELECT" ? "change" : "change";
@@ -66,6 +132,9 @@ document.querySelectorAll(".grid [data-f]").forEach((input) => {
         input.classList.toggle("linked", r.linked);
       }
       flash("Guardado");
+      if (field === "eta" || field === "etb") {
+        if (markEtaConflict(tr)) showEtaAlert([vesselOf(tr)]);
+      }
     } catch (e) {
       flash("Error: " + e.message, false);
     }

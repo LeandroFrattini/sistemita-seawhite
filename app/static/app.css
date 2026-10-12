@@ -200,6 +200,13 @@ table.grid input, table.grid select { border: 1px solid transparent; background:
 table.grid input:focus, table.grid select:focus { border-color: var(--blue); background: #fff; outline: none; }
 table.grid select { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 table.grid tr.is-ours td { background: #eaf2fb; }
+table.grid tr.date-conflict td { background: #fee2e2; }
+table.grid tr.date-conflict [data-f="eta"], table.grid tr.date-conflict [data-f="etb"] { border-color: #dc2626; background: #fecaca; color: #991b1b; font-weight: 700; }
+dialog.eta-alert { max-width: 440px; border: 2px solid #dc2626; border-radius: 12px; padding: 18px 22px; }
+dialog.eta-alert::backdrop { background: rgba(0, 0, 0, .35); }
+dialog.eta-alert h3 { margin: 0 0 8px; color: #991b1b; }
+dialog.eta-alert ul { margin: 0 0 14px; padding-left: 18px; }
+dialog.eta-alert li { margin-bottom: 6px; }
 .principal-input.linked { font-weight: 600; color: var(--blue-dark); }
 .w-vessel { min-width: 150px; } .w-imo { min-width: 80px; } .w-date { min-width: 78px; }
 table.grid select.w-type { width: 44px; min-width: 44px; }
