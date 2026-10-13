@@ -485,28 +485,49 @@ async def move_call(call_id: int, request: Request, db: Session = Depends(get_db
     return {"ok": True}
 
 
+def _retire_call(db: Session, call: VesselCall, user: User, *, operated: bool = True) -> None:
+    """Saca un barco del line-up. operated=True: si es nuestro, pasa a Operados (cuenta para el
+    recuento) y se cierra su legajo. operated=False: se cargo por error, no cuenta en nada y el
+    legajo se borra si esta vacio (sin reportes, SOF ni cargas) o se cierra si ya tenia algo."""
+    vf = None
+    if call.is_ours:
+        vf = db.scalar(
+            select(VesselFile).where(
+                VesselFile.status == "open",
+                func.lower(VesselFile.vessel_name) == call.vessel_name.strip().lower(),
+                VesselFile.terminal_id == call.terminal_id,
+            )
+        )
+        if operated:
+            _archive_operated(db, call, user)
+    if vf:
+        if not operated and not (vf.reports or vf.sof_entries or vf.cargos):
+            db.delete(vf)
+        else:
+            # se cierra el legajo: si no, queda "abierto" para siempre aunque el barco ya se fue
+            vf.status = "closed"
+            vf.closed_at = datetime.utcnow()
+    db.delete(call)
+    db.commit()
+
+
 @router.delete("/api/calls/{call_id}")
 def delete_call(call_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
     call = db.get(VesselCall, call_id)
     if call:
-        if call.is_ours:
-            _archive_operated(db, call, user)
-            # se saco del line-up (X) -- si tenia legajo abierto en Barcos
-            # (ID), se cierra tambien: si no, queda "abierto" para siempre
-            # aunque el barco ya se fue (sumando de mas en Abiertos).
-            vf = db.scalar(
-                select(VesselFile).where(
-                    VesselFile.status == "open",
-                    func.lower(VesselFile.vessel_name) == call.vessel_name.strip().lower(),
-                    VesselFile.terminal_id == call.terminal_id,
-                )
-            )
-            if vf:
-                vf.status = "closed"
-                vf.closed_at = datetime.utcnow()
-        db.delete(call)
-        db.commit()
+        _retire_call(db, call, user)
     return {"ok": True}
+
+
+@router.post("/nuestros-barcos/lineup/{call_id}/sacar")
+def retire_from_our_vessels(call_id: int, motivo: str = Form("operado"),
+                            db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Saca un barco de la tabla "En el line-up" de Nuestros barcos (sirve tambien para los que se
+    agregaron con "+ Agregar buque", que no figuran en la pantalla del line-up)."""
+    call = db.get(VesselCall, call_id)
+    if call:
+        _retire_call(db, call, user, operated=motivo != "error")
+    return RedirectResponse("/nuestros-barcos", status_code=302)
 
 
 _MISMO_BARCO_DIAS = 45  # ventana para considerar "mismo paso por puerto"

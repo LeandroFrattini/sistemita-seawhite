@@ -83,7 +83,7 @@
     <thead><tr>
       <th>Line-up</th><th>Barco</th><th>Terminal</th><th>Muelle</th>
       <th>ETA</th><th>ETB</th><th>ETC/ETS</th><th>Producto</th>
-      <th>Estamos por</th>
+      <th>Estamos por</th><th></th>
     </tr></thead>
     <tbody>
     {% for kind, term, c in en_lineup %}
@@ -100,6 +100,7 @@
         {# solo nuestros clientes de la planilla: el principal real no cuenta si no es nuestro #}
         {% set cl = c.recipient_clients() %}
         <td>{% if cl %}<span class="cli-list">{% for x in cl %}<span class="cli-chip{{ ' estiba' if x.is_estiba }}">{{ x.name }}{% if x.is_estiba %} <em>estiba</em>{% endif %}</span>{% endfor %}</span>{% else %}<span class="muted">Sin cliente nuestro</span>{% endif %}</td>
+        <td class="nowrap"><button type="button" class="mini danger btn-sacar" data-id="{{ c.id }}" data-vessel="{{ c.vessel_name|upper }}" title="Sacar del line-up">✕</button></td>
       </tr>
     {% endfor %}
     </tbody>
@@ -187,6 +188,22 @@
   {{ operados_tabla("Estibas", operados_estiba, true) }}
 </section>
 
+<dialog id="sacar-modal">
+  <div class="modal-head">
+    <h2 id="sacar-titulo">Sacar barco</h2>
+    <button type="button" class="modal-close" id="close-sacar-modal" aria-label="Cerrar">×</button>
+  </div>
+  <form method="post" id="sacar-form" class="vf-report-form">
+    <p style="margin:0 0 12px">¿Por qué lo sacás del line-up?</p>
+    <button type="submit" name="motivo" value="operado" class="btn primary" style="display:block;width:100%;margin-bottom:8px">
+      Ya se operó: pasa a Operados y cuenta en el recuento
+    </button>
+    <button type="submit" name="motivo" value="error" class="btn danger" style="display:block;width:100%">
+      Lo cargué por error: borrarlo sin contarlo
+    </button>
+  </form>
+</dialog>
+
 <dialog id="completar-modal">
   <div class="modal-head">
     <h2 id="completar-titulo">Completar datos</h2>
@@ -216,6 +233,20 @@ addVesselModal?.addEventListener("click", (ev) => {
 // elegir un cliente en la fila de un barco operado lo guarda al instante
 document.querySelectorAll("select[data-autosubmit]").forEach((sel) => {
   sel.addEventListener("change", () => { if (sel.value) sel.form.submit(); });
+});
+
+// modal "Sacar barco" del line-up -- un solo dialog reusado para todas las filas
+const sacarModal = document.getElementById("sacar-modal");
+document.querySelectorAll(".btn-sacar").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.getElementById("sacar-form").action = `/nuestros-barcos/lineup/${btn.dataset.id}/sacar`;
+    document.getElementById("sacar-titulo").textContent = `Sacar ${btn.dataset.vessel}`;
+    sacarModal.showModal();
+  });
+});
+document.getElementById("close-sacar-modal")?.addEventListener("click", () => sacarModal.close());
+sacarModal?.addEventListener("click", (ev) => {
+  if (ev.target === sacarModal) sacarModal.close();
 });
 
 // modal "Completar datos" -- un solo dialog reusado para todas las filas
