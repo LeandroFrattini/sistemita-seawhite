@@ -1,5 +1,6 @@
 import io
 import zipfile
+from datetime import date
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
@@ -9,7 +10,8 @@ from ..auth import current_user
 from ..database import get_db
 from ..eml import build_eml, safe_filename
 from ..models import Client, ReportLog, User, VesselCall
-from ..reports import BuiltReport, build_flammable_full, build_flammable_report, build_report
+from ..dates import parse_date
+from ..reports import BuiltReport, build_flammable_full, build_flammable_report, build_report_multi
 from ..service import (
     CC_KEY,
     DEFAULT_CC,
@@ -28,6 +30,24 @@ router = APIRouter()
 FLAMMABLE_LIST_KEY = "flammable_list_emails"
 
 
+def _same_vessel_groups(calls: list[VesselCall]) -> list[list[VesselCall]]:
+    """Agrupa las filas de un mismo barco (mismo IMO; si a alguna le falta el IMO, mismo
+    nombre). Un barco que toca dos muelles tiene una fila en cada uno y sale en UN solo reporte."""
+    groups: list[list[VesselCall]] = []
+    for call in calls:
+        imo = (call.imo or "").strip()
+        name = (call.vessel_name or "").strip().lower()
+        for g in groups:
+            g_imos = {(c.imo or "").strip() for c in g} - {""}
+            g_names = {(c.vessel_name or "").strip().lower() for c in g}
+            if (imo and imo in g_imos) or ((not imo or not g_imos) and name and name in g_names):
+                g.append(call)
+                break
+        else:
+            groups.append([call])
+    return groups
+
+
 def _collect(db: Session, *, kind: str = "GRAIN", with_signature: bool = False):
     """[(call, client, BuiltReport)] para los barcos propios con destinatarios."""
     lineup = get_draft_lineup(db, kind)
@@ -37,22 +57,38 @@ def _collect(db: Session, *, kind: str = "GRAIN", with_signature: bool = False):
     term_by_id = {t.id: t for t in terminals}
     signature_html = get_setting(db, SIGNATURE_KEY, "") if with_signature else ""
     cc_emails = split_emails(get_setting(db, CC_KEY, DEFAULT_CC))
-    builder = build_flammable_report if kind == "FLAMMABLE" else build_report
 
     out: list[tuple[VesselCall, Client, BuiltReport]] = []
-    for call in calls:
-        if not call.is_ours:
-            continue
-        terminal = term_by_id.get(call.terminal_id)
-        if not terminal:
-            continue
-        term_calls = grouped.get(call.terminal_id, [])
-        for client in call.recipient_clients():
-            if client.is_estiba:
+    if kind == "FLAMMABLE":
+        for call in calls:
+            terminal = term_by_id.get(call.terminal_id)
+            if not call.is_ours or not terminal:
                 continue
-            report = builder(call, client, lineup, terminal, term_calls, signature_html)
+            for client in call.recipient_clients():
+                if client.is_estiba:
+                    continue
+                report = build_flammable_report(call, client, lineup, terminal, grouped.get(call.terminal_id, []), signature_html)
+                report.cc_emails = [e for e in cc_emails if e not in report.to_emails]
+                out.append((call, client, report))
+        return lineup, out
+
+    ours = [c for c in calls if c.is_ours and c.terminal_id in term_by_id]
+    for group in _same_vessel_groups(ours):
+        # un solo mail por barco y cliente: si toca dos muelles, una tabla debajo de la otra
+        # (en orden de ETB; "Alongside" o sin fecha primero, porque ya esta en puerto)
+        group.sort(key=lambda c: parse_date(c.etb) or date.min)
+        clients: dict[int, Client] = {}
+        for call in group:
+            for client in call.recipient_clients():
+                if not client.is_estiba:
+                    clients.setdefault(client.id, client)
+        for client in clients.values():
+            legs = [(c, term_by_id[c.terminal_id], grouped.get(c.terminal_id, []))
+                    for c in group if client.id in {x.id for x in c.recipient_clients()}]
+            report = build_report_multi(legs, client, lineup, signature_html)
             report.cc_emails = [e for e in cc_emails if e not in report.to_emails]
-            out.append((call, client, report))
+            out.append((legs[0][0], client, report))
+    out.sort(key=lambda r: r[0].id)
     return lineup, out
 
 

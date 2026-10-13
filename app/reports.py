@@ -142,6 +142,14 @@ def _wrap_body(inner_html: str, signature_html: str = "") -> str:
 
 
 def build_excel_report(call, client, lineup, terminal, term_calls, signature_html: str = "") -> BuiltReport:
+    return build_excel_report_multi([(call, terminal, term_calls)], client, lineup, signature_html)
+
+
+def build_excel_report_multi(legs, client, lineup, signature_html: str = "") -> BuiltReport:
+    """Un solo mail para un barco que toca varios muelles: el encabezado y el pie
+    salen una vez y las tablas de line-up de cada muelle van una debajo de la otra.
+    `legs` = [(call, terminal, term_calls), ...]; con un solo tramo sale igual que siempre."""
+    call = legs[0][0]
     header = _excel_header_text(call, client, lineup)
     footer = settings.report_footer
     notice = _notice_block(lineup)
@@ -150,13 +158,14 @@ def build_excel_report(call, client, lineup, terminal, term_calls, signature_htm
     html_body = _wrap_body(
         f"<div>{_text_to_html(header)}</div>"
         "<div><br></div>"
-        f"{_excel_table_html(terminal, term_calls)}"
+        + "<div><br></div>".join(_excel_table_html(t, tc) for _, t, tc in legs) +
         "<div><br></div>"
         f"{notice_html}"
         f"<div>{_text_to_html(footer)}</div>",
         signature_html,
     )
-    text_body = f"{header}\n\n{_excel_table_text(terminal, term_calls)}\n\n{notice_text}{footer}"
+    tables_text = "\n\n".join(_excel_table_text(t, tc) for _, t, tc in legs)
+    text_body = f"{header}\n\n{tables_text}\n\n{notice_text}{footer}"
     return BuiltReport(
         subject=build_subject(call, lineup),
         to_name=client.display_to,
@@ -237,20 +246,28 @@ def _wbl_lineup_block(terminal, term_calls) -> str:
 
 
 def build_wbl_report(call, client, lineup, terminal, term_calls, signature_html: str = "") -> BuiltReport:
+    return build_wbl_report_multi([(call, terminal, term_calls)], client, lineup, signature_html)
+
+
+def build_wbl_report_multi(legs, client, lineup, signature_html: str = "") -> BuiltReport:
+    """Igual que build_wbl_report, pero con un bloque Prospects + Line up por cada muelle."""
+    call = legs[0][0]
     pfx = vessel_prefix(call.vessel_type).capitalize()  # "Mv" / "Mt"
     date_tag = (lineup.lineup_date or "").replace("/", ".")
     from_name = settings.mail_from_name.title()
     notice = _notice_block(lineup)
     notice_text = f"{notice}\n\n\n" if notice else ""
 
+    legs_text = "\n\n\n".join(
+        f"{_prospects_block(c, t)}\n\n\n{_wbl_lineup_block(t, tc)}" for c, t, tc in legs
+    )
     text_body = (
         f"To {client.display_to}\n"
         f"Fm {from_name}\n\n"
         f"Ref {pfx} {call.vessel_name}\n\n"
         f"{date_tag}\n\n"
         f"Good day, pls note line up:\n\n"
-        f"{_prospects_block(call, terminal)}\n\n\n"
-        f"{_wbl_lineup_block(terminal, term_calls)}\n\n\n"
+        f"{legs_text}\n\n\n"
         f"{notice_text}"
         f"{settings.report_footer}"
     )
@@ -274,6 +291,12 @@ def build_report(call, client, lineup, terminal, term_calls, signature_html: str
     if client.report_format == "WBL_TEXT":
         return build_wbl_report(call, client, lineup, terminal, term_calls, signature_html)
     return build_excel_report(call, client, lineup, terminal, term_calls, signature_html)
+
+
+def build_report_multi(legs, client, lineup, signature_html: str = "") -> BuiltReport:
+    if client.report_format == "WBL_TEXT":
+        return build_wbl_report_multi(legs, client, lineup, signature_html)
+    return build_excel_report_multi(legs, client, lineup, signature_html)
 
 
 # --------------------------------------------------------------------------- #
