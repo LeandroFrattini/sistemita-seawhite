@@ -30,12 +30,30 @@ a { color: var(--blue-dark); }
 .topbar .user { font-size: 13px; opacity: .9; white-space: nowrap; flex: none; }
 .topbar .user a { color: #fff; }
 
+/* el menu de celular y su boton no existen en pantallas grandes */
+.nav-toggle, .m-menu { display: none; }
+
 @media (max-width: 640px) {
-  .topbar { flex-wrap: wrap; gap: 8px 14px; padding: 10px 12px; }
-  .topbar .brand { font-size: 14px; }
-  .topbar .brand span { display: none; }
-  .topbar nav { order: 3; width: 100%; }
-  .topbar .user { order: 2; margin-left: auto; }
+  .topbar { flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px; }
+  .topbar .brand { font-size: 15px; }
+  .topbar nav, .topbar .user { display: none; }
+  .nav-toggle {
+    display: flex; align-items: center; justify-content: center; margin-left: auto;
+    width: 44px; height: 40px; border: 1px solid rgba(255,255,255,.35); border-radius: 8px;
+    background: rgba(255,255,255,.12); color: #fff; font-size: 22px; line-height: 1; cursor: pointer;
+  }
+  .m-menu { display: none; width: 100%; order: 4; padding: 4px 0 8px; }
+  .topbar.open .m-menu { display: block; }
+  .m-menu a {
+    display: block; padding: 13px 12px; border-radius: 8px; color: #fff; text-decoration: none;
+    font-size: 15px; font-weight: 500;
+  }
+  .m-menu a:active, .m-menu a:hover { background: rgba(255,255,255,.15); }
+  .m-menu a.active { background: rgba(255,255,255,.22); font-weight: 700; }
+  .m-menu .m-grp {
+    margin: 10px 12px 2px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,.22);
+    font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .7;
+  }
 }
 
 .nav-group { display: inline-flex; flex: none; }
@@ -185,6 +203,13 @@ button.danger:hover { background: #fdecea; }
 .pend-wrap .pend-banner { margin: 0; }
 .pend-hide { position: absolute; top: 8px; right: 10px; border: 0; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 600; cursor: pointer; background: rgba(255, 255, 255, .25); color: #fff; }
 .pend-hide:hover { background: rgba(255, 255, 255, .4); }
+@media (max-width: 640px) {
+  .pend-banner { padding: 14px 16px; gap: 12px; }
+  .pend-icon { width: 40px; height: 40px; font-size: 24px; }
+  .pend-text { font-size: 18px; }
+  .pend-hide { position: static; display: block; margin: 6px 0 0 auto; background: none; color: var(--muted); font-size: 12px; text-decoration: underline; padding: 4px 6px; }
+  .pend-hide:hover { background: none; }
+}
 .pend-restore { max-width: 1000px; margin: 0 auto 18px; text-align: right; }
 .pend-restore[hidden] { display: none; }
 .pend-restore button { border: 0; background: none; color: var(--muted); font-size: 12px; cursor: pointer; text-decoration: underline; }

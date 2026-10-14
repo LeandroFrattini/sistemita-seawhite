@@ -45,6 +45,29 @@
   <div class="user">{{ user.full_name or user.username }}
     {% if user.is_admin %} · <a href="/admin">Admin</a>{% endif %}
     · <a href="/cambiar-clave">clave</a>{% if mfa_enabled() %} · <a href="/seguridad">seguridad</a>{% endif %} · <a href="/logout">salir</a></div>
+
+  {# Celular: la barra de arriba se reemplaza por un boton de menu que abre esta lista en vertical #}
+  <button type="button" class="nav-toggle" id="nav-toggle" aria-label="Abrir el menú" aria-expanded="false" aria-controls="m-menu">☰</button>
+  <div class="m-menu" id="m-menu">
+    <a href="/" class="{{ self.nav_home() }}">Inicio</a>
+    <a href="/pendientes" class="{{ self.nav_pendientes() }}">Pendientes</a>
+    <p class="m-grp">Line Up</p>
+    <a href="/lineup" class="{{ self.nav_lineup() }}">Grain</a>
+    <a href="/flammable" class="{{ self.nav_flammable() }}">Flammable</a>
+    <p class="m-grp">Operaciones</p>
+    <a href="/barcos" class="{{ self.nav_files() }}">Barcos (ID)</a>
+    <a href="/clients" class="{{ self.nav_clients() }}">Clientes</a>
+    <a href="/nuestros-barcos" class="{{ self.nav_ours() }}">Nuestros barcos</a>
+    <a href="/proformador" class="{{ self.nav_proformador() }}">Proformador</a>
+    <a href="/reports" class="{{ self.nav_reports() }}">Reportes</a>
+    <a href="/operaciones/utilidades" class="{{ self.nav_utilidades() }}">Utilidades</a>
+    {% if user.is_admin or user.is_administracion %}<a href="/administracion" class="{{ self.nav_administracion() }}">Administración</a>{% endif %}
+    <p class="m-grp">{{ user.full_name or user.username }}</p>
+    {% if user.is_admin %}<a href="/admin">Admin</a>{% endif %}
+    <a href="/cambiar-clave">Cambiar clave</a>
+    {% if mfa_enabled() %}<a href="/seguridad">Seguridad</a>{% endif %}
+    <a href="/logout">Salir</a>
+  </div>
 </header>
 {% endif %}
 <main class="{% block main_class %}wrap{% endblock %}">

@@ -82,6 +82,18 @@
     panel.addEventListener("click", (ev) => ev.stopPropagation());
   });
 
+  // Celular: el boton ☰ abre/cierra el menu vertical (.m-menu); en pantallas grandes no se ve.
+  const toggle = document.getElementById("nav-toggle");
+  if (toggle) {
+    toggle.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const open = document.querySelector(".topbar").classList.toggle("open");
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.textContent = open ? "✕" : "☰";
+      toggle.setAttribute("aria-label", open ? "Cerrar el menú" : "Abrir el menú");
+    });
+  }
+
   document.addEventListener("click", closeAllTop);
   window.addEventListener("scroll", closeAllTop, true);
   window.addEventListener("resize", closeAllTop);
