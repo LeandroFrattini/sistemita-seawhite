@@ -60,8 +60,9 @@ def _render_lineup(request: Request, db: Session, user: User, kind: str) -> HTML
 
 
 @router.get("/", response_class=HTMLResponse)
-def home_page(request: Request, user: User = Depends(current_user)):
-    return templates.TemplateResponse(request, "home.html", {"user": user})
+def home_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    from .pendientes import pending_summary
+    return templates.TemplateResponse(request, "home.html", {"user": user, "pend": pending_summary(db)})
 
 
 @router.get("/lineup", response_class=HTMLResponse)

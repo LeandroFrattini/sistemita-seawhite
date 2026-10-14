@@ -333,6 +333,11 @@ class VesselFile(Base):
     # historial acumulado (clientes WBL): se reimprime completo al pie de
     # cada reporte que lo tilde -- se edita/completa a mano en el legajo
     statement_of_facts: Mapped[str] = mapped_column(Text, default="")
+    # Pendientes del barco (pantalla Pendientes): tipo de contrato, si viene del exterior y
+    # las casillas ya tildadas ({clave: {by, at}})
+    contrato: Mapped[str] = mapped_column(String(10), default="")  # "" | CHARTER | OPA
+    exterior: Mapped[bool] = mapped_column(Boolean, default=False)
+    checklist: Mapped[str] = mapped_column(Text, default="")
 
     terminal: Mapped["Terminal | None"] = relationship()
     principal_client: Mapped["Client | None"] = relationship()
@@ -346,6 +351,9 @@ class VesselFile(Base):
     reports: Mapped[list["VesselReport"]] = relationship(
         back_populates="vessel_file", cascade="all, delete-orphan",
         order_by="VesselReport.sent_at.desc()",
+    )
+    tasks: Mapped[list["VesselTask"]] = relationship(
+        cascade="all, delete-orphan", order_by="VesselTask.done, VesselTask.due_date, VesselTask.id"
     )
 
     @property
@@ -396,6 +404,23 @@ class SofEntry(Base):
     category: Mapped[str] = mapped_column(String(40), default="")
     location: Mapped[str] = mapped_column(String(80), default="")
     text: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[str] = mapped_column(String(120), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class VesselTask(Base):
+    """Tarea pendiente de un legajo (lista de pendientes por barco que ve todo operaciones).
+    Mientras haya alguna sin tildar en un legajo abierto, la home muestra "TIENES TAREAS PENDIENTES"."""
+
+    __tablename__ = "vessel_tasks"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vessel_file_id: Mapped[int] = mapped_column(ForeignKey("vessel_files.id"), index=True)
+    text: Mapped[str] = mapped_column(String(300), default="")
+    due_date: Mapped[str] = mapped_column(String(10), default="")  # ISO yyyy-mm-dd, opcional
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    done_by: Mapped[str] = mapped_column(String(120), default="")
+    done_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_by: Mapped[str] = mapped_column(String(120), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

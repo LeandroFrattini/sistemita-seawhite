@@ -9,7 +9,44 @@
   <p class="home-hero-tag">Tecnología propia para operar más rápido, con menos errores y mejor información, todos los días.</p>
 </div>
 
+<div class="pend-wrap" id="pend-wrap">
+{% if pend.count %}
+<a class="pend-banner pend-red" href="/pendientes">
+  <span class="pend-icon">!</span>
+  <span class="pend-text">TIENES TAREAS PENDIENTES<small>{{ pend.count }} pendiente{{ 's' if pend.count != 1 }} en {{ pend.vessels }} barco{{ 's' if pend.vessels != 1 }}{% if pend.overdue %} · {{ pend.overdue }} vencida{{ 's' if pend.overdue != 1 }}{% endif %} · tocá para verlas</small></span>
+</a>
+{% else %}
+<a class="pend-banner pend-green" href="/pendientes">
+  <span class="pend-icon">✓</span>
+  <span class="pend-text">HOY ESTÁS AL DÍA<small>no hay tareas pendientes</small></span>
+</a>
+{% endif %}
+<button type="button" class="pend-hide" id="pend-hide" title="Ocultar el aviso por hoy" aria-label="Ocultar el aviso por hoy">Ocultar ✕</button>
+</div>
+<p class="pend-restore" id="pend-restore" hidden><button type="button" id="pend-show">Mostrar aviso de pendientes</button></p>
+<script>
+(function () {
+  const wrap = document.getElementById("pend-wrap"), restore = document.getElementById("pend-restore");
+  const key = "pendHiddenOn", d = new Date(), today = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");  // fecha local, no UTC
+  const get = () => { try { return localStorage.getItem(key); } catch (e) { return null; } };
+  const set = (v) => { try { v ? localStorage.setItem(key, v) : localStorage.removeItem(key); } catch (e) {} };
+  function apply() {
+    const hidden = get() === today;  // oculto solo por hoy: mañana vuelve a aparecer
+    wrap.hidden = hidden;
+    restore.hidden = !hidden;
+  }
+  document.getElementById("pend-hide").addEventListener("click", () => { set(today); apply(); });
+  document.getElementById("pend-show").addEventListener("click", () => { set(null); apply(); });
+  apply();
+})();
+</script>
+
 <div class="home-grid">
+  <a class="home-card" href="/pendientes">
+    <div class="home-card-icon">✅</div>
+    <div class="home-card-title">PENDIENTES</div>
+    <div class="home-card-sub">Qué falta pedir o tachar por barco</div>
+  </a>
   <a class="home-card" href="/lineup">
     <div class="home-card-icon">⚓</div>
     <div class="home-card-title">LINE UP</div>

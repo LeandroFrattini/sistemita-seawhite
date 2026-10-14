@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block nav_pendientes %}active{% endblock %}
+{% block content %}
+<h1>Pendientes</h1>
+
+{% if summary.count %}
+<div class="pend-banner pend-red" style="margin-left:0">
+  <span class="pend-icon">!</span>
+  <span class="pend-text">TIENES TAREAS PENDIENTES<small>{{ summary.count }} pendiente{{ 's' if summary.count != 1 }} en {{ summary.vessels }} barco{{ 's' if summary.vessels != 1 }}</small></span>
+</div>
+{% else %}
+<div class="pend-banner pend-green" style="margin-left:0">
+  <span class="pend-icon">✓</span>
+  <span class="pend-text">HOY ESTÁS AL DÍA<small>no hay tareas pendientes</small></span>
+</div>
+{% endif %}
+
+<p class="muted">Cada barco aparece cuando faltan {{ dias_aviso }} días o menos para su ETA del line-up (o si ya está en puerto) y se queda mientras su legajo esté abierto.
+Elegí el tipo de contrato: con <b>Charter</b> se abre la lista de documentos. Si viene del exterior, tildá la casilla para pedir también PBIP y Libre plática.</p>
+
+{% macro casilla(file_id, i) %}
+<li class="pend-task {{ 'done' if i.done }}">
+  <form method="post" action="/pendientes/{{ file_id }}/item/{{ i.key }}/toggle">
+    <input type="checkbox" {{ 'checked' if i.done }} onchange="this.form.submit()" aria-label="Hecho: {{ i.text }}">
+  </form>
+  <span class="pend-t">{{ i.text }}{% if i.note %} <small class="muted">· {{ i.note }}</small>{% endif %}</span>
+  {% if i.done %}<span class="pend-meta">✓ {{ i.by }}{% if i.at %} · {{ i.at }}{% endif %}</span>{% endif %}
+</li>
+{% endmacro %}
+
+{% for c in cards %}
+{% set vf = c.vf %}
+<section class="card pend-barco" id="barco-{{ vf.id }}">
+  <h2>
+    <a href="/barcos/{{ vf.id }}">#{{ vf.id }} · {{ vf.vessel_name|upper }}</a>
+    <small>{{ vf.terminal.code if vf.terminal else vf.terminal_code }} · {{ c.arrival.label }}</small>
+    {% if c.sin_contrato %}<span class="pend-count">falta elegir el contrato</span>
+    {% elif c.open %}<span class="pend-count">{{ c.open }} pendiente{{ 's' if c.open != 1 }}</span>
+    {% elif c.items or c.tasks %}<span class="pend-count ok">✓ al día</span>{% endif %}
+  </h2>
+
+  <form method="post" action="/pendientes/{{ vf.id }}/config" class="pend-config">
+    <label>Tipo de contrato
+      <select name="contrato" onchange="this.form.submit()">
+        <option value="">— elegir —</option>
+        {% for k, label in contratos.items() %}<option value="{{ k }}" {{ 'selected' if vf.contrato == k }}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="pend-ext"><input type="checkbox" name="exterior" {{ 'checked' if vf.exterior }} onchange="this.form.submit()"> Viene del exterior</label>
+  </form>
+
+  {% if vf.contrato == 'CHARTER' %}
+  <p class="pend-grp">Documentos</p>
+  <ul class="pend-list">{% for i in c['items'] if i.group == 'Documentos' %}{{ casilla(vf.id, i) }}{% endfor %}</ul>
+  {% elif vf.contrato == 'OPA' %}
+  <p class="muted pend-grp-note">OPA: todavía sin lista definida.</p>
+  {% else %}
+  <p class="muted pend-grp-note">Elegí el tipo de contrato para abrir la lista.</p>
+  {% endif %}
+
+  {% if vf.exterior %}
+  <p class="pend-grp">Del exterior</p>
+  <ul class="pend-list">{% for i in c['items'] if i.group == 'Del exterior' %}{{ casilla(vf.id, i) }}{% endfor %}</ul>
+  {% endif %}
+
+  {% if c.tasks %}
+  <p class="pend-grp">Otras tareas</p>
+  <ul class="pend-list">
+    {% for t in c.tasks %}
+    <li class="pend-task {{ 'done' if t.done }}">
+      <form method="post" action="/pendientes/tareas/{{ t.id }}/toggle">
+        <input type="checkbox" {{ 'checked' if t.done }} onchange="this.form.submit()" aria-label="Hecha: {{ t.text }}">
+      </form>
+      <span class="pend-t">{{ t.text }}</span>
+      {% if t.done %}<span class="pend-meta">✓ {{ t.done_by }}{% if t.done_at %} · {{ t.done_at.strftime('%d/%m %H:%M') }}{% endif %}</span>{% endif %}
+      <form method="post" action="/pendientes/tareas/{{ t.id }}/borrar" onsubmit="return confirm('¿Borrar esta tarea?')">
+        <button class="mini danger" title="Borrar tarea">✕</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="/pendientes/{{ vf.id }}/tareas" class="pend-add">
+    <input name="text" placeholder="Otra tarea para este barco (opcional)" maxlength="300" required>
+    <button class="btn">Agregar</button>
+  </form>
+</section>
+{% else %}
+<p class="muted">Todavía no hay barcos con ETA dentro de los próximos {{ dias_aviso }} días.</p>
+{% endfor %}
+
+{% if later %}
+<details class="card" style="margin-top:8px">
+  <summary>Todavía no aparecen ({{ later|length }})</summary>
+  <ul class="pend-list">
+    {% for c in later %}
+    <li class="pend-task"><span class="pend-t"><a href="/barcos/{{ c.vf.id }}">#{{ c.vf.id }} · {{ c.vf.vessel_name|upper }}</a></span><span class="pend-meta">{{ c.arrival.label }}</span></li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+{% endblock %}
