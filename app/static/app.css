@@ -229,8 +229,22 @@ button.danger:hover { background: #fdecea; }
 .pend-task .pend-t { flex: 1; }
 .pend-task.done .pend-t { text-decoration: line-through; color: var(--muted); }
 .pend-task .pend-meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.pend-task .pend-t { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  /* en celular el "✓ usuario · fecha" baja a su propio renglon en vez de empujar la fila fuera de la pantalla */
+  .pend-task { flex-wrap: wrap; gap: 4px 10px; }
+  .pend-task .pend-t { flex: 1 1 0; min-width: 120px; }
+  .pend-task .pend-meta { order: 5; flex-basis: 100%; white-space: normal; padding-left: 30px; }
+  .pend-add { flex-direction: column; }
+  .pend-add input[name=text] { min-width: 0; width: 100%; }
+  .pend-config { gap: 12px; }
+  .pend-config select { min-width: 0; width: 100%; }
+  .pend-config label:first-child { flex: 1 1 100%; }
+  .pend-barco h2 { font-size: 17px; }
+}
 .pend-task .pend-due.late { color: #b91c1c; font-weight: 700; }
-.pend-task input[type=checkbox] { width: 20px; height: 20px; cursor: pointer; }
+.pend-task input[type=checkbox] { width: 20px !important; min-width: 0 !important; height: 20px; margin: 0; flex: none; cursor: pointer; }
+.pend-task > form { flex: none; display: flex; }
 .pend-config { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; margin: 0 0 12px; }
 .pend-config label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .pend-config select { min-width: 180px; }
