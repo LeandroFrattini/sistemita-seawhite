@@ -40,15 +40,20 @@
 
     <div data-pane="2" hidden>
       <h2>2 · Agencia a facturar</h2>
-      <p class="muted">Salen las agencias de Clientes. El fee y las cargas sociales vienen de <a href="/administracion/agencias">Agencias</a>; en esta proforma se pueden ajustar y queda guardado el valor usado.</p>
+      <p class="muted">Salen las agencias de Clientes. Tildá qué fee corresponde a este barco; el monto se puede modificar. Los datos vienen de <a href="/administracion/agencias">Agencias</a>.</p>
       <div class="pfn-grid">
         <label class="pfn-wide">Agencia
           <select id="ag-sel"></select>
         </label>
-        <label>Fee (USD)<input id="ag-fee" inputmode="decimal"></label>
-        <label>Cargas sociales (%)<input id="ag-pct" inputmode="decimal"></label>
       </div>
-      <p class="muted" id="ag-hint"></p>
+      <div id="ag-fees" class="pfn-fees"></div>
+      <button type="button" class="btn mini" id="ag-add-fee">+ Agregar otro renglón de fee</button>
+      <p class="pfn-total">Total fee: <b id="ag-total">USD 0</b></p>
+      <div class="pfn-grid">
+        <label>Cargas sociales Serenos (%)<input id="ag-ser" inputmode="decimal"></label>
+        <label>Cargas sociales Head Tally (%)<input id="ag-tal" inputmode="decimal"></label>
+      </div>
+      <p class="muted">El porcentaje se <b>suma</b> al costo: con 165 %, un costo de 100 pasa a valer 265.</p>
     </div>
 
     {% for n, titulo, sub in pasos if n > 2 %}
@@ -82,6 +87,13 @@
 .pfn-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .pfn-grid .pfn-wide { grid-column: 1 / -1; }
 .pfn-grid input, .pfn-grid select { width: 100%; min-width: 0; }
+.pfn-fees { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.pfn-fee { display: grid; grid-template-columns: 24px minmax(0, 1fr) 120px; gap: 10px; align-items: center; padding: 6px 8px; border: 1px solid var(--line-soft); border-radius: 10px; }
+.pfn-fee.on { background: #eef6ff; border-color: #9cc3ec; }
+.pfn-fee input[type=checkbox] { width: 20px !important; height: 20px; min-width: 0 !important; margin: 0; }
+.pfn-fee input[type=text], .pfn-fee input[inputmode] { width: 100%; min-width: 0; }
+.pfn-rev { font-size: 11px; color: #b45309; font-weight: 700; }
+.pfn-total { font-size: 15px; margin: 10px 0 14px; }
 .pfn-soon { padding: 18px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); }
 .pfn-nav { display: flex; justify-content: space-between; margin-top: 18px; }
 @media (max-width: 860px) {
@@ -96,41 +108,91 @@
 const AGENCIAS = {{ agencias|tojson }};
 const TOTAL = {{ pasos|length }};
 let step = 1;
+let FEES = [];  // renglones de fee de la agencia elegida: {texto, monto_usd, on, revisar, manual}
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const num = (v) => { const n = parseFloat(String(v).replace(",", ".")); return Number.isFinite(n) && n >= 0 ? n : 0; };
 const fmt = (n) => String(Math.round(n * 10000) / 10000).replace(".", ",");
+const sel = $("#ag-sel");
+
+function msg(t, ok = true) { const m = $("#pfn-msg"); m.textContent = t; m.style.color = ok ? "" : "#b91c1c"; }
 
 function getState() {
   return {
-    v: 1,
+    v: 2,
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
-      id: $("#ag-sel").value ? Number($("#ag-sel").value) : null,
-      nombre: $("#ag-sel").value ? $("#ag-sel").selectedOptions[0].textContent : "",
-      fee_usd: num($("#ag-fee").value),
-      cargas_pct: num($("#ag-pct").value),
+      id: sel.value ? Number(sel.value) : null,
+      nombre: sel.value ? sel.selectedOptions[0].textContent : "",
+      serenos_pct: num($("#ag-ser").value),
+      tally_pct: num($("#ag-tal").value),
+      fees: FEES.map((f) => ({ texto: f.texto, monto_usd: f.monto_usd, on: f.on })),
     },
   };
+}
+
+function updateTotal() {
+  const total = FEES.filter((f) => f.on).reduce((acc, f) => acc + f.monto_usd, 0);
+  $("#ag-total").textContent = "USD " + fmt(total);
+}
+
+function renderFees() {
+  const box = $("#ag-fees");
+  box.replaceChildren();
+  FEES.forEach((f) => {
+    const row = document.createElement("div");
+    row.className = "pfn-fee" + (f.on ? " on" : "");
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = f.on; cb.setAttribute("aria-label", "Aplica: " + f.texto);
+    cb.addEventListener("change", () => { f.on = cb.checked; row.classList.toggle("on", f.on); updateTotal(); });
+    const mid = document.createElement("div");
+    if (f.manual) {
+      const t = document.createElement("input");
+      t.type = "text"; t.value = f.texto; t.placeholder = "Descripción del fee"; t.maxLength = 200;
+      t.addEventListener("input", () => { f.texto = t.value; });
+      mid.appendChild(t);
+    } else {
+      const sp = document.createElement("span");
+      sp.textContent = f.texto;
+      mid.appendChild(sp);
+      if (f.revisar) {
+        const r = document.createElement("div");
+        r.className = "pfn-rev"; r.textContent = "⚠ revisar el monto";
+        mid.appendChild(r);
+      }
+    }
+    const m = document.createElement("input");
+    m.inputMode = "decimal"; m.value = f.monto_usd ? fmt(f.monto_usd) : ""; m.placeholder = "USD"; m.setAttribute("aria-label", "Monto USD");
+    m.addEventListener("input", () => { f.monto_usd = num(m.value); updateTotal(); });
+    row.append(cb, mid, m);
+    box.appendChild(row);
+  });
+  if (!FEES.length) {
+    const p = document.createElement("p");
+    p.className = "muted";
+    p.textContent = sel.value ? "Esta agencia no tiene fee cargado. Cargalo en Agencias o agregá un renglón acá." : "Elegí una agencia.";
+    box.appendChild(p);
+  }
+  updateTotal();
 }
 
 function setState(s) {
   $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
   $("#dolar-fecha").value = s.dolar.fecha || "";
-  const sel = $("#ag-sel");
   const hay = AGENCIAS.some((a) => a.id === s.agencia.id);
   if (!hay && s.agencia.nombre) {  // la agencia ya no esta en Clientes: se conserva igual, con lo que tenia la proforma
     sel.add(new Option(s.agencia.nombre + " (ya no figura en Clientes)", s.agencia.id ?? "", true, true));
   }
   sel.value = s.agencia.id ?? "";
-  $("#ag-fee").value = s.agencia.fee_usd ? fmt(s.agencia.fee_usd) : "";
-  $("#ag-pct").value = s.agencia.cargas_pct ? fmt(s.agencia.cargas_pct) : "";
-  hint();
-}
-
-function hint() {
-  const a = AGENCIAS.find((x) => String(x.id) === $("#ag-sel").value);
-  $("#ag-hint").textContent = a ? `Valores de ${a.nombre} en Agencias: fee USD ${fmt(a.fee_usd)} · cargas sociales ${fmt(a.cargas_pct)} %.` : "";
+  $("#ag-ser").value = s.agencia.serenos_pct ? fmt(s.agencia.serenos_pct) : "";
+  $("#ag-tal").value = s.agencia.tally_pct ? fmt(s.agencia.tally_pct) : "";
+  const actual = AGENCIAS.find((a) => a.id === s.agencia.id);
+  // los renglones guardados en la proforma mandan (foto de ese momento); si ya no existen en la agencia se muestran como manuales
+  FEES = s.agencia.fees.map((f) => ({
+    texto: f.texto, monto_usd: f.monto_usd, on: f.on, revisar: false,
+    manual: !(actual && actual.fees.some((x) => x.texto === f.texto)),
+  }));
+  renderFees();
 }
 
 function render() {
@@ -151,17 +213,20 @@ $("#pfn-prev").addEventListener("click", () => { step = Math.max(1, step - 1); r
 $("#pfn-next").addEventListener("click", () => { step = Math.min(TOTAL, step + 1); render(); });
 document.addEventListener("input", render);
 
-const sel = $("#ag-sel");
 sel.add(new Option("— Elegí una agencia —", ""));
 AGENCIAS.forEach((a) => sel.add(new Option(a.nombre, a.id)));
 sel.addEventListener("change", () => {
   const a = AGENCIAS.find((x) => String(x.id) === sel.value);
-  $("#ag-fee").value = a ? fmt(a.fee_usd) : "";
-  $("#ag-pct").value = a ? fmt(a.cargas_pct) : "";
-  hint(); render();
+  FEES = a ? a.fees.map((f) => ({ texto: f.texto, monto_usd: f.monto_usd, on: false, revisar: f.revisar, manual: false })) : [];
+  $("#ag-ser").value = a ? fmt(a.serenos_pct) : "";
+  $("#ag-tal").value = a ? fmt(a.tally_pct) : "";
+  renderFees(); render();
 });
-
-function msg(t, ok = true) { const m = $("#pfn-msg"); m.textContent = t; m.style.color = ok ? "" : "#b91c1c"; }
+$("#ag-add-fee").addEventListener("click", () => {
+  if (!sel.value) { msg("Primero elegí la agencia.", false); return; }
+  FEES.push({ texto: "", monto_usd: 0, on: true, revisar: false, manual: true });
+  renderFees(); render();
+});
 
 $("#pfn-bajar").addEventListener("click", async () => {
   const s = getState();
@@ -191,6 +256,7 @@ $("#pfn-subir").addEventListener("change", async (ev) => {
   msg("Proforma cargada. Podés modificar lo que necesites y volver a bajarla.");
 });
 
+renderFees();
 render();
 </script>
 {% endblock %}

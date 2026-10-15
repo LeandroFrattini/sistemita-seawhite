@@ -99,9 +99,14 @@ class Client(Base):
     client_type: Mapped[str] = mapped_column(String(20), default="AGENCY")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str] = mapped_column(Text, default="")
-    # Proforma final (Administracion): fee fijo en USD y cargas sociales propias (None = usa el general)
+    # Proforma final (Administracion). fee_usd ya no se usa (los fee son renglones, ver AgenciaFee).
+    # Cargas sociales: % que se SUMA al costo (165 -> 100 pasa a valer 265). None = usa el general.
     fee_usd: Mapped[float] = mapped_column(Float, default=0)
-    cargas_sociales_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    cargas_sociales_pct: Mapped[float | None] = mapped_column(Float, nullable=True)  # serenos
+    cargas_tally_pct: Mapped[float | None] = mapped_column(Float, nullable=True)  # head tally ("encargado")
+    fees: Mapped[list["AgenciaFee"]] = relationship(
+        cascade="all, delete-orphan", order_by="AgenciaFee.orden, AgenciaFee.id"
+    )
 
     @property
     def display_to(self) -> str:
@@ -115,6 +120,20 @@ class Client(Base):
     def email_list(self) -> list[str]:
         raw = (self.emails or "").replace(";", ",").replace("\n", ",")
         return [e.strip() for e in raw.split(",") if e.strip()]
+
+
+class AgenciaFee(Base):
+    """Renglon de fee de una agencia, escrito tal cual lo tienen (cada agencia tiene varios).
+    En la proforma final se tilda cuales aplican a cada barco y el monto se puede modificar."""
+
+    __tablename__ = "agencia_fees"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), index=True)
+    texto: Mapped[str] = mapped_column(String(200), default="")
+    monto_usd: Mapped[float] = mapped_column(Float, default=0)
+    revisar: Mapped[bool] = mapped_column(Boolean, default=False)  # el monto sugerido no es claro: confirmar
+    orden: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class Lineup(Base):

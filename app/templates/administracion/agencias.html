@@ -11,44 +11,78 @@
   </div>
 </div>
 
-{% if guardado %}<p class="flash-inline" style="background:#ecfdf3;border-color:#a6e0bd;color:#166534">Guardado.</p>{% endif %}
+{% if guardado %}<p class="flash-inline" style="background:#ecfdf3;border-color:#a6e0bd;color:#166534">Guardado{% if cargadas != '' %}. Se cargaron los datos de la lista 2026 en {{ cargadas }} agencia{{ 's' if cargadas != '1' }}{% endif %}.</p>{% endif %}
 
-<form method="post" action="/administracion/agencias/guardar" class="card">
+<div class="card ag-lista">
+  <b>Lista 2026</b>
+  <span class="muted">Carga los fee y las cargas sociales de la lista "Clientes 2026", tal cual, en las agencias que todavía no tienen fee. Las que ya tienen no se tocan; los montos poco claros quedan marcados «revisar».</span>
+  <form method="post" action="/administracion/agencias/cargar-lista-2026"><button class="btn">Cargar lista 2026</button></form>
+</div>
+
+<form method="post" action="/administracion/agencias/guardar" class="card" style="margin-top:14px">
   <div class="ag-general">
-    <label>Cargas sociales general (%)
-      <input name="general" inputmode="decimal" value="{{ '%g'|format(general) }}" style="max-width:120px">
-    </label>
-    <span class="muted">Se usa en todas las agencias que no tengan un porcentaje propio.</span>
+    <label>Cargas sociales general · Serenos (%)<input name="g_serenos" inputmode="decimal" value="{{ '%g'|format(g_ser) }}"></label>
+    <label>Cargas sociales general · Head Tally (%)<input name="g_tally" inputmode="decimal" value="{{ '%g'|format(g_tal) }}"></label>
+    <span class="muted">Se usan en las agencias que no tengan un porcentaje propio. El porcentaje se <b>suma</b> al costo: con 165, un costo de 100 pasa a valer 265.</span>
   </div>
 
-  <table class="list" style="margin-top:12px">
-    <thead><tr><th>Agencia</th><th>Fee (USD)</th><th>Cargas sociales (%)</th></tr></thead>
-    <tbody>
-    {% for c in agencias %}
-      <tr>
-        <td><b>{{ c.name }}</b></td>
-        <td><input name="fee_{{ c.id }}" inputmode="decimal" value="{{ '%g'|format(c.fee_usd or 0) }}" aria-label="Fee de {{ c.name }}"></td>
-        <td><input name="pct_{{ c.id }}" inputmode="decimal" value="{{ '%g'|format(c.cargas_sociales_pct) if c.cargas_sociales_pct is not none else '' }}"
-                   placeholder="general ({{ '%g'|format(general) }})" aria-label="Cargas sociales de {{ c.name }}"></td>
-      </tr>
-    {% else %}
-      <tr><td colspan="3" class="muted">No hay agencias cargadas en Clientes.</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  <p class="muted" style="margin:8px 0 12px">Salen solas las agencias de <a href="/clients">Clientes</a> (no las estibas). Dejá vacío el porcentaje para usar el general.</p>
+  {% if sin_fee %}<p class="muted" style="margin:12px 0 0">Sin fee cargado: <b>{{ sin_fee|join(', ') }}</b>.</p>{% endif %}
+
+  {% for c in agencias %}
+  <details class="ag-card" {{ 'open' if not c.fees }}>
+    <summary><b>{{ c.name }}</b>
+      <span class="muted">{% if c.fees %}{{ c.fees|length }} fee{% else %}sin fee{% endif %}{% if c.fees|selectattr('revisar')|list %} · <span class="ag-rev">revisar montos</span>{% endif %}</span>
+    </summary>
+    <div class="ag-pcts">
+      <label>Serenos (%)<input name="serenos_{{ c.id }}" inputmode="decimal" value="{{ '%g'|format(c.cargas_sociales_pct) if c.cargas_sociales_pct is not none else '' }}" placeholder="general ({{ '%g'|format(g_ser) }})"></label>
+      <label>Head Tally (%)<input name="tally_{{ c.id }}" inputmode="decimal" value="{{ '%g'|format(c.cargas_tally_pct) if c.cargas_tally_pct is not none else '' }}" placeholder="general ({{ '%g'|format(g_tal) }})"></label>
+    </div>
+    <div class="ag-fees">
+      <div class="ag-fee ag-fee-head"><span>Fee (escrito tal cual)</span><span>Monto USD</span><span>Revisar</span></div>
+      {% for f in c.fees %}
+      <div class="ag-fee">
+        <input name="fee_{{ c.id }}_{{ loop.index0 }}_t" value="{{ f.texto }}" maxlength="200" aria-label="Fee de {{ c.name }}">
+        <input name="fee_{{ c.id }}_{{ loop.index0 }}_m" inputmode="decimal" value="{{ '%g'|format(f.monto_usd or 0) }}" aria-label="Monto">
+        <label class="ag-chk"><input type="checkbox" name="fee_{{ c.id }}_{{ loop.index0 }}_r" {{ 'checked' if f.revisar }}> revisar</label>
+      </div>
+      {% endfor %}
+      {% for k in range(c.fees|length, c.fees|length + 2) %}
+      <div class="ag-fee ag-fee-new">
+        <input name="fee_{{ c.id }}_{{ k }}_t" maxlength="200" placeholder="Nuevo fee (ej. FEE BUNKER USD 450)" aria-label="Nuevo fee de {{ c.name }}">
+        <input name="fee_{{ c.id }}_{{ k }}_m" inputmode="decimal" placeholder="0" aria-label="Monto">
+        <label class="ag-chk"><input type="checkbox" name="fee_{{ c.id }}_{{ k }}_r"> revisar</label>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% else %}
+  <p class="muted">No hay agencias cargadas en Clientes.</p>
+  {% endfor %}
+
+  <p class="muted" style="margin:10px 0 12px">Salen solas las agencias de <a href="/clients">Clientes</a> (no las estibas). Para borrar un fee, vaciá su texto y guardá.</p>
   <button class="btn primary">Guardar</button>
 </form>
 
 <style>
 .ag-general { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
-.ag-general label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
-.list input { max-width: 160px; }
+.ag-general label, .ag-pcts label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.ag-general input, .ag-pcts input { max-width: 150px; }
+.ag-lista { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ag-lista .muted { flex: 1; min-width: 240px; }
+.ag-lista form { margin: 0; }
+.ag-card { border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 14px; margin-top: 12px; background: #fff; }
+.ag-card summary { cursor: pointer; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.ag-rev { color: #b45309; font-weight: 700; }
+.ag-pcts { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0; }
+.ag-fee { display: grid; grid-template-columns: minmax(0, 1fr) 110px 90px; gap: 8px; align-items: center; margin-bottom: 6px; }
+.ag-fee-head { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.ag-fee input[name$="_t"], .ag-fee input[name$="_m"] { width: 100%; min-width: 0; }
+.ag-chk { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.ag-chk input { width: 16px !important; height: 16px; min-width: 0 !important; margin: 0; flex: none; }
+.ag-fee-new input { background: #fafcff; }
 @media (max-width: 640px) {
-  .list { table-layout: fixed; width: 100%; }
-  .list th, .list td { padding-left: 6px; padding-right: 6px; overflow-wrap: anywhere; }
-  .list th:first-child { width: 38%; }
-  .list input { max-width: 100%; width: 100%; min-width: 0; }
+  .ag-fee { grid-template-columns: minmax(0, 1fr) 90px; }
+  .ag-fee .ag-chk, .ag-fee-head span:nth-child(3) { grid-column: 1 / -1; }
 }
 </style>
 {% endblock %}

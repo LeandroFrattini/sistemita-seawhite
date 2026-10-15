@@ -11,20 +11,42 @@ from sqlalchemy.orm import Session
 from .. import proforma_final as pf
 from ..auth import administracion_required
 from ..database import get_db
-from ..models import AppSetting, Client, Feriado, User
+from ..models import AgenciaFee, AppSetting, Client, Feriado, User
+from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
 from ..templating import templates
 
 router = APIRouter(prefix="/administracion")
 
-CARGAS_GENERAL_KEY = "proforma_final_cargas_sociales_general"
+CARGAS_SERENOS_KEY = "proforma_final_cargas_serenos_general"
+CARGAS_TALLY_KEY = "proforma_final_cargas_tally_general"
+_CARGAS_VIEJA_KEY = "proforma_final_cargas_sociales_general"  # primera version: un solo porcentaje
 
 
-def cargas_general(db: Session) -> float:
-    row = db.get(AppSetting, CARGAS_GENERAL_KEY)
+def _setting_float(db: Session, key: str) -> float | None:
+    row = db.get(AppSetting, key)
+    if not row:
+        return None
     try:
-        return float(row.value) if row else 0.0
+        return float(row.value)
     except ValueError:
-        return 0.0
+        return None
+
+
+def cargas_generales(db: Session) -> tuple[float, float]:
+    """(serenos, head tally) generales: los que usa toda agencia sin porcentaje propio."""
+    serenos = _setting_float(db, CARGAS_SERENOS_KEY)
+    if serenos is None:
+        serenos = _setting_float(db, _CARGAS_VIEJA_KEY) or 0.0
+    tally = _setting_float(db, CARGAS_TALLY_KEY)
+    return serenos, (tally if tally is not None else serenos)
+
+
+def _set_setting(db: Session, key: str, value: float) -> None:
+    row = db.get(AppSetting, key)
+    if row:
+        row.value = str(value)
+    else:
+        db.add(AppSetting(key=key, value=str(value)))
 
 
 def _agencias(db: Session) -> list[Client]:
@@ -40,7 +62,7 @@ def _pct(raw: str) -> float | None:
         n = float(raw)
     except ValueError:
         return None
-    return n if 0 <= n <= 100 else None
+    return n if 0 <= n <= 1000 else None
 
 
 def _usd(raw: str) -> float:
@@ -54,10 +76,12 @@ def _usd(raw: str) -> float:
 # ------------------------------------------------------------ asistente ----
 @router.get("/proforma-final", response_class=HTMLResponse)
 def proforma_final_page(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
-    general = cargas_general(db)
+    g_ser, g_tal = cargas_generales(db)
     agencias = [{
-        "id": c.id, "nombre": c.name, "fee_usd": c.fee_usd or 0,
-        "cargas_pct": c.cargas_sociales_pct if c.cargas_sociales_pct is not None else general,
+        "id": c.id, "nombre": c.name,
+        "serenos_pct": c.cargas_sociales_pct if c.cargas_sociales_pct is not None else g_ser,
+        "tally_pct": c.cargas_tally_pct if c.cargas_tally_pct is not None else g_tal,
+        "fees": [{"texto": f.texto, "monto_usd": f.monto_usd, "revisar": f.revisar} for f in c.fees],
     } for c in _agencias(db)]
     return templates.TemplateResponse(request, "administracion/proforma_final.html", {
         "user": user, "agencias": agencias, "pasos": pf.PASOS, "hoy": date.today().isoformat(),
@@ -87,25 +111,58 @@ async def proforma_final_leer(archivo: UploadFile, user: User = Depends(administ
 # ------------------------------------------------------------- agencias ----
 @router.get("/agencias", response_class=HTMLResponse)
 def agencias_page(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    g_ser, g_tal = cargas_generales(db)
+    agencias = _agencias(db)
+    sin_fee = [c.name for c in agencias if not c.fees]
     return templates.TemplateResponse(request, "administracion/agencias.html", {
-        "user": user, "agencias": _agencias(db), "general": cargas_general(db), "guardado": request.query_params.get("ok") == "1",
+        "user": user, "agencias": agencias, "g_ser": g_ser, "g_tal": g_tal, "sin_fee": sin_fee,
+        "guardado": request.query_params.get("ok") == "1", "cargadas": request.query_params.get("cargadas", ""),
     })
 
 
 @router.post("/agencias/guardar")
 async def agencias_guardar(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     form = await request.form()
-    general = _pct(str(form.get("general", ""))) or 0.0
-    row = db.get(AppSetting, CARGAS_GENERAL_KEY)
-    if row:
-        row.value = str(general)
-    else:
-        db.add(AppSetting(key=CARGAS_GENERAL_KEY, value=str(general)))
+    _set_setting(db, CARGAS_SERENOS_KEY, _pct(str(form.get("g_serenos", ""))) or 0.0)
+    _set_setting(db, CARGAS_TALLY_KEY, _pct(str(form.get("g_tally", ""))) or 0.0)
     for c in _agencias(db):
-        c.fee_usd = _usd(str(form.get(f"fee_{c.id}", "")))
-        c.cargas_sociales_pct = _pct(str(form.get(f"pct_{c.id}", "")))  # vacio = usa el general
+        c.cargas_sociales_pct = _pct(str(form.get(f"serenos_{c.id}", "")))  # vacio = usa el general
+        c.cargas_tally_pct = _pct(str(form.get(f"tally_{c.id}", "")))
+        # los renglones de fee se rearman en el orden en que llegan; un renglon sin texto se descarta
+        c.fees.clear()
+        k = 0
+        while f"fee_{c.id}_{k}_t" in form:
+            texto = " ".join(str(form.get(f"fee_{c.id}_{k}_t", "")).split())[:200]
+            if texto:
+                c.fees.append(AgenciaFee(
+                    texto=texto, monto_usd=_usd(str(form.get(f"fee_{c.id}_{k}_m", ""))),
+                    revisar=form.get(f"fee_{c.id}_{k}_r") == "on", orden=len(c.fees),
+                ))
+            k += 1
     db.commit()
     return RedirectResponse("/administracion/agencias?ok=1", status_code=303)
+
+
+@router.post("/agencias/cargar-lista-2026")
+def agencias_cargar_lista(db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Carga los fee y cargas sociales de la lista "Clientes 2026" en las agencias que todavia no tienen fee
+    (las que ya tienen renglones no se tocan). Los montos poco claros quedan marcados para revisar."""
+    cargadas = []
+    for c in _agencias(db):
+        entrada = buscar_en_lista(c.name)
+        if not entrada or c.fees:
+            continue
+        _, serenos, tally, renglones = entrada
+        for i, texto in enumerate(renglones):
+            monto, revisar = sugerir_monto(texto)
+            c.fees.append(AgenciaFee(texto=texto, monto_usd=monto, revisar=revisar, orden=i))
+        if c.cargas_sociales_pct is None:
+            c.cargas_sociales_pct = serenos
+        if c.cargas_tally_pct is None:
+            c.cargas_tally_pct = tally
+        cargadas.append(c.name)
+    db.commit()
+    return RedirectResponse(f"/administracion/agencias?ok=1&cargadas={len(cargadas)}", status_code=303)
 
 
 # ------------------------------------------------------------- calendario --

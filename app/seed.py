@@ -110,6 +110,7 @@ _MIGRATIONS = [
     ("vessel_files", "imo", "TEXT DEFAULT ''"),
     ("clients", "fee_usd", "FLOAT DEFAULT 0"),
     ("clients", "cargas_sociales_pct", "FLOAT"),
+    ("clients", "cargas_tally_pct", "FLOAT"),
     ("vessel_files", "contrato", "TEXT DEFAULT ''"),
     ("vessel_files", "exterior", "BOOLEAN DEFAULT FALSE"),
     ("vessel_files", "checklist", "TEXT DEFAULT ''"),

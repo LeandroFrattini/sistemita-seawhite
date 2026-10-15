@@ -14,11 +14,12 @@ from datetime import date
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-VERSION = 1
+VERSION = 2
 MARCA = "SEAWHITE-PROFORMA-FINAL"
 HOJA_ESTADO = "_estado"
 MAX_BYTES = 5 * 1024 * 1024
 _CHUNK = 30000  # una celda de Excel admite 32767 caracteres
+MAX_FEES = 40
 
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
@@ -41,6 +42,11 @@ def tipo_dia(d: date, feriados: set[str]) -> str:
     if d.isoformat() in feriados:
         return "FERIADO"
     return {5: "SABADO", 6: "DOMINGO"}.get(d.weekday(), "SEMANA")
+
+
+def con_cargas(costo: float, pct: float) -> float:
+    """Costo con cargas sociales: el % se SUMA (165 sobre 100 da 265)."""
+    return costo * (1 + pct / 100)
 
 
 def _num(v, tope: float) -> float:
@@ -67,6 +73,17 @@ def clean_state(raw) -> dict:
         ag_id = int(ag.get("id")) if ag.get("id") not in (None, "") else None
     except (TypeError, ValueError):
         ag_id = None
+    fees = []
+    for f in (ag.get("fees") if isinstance(ag.get("fees"), list) else [])[:MAX_FEES]:
+        if not isinstance(f, dict):
+            continue
+        texto = " ".join(str(f.get("texto") or "").split())[:200]
+        if texto:
+            fees.append({"texto": texto, "monto_usd": _num(f.get("monto_usd"), 10_000_000), "on": bool(f.get("on"))})
+    # v1 tenia un solo "cargas_pct" y un solo "fee_usd": se leen como serenos y como un renglon de fee
+    serenos = ag.get("serenos_pct", ag.get("cargas_pct"))
+    if not fees and _num(ag.get("fee_usd"), 10_000_000):
+        fees.append({"texto": "FEE", "monto_usd": _num(ag.get("fee_usd"), 10_000_000), "on": True})
     return {
         "v": VERSION,
         "dolar": {
@@ -77,10 +94,15 @@ def clean_state(raw) -> dict:
         "agencia": {
             "id": ag_id,
             "nombre": str(ag.get("nombre") or "").strip()[:120],
-            "fee_usd": _num(ag.get("fee_usd"), 10_000_000),
-            "cargas_pct": _num(ag.get("cargas_pct"), 100),
+            "serenos_pct": _num(serenos, 1000),
+            "tally_pct": _num(ag.get("tally_pct"), 1000),
+            "fees": fees,
         },
     }
+
+
+def total_fee(state: dict) -> float:
+    return round(sum(f["monto_usd"] for f in state["agencia"]["fees"] if f["on"]), 2)
 
 
 def build_excel(state: dict) -> bytes:
@@ -98,17 +120,35 @@ def build_excel(state: dict) -> bytes:
         ("Dólar (divisa BNA)", s["dolar"]["valor"] or "", "Cotización del " + (s["dolar"]["fecha"] or "—")
          + (" · traído del BNA" if s["dolar"]["origen"] == "BNA" else " · cargado a mano")),
         ("Agencia a facturar", s["agencia"]["nombre"], ""),
-        ("Fee (USD)", s["agencia"]["fee_usd"], ""),
-        ("Cargas sociales (%)", s["agencia"]["cargas_pct"], "Se suman al final, sobre Tally y Serenos"),
     ]
-    for i, (a, b, c) in enumerate(filas, start=3):
-        ws.cell(i, 1, a).font = Font(bold=True)
-        ws.cell(i, 2, b)
-        ws.cell(i, 3, c)
-    ws["A8"] = "Los pasos 3 a 10 se suman a esta planilla a medida que se arman en el sistema."
-    ws["A8"].alignment = Alignment(wrap_text=True)
-    ws.merge_cells("A8:C8")
-    ws.column_dimensions["A"].width = 26
+    r = 3
+    for a, b, c in filas:
+        ws.cell(r, 1, a).font = Font(bold=True)
+        ws.cell(r, 2, b)
+        ws.cell(r, 3, c)
+        r += 1
+    ws.cell(r, 1, "Fee aplicado").font = Font(bold=True)
+    elegidos = [f for f in s["agencia"]["fees"] if f["on"]]
+    if not elegidos:
+        ws.cell(r, 2, "—")
+        r += 1
+    for f in elegidos:
+        ws.cell(r, 2, f["monto_usd"])
+        ws.cell(r, 3, f["texto"])
+        r += 1
+    ws.cell(r, 1, "Total fee (USD)").font = Font(bold=True)
+    ws.cell(r, 2, total_fee(s))
+    r += 1
+    ws.cell(r, 1, "Cargas sociales Serenos (%)").font = Font(bold=True)
+    ws.cell(r, 2, s["agencia"]["serenos_pct"])
+    ws.cell(r, 3, "Se suman al costo: sobre 100 con 165 % da 265")
+    r += 1
+    ws.cell(r, 1, "Cargas sociales Head Tally (%)").font = Font(bold=True)
+    ws.cell(r, 2, s["agencia"]["tally_pct"])
+    r += 2
+    ws.cell(r, 1, "Los pasos 3 a 10 se suman a esta planilla a medida que se arman en el sistema.").alignment = Alignment(wrap_text=True)
+    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
+    ws.column_dimensions["A"].width = 30
     ws.column_dimensions["B"].width = 28
     ws.column_dimensions["C"].width = 52
 
