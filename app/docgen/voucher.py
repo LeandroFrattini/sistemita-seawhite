@@ -2,9 +2,10 @@
 
 Dos formatos: el general de Sea White (Excel, REG-AM-36, para todas las agencias) y el de OCEANWAY (Word).
 Todos los conceptos vienen tildados de entrada y se destildan los que no corresponden. Hay tres tipos:
-- simple: una linea; opcionalmente "AT BUOY 11".
+- simple: una linea.
 - group: CUSTOM OVERTIME, con sub-conceptos (Entrance, Loading, Permanence, Bunkering, ...) que se tildan por separado.
-- dir: migraciones y taxis, a veces solo IN, a veces solo OUT, a veces uno de los dos en boya (mas caro).
+- dir: migraciones y taxis, a veces solo IN, a veces solo OUT. Solo las MIGRACIONES pueden ir en boya ("AT BUOY 11",
+  mas caro), cada direccion por separado; ningun otro concepto lleva "AT BUOY 11".
 Ademas se pueden agregar conceptos a mano (los que ya se usaron quedan guardados para ofrecerlos de nuevo).
 """
 from __future__ import annotations
@@ -39,8 +40,9 @@ def _g(key, prefix, subs):
     return {"key": key, "tipo": "group", "prefix": prefix, "subs": subs}
 
 
-def _d(key, base):
-    return {"key": key, "tipo": "dir", "base": base}
+def _d(key, base, boya=False):
+    """Migraciones y taxis: IN y OUT. Solo las migraciones (boya=True) pueden ir 'AT BUOY 11' (en boya cuesta mas)."""
+    return {"key": key, "tipo": "dir", "base": base, "boya": boya}
 
 
 # Orden y redaccion tal cual los documentos de cada formato.
@@ -57,7 +59,7 @@ CATALOGO = {
         _s("bank", "BANK COMISION / LAW 25413 / ETC"),
         _g("custom", "CUSTOM OVERTIME FOR ", CUSTOM_SUBS),
         _s("senasa", "EXPENSES FOR COMPULSORY SENASA INSPECTION (REGULATION 714/2010)"),
-        _d("immigration", "IMMIGRATION TAX EXPENSES"),
+        _d("immigration", "IMMIGRATION TAX EXPENSES", boya=True),
         _d("taxi_immigration", "TAXI HIRED FOR IMMIGRATION OFFICER"),
         _s("free_pratique", "FREE PRATIQUE TAX"),
         _s("taxi_sanitary", "TAXI HIRED FOR SANITARY AUTHORITY"),
@@ -73,7 +75,7 @@ CATALOGO = {
         _s("watchman", "WATCHMAN EXPENSES"),
         _s("osro", "OSRO CERTIFICATE FOR BUNKER"),
         _g("custom", "CUSTOM OVERTIME FOR ", CUSTOM_SUBS[:5]),
-        _d("immigration", "IMMIGRATION EXPENSES"),
+        _d("immigration", "IMMIGRATION EXPENSES", boya=True),
         _s("sanitary", "SANITARY FREE PRATIQUE"),
         _d("taxi_immigration", "TAXI HIRED FOR IMMIGRATION"),
         _s("taxi_sanitary", "TAXI HIRED FOR SANITARY AUTHORITIES"),
@@ -113,23 +115,24 @@ def normalizar(formato: str, raw) -> dict:
             continue
         dst = out["c"][c["key"]]
         dst["on"] = bool(src.get("on"))
-        if c["tipo"] == "simple":
-            dst["buoy"] = bool(src.get("buoy"))
-        elif c["tipo"] == "group":
+        if c["tipo"] == "group":
             subs = src.get("subs") if isinstance(src.get("subs"), dict) else {}
             for name in c["subs"]:
                 if isinstance(subs.get(name), dict):
-                    dst["subs"][name] = {"on": bool(subs[name].get("on")), "buoy": bool(subs[name].get("buoy"))}
-        else:
-            for k in ("in", "out", "in_buoy", "out_buoy"):
+                    dst["subs"][name] = {"on": bool(subs[name].get("on")), "buoy": False}
+        elif c["tipo"] == "dir":
+            for k in ("in", "out"):
                 dst[k] = bool(src.get(k))
+            if c.get("boya"):  # solo migraciones
+                dst["in_buoy"], dst["out_buoy"] = bool(src.get("in_buoy")), bool(src.get("out_buoy"))
+        # simple: sin boya (se descarta si venia de un voucher viejo)
     extra = []
     for e in (raw.get("extra") if isinstance(raw.get("extra"), list) else [])[:MAX_EXTRA]:
         if not isinstance(e, dict):
             continue
         t = " ".join(str(e.get("t") or "").split())[:200]
         if t:
-            extra.append({"t": t.upper(), "on": bool(e.get("on", True)), "buoy": bool(e.get("buoy"))})
+            extra.append({"t": t.upper(), "on": bool(e.get("on", True)), "buoy": False})
     out["extra"] = extra
     return out
 

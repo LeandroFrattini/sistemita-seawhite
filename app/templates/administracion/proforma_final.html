@@ -68,7 +68,51 @@
       <p class="muted">El porcentaje se <b>suma</b> al costo: con 165 %, un costo de 100 pasa a valer 265.</p>
     </div>
 
-    {% for n, titulo, sub in pasos if n > 2 %}
+    <div data-pane="3" hidden>
+      <h2>3 · Datos del buque</h2>
+      <p class="muted" id="b-origen">Elegí el barco en el paso 1: se traen los horarios que cargó Operaciones. Podés corregir lo que haga falta.</p>
+
+      <h3 class="pfn-sub">Horarios</h3>
+      <div class="pfn-grid">
+        <label>Amarre (berthing)<input type="datetime-local" id="b-amarre"></label>
+        <label>Inicio de operación<input type="datetime-local" id="b-inicio"></label>
+        <label>Final de operación<input type="datetime-local" id="b-fin"></label>
+        <label>Zarpe<input type="datetime-local" id="b-zarpe"></label>
+        <label>Cantidad operada<input id="b-cantidad" maxlength="40" placeholder="ej. 24800"></label>
+      </div>
+
+      <h3 class="pfn-sub">Datos del buque</h3>
+      <div class="pfn-grid">
+        <label>TRN<input id="b-trn" inputmode="decimal" placeholder="ej. 21173"></label>
+        <label>TRB<input id="b-trb" inputmode="decimal" placeholder="ej. 38000"></label>
+        <label>Eslora (m)<input id="b-eslora" inputmode="decimal" placeholder="ej. 189,9"></label>
+        <label>Manga (m)<input id="b-manga" inputmode="decimal" placeholder="ej. 32,2"></label>
+        <label>Puntal (m)<input id="b-puntal" inputmode="decimal" placeholder="ej. 18,5"></label>
+        <label>Bandera<input id="b-bandera" maxlength="80" placeholder="ej. Panamá"></label>
+      </div>
+      <p class="muted" id="b-trn-nota">El TRN es la base de varios cálculos de los pasos siguientes.</p>
+
+      <h3 class="pfn-sub">Calados (en pies)</h3>
+      <div class="pfn-grid">
+        <label>Calado de entrada (pies)<input id="b-cal-ent" inputmode="decimal" placeholder="ej. 31,5"></label>
+        <label>Calado de salida (pies)<input id="b-cal-sal" inputmode="decimal" placeholder="ej. 38,2"></label>
+      </div>
+      <p class="muted" id="b-calado-nota">Con los calados se calcula el practicaje (paso 4), con la misma tabla de coeficientes del proformador inicial.</p>
+
+      <h3 class="pfn-sub">Servicios del voucher</h3>
+      <div id="b-servicios" class="pfn-servicios"></div>
+    </div>
+
+    <div data-pane="4" hidden>
+      <h2>4 · Practicaje</h2>
+      <p class="muted">Entrada y salida por separado, cada una con su calado. Es la misma fórmula y la misma tabla de coeficientes de calado del proformador inicial (se editan en <a href="/proformador/config/formulas">Proformador → Fórmulas</a>).
+      Los calados, la eslora, la manga y el puntal se cargan en el <a href="#" id="pr-ir3">paso 3</a>.</p>
+      <div id="pr-resumen" class="pfn-datos"></div>
+      <div id="pr-box" class="pfn-pract-box"></div>
+      <p class="pfn-total">Total practicaje: <b id="pr-total">USD 0</b></p>
+    </div>
+
+    {% for n, titulo, sub in pasos if n > 4 %}
     <div data-pane="{{ n }}" hidden>
       <h2>{{ n }} · {{ titulo }}</h2>
       <p class="muted">{{ sub }}.</p>
@@ -107,6 +151,21 @@
 .pfn-rev { font-size: 11px; color: #b45309; font-weight: 700; }
 .pfn-total { font-size: 15px; margin: 10px 0 14px; }
 .pfn-grid[hidden], .pfn-datos[hidden] { display: none; }
+.pfn-servicios { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.pfn-servicios .pfn-chip { display: inline-block; align-self: flex-start; padding: 3px 10px; border-radius: 999px; background: #e3ecf8; color: #1b3a63; font-size: 12.5px; }
+.pfn-servicios .pfn-chip.turno { background: #fef3c7; color: #92400e; }
+.pfn-pract-box { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 10px 0; }
+.pfn-pract { border: 1px solid var(--line-soft); border-radius: 12px; padding: 14px 16px; background: #fff; }
+.pfn-pract h4 { margin: 0 0 8px; font-size: 15px; color: var(--navy, #12355f); }
+.pfn-pract table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-bottom: 10px; }
+.pfn-pract td { padding: 3px 0; }
+.pfn-pract td:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pfn-pract tr.sub td { border-top: 1px solid var(--line-soft); font-weight: 700; }
+.pfn-pract label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.pfn-pract input { width: 100%; min-width: 0; font-weight: 700; }
+.pfn-pract .pfn-mod { font-size: 12px; color: #92400e; margin-top: 6px; }
+.pfn-pract .pfn-mod button { border: 0; background: none; color: var(--blue-dark, #154a86); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
+.pfn-pract .falta { color: #b45309; font-weight: 600; font-size: 13.5px; }
 .pfn-sub { margin: 18px 0 4px; font-size: 15px; color: var(--navy, #12355f); }
 .pfn-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; padding: 12px 14px; margin-bottom: 8px; background: #f4f8fd; border: 1px solid var(--line-soft); border-radius: 12px; }
 .pfn-datos div { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
@@ -125,13 +184,26 @@
 <script>
 const AGENCIAS = {{ agencias|tojson }};
 const BARCOS = {{ barcos|tojson }};
-let BUQUE = { operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "" };
+const buqueVacio = () => ({ operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "", trn: 0, trb: 0, eslora: 0, manga: 0, puntal: 0, bandera: "",
+  calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [] });
+let BUQUE = buqueVacio();
+let PRACT = { in: { usd: 0, manual: false }, out: { usd: 0, manual: false } };  // importe de cada movimiento (calculado o modificado a mano)
+let PRACT_CALC = null;       // ultima respuesta del servidor (con el desglose)
+let firmaPractAnt = "";      // con que datos se calculo por ultima vez
+let firmaCargada = null;     // datos con los que se guardo la proforma que se cargo de un Excel (esos importes se respetan)
 const TOTAL = {{ pasos|length }};
 let step = 1;
 let FEES = [];  // renglones de fee de la agencia elegida: {texto, monto_usd, on, revisar, manual}
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const num = (v) => { const n = parseFloat(String(v).replace(",", ".")); return Number.isFinite(n) && n >= 0 ? n : 0; };
+// Numeros como se escriben aca: "1.050,50" -> 1050,5 ; "21.173" -> 21173 (punto de miles) ; "750.5" y "0.125" son decimales
+const num = (v) => {
+  let t = String(v ?? "").trim().replace(/\s/g, "");
+  if (/^[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, "").replace(",", ".");
+  else t = t.replace(",", ".");
+  const n = parseFloat(t);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
 const fmt = (n) => String(Math.round(n * 10000) / 10000).replace(".", ",");
 const sel = $("#ag-sel");
 
@@ -140,9 +212,15 @@ function msg(t, ok = true) { const m = $("#pfn-msg"); m.textContent = t; m.style
 function getState() {
   const manual = $("#barco-sel").value === "manual";
   if (manual) BUQUE = { ...BUQUE, operated_id: null, nombre: $("#barco-nombre").value.trim() };
+  // lo que se ve en el paso 3 es lo que manda (se puede corregir lo traido de Operaciones)
+  BUQUE = { ...BUQUE, amarre: $("#b-amarre").value, inicio: $("#b-inicio").value, fin: $("#b-fin").value, zarpe: $("#b-zarpe").value,
+    cantidad: $("#b-cantidad").value.trim(), trn: num($("#b-trn").value), trb: num($("#b-trb").value), eslora: num($("#b-eslora").value),
+    manga: num($("#b-manga").value), puntal: num($("#b-puntal").value), bandera: $("#b-bandera").value.trim(),
+    calado_entrada: num($("#b-cal-ent").value), calado_salida: num($("#b-cal-sal").value) };
   return {
-    v: 3,
+    v: 4,
     buque: BUQUE,
+    practicaje: PRACT,
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
       id: sel.value ? Number(sel.value) : null,
@@ -221,24 +299,65 @@ function renderBuque() {
 }
 
 function elegirBarco(valor) {
-  if (valor === "manual") { BUQUE = { operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "" }; renderBuque(); render(); return; }
+  if (valor === "manual") { BUQUE = buqueVacio(); resetPract(); renderBuque(); pintarPaso3(false); render(); return; }
   const o = BARCOS.find((x) => String(x.id) === String(valor));
-  if (!o) { BUQUE = { operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "" }; renderBuque(); render(); return; }
-  BUQUE = { operated_id: o.id, nombre: o.nombre, imo: o.imo, sitio: o.sitio, amarre: o.amarre, inicio: o.inicio, fin: o.fin, zarpe: o.zarpe, cantidad: o.cantidad };
+  if (!o) { BUQUE = buqueVacio(); resetPract(); renderBuque(); pintarPaso3(false); render(); return; }
+  BUQUE = { operated_id: o.id, nombre: o.nombre, imo: o.imo, sitio: o.sitio, amarre: o.amarre, inicio: o.inicio, fin: o.fin, zarpe: o.zarpe, cantidad: o.cantidad,
+    trn: o.trn || 0, trb: o.trb || 0, eslora: o.eslora || 0, manga: o.manga || 0, puntal: o.puntal || 0, bandera: o.bandera || "",
+    calado_entrada: o.calado_entrada || 0, calado_salida: o.calado_salida || 0, servicios: o.servicios || [], turnos: o.turnos || [] };
+  resetPract();
+  pintarPaso3(true, o);  // antes de cambiar la agencia: ese cambio vuelve a leer los campos de pantalla
   if (o.agencia_id && String(o.agencia_id) !== sel.value) {  // la agencia a facturar es la del barco
     sel.value = String(o.agencia_id);
     sel.dispatchEvent(new Event("change", { bubbles: true }));
   }
   if (o.zarpe) $("#dolar-fecha").value = o.zarpe.slice(0, 10);  // la cotizacion suele ser la del dia de zarpada (se puede cambiar)
-  renderBuque(); render();
+  renderBuque(); pintarPaso3(true, o); render();
   msg(o.agencia_id ? "Barco cargado. La agencia a facturar es " + o.agencia + "." : "Barco cargado. Su agencia (" + (o.agencia || "sin cliente") + ") no figura en Clientes: elegila en el paso 2.", !!o.agencia_id);
+}
+
+const turnoTxt = (t) => `${t.fecha.slice(8, 10)}/${t.fecha.slice(5, 7)} ${t.turno.slice(0, 2)}:00–${t.turno.slice(3)}:00 ${t.act}`;
+
+// Paso 3: los horarios, el TRN y la eslora se muestran para corregir; los servicios y turnos vienen del voucher
+function pintarPaso3(hayBarco, o) {
+  const b = BUQUE;
+  $("#b-amarre").value = b.amarre || ""; $("#b-inicio").value = b.inicio || ""; $("#b-fin").value = b.fin || ""; $("#b-zarpe").value = b.zarpe || "";
+  $("#b-cantidad").value = b.cantidad || "";
+  const campo = (id, v) => { $(id).value = v ? fmt(v) : ""; };
+  campo("#b-trn", b.trn); campo("#b-trb", b.trb); campo("#b-eslora", b.eslora); campo("#b-manga", b.manga); campo("#b-puntal", b.puntal);
+  $("#b-bandera").value = b.bandera || "";
+  campo("#b-cal-ent", b.calado_entrada); campo("#b-cal-sal", b.calado_salida);
+  $("#b-calado-nota").textContent = o && o.calado_historial
+    ? "Calado de entrada traído del último «Calados Entrada» del Generador de documentos (viene en metros: se pasó a pies). Completá el de salida y corregí lo que haga falta."
+    : "Cargá los calados en pies. Con ellos se calcula el practicaje (paso 4), con la misma tabla de coeficientes del proformador inicial.";
+  $("#b-origen").textContent = b.nombre
+    ? `${b.nombre} · horarios cargados por Operaciones en «Completar datos». Podés corregir lo que haga falta.`
+    : "Elegí el barco en el paso 1: se traen los horarios que cargó Operaciones. Podés corregir lo que haga falta.";
+  $("#b-trn-nota").textContent = o && o.trn_historial
+    ? `Datos del buque traídos del historial (IMO ${b.imo}). El TRN es la base de varios cálculos de los pasos siguientes; podés corregir lo que haga falta.`
+    : "Completá el TRN y las medidas: son la base de varios cálculos de los pasos siguientes.";
+  const box = $("#b-servicios"); box.replaceChildren();
+  const sv = b.servicios || [], tn = b.turnos || [];
+  if (!sv.length && !tn.length) {
+    const p = document.createElement("span"); p.className = "muted";
+    p.textContent = b.operated_id ? "Este barco todavía no tiene voucher armado." : "Sin barco elegido de la lista.";
+    box.appendChild(p);
+  }
+  sv.forEach((x) => { const c = document.createElement("span"); c.className = "pfn-chip"; c.textContent = x; box.appendChild(c); });
+  if (tn.length) {
+    const h = document.createElement("b"); h.textContent = `Turnos de Head Tally (${tn.length})`; h.style.marginTop = "8px"; box.appendChild(h);
+    tn.forEach((t) => { const c = document.createElement("span"); c.className = "pfn-chip turno"; c.textContent = turnoTxt(t); box.appendChild(c); });
+  }
 }
 
 function setState(s) {
   BUQUE = { ...s.buque };
+  PRACT = { in: { ...s.practicaje.in }, out: { ...s.practicaje.out } };
   $("#barco-sel").value = BUQUE.operated_id && BARCOS.some((x) => x.id === BUQUE.operated_id) ? String(BUQUE.operated_id) : (BUQUE.nombre ? "manual" : "");
   if ($("#barco-sel").value === "manual") $("#barco-nombre").value = BUQUE.nombre;
   renderBuque();
+  pintarPaso3(false);
+  firmaCargada = firmaPract(); firmaPractAnt = "";
   $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
   $("#dolar-fecha").value = s.dolar.fecha || "";
   const hay = AGENCIAS.some((a) => a.id === s.agencia.id);
@@ -257,10 +376,81 @@ function setState(s) {
   renderFees();
 }
 
+// ---- Paso 4: practicaje (la formula y las tablas son las del proformador inicial, se calculan en el servidor)
+function resetPract() {  // al cambiar de barco los importes de practicaje empiezan de cero
+  PRACT = { in: { usd: 0, manual: false }, out: { usd: 0, manual: false } }; PRACT_CALC = null; firmaCargada = null; firmaPractAnt = "";
+  pintarPracticaje();
+}
+const firmaPract = () => { const b = BUQUE; return [b.eslora, b.manga, b.puntal, b.calado_entrada, b.calado_salida].join("|"); };
+const usd2 = (n) => "USD " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+async function calcularPracticaje() {
+  const b = getState().buque;
+  firmaPractAnt = firmaPract();
+  const r = await fetch("/administracion/proforma-final/practicaje", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
+  if (!r.ok) return;
+  PRACT_CALC = await r.json();
+  const respetar = firmaCargada !== null && firmaCargada === firmaPract();  // proforma cargada de un Excel y sin tocar los datos: se conservan sus importes
+  ["in", "out"].forEach((k) => {
+    if (!PRACT[k].manual && !(respetar && PRACT[k].usd > 0)) PRACT[k].usd = PRACT_CALC[k] ? PRACT_CALC[k].total : 0;
+  });
+  pintarPracticaje();
+  render();  // para marcar el paso como hecho (no vuelve a calcular: ya se guardo con que datos se calculo)
+}
+
+function pintarPracticaje() {
+  const c = PRACT_CALC, b = BUQUE;
+  const res = $("#pr-resumen"); res.replaceChildren();
+  const dato = (k, v) => { const d = document.createElement("div"); const a = document.createElement("span"); a.textContent = k; const bb = document.createElement("b"); bb.textContent = v; d.append(a, bb); res.appendChild(d); };
+  dato("Barco", b.nombre || "—");
+  dato("Eslora × manga × puntal", `${b.eslora ? fmt(b.eslora) : "—"} × ${b.manga ? fmt(b.manga) : "—"} × ${b.puntal ? fmt(b.puntal) : "—"} m`);
+  dato("UF (÷ 800)", c && c.uf ? fmt(c.uf) : "—");
+  dato("Prácticos", c && c.dos_practicos ? "DOS (manga mayor a 39,9 m)" : "Uno");
+  const box = $("#pr-box"); box.replaceChildren();
+  [["in", "PILOTAGE IN", "calado de entrada", b.calado_entrada], ["out", "PILOTAGE OUT", "calado de salida", b.calado_salida]].forEach(([k, titulo, cal, calado]) => {
+    const card = document.createElement("div"); card.className = "pfn-pract";
+    const h = document.createElement("h4"); h.textContent = titulo; card.appendChild(h);
+    const m = c ? c[k] : null;
+    if (m) {
+      const t = document.createElement("table");
+      const fila = (a, v, cls) => { const tr = document.createElement("tr"); if (cls) tr.className = cls; const x = document.createElement("td"); x.textContent = a; const y = document.createElement("td"); y.textContent = v; tr.append(x, y); t.appendChild(tr); };
+      fila(`Calado ${fmt(m.calado_pies)} pies · coeficiente`, "× " + fmt(m.factor));
+      fila("Maniobra / practicaje", usd2(m.maniobra));
+      fila("Navegación / pilotaje + recorrido", usd2(m.navegacion));
+      const sub = m.maniobra + m.navegacion;
+      fila("Subtotal maniobra + navegación", usd2(sub));
+      fila(`Descuento ${fmt(m.descuento_pct)} %`, "− " + usd2(sub * m.descuento_pct / 100));
+      fila("Tarifa de gobierno" + (c.dos_practicos ? " (dos prácticos: ×2)" : ""), usd2(m.gobierno));
+      fila("Service fijo del movimiento", usd2(m.service));
+      fila("Calculado", usd2(m.total), "sub");
+      card.appendChild(t);
+    } else {
+      const p = document.createElement("p"); p.className = "falta";
+      const falta = (c && c.faltan && c.faltan.length) ? "Falta cargar en el paso 3: " + c.faltan.join(", ") + "." : (!calado ? `Falta el ${cal} (paso 3).` : "El calado queda fuera de la tabla de coeficientes.");
+      p.textContent = falta; card.appendChild(p);
+    }
+    const lab = document.createElement("label"); lab.textContent = "Importe a facturar (USD)";
+    const inp = document.createElement("input"); inp.inputMode = "decimal"; inp.value = PRACT[k].usd ? fmt(PRACT[k].usd) : "";
+    inp.addEventListener("input", () => { PRACT[k].usd = num(inp.value); PRACT[k].manual = true; mod.hidden = false; actualizarTotalPract(); render(); });
+    lab.appendChild(inp); card.appendChild(lab);
+    const mod = document.createElement("div"); mod.className = "pfn-mod"; mod.hidden = !PRACT[k].manual;
+    const btn = document.createElement("button"); btn.type = "button"; btn.textContent = "Volver al calculado";
+    btn.addEventListener("click", () => { PRACT[k].manual = false; PRACT[k].usd = m ? m.total : 0; pintarPracticaje(); render(); });
+    mod.append("Modificado a mano" + (m ? ` (calculado: ${usd2(m.total)}). ` : ". "), btn); card.appendChild(mod);
+    box.appendChild(card);
+  });
+  actualizarTotalPract();
+}
+function actualizarTotalPract() { $("#pr-total").textContent = usd2(PRACT.in.usd + PRACT.out.usd); }
+$("#pr-ir3").addEventListener("click", (ev) => { ev.preventDefault(); step = 3; render(); });
+
 function render() {
   $$("[data-pane]").forEach((p) => (p.hidden = Number(p.dataset.pane) !== step));
   const s = getState();
-  const done = { 1: s.dolar.valor > 0 && !!s.buque.nombre, 2: !!s.agencia.id };
+  if (step === 4 && firmaPract() !== firmaPractAnt) calcularPracticaje();
+  const done = { 1: s.dolar.valor > 0 && !!s.buque.nombre, 2: !!s.agencia.id,
+    3: !!(s.buque.amarre && s.buque.inicio && s.buque.fin && s.buque.zarpe && s.buque.trn > 0),
+    4: s.practicaje.in.usd > 0 && s.practicaje.out.usd > 0 };
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
     b.classList.toggle("on", n === step);
@@ -329,6 +519,8 @@ $("#pfn-subir").addEventListener("change", async (ev) => {
 });
 
 renderFees();
+pintarPaso3(false);
+pintarPracticaje();
 render();
 </script>
 {% endblock %}

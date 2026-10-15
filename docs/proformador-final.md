@@ -32,20 +32,21 @@ Documento vivo: se actualiza paso a paso. Todo lo que figura acá lo dijo el usu
   Los valores son **distintos a los del proformador inicial**: acá ya son costos **FINALES** y las **cargas sociales se suman al final**.
 - **Edición:** el voucher se puede editar después de enviado.
 
-## Los 10 pasos (según el usuario; se detalla uno por uno)
+## Los 11 pasos (según el usuario; se detalla uno por uno)
 
-1. **Dólar:** divisa BNA por escala. Traerlo del Banco Nación o escribirlo a mano (a veces hace falta el dólar de hasta 5 días atrás; en esos casos es más fácil a mano).
-2. **Agencia a facturar:** cada una de las 15 agencias tiene un **fee** y unas **cargas sociales** propias, con un apartado para calcular y cargar los de cada una.
-   Por defecto se cargan las agencias que ya están en **Clientes** (no las estibas).
-3. **Datos del buque:** trae los horarios que ya se cargaron en la otra planilla (Completar datos). Incluye varios **checkbox** que activan cálculos que van directo a costos
-   (se arma planilla por planilla más adelante).
-4. **Uso de muelle, uso de fondeadero (si corresponde) y vías navegables.** Vías navegables tiene reglas y límites especiales, no es solo una fórmula.
-5. **Amarre y desamarre:** tarifa fija que cambia según el horario en que se hizo.
-6. **Habilitaciones de aduana:** varios conceptos con su valor.
-7. **Tally:** en base a lo ya completado.
-8. **Serenos:** en base al amarre y desamarre del buque; se pueden agregar turnos a mano; sobre el número final se suman las cargas sociales según el cliente.
-9. **Según los checkbox del paso 3:** migraciones in/out (en boya o no) y sanitary free pratique en base al TRN del paso 3.
-10. **Chequeo general** de toda la proforma, con todo modificable.
+1. **Barco y dólar:** se elige el barco operado y la cotización divisa BNA (a mano; a veces hace falta la de hasta 5 días atrás).
+2. **Agencia a facturar:** fee (varios renglones, se tildan los que aplican) y cargas sociales (Serenos y Head Tally) de cada agencia.
+3. **Datos del buque:** trae todo lo que se cargó (horarios, cantidad) y los datos del buque (TRN, TRB, eslora, manga, puntal, bandera) y los **calados**; todo se puede corregir.
+4. **Practicaje** (paso agregado): entrada y salida, con los calados y la **misma tabla de coeficientes** del proformador inicial.
+5. **Uso de muelle, uso de fondeadero (si corresponde) y vías navegables.** Vías navegables tiene reglas y límites especiales, no es solo una fórmula.
+6. **Amarre y desamarre:** LDS, tarifa fija que cambia según el horario en que se hizo.
+7. **Habilitaciones de aduana:** varios conceptos con su valor.
+8. **Tally:** en base a lo ya completado (turnos del voucher).
+9. **Serenos:** en base al amarre y desamarre; se pueden agregar turnos a mano; sobre el número final se suman las cargas sociales según el cliente.
+10. **Migraciones y sanitary free pratique:** según lo que se usó en el voucher (migraciones IN/OUT, en boya o no) y el TRN.
+11. **Chequeo general** de toda la proforma, con todo modificable.
+
+Muchos de estos costos ya están predeterminados por fórmulas o costos fijos en el otro proformador (`app/proformador_calc.py`).
 
 ## Paso 1 — Dólar
 
@@ -177,6 +178,26 @@ Oceanway muestra un solo valor (117 %).
   Actividad por defecto: BERTHING hasta que arranca la carga (el turno del amarre y los que terminan antes del inicio) y LDG después; editable.
 - **Turno extra:** a veces se suma un turno extra (a precio normal), el del **mooring (amarre)**: se agrega a mano con fecha, turno y actividad (por defecto MOORING) y se marca como "extra".
 - **PENDIENTE (a confirmar):** qué otras actividades hay además de BERTHING, LDG y MOORING; si el turno del mooring es siempre el anterior al del berthing.
+
+## Paso 3 — Datos del buque (construido)
+
+- Al elegir el barco en el paso 1 se traen **todos los horarios que cargó Operaciones** (amarre, inicio y final de operación, zarpe) y la **cantidad operada**; en el paso 3 se ven y se **pueden corregir**.
+- Apartado para completar el **TRN** (y la **eslora**, que ya hace falta para las lanchas de LDS: más de 150 m = dos lanchas). Si el barco ya está en el historial del Generador de documentos (por IMO) se **trae su TRN y su eslora**; si no, se completan a mano.
+  El TRN es la base de varios cálculos de los pasos siguientes (por ejemplo sanitary free pratique).
+- **Servicios del voucher:** se muestran los conceptos tildados y los turnos de Head Tally elegidos (con su actividad), como base para los pasos siguientes.
+- Los números se escriben como acá: `1.050,50`, `21.173` (punto de miles) o `150,5`.
+- El Excel guarda todo eso (horarios, TRN, eslora, servicios y turnos) y se relee.
+- **PENDIENTE:** qué otros datos del buque hacen falta (manga, puntal, calados...); si el TRN o la eslora cargados a mano deben guardarse en el historial del barco para la próxima.
+
+## Ronda 6 (practicaje, calados y AT BUOY)
+
+- **Practicaje (paso 4):** misma fórmula y mismas tablas que el proformador inicial (`app/practicaje.py` reutiliza `calcular_pilotage`): UF = eslora × manga × puntal ÷ 800, coeficiente según el calado **en pies**
+  (tabla `ProformaPilotageTramo`), recorrido (km) y service fijo, con descuento; si la manga supera 39,9 m van **dos prácticos** (se duplica la tarifa de gobierno). Entrada y salida con su calado cada una.
+  El importe se puede **modificar a mano** (queda marcado) y volver al calculado. Un Excel cargado conserva sus importes mientras no se cambien los datos. Solo recorrido Extranjero (I. White–Profertil, un práctico): otros recorridos no están.
+- **Calados:** el de entrada se trae de la última escala del Generador de documentos (viene en metros: se pasa a pies); el de salida se completa a mano.
+- **No hace falta** guardar el TRN cargado a mano en el historial del barco.
+- **AT BUOY 11 solo en migraciones:** se quitó de todos los demás conceptos del voucher (los taxis, el custom overtime, los conceptos agregados, etc. ya no lo llevan).
+- Los costos del voucher (migraciones IN/OUT en boya, sanitary free pratique, etc.) alimentan el paso 10.
 
 ## Fee y cargas sociales por agencia (de `FEE.pdf`, "Clientes 2026") — transcripción, A VERIFICAR
 

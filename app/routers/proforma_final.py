@@ -1,6 +1,7 @@
 """Administracion: proforma final (asistente), agencias a facturar (fee y cargas sociales) y calendario de feriados."""
 from __future__ import annotations
 
+import json
 import re
 from datetime import date
 
@@ -13,7 +14,11 @@ from .. import proforma_final as pf
 from ..calendario import TIPOS as TIPOS_CALENDARIO
 from ..auth import administracion_required
 from ..database import get_db
-from ..models import AgenciaFee, AppSetting, Client, Feriado, OperatedVessel, User
+from ..docgen.fechas import parse_number
+from ..docgen import voucher as vch
+from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, User
+from .. import practicaje as pract
+from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
 from ..templating import templates
 
@@ -76,10 +81,55 @@ def _usd(raw: str) -> float:
 
 
 # ------------------------------------------------------------ asistente ----
+def _n(txt) -> float:
+    v = parse_number(str(txt or ""))
+    return float(v) if v is not None else 0
+
+
+def _calado_historial(call: DocCall | None) -> float:
+    """Calado de entrada en PIES a partir del ultimo 'Calados Entrada' del Generador de documentos (viene en metros)."""
+    if call is None:
+        return 0
+    try:
+        d = json.loads(call.data or "{}")
+    except ValueError:
+        return 0
+    m = _n(d.get("calado_max")) or max(_n(d.get("calado_proa")), _n(d.get("calado_popa")))
+    return round(m * pract.PIES_POR_METRO, 1) if m else 0
+
+
+def _particulares(dv: DocVessel | None, call: DocCall | None = None) -> dict:
+    """Datos del buque del historial (por IMO): TRN, TRB, medidas, bandera y calado de entrada; vacios para completar a mano."""
+    ce = _calado_historial(call)
+    return {
+        "trn": _n(dv.trn) if dv else 0, "trb": _n(dv.trb) if dv else 0, "eslora": _n(dv.eslora) if dv else 0,
+        "manga": _n(dv.manga) if dv else 0, "puntal": _n(dv.puntal) if dv else 0, "bandera": (dv.flag or "") if dv else "",
+        "calado_entrada": ce, "calado_salida": 0,
+        "trn_historial": bool(dv and _n(dv.trn)), "calado_historial": bool(ce),
+    }
+
+
+def _del_voucher(o: OperatedVessel) -> dict:
+    """Lo que se uso segun el voucher del barco (conceptos tildados y turnos de Head Tally), si ya se armo."""
+    v = o.voucher
+    if v is None:
+        return {"servicios": [], "turnos": [], "hay_voucher": False}
+    try:
+        turnos = [t for t in json.loads(v.turnos or "[]") if isinstance(t, dict)]
+    except ValueError:
+        turnos = []
+    return {"servicios": vch.lineas(v.formato, estado_voucher(v)), "turnos": turnos, "hay_voucher": True,
+            "voucher_enviado": v.estado == "ENVIADO"}
+
+
 def _barcos_a_proformar(db: Session, limite: int = 300) -> list[dict]:
     """Barcos operados (uno por agencia a facturar) para elegir en la proforma: los mas recientes primero.
     Las estibas no se proforman. Trae los datos que Operaciones completo al irse el barco."""
     clientes = {c.name.strip().lower(): c for c in db.scalars(select(Client))}
+    historial = {d.imo: d for d in db.scalars(select(DocVessel))}  # datos del buque ya cargados en el Generador de documentos
+    escalas: dict[str, DocCall] = {}  # la ultima escala de cada barco (para el calado de entrada)
+    for c in db.scalars(select(DocCall).order_by(DocCall.updated_at.desc())):
+        escalas.setdefault(c.imo, c)
     out = []
     for o in db.scalars(select(OperatedVessel).order_by(OperatedVessel.operated_at.desc(), OperatedVessel.id.desc()).limit(limite * 2)):
         cli = clientes.get((o.principal or "").strip().lower())
@@ -91,6 +141,8 @@ def _barcos_a_proformar(db: Session, limite: int = 300) -> list[dict]:
             "agencia_id": cli.id if cli is not None else None,
             "amarre": o.amarre or "", "inicio": o.inicio_operacion or "", "fin": o.fin_operacion or "", "zarpe": o.zarpe or "",
             "cantidad": (o.cantidad_operada or o.quantity or "").strip(),
+            **_particulares(historial.get((o.imo or "").strip()), escalas.get((o.imo or "").strip())),
+            **_del_voucher(o),
             "completo": bool(o.amarre and o.inicio_operacion and o.fin_operacion and o.zarpe and o.cantidad_operada),
         })
         if len(out) >= limite:
@@ -111,6 +163,13 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
         "user": user, "agencias": agencias, "barcos": _barcos_a_proformar(db), "pasos": pf.PASOS,
         "hoy": date.today().isoformat(),
     })
+
+
+@router.post("/proforma-final/practicaje")
+async def proforma_final_practicaje(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Practicaje IN y OUT con el desglose (misma formula y tablas que el proformador inicial)."""
+    b = pf.clean_buque(await request.json())
+    return pract.calcular(db, b["eslora"], b["manga"], b["puntal"], b["calado_entrada"], b["calado_salida"])
 
 
 @router.post("/proforma-final/excel")

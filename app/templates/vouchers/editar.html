@@ -143,14 +143,13 @@ function dibujar() {
     fila.appendChild(main);
     if (c.head_tally) fila.appendChild(el("span", "vc-nota", "al enviar se abre el voucher de turnos"));
     if (c.shore_gangway) fila.appendChild(el("span", "vc-nota", "suma la escala de LDS en el amarre"));
-    if (c.tipo === "simple") fila.appendChild(boya(e, "buoy"));
     caja.appendChild(fila);
     if (c.tipo === "group") {
       const subs = el("div", "vc-subs");
       c.subs.forEach((n) => {
         const s = e.subs[n]; const f = el("div", "vc-fila"); const m = el("label", "vc-main");
         m.append(cb(s.on, (v) => { s.on = v; cambio(); }, n), el("span", null, "FOR " + n));
-        f.append(m, boya(s, "buoy")); subs.appendChild(f);
+        f.append(m); subs.appendChild(f);
       });
       caja.appendChild(subs);
     }
@@ -159,7 +158,8 @@ function dibujar() {
       [["in", "IN"], ["out", "OUT"]].forEach(([k, t]) => {
         const f = el("div", "vc-fila"); const m = el("label", "vc-main");
         m.append(cb(e[k], (v) => { e[k] = v; cambio(); }, t), el("span", null, t));
-        f.append(m, boya(e, k + "_buoy")); dir.appendChild(f);
+        if (c.boya) f.append(m, boya(e, k + "_buoy")); else f.append(m);  // solo las migraciones pueden ir en boya
+        dir.appendChild(f);
       });
       caja.appendChild(dir);
     }
@@ -171,7 +171,7 @@ function dibujar() {
     const t = el("span", "vc-txt", x.t);
     const quitar = el("button", "vc-x", "✕"); quitar.type = "button"; quitar.title = "Quitar este concepto"; quitar.setAttribute("aria-label", "Quitar " + x.t);
     quitar.addEventListener("click", () => { ESTADO.extra.splice(i, 1); dibujar(); cambio(); });
-    f.append(cb(x.on, (v) => { x.on = v; caja.classList.toggle("vc-off", !v); cambio(); }, x.t), t, boya(x, "buoy"), quitar);
+    f.append(cb(x.on, (v) => { x.on = v; caja.classList.toggle("vc-off", !v); cambio(); }, x.t), t, quitar);
     caja.appendChild(f); ex.appendChild(caja);
   });
 }

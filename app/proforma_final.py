@@ -14,7 +14,7 @@ from datetime import date, datetime
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-VERSION = 3
+VERSION = 4
 MARCA = "SEAWHITE-PROFORMA-FINAL"
 HOJA_ESTADO = "_estado"
 MAX_BYTES = 5 * 1024 * 1024
@@ -26,14 +26,15 @@ DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "doming
 PASOS = [
     (1, "Barco y dólar", "Elegí el barco y la cotización"),
     (2, "Agencia a facturar", "Fee y cargas sociales"),
-    (3, "Datos del buque", "Horarios y opciones que activan cálculos"),
-    (4, "Uso de muelle, fondeadero y vías navegables", "Con sus reglas y límites"),
-    (5, "Amarre y desamarre", "Tarifa fija según el horario"),
-    (6, "Habilitaciones de aduana", "Conceptos y valores"),
-    (7, "Tally", "En base a lo ya completado"),
-    (8, "Serenos", "Turnos y cargas sociales"),
-    (9, "Migraciones y sanitary free pratique", "Según lo tildado en el paso 3"),
-    (10, "Chequeo general", "Revisar y modificar todo"),
+    (3, "Datos del buque", "Horarios, medidas, TRN y calados"),
+    (4, "Practicaje", "Entrada y salida, según calado"),
+    (5, "Uso de muelle, fondeadero y vías navegables", "Con sus reglas y límites"),
+    (6, "Amarre y desamarre", "Tarifa fija según el horario"),
+    (7, "Habilitaciones de aduana", "Conceptos y valores"),
+    (8, "Tally", "En base a lo ya completado"),
+    (9, "Serenos", "Turnos y cargas sociales"),
+    (10, "Migraciones y sanitary free pratique", "Según el voucher y el TRN"),
+    (11, "Chequeo general", "Revisar y modificar todo"),
 ]
 
 
@@ -82,6 +83,14 @@ def _texto(v, largo: int) -> str:
     return " ".join(str(v or "").split())[:largo]
 
 
+def _turnos_limpios(raw) -> list[dict]:
+    out = []
+    for t in (raw if isinstance(raw, list) else [])[:120]:
+        if isinstance(t, dict) and _fecha(t.get("fecha")) and str(t.get("turno")) in ("01-07", "07-13", "13-19", "19-01"):
+            out.append({"fecha": _fecha(t["fecha"]), "turno": str(t["turno"]), "act": _texto(t.get("act"), 30).upper() or "LDG"})
+    return out
+
+
 def clean_buque(raw) -> dict:
     raw = raw if isinstance(raw, dict) else {}
     try:
@@ -98,6 +107,18 @@ def clean_buque(raw) -> dict:
         "fin": _datetime(raw.get("fin")),
         "zarpe": _datetime(raw.get("zarpe")),
         "cantidad": _texto(raw.get("cantidad"), 40),
+        # TRN y medidas: de ellos salen varios calculos de los pasos siguientes (practicaje usa eslora, manga, puntal y calados)
+        "trn": _num(raw.get("trn"), 1_000_000),
+        "trb": _num(raw.get("trb"), 1_000_000),
+        "eslora": _num(raw.get("eslora"), 1000),
+        "manga": _num(raw.get("manga"), 1000),
+        "puntal": _num(raw.get("puntal"), 1000),
+        "bandera": _texto(raw.get("bandera"), 80),
+        "calado_entrada": _num(raw.get("calado_entrada"), 200),  # en pies, como la tabla de practicaje
+        "calado_salida": _num(raw.get("calado_salida"), 200),
+        # lo que se uso segun el voucher (foto): servicios y turnos de Head Tally
+        "servicios": [_texto(x, 200) for x in (raw.get("servicios") if isinstance(raw.get("servicios"), list) else [])[:60] if _texto(x, 200)],
+        "turnos": _turnos_limpios(raw.get("turnos")),
     }
 
 
@@ -121,9 +142,16 @@ def clean_state(raw) -> dict:
     serenos = ag.get("serenos_pct", ag.get("cargas_pct"))
     if not fees and _num(ag.get("fee_usd"), 10_000_000):
         fees.append({"texto": "FEE", "monto_usd": _num(ag.get("fee_usd"), 10_000_000), "on": True})
+    pr = raw.get("practicaje") if isinstance(raw.get("practicaje"), dict) else {}
+
+    def mov(k):
+        m = pr.get(k) if isinstance(pr.get(k), dict) else {}
+        return {"usd": _num(m.get("usd"), 100_000_000), "manual": bool(m.get("manual"))}
+
     return {
         "v": VERSION,
         "buque": clean_buque(raw.get("buque")),
+        "practicaje": {"in": mov("in"), "out": mov("out")},
         "dolar": {
             "valor": _num(dolar.get("valor"), 1_000_000),
             "fecha": _fecha(dolar.get("fecha")),
@@ -162,6 +190,11 @@ def build_excel(state: dict) -> bytes:
         ("Fin de operación", b["fin"].replace("T", " "), ""),
         ("Zarpe", b["zarpe"].replace("T", " "), ""),
         ("Cantidad operada", b["cantidad"], ""),
+        ("TRN", b["trn"] or "", "TRB " + str(b["trb"]) if b["trb"] else ""),
+        ("Eslora / manga / puntal (m)", f"{b['eslora'] or '—'} / {b['manga'] or '—'} / {b['puntal'] or '—'}", b["bandera"] and ("Bandera " + b["bandera"]) or ""),
+        ("Calado entrada / salida (pies)", f"{b['calado_entrada'] or '—'} / {b['calado_salida'] or '—'}", ""),
+        ("Practicaje IN (USD)", s["practicaje"]["in"]["usd"] or "", "modificado a mano" if s["practicaje"]["in"]["manual"] else "según tabla de calado"),
+        ("Practicaje OUT (USD)", s["practicaje"]["out"]["usd"] or "", "modificado a mano" if s["practicaje"]["out"]["manual"] else "según tabla de calado"),
         ("Dólar (divisa BNA)", s["dolar"]["valor"] or "", "Cotización del " + (s["dolar"]["fecha"] or "—")
          + (" · traído del BNA" if s["dolar"]["origen"] == "BNA" else " · cargado a mano")),
         ("Agencia a facturar", s["agencia"]["nombre"], ""),
