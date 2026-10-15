@@ -232,24 +232,35 @@ def turnos(vid: int, request: Request, db: Session = Depends(get_db), user: User
         except (ValueError, KeyError, TypeError):
             elegidos = {}
     feriados, no_lab = conjuntos(db)
-    # los turnos extra ya guardados (por ejemplo el del mooring) que no estan en la lista se muestran igual
-    ya = {(t["fecha"], t["turno"]) for t in posibles}
+    # Se muestran los 4 turnos de cada dia del periodo (desde el dia anterior al amarre hasta el dia del fin), con su rango
+    # horario, para tildar cualquiera. Vienen tildados los que se cruzan con el horario; los otros quedan para elegir
+    # (por ejemplo el del mooring). Los extra ya guardados que caen fuera del periodo tambien se muestran.
+    en_horario = {(t["fecha"], t["turno"]) for t in posibles}
     validos = lib.turnos_validos(o.inicio_operacion, o.fin_operacion, o.amarre) if o else {}
-    extras = [dict(validos[k], extra=True) for k in elegidos if k not in ya and k in validos]
-    todos = sorted(posibles + extras, key=lambda t: (t["fecha"], [n for n, _, _ in lib.TURNOS].index(t["turno"])))
+    a, b = lib._rango(o.inicio_operacion, o.fin_operacion, o.amarre) if o else (None, None)
+    ultimo_dia = b.date().isoformat() if b else ""
+    visibles = {k: t for k, t in validos.items() if t["fecha"] <= ultimo_dia}
+    for k in elegidos:
+        if k in validos and k not in visibles:
+            visibles[k] = validos[k]
+    todos = sorted(visibles.values(), key=lambda t: (t["fecha"], [n for n, _, _ in lib.TURNOS].index(t["turno"])))
+    confirmado = lib.turnos_confirmados(v)
     filas = []
     for t in todos:
+        k = (t["fecha"], t["turno"])
         d = date.fromisoformat(t["fecha"])
         tipo = tipo_dia(d, feriados, no_lab)
-        guardado = (t["fecha"], t["turno"]) in elegidos
-        filas.append({**t, "dia": DIAS[d.weekday()], "tipo": tipo, "tipo_txt": TIPO_DIA_TXT[tipo],
-                      "on": guardado if lib.turnos_confirmados(v) else True,
-                      "act": elegidos.get((t["fecha"], t["turno"]), "LDG")})
-    # por defecto: BERTHING hasta que arranca la carga (el turno del amarre y los que terminan antes del inicio); despues, LDG
-    if filas and not lib.turnos_confirmados(v) and o:
-        for f in filas:
-            if (o.amarre and f["desde"] <= o.amarre < f["hasta"]) or (o.inicio_operacion and f["hasta"] <= o.inicio_operacion):
-                f["act"] = "BERTHING"
+        dentro = k in en_horario
+        on = (k in elegidos) if confirmado else dentro
+        act = elegidos.get(k) or "LDG"
+        if not confirmado and o:
+            # por defecto: MOORING antes del amarre; BERTHING hasta que arranca la carga; LDG despues
+            if o.amarre and t["hasta"] <= o.amarre:
+                act = "MOORING"
+            elif (o.amarre and t["desde"] <= o.amarre < t["hasta"]) or (o.inicio_operacion and t["hasta"] <= o.inicio_operacion):
+                act = "BERTHING"
+        filas.append({**t, "dia": DIAS[d.weekday()], "tipo": tipo, "tipo_txt": TIPO_DIA_TXT[tipo], "on": on, "act": act,
+                      "en_horario": dentro, "extra": on and not dentro})
     return templates.TemplateResponse(request, "vouchers/turnos.html", {
         "user": user, "v": v, "o": o, "filas": filas, "confirmado": lib.turnos_confirmados(v),
         "actividades": vch.ACTIVIDADES_TALLY,
