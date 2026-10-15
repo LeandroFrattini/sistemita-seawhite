@@ -108,6 +108,7 @@ _MIGRATIONS = [
     ("operated_vessels", "zarpe", "TEXT DEFAULT ''"),
     ("operated_vessels", "cantidad_operada", "TEXT DEFAULT ''"),
     ("vessel_files", "imo", "TEXT DEFAULT ''"),
+    ("feriados", "tipo", "TEXT DEFAULT 'FERIADO'"),
     ("clients", "fee_usd", "FLOAT DEFAULT 0"),
     ("clients", "cargas_sociales_pct", "FLOAT"),
     ("clients", "cargas_tally_pct", "FLOAT"),

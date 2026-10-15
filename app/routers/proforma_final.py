@@ -1,6 +1,7 @@
 """Administracion: proforma final (asistente), agencias a facturar (fee y cargas sociales) y calendario de feriados."""
 from __future__ import annotations
 
+import re
 from datetime import date
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
@@ -9,9 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import proforma_final as pf
+from ..calendario import TIPOS as TIPOS_CALENDARIO
 from ..auth import administracion_required
 from ..database import get_db
-from ..models import AgenciaFee, AppSetting, Client, Feriado, User
+from ..models import AgenciaFee, AppSetting, Client, Feriado, OperatedVessel, User
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
 from ..templating import templates
 
@@ -74,6 +76,28 @@ def _usd(raw: str) -> float:
 
 
 # ------------------------------------------------------------ asistente ----
+def _barcos_a_proformar(db: Session, limite: int = 300) -> list[dict]:
+    """Barcos operados (uno por agencia a facturar) para elegir en la proforma: los mas recientes primero.
+    Las estibas no se proforman. Trae los datos que Operaciones completo al irse el barco."""
+    clientes = {c.name.strip().lower(): c for c in db.scalars(select(Client))}
+    out = []
+    for o in db.scalars(select(OperatedVessel).order_by(OperatedVessel.operated_at.desc(), OperatedVessel.id.desc()).limit(limite * 2)):
+        cli = clientes.get((o.principal or "").strip().lower())
+        if cli is not None and cli.client_type == "ESTIBA":
+            continue
+        out.append({
+            "id": o.id, "nombre": (o.vessel_name or "").strip(), "imo": o.imo or "",
+            "sitio": o.berth_label or o.terminal_code or "", "agencia": o.principal or "",
+            "agencia_id": cli.id if cli is not None else None,
+            "amarre": o.amarre or "", "inicio": o.inicio_operacion or "", "fin": o.fin_operacion or "", "zarpe": o.zarpe or "",
+            "cantidad": (o.cantidad_operada or o.quantity or "").strip(),
+            "completo": bool(o.amarre and o.inicio_operacion and o.fin_operacion and o.zarpe and o.cantidad_operada),
+        })
+        if len(out) >= limite:
+            break
+    return out
+
+
 @router.get("/proforma-final", response_class=HTMLResponse)
 def proforma_final_page(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     g_ser, g_tal = cargas_generales(db)
@@ -84,7 +108,8 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
         "fees": [{"texto": f.texto, "monto_usd": f.monto_usd, "revisar": f.revisar} for f in c.fees],
     } for c in _agencias(db)]
     return templates.TemplateResponse(request, "administracion/proforma_final.html", {
-        "user": user, "agencias": agencias, "pasos": pf.PASOS, "hoy": date.today().isoformat(),
+        "user": user, "agencias": agencias, "barcos": _barcos_a_proformar(db), "pasos": pf.PASOS,
+        "hoy": date.today().isoformat(),
     })
 
 
@@ -130,15 +155,14 @@ async def agencias_guardar(request: Request, db: Session = Depends(get_db), user
         c.cargas_tally_pct = _pct(str(form.get(f"tally_{c.id}", "")))
         # los renglones de fee se rearman en el orden en que llegan; un renglon sin texto se descarta
         c.fees.clear()
-        k = 0
-        while f"fee_{c.id}_{k}_t" in form:
+        patron = re.compile(rf"fee_{c.id}_(\d+)_t")
+        for k in sorted(int(m.group(1)) for m in (patron.fullmatch(key) for key in form.keys()) if m):
             texto = " ".join(str(form.get(f"fee_{c.id}_{k}_t", "")).split())[:200]
             if texto:
                 c.fees.append(AgenciaFee(
                     texto=texto, monto_usd=_usd(str(form.get(f"fee_{c.id}_{k}_m", ""))),
                     revisar=form.get(f"fee_{c.id}_{k}_r") == "on", orden=len(c.fees),
                 ))
-            k += 1
     db.commit()
     return RedirectResponse("/administracion/agencias?ok=1", status_code=303)
 
@@ -170,18 +194,21 @@ def agencias_cargar_lista(db: Session = Depends(get_db), user: User = Depends(ad
 def calendario_page(request: Request, anio: int = 0, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     anio = anio or date.today().year
     feriados = [
-        {"id": f.id, "fecha": f.fecha, "d": date.fromisoformat(f.fecha), "nombre": f.nombre}
+        {"id": f.id, "fecha": f.fecha, "d": date.fromisoformat(f.fecha), "nombre": f.nombre, "tipo": f.tipo}
         for f in db.scalars(select(Feriado).where(Feriado.fecha.like(f"{anio}-%")).order_by(Feriado.fecha))
     ]
     for f in feriados:
         f["dia"] = pf.DIAS[f["d"].weekday()]
     return templates.TemplateResponse(request, "administracion/calendario.html", {
         "user": user, "feriados": feriados, "anio": anio, "error": request.query_params.get("error", ""),
+        "tipos": TIPOS_CALENDARIO,
+        "n_feriados": sum(1 for f in feriados if f["tipo"] != "NO_LABORABLE"),
+        "n_no_lab": sum(1 for f in feriados if f["tipo"] == "NO_LABORABLE"),
     })
 
 
 @router.post("/calendario/agregar")
-def calendario_agregar(fecha: str = Form(""), nombre: str = Form(""),
+def calendario_agregar(fecha: str = Form(""), nombre: str = Form(""), tipo: str = Form("FERIADO"),
                        db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     try:
         d = date.fromisoformat(fecha)
@@ -189,7 +216,9 @@ def calendario_agregar(fecha: str = Form(""), nombre: str = Form(""),
         return RedirectResponse("/administracion/calendario?error=fecha", status_code=303)
     if db.scalar(select(Feriado).where(Feriado.fecha == d.isoformat())):
         return RedirectResponse(f"/administracion/calendario?anio={d.year}&error=repetido", status_code=303)
-    db.add(Feriado(fecha=d.isoformat(), nombre=" ".join(nombre.split())[:120] or "Feriado", creado_por=user.username))
+    tipo = tipo if tipo in TIPOS_CALENDARIO else "FERIADO"
+    db.add(Feriado(fecha=d.isoformat(), nombre=" ".join(nombre.split())[:120] or TIPOS_CALENDARIO[tipo], tipo=tipo,
+                   creado_por=user.username))
     db.commit()
     return RedirectResponse(f"/administracion/calendario?anio={d.year}", status_code=303)
 

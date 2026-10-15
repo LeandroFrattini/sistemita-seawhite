@@ -140,6 +140,17 @@ Oceanway muestra un solo valor (117 %).
 - **ESCALA** (colocación, retiro, alquiler diario): solo cuando en el voucher se selecciona **SHORE GANGWAY** (concepto nuevo del voucher). Las chicas de Administración también lo pueden agregar en el paso de amarre.
 - **Buque argentino** (tarifa DCI 22): por ahora no se carga; queda para más adelante.
 
+## Ronda 4 (ajustes)
+
+- **Días no laborables:** el calendario distingue **Feriado** y **Día no laborable**. El día no laborable es una distinción para **Head Tally y Serenos**, que cobran distinto ese día.
+  Para LDS un día no laborable se toma como día hábil. Si un día no laborable cae sábado o domingo, se toma como sábado o domingo (**a confirmar**); un feriado manda sobre todo.
+  Código: `Feriado.tipo`, `app/calendario.py::conjuntos()`, `tipo_dia(d, feriados, no_laborables)`.
+- **Barco a proformar:** en el paso 1 ("Barco y dólar") se elige de la lista de **barcos operados** (una fila por agencia a facturar; sin estibas). Al elegirlo se completa la
+  agencia (paso 2), se traen los horarios que cargó Operaciones (amarre, inicio y fin de operación, zarpe, cantidad operada) y la fecha de cotización del dólar pasa a ser la de la zarpada (se puede cambiar).
+  También se puede escribir un barco a mano. El Excel guarda esa foto del barco.
+- **Bloqueo del voucher:** hasta terminar de probar todo **no debe trabar la PC del administrador**. Cuando se construya va a venir **apagado** y lo prende el administrador desde la pantalla de Admin.
+- Pantalla de Agencias rediseñada: tabla con los porcentajes en cada fila, editor de fee desplegable por agencia, barra de guardado fija y versión de celular.
+
 ## Fee y cargas sociales por agencia (de `FEE.pdf`, "Clientes 2026") — transcripción, A VERIFICAR
 
 Columna "Serenos y Encargado" = cargas sociales (dos valores: serenos / encargado). **PENDIENTE:** qué significa el % (¿multiplicador sobre el costo?).

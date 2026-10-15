@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import io
 import json
-from datetime import date
+from datetime import date, datetime
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-VERSION = 2
+VERSION = 3
 MARCA = "SEAWHITE-PROFORMA-FINAL"
 HOJA_ESTADO = "_estado"
 MAX_BYTES = 5 * 1024 * 1024
@@ -24,7 +24,7 @@ MAX_FEES = 40
 DIAS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
 PASOS = [
-    (1, "Dólar", "Divisa Banco Nación"),
+    (1, "Barco y dólar", "Elegí el barco y la cotización"),
     (2, "Agencia a facturar", "Fee y cargas sociales"),
     (3, "Datos del buque", "Horarios y opciones que activan cálculos"),
     (4, "Uso de muelle, fondeadero y vías navegables", "Con sus reglas y límites"),
@@ -37,11 +37,17 @@ PASOS = [
 ]
 
 
-def tipo_dia(d: date, feriados: set[str]) -> str:
-    """SEMANA | SABADO | DOMINGO | FERIADO (el feriado manda sobre sabado y domingo)."""
+def tipo_dia(d: date, feriados: set[str], no_laborables: set[str] | frozenset = frozenset()) -> str:
+    """FERIADO | SABADO | DOMINGO | NO_LABORABLE | SEMANA.
+
+    El feriado manda sobre todo. El dia no laborable solo se distingue de un dia de semana: si cae sabado o
+    domingo se toma como sabado o domingo (a confirmar con el usuario)."""
     if d.isoformat() in feriados:
         return "FERIADO"
-    return {5: "SABADO", 6: "DOMINGO"}.get(d.weekday(), "SEMANA")
+    base = {5: "SABADO", 6: "DOMINGO"}.get(d.weekday(), "SEMANA")
+    if base == "SEMANA" and d.isoformat() in no_laborables:
+        return "NO_LABORABLE"
+    return base
 
 
 def con_cargas(costo: float, pct: float) -> float:
@@ -62,6 +68,37 @@ def _fecha(v) -> str:
         return date.fromisoformat(str(v)).isoformat()
     except (TypeError, ValueError):
         return ""
+
+
+def _datetime(v) -> str:
+    """Fecha y hora como la guarda 'Completar datos' (yyyy-mm-ddThh:mm), o vacio."""
+    try:
+        return datetime.strptime(str(v), "%Y-%m-%dT%H:%M").strftime("%Y-%m-%dT%H:%M")
+    except (TypeError, ValueError):
+        return ""
+
+
+def _texto(v, largo: int) -> str:
+    return " ".join(str(v or "").split())[:largo]
+
+
+def clean_buque(raw) -> dict:
+    raw = raw if isinstance(raw, dict) else {}
+    try:
+        op_id = int(raw.get("operated_id")) if raw.get("operated_id") not in (None, "") else None
+    except (TypeError, ValueError):
+        op_id = None
+    return {
+        "operated_id": op_id,
+        "nombre": _texto(raw.get("nombre"), 120),
+        "imo": _texto(raw.get("imo"), 20),
+        "sitio": _texto(raw.get("sitio"), 120),
+        "amarre": _datetime(raw.get("amarre")),
+        "inicio": _datetime(raw.get("inicio")),
+        "fin": _datetime(raw.get("fin")),
+        "zarpe": _datetime(raw.get("zarpe")),
+        "cantidad": _texto(raw.get("cantidad"), 40),
+    }
 
 
 def clean_state(raw) -> dict:
@@ -86,6 +123,7 @@ def clean_state(raw) -> dict:
         fees.append({"texto": "FEE", "monto_usd": _num(ag.get("fee_usd"), 10_000_000), "on": True})
     return {
         "v": VERSION,
+        "buque": clean_buque(raw.get("buque")),
         "dolar": {
             "valor": _num(dolar.get("valor"), 1_000_000),
             "fecha": _fecha(dolar.get("fecha")),
@@ -116,7 +154,14 @@ def build_excel(state: dict) -> bytes:
     ws["A1"].font = Font(bold=True, size=14, color="FFFFFF")
     ws["A1"].fill = azul
     ws.merge_cells("A1:C1")
+    b = s["buque"]
     filas = [
+        ("Buque", b["nombre"], (b["sitio"] + (" · IMO " + b["imo"] if b["imo"] else "")).strip(" ·")),
+        ("Amarre", b["amarre"].replace("T", " "), ""),
+        ("Inicio de operación", b["inicio"].replace("T", " "), ""),
+        ("Fin de operación", b["fin"].replace("T", " "), ""),
+        ("Zarpe", b["zarpe"].replace("T", " "), ""),
+        ("Cantidad operada", b["cantidad"], ""),
         ("Dólar (divisa BNA)", s["dolar"]["valor"] or "", "Cotización del " + (s["dolar"]["fecha"] or "—")
          + (" · traído del BNA" if s["dolar"]["origen"] == "BNA" else " · cargado a mano")),
         ("Agencia a facturar", s["agencia"]["nombre"], ""),

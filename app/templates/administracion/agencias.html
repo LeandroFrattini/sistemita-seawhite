@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block nav_administracion %}active{% endblock %}
+{% block main_class %}wide{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
@@ -11,78 +12,199 @@
   </div>
 </div>
 
-{% if guardado %}<p class="flash-inline" style="background:#ecfdf3;border-color:#a6e0bd;color:#166534">Guardado{% if cargadas != '' %}. Se cargaron los datos de la lista 2026 en {{ cargadas }} agencia{{ 's' if cargadas != '1' }}{% endif %}.</p>{% endif %}
+{% if guardado %}<p class="flash-inline ag-ok">Guardado{% if cargadas != '' %}. Se cargó la lista 2026 en {{ cargadas }} agencia{{ 's' if cargadas != '1' }}{% endif %}.</p>{% endif %}
 
-<div class="card ag-lista">
-  <b>Lista 2026</b>
-  <span class="muted">Carga los fee y las cargas sociales de la lista "Clientes 2026", tal cual, en las agencias que todavía no tienen fee. Las que ya tienen no se tocan; los montos poco claros quedan marcados «revisar».</span>
-  <form method="post" action="/administracion/agencias/cargar-lista-2026"><button class="btn">Cargar lista 2026</button></form>
-</div>
+<form method="post" action="/administracion/agencias/guardar" id="ag-form">
 
-<form method="post" action="/administracion/agencias/guardar" class="card" style="margin-top:14px">
-  <div class="ag-general">
-    <label>Cargas sociales general · Serenos (%)<input name="g_serenos" inputmode="decimal" value="{{ '%g'|format(g_ser) }}"></label>
-    <label>Cargas sociales general · Head Tally (%)<input name="g_tally" inputmode="decimal" value="{{ '%g'|format(g_tal) }}"></label>
-    <span class="muted">Se usan en las agencias que no tengan un porcentaje propio. El porcentaje se <b>suma</b> al costo: con 165, un costo de 100 pasa a valer 265.</span>
+  <section class="ag-top">
+    <div class="ag-box">
+      <h3>Cargas sociales generales</h3>
+      <p class="ag-sub">Se usan en las agencias que no tienen un porcentaje propio. El porcentaje se <b>suma</b> al costo: con 165 %, un costo de 100 pasa a valer 265.</p>
+      <div class="ag-pair">
+        <label>Serenos<span class="ag-in"><input name="g_serenos" inputmode="decimal" value="{{ '%g'|format(g_ser) }}"><i>%</i></span></label>
+        <label>Head Tally<span class="ag-in"><input name="g_tally" inputmode="decimal" value="{{ '%g'|format(g_tal) }}"><i>%</i></span></label>
+      </div>
+    </div>
+    <div class="ag-box">
+      <h3>Lista 2026</h3>
+      <p class="ag-sub">Carga los fee y las cargas sociales de la lista «Clientes 2026», tal cual, en las agencias que todavía no tienen fee. Las que ya tienen no se tocan; los montos poco claros quedan marcados para revisar.</p>
+      <button type="submit" class="btn" formaction="/administracion/agencias/cargar-lista-2026" formnovalidate onclick="return !agDirty || confirm('Hay cambios sin guardar que se van a perder. ¿Seguir?')">Cargar lista 2026</button>
+    </div>
+  </section>
+
+  {% if sin_fee %}<p class="ag-aviso">Sin fee cargado: <b>{{ sin_fee|join(', ') }}</b></p>{% endif %}
+
+  <section class="ag-tabla">
+    <div class="ag-head" aria-hidden="true">
+      <span>Agencia</span><span>Serenos</span><span>Head Tally</span><span>Fee</span><span></span>
+    </div>
+
+    {% for c in agencias %}
+    {% set n_rev = c.fees|selectattr('revisar')|list|length %}
+    <div class="ag-item" data-id="{{ c.id }}">
+      <div class="ag-row">
+        <div class="ag-nombre">
+          <b>{{ c.name }}</b>
+        </div>
+        <label class="ag-celda" data-et="Serenos">
+          <span class="ag-in"><input name="serenos_{{ c.id }}" inputmode="decimal" value="{{ '%g'|format(c.cargas_sociales_pct) if c.cargas_sociales_pct is not none else '' }}" placeholder="{{ '%g'|format(g_ser) }}" aria-label="Serenos de {{ c.name }}"><i>%</i></span>
+        </label>
+        <label class="ag-celda" data-et="Head Tally">
+          <span class="ag-in"><input name="tally_{{ c.id }}" inputmode="decimal" value="{{ '%g'|format(c.cargas_tally_pct) if c.cargas_tally_pct is not none else '' }}" placeholder="{{ '%g'|format(g_tal) }}" aria-label="Head Tally de {{ c.name }}"><i>%</i></span>
+        </label>
+        <div class="ag-resumen">
+          {% if c.fees %}
+            <span class="ag-pill">{{ c.fees|length }} fee{{ 's' if c.fees|length != 1 }}</span>
+            {% if n_rev %}<span class="ag-pill ag-pill-rev">revisar {{ n_rev }}</span>{% endif %}
+          {% else %}
+            <span class="ag-pill ag-pill-vacio">sin fee</span>
+          {% endif %}
+        </div>
+        <button type="button" class="btn mini ag-toggle" aria-expanded="false">Editar fee ▾</button>
+      </div>
+
+      <div class="ag-detalle" hidden>
+        <div class="ag-fees">
+          <div class="ag-fee ag-fee-cab" aria-hidden="true"><span>Fee (escrito tal cual)</span><span>USD</span><span></span><span></span></div>
+          {% for f in c.fees %}
+          <div class="ag-fee">
+            <input name="fee_{{ c.id }}_{{ loop.index0 }}_t" value="{{ f.texto }}" maxlength="200" aria-label="Fee de {{ c.name }}">
+            <span class="ag-in ag-usd"><input name="fee_{{ c.id }}_{{ loop.index0 }}_m" inputmode="decimal" value="{{ '%g'|format(f.monto_usd or 0) }}" aria-label="Monto en USD"></span>
+            <label class="ag-rev"><input type="checkbox" name="fee_{{ c.id }}_{{ loop.index0 }}_r" {{ 'checked' if f.revisar }}><span>revisar</span></label>
+            <button type="button" class="ag-del" title="Quitar este fee" aria-label="Quitar este fee">✕</button>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" class="btn mini ag-add">+ Agregar fee</button>
+      </div>
+    </div>
+    {% else %}
+    <p class="muted" style="padding:14px">No hay agencias cargadas en Clientes.</p>
+    {% endfor %}
+  </section>
+
+  <p class="ag-pie muted">Salen solas las agencias de <a href="/clients">Clientes</a> (no las estibas). Dejá vacío el porcentaje de una agencia para que use el general.</p>
+
+  <div class="ag-barra" id="ag-barra">
+    <span id="ag-estado" class="muted">Sin cambios</span>
+    <button class="btn primary" id="ag-guardar">Guardar</button>
   </div>
-
-  {% if sin_fee %}<p class="muted" style="margin:12px 0 0">Sin fee cargado: <b>{{ sin_fee|join(', ') }}</b>.</p>{% endif %}
-
-  {% for c in agencias %}
-  <details class="ag-card" {{ 'open' if not c.fees }}>
-    <summary><b>{{ c.name }}</b>
-      <span class="muted">{% if c.fees %}{{ c.fees|length }} fee{% else %}sin fee{% endif %}{% if c.fees|selectattr('revisar')|list %} · <span class="ag-rev">revisar montos</span>{% endif %}</span>
-    </summary>
-    <div class="ag-pcts">
-      <label>Serenos (%)<input name="serenos_{{ c.id }}" inputmode="decimal" value="{{ '%g'|format(c.cargas_sociales_pct) if c.cargas_sociales_pct is not none else '' }}" placeholder="general ({{ '%g'|format(g_ser) }})"></label>
-      <label>Head Tally (%)<input name="tally_{{ c.id }}" inputmode="decimal" value="{{ '%g'|format(c.cargas_tally_pct) if c.cargas_tally_pct is not none else '' }}" placeholder="general ({{ '%g'|format(g_tal) }})"></label>
-    </div>
-    <div class="ag-fees">
-      <div class="ag-fee ag-fee-head"><span>Fee (escrito tal cual)</span><span>Monto USD</span><span>Revisar</span></div>
-      {% for f in c.fees %}
-      <div class="ag-fee">
-        <input name="fee_{{ c.id }}_{{ loop.index0 }}_t" value="{{ f.texto }}" maxlength="200" aria-label="Fee de {{ c.name }}">
-        <input name="fee_{{ c.id }}_{{ loop.index0 }}_m" inputmode="decimal" value="{{ '%g'|format(f.monto_usd or 0) }}" aria-label="Monto">
-        <label class="ag-chk"><input type="checkbox" name="fee_{{ c.id }}_{{ loop.index0 }}_r" {{ 'checked' if f.revisar }}> revisar</label>
-      </div>
-      {% endfor %}
-      {% for k in range(c.fees|length, c.fees|length + 2) %}
-      <div class="ag-fee ag-fee-new">
-        <input name="fee_{{ c.id }}_{{ k }}_t" maxlength="200" placeholder="Nuevo fee (ej. FEE BUNKER USD 450)" aria-label="Nuevo fee de {{ c.name }}">
-        <input name="fee_{{ c.id }}_{{ k }}_m" inputmode="decimal" placeholder="0" aria-label="Monto">
-        <label class="ag-chk"><input type="checkbox" name="fee_{{ c.id }}_{{ k }}_r"> revisar</label>
-      </div>
-      {% endfor %}
-    </div>
-  </details>
-  {% else %}
-  <p class="muted">No hay agencias cargadas en Clientes.</p>
-  {% endfor %}
-
-  <p class="muted" style="margin:10px 0 12px">Salen solas las agencias de <a href="/clients">Clientes</a> (no las estibas). Para borrar un fee, vaciá su texto y guardá.</p>
-  <button class="btn primary">Guardar</button>
 </form>
 
 <style>
-.ag-general { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
-.ag-general label, .ag-pcts label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
-.ag-general input, .ag-pcts input { max-width: 150px; }
-.ag-lista { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.ag-lista .muted { flex: 1; min-width: 240px; }
-.ag-lista form { margin: 0; }
-.ag-card { border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 14px; margin-top: 12px; background: #fff; }
-.ag-card summary { cursor: pointer; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
-.ag-rev { color: #b45309; font-weight: 700; }
-.ag-pcts { display: flex; gap: 14px; flex-wrap: wrap; margin: 12px 0; }
-.ag-fee { display: grid; grid-template-columns: minmax(0, 1fr) 110px 90px; gap: 8px; align-items: center; margin-bottom: 6px; }
-.ag-fee-head { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.ag-fee input[name$="_t"], .ag-fee input[name$="_m"] { width: 100%; min-width: 0; }
-.ag-chk { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-.ag-chk input { width: 16px !important; height: 16px; min-width: 0 !important; margin: 0; flex: none; }
-.ag-fee-new input { background: #fafcff; }
-@media (max-width: 640px) {
-  .ag-fee { grid-template-columns: minmax(0, 1fr) 90px; }
-  .ag-fee .ag-chk, .ag-fee-head span:nth-child(3) { grid-column: 1 / -1; }
+.ag-ok { background: #ecfdf3; border-color: #a6e0bd; color: #166534; }
+.ag-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.ag-box { background: #fff; border: 1px solid var(--line-soft); border-radius: 14px; padding: 16px 18px; }
+.ag-box h3 { margin: 0 0 4px; font-size: 15px; color: var(--navy, #12355f); }
+.ag-sub { margin: 0 0 12px; font-size: 13px; color: var(--muted); line-height: 1.45; }
+.ag-pair { display: flex; gap: 16px; flex-wrap: wrap; }
+.ag-pair label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.ag-in { position: relative; display: inline-flex; align-items: center; }
+.ag-in input { width: 112px; padding-right: 26px; text-align: right; }
+.ag-in i { position: absolute; right: 10px; font-style: normal; color: var(--muted); pointer-events: none; }
+.ag-usd input { width: 100%; padding-right: 10px; }
+.ag-aviso { margin: 0 0 12px; padding: 9px 14px; border-radius: 10px; background: #fff7e6; border: 1px solid #f0d3a6; color: #92400e; font-size: 13px; }
+
+.ag-tabla { background: #fff; border: 1px solid var(--line-soft); border-radius: 14px; overflow: hidden; }
+.ag-head, .ag-row { display: grid; grid-template-columns: minmax(180px, 1.6fr) 130px 130px minmax(150px, 1fr) 130px; gap: 14px; align-items: center; padding: 10px 18px; }
+.ag-head { background: #eaf2fb; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ag-item { border-top: 1px solid var(--line-soft); }
+.ag-item:first-of-type { border-top: 0; }
+.ag-item.abierto .ag-row { background: #f4f8fd; }
+.ag-nombre b { font-size: 15px; color: var(--navy, #12355f); }
+.ag-celda { margin: 0; }
+.ag-celda .ag-in input { width: 100px; }
+.ag-resumen { display: flex; gap: 6px; flex-wrap: wrap; }
+.ag-pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #e3ecf8; color: #1b3a63; white-space: nowrap; }
+.ag-pill-rev { background: #fef3c7; color: #92400e; }
+.ag-pill-vacio { background: #f1f1ef; color: #6b6b66; }
+.ag-toggle { justify-self: end; white-space: nowrap; }
+
+.ag-detalle { padding: 6px 18px 16px; background: #f4f8fd; border-top: 1px dashed var(--line-soft); }
+.ag-fees { display: flex; flex-direction: column; gap: 6px; margin: 8px 0 10px; }
+.ag-fee { display: grid; grid-template-columns: minmax(0, 1fr) 120px 92px 34px; gap: 10px; align-items: center; }
+.ag-fee > input { width: 100%; min-width: 0; }
+.ag-fee-cab { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ag-rev { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: #92400e; font-weight: 600; cursor: pointer; }
+.ag-rev input { width: 16px !important; height: 16px; min-width: 0 !important; margin: 0; flex: none; }
+.ag-del { width: 32px; height: 32px; border: 1px solid #f0c6c6; background: #fff; color: #b91c1c; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.ag-del:hover { background: #fee2e2; }
+.ag-pie { margin: 12px 4px 0; }
+
+.ag-barra { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 12px 18px; background: rgba(255, 255, 255, .96); border: 1px solid var(--line-soft); border-radius: 14px; box-shadow: 0 -8px 24px -14px rgba(10, 30, 60, .4); }
+.ag-barra.sucio { border-color: #f0a830; background: #fffaf0; }
+.ag-barra.sucio #ag-estado { color: #92400e; font-weight: 700; }
+
+@media (max-width: 860px) {
+  .ag-head { display: none; }
+  .ag-row { grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 14px 16px; }
+  .ag-nombre, .ag-resumen { grid-column: 1 / -1; }
+  .ag-celda { display: flex; flex-direction: column; gap: 4px; }
+  .ag-celda::before { content: attr(data-et); font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .ag-celda .ag-in, .ag-celda .ag-in input { width: 100%; }
+  .ag-toggle { grid-column: 1 / -1; justify-self: stretch; padding: 9px; }
+  .ag-fee { grid-template-columns: minmax(0, 1fr) 96px; gap: 6px 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line-soft); }
+  .ag-fee > input { grid-column: 1; grid-row: 1; }
+  .ag-fee .ag-del { grid-column: 2; grid-row: 1; justify-self: end; }
+  .ag-fee .ag-usd { grid-column: 1; grid-row: 2; }
+  .ag-fee .ag-rev { grid-column: 2; grid-row: 2; }
+  .ag-fee-cab { display: none; }
 }
 </style>
+
+<script>
+let agDirty = false;
+const agForm = document.getElementById("ag-form");
+const agBarra = document.getElementById("ag-barra");
+
+function agMarcar() {
+  agDirty = true;
+  agBarra.classList.add("sucio");
+  document.getElementById("ag-estado").textContent = "Hay cambios sin guardar";
+}
+agForm.addEventListener("input", agMarcar);
+agForm.addEventListener("change", agMarcar);
+agForm.addEventListener("submit", () => { agDirty = false; });
+window.addEventListener("beforeunload", (e) => { if (agDirty) { e.preventDefault(); e.returnValue = ""; } });
+
+document.querySelectorAll(".ag-item").forEach((item) => {
+  const detalle = item.querySelector(".ag-detalle");
+  const toggle = item.querySelector(".ag-toggle");
+  const id = item.dataset.id;
+  let next = item.querySelectorAll(".ag-fee:not(.ag-fee-cab)").length;
+
+  toggle.addEventListener("click", () => {
+    const abrir = detalle.hidden;
+    detalle.hidden = !abrir;
+    item.classList.toggle("abierto", abrir);
+    toggle.setAttribute("aria-expanded", abrir ? "true" : "false");
+    toggle.textContent = abrir ? "Cerrar ▴" : "Editar fee ▾";
+  });
+
+  item.addEventListener("click", (ev) => {
+    const del = ev.target.closest(".ag-del");
+    if (del) { del.closest(".ag-fee").remove(); agMarcar(); }
+  });
+
+  item.querySelector(".ag-add").addEventListener("click", () => {
+    const k = 1000 + next++;  // indices altos: no chocan con los renglones ya guardados
+    const row = document.createElement("div");
+    row.className = "ag-fee";
+    row.innerHTML = `
+      <input name="fee_${id}_${k}_t" maxlength="200" placeholder="ej. FEE BUNKER USD 450" aria-label="Nuevo fee">
+      <span class="ag-in ag-usd"><input name="fee_${id}_${k}_m" inputmode="decimal" placeholder="0" aria-label="Monto en USD"></span>
+      <label class="ag-rev"><input type="checkbox" name="fee_${id}_${k}_r"><span>revisar</span></label>
+      <button type="button" class="ag-del" title="Quitar este fee" aria-label="Quitar este fee">✕</button>`;
+    item.querySelector(".ag-fees").appendChild(row);
+    row.querySelector("input").focus();
+    agMarcar();
+  });
+});
+
+// se abren solas las agencias sin fee, para cargarlo
+document.querySelectorAll(".ag-item").forEach((item) => {
+  if (item.querySelector(".ag-pill-vacio")) item.querySelector(".ag-toggle").click();
+});
+agDirty = false; agBarra.classList.remove("sucio"); document.getElementById("ag-estado").textContent = "Sin cambios";
+</script>
 {% endblock %}

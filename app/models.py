@@ -516,6 +516,8 @@ class Feriado(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     fecha: Mapped[str] = mapped_column(String(10), unique=True, index=True)  # ISO yyyy-mm-dd
     nombre: Mapped[str] = mapped_column(String(120), default="")
+    # FERIADO | NO_LABORABLE (dia no laborable: el Head Tally y los Serenos cobran distinto ese dia)
+    tipo: Mapped[str] = mapped_column(String(20), default="FERIADO")
     creado_por: Mapped[str] = mapped_column(String(120), default="")
 
 

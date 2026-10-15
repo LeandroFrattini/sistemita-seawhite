@@ -28,7 +28,7 @@ ESLORA_DOS_LANCHAS = 150.0  # "eslora de mas de 150 lleva dos lanchas"
 
 
 def recargo_pct(momento: datetime, feriados: set[str]) -> int:
-    """0, 50 o 100 segun el dia y la hora del servicio."""
+    """0, 50 o 100 segun el dia y la hora del servicio. El dia no laborable no cuenta para LDS (se toma como habil)."""
     tipo = tipo_dia(momento.date(), feriados)
     h = momento.hour + momento.minute / 60
     if tipo in ("DOMINGO", "FERIADO"):

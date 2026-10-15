@@ -29,7 +29,19 @@
 
   <section class="card pfn-body">
     <div data-pane="1">
-      <h2>1 · Dólar</h2>
+      <h2>1 · Barco y dólar</h2>
+      <div class="pfn-grid">
+        <label class="pfn-wide">Barco a proformar
+          <select id="barco-sel"></select>
+        </label>
+      </div>
+      <div id="barco-manual" class="pfn-grid" hidden>
+        <label class="pfn-wide">Nombre del barco<input id="barco-nombre" maxlength="120" placeholder="ej. MV EXAMPLE"></label>
+      </div>
+      <div id="barco-datos" class="pfn-datos" hidden></div>
+      <p class="muted">Salen los barcos operados con su agencia. Al elegir uno se completa la agencia (paso 2) y se traen los horarios que cargó Operaciones.</p>
+
+      <h3 class="pfn-sub">Dólar</h3>
       <p class="muted">Divisa del Banco Nación, como en el proformador inicial. Si el barco se fue hace unos días, poné la cotización de la fecha que corresponda.</p>
       <div class="pfn-grid">
         <label>Dólar divisa (ARS por USD)<input id="dolar-valor" inputmode="decimal" placeholder="ej. 1050,50"></label>
@@ -94,6 +106,12 @@
 .pfn-fee input[type=text], .pfn-fee input[inputmode] { width: 100%; min-width: 0; }
 .pfn-rev { font-size: 11px; color: #b45309; font-weight: 700; }
 .pfn-total { font-size: 15px; margin: 10px 0 14px; }
+.pfn-grid[hidden], .pfn-datos[hidden] { display: none; }
+.pfn-sub { margin: 18px 0 4px; font-size: 15px; color: var(--navy, #12355f); }
+.pfn-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; padding: 12px 14px; margin-bottom: 8px; background: #f4f8fd; border: 1px solid var(--line-soft); border-radius: 12px; }
+.pfn-datos div { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
+.pfn-datos b { font-size: 14px; color: var(--ink); font-weight: 600; }
+.pfn-datos b.falta { color: #b45309; font-weight: 700; }
 .pfn-soon { padding: 18px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); }
 .pfn-nav { display: flex; justify-content: space-between; margin-top: 18px; }
 @media (max-width: 860px) {
@@ -106,6 +124,8 @@
 
 <script>
 const AGENCIAS = {{ agencias|tojson }};
+const BARCOS = {{ barcos|tojson }};
+let BUQUE = { operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "" };
 const TOTAL = {{ pasos|length }};
 let step = 1;
 let FEES = [];  // renglones de fee de la agencia elegida: {texto, monto_usd, on, revisar, manual}
@@ -118,8 +138,11 @@ const sel = $("#ag-sel");
 function msg(t, ok = true) { const m = $("#pfn-msg"); m.textContent = t; m.style.color = ok ? "" : "#b91c1c"; }
 
 function getState() {
+  const manual = $("#barco-sel").value === "manual";
+  if (manual) BUQUE = { ...BUQUE, operated_id: null, nombre: $("#barco-nombre").value.trim() };
   return {
-    v: 2,
+    v: 3,
+    buque: BUQUE,
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
       id: sel.value ? Number(sel.value) : null,
@@ -176,7 +199,46 @@ function renderFees() {
   updateTotal();
 }
 
+const fmtDT = (v) => (v ? v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4) + " " + v.slice(11, 16) : "—");
+
+function renderBuque() {
+  const box = $("#barco-datos");
+  const b = BUQUE;
+  const hay = !!(b.nombre);
+  box.hidden = !hay || $("#barco-sel").value === "manual";
+  $("#barco-manual").hidden = $("#barco-sel").value !== "manual";
+  if (box.hidden) return;
+  const filas = [["Barco", b.nombre + (b.imo ? "  ·  IMO " + b.imo : "")], ["Sitio / muelle", b.sitio || "—"], ["Amarre", fmtDT(b.amarre)],
+    ["Inicio de operación", fmtDT(b.inicio)], ["Fin de operación", fmtDT(b.fin)], ["Zarpe", fmtDT(b.zarpe)], ["Cantidad operada", b.cantidad || "—"]];
+  box.replaceChildren();
+  filas.forEach(([k, v]) => {
+    const d = document.createElement("div");
+    const a = document.createElement("span"); a.textContent = k;
+    const c = document.createElement("b"); c.textContent = v;
+    if (v === "—") c.className = "falta";
+    d.append(a, c); box.appendChild(d);
+  });
+}
+
+function elegirBarco(valor) {
+  if (valor === "manual") { BUQUE = { operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "" }; renderBuque(); render(); return; }
+  const o = BARCOS.find((x) => String(x.id) === String(valor));
+  if (!o) { BUQUE = { operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "" }; renderBuque(); render(); return; }
+  BUQUE = { operated_id: o.id, nombre: o.nombre, imo: o.imo, sitio: o.sitio, amarre: o.amarre, inicio: o.inicio, fin: o.fin, zarpe: o.zarpe, cantidad: o.cantidad };
+  if (o.agencia_id && String(o.agencia_id) !== sel.value) {  // la agencia a facturar es la del barco
+    sel.value = String(o.agencia_id);
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  if (o.zarpe) $("#dolar-fecha").value = o.zarpe.slice(0, 10);  // la cotizacion suele ser la del dia de zarpada (se puede cambiar)
+  renderBuque(); render();
+  msg(o.agencia_id ? "Barco cargado. La agencia a facturar es " + o.agencia + "." : "Barco cargado. Su agencia (" + (o.agencia || "sin cliente") + ") no figura en Clientes: elegila en el paso 2.", !!o.agencia_id);
+}
+
 function setState(s) {
+  BUQUE = { ...s.buque };
+  $("#barco-sel").value = BUQUE.operated_id && BARCOS.some((x) => x.id === BUQUE.operated_id) ? String(BUQUE.operated_id) : (BUQUE.nombre ? "manual" : "");
+  if ($("#barco-sel").value === "manual") $("#barco-nombre").value = BUQUE.nombre;
+  renderBuque();
   $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
   $("#dolar-fecha").value = s.dolar.fecha || "";
   const hay = AGENCIAS.some((a) => a.id === s.agencia.id);
@@ -198,7 +260,7 @@ function setState(s) {
 function render() {
   $$("[data-pane]").forEach((p) => (p.hidden = Number(p.dataset.pane) !== step));
   const s = getState();
-  const done = { 1: s.dolar.valor > 0, 2: !!s.agencia.id };
+  const done = { 1: s.dolar.valor > 0 && !!s.buque.nombre, 2: !!s.agencia.id };
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
     b.classList.toggle("on", n === step);
@@ -212,6 +274,16 @@ $$(".pfn-step").forEach((b) => b.addEventListener("click", () => { step = Number
 $("#pfn-prev").addEventListener("click", () => { step = Math.max(1, step - 1); render(); });
 $("#pfn-next").addEventListener("click", () => { step = Math.min(TOTAL, step + 1); render(); });
 document.addEventListener("input", render);
+
+const bsel = $("#barco-sel");
+bsel.add(new Option("— Elegí el barco —", ""));
+BARCOS.forEach((b) => {
+  const f = b.zarpe ? " · zarpó " + b.zarpe.slice(8, 10) + "/" + b.zarpe.slice(5, 7) : "";
+  bsel.add(new Option(`${b.nombre} · ${b.agencia || "sin cliente"}${f}${b.completo ? "" : " · datos incompletos"}`, b.id));
+});
+bsel.add(new Option("Otro barco (escribir el nombre)", "manual"));
+bsel.addEventListener("change", () => elegirBarco(bsel.value));
+$("#barco-nombre").addEventListener("input", () => render());
 
 sel.add(new Option("— Elegí una agencia —", ""));
 AGENCIAS.forEach((a) => sel.add(new Option(a.nombre, a.id)));

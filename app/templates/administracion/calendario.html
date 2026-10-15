@@ -4,43 +4,57 @@
 <div class="page-head">
   <div>
     <h1 style="margin:0">Calendario</h1>
-    <span class="muted">Feriados: el precio de ciertos servicios cambia en feriado, sábado y domingo</span>
+    <span class="muted">Feriados y días no laborables: el precio de ciertos servicios cambia esos días</span>
   </div>
   <div class="actions">
     <a class="btn" href="/administracion">← Administración</a>
   </div>
 </div>
 
-{% if error == 'fecha' %}<p class="flash-inline">Elegí una fecha válida.</p>{% elif error == 'repetido' %}<p class="flash-inline">Ese día ya está cargado como feriado.</p>{% endif %}
+{% if error == 'fecha' %}<p class="flash-inline">Elegí una fecha válida.</p>{% elif error == 'repetido' %}<p class="flash-inline">Ese día ya está cargado en el calendario.</p>{% endif %}
 
 <div class="card">
-  <h3 style="margin-top:0">Agregar feriado</h3>
+  <h3 style="margin-top:0">Agregar al calendario</h3>
   <form method="post" action="/administracion/calendario/agregar" class="cal-add">
     <label>Fecha<input type="date" name="fecha" required></label>
+    <label>Tipo
+      <select name="tipo">
+        {% for k, label in tipos.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}
+      </select>
+    </label>
     <label class="cal-nombre">Nombre<input name="nombre" maxlength="120" placeholder="ej. Día de la Soberanía Nacional"></label>
     <button class="btn primary">Agregar</button>
   </form>
-  <p class="muted" style="margin:8px 0 0">Cargá también los feriados puente y los que se mueven de fecha. Si un feriado cae sábado o domingo, se toma como feriado.</p>
+  <ul class="cal-notas">
+    <li><b>Feriado</b>: cambia el precio del amarre y desamarre (LDS), del Head Tally y de los Serenos. Cargá también los feriados puente y los que se mueven de fecha.</li>
+    <li><b>Día no laborable</b>: es una distinción para el <b>Head Tally</b> y los <b>Serenos</b>, que cobran distinto ese día. Para LDS se toma como día hábil.</li>
+    <li>Si cae sábado o domingo, un feriado sigue siendo feriado; un día no laborable se toma como sábado o domingo.</li>
+  </ul>
 </div>
 
 <div class="card" style="margin-top:14px">
   <div class="cal-head">
     <a class="btn mini" href="/administracion/calendario?anio={{ anio - 1 }}">← {{ anio - 1 }}</a>
-    <h3 style="margin:0">Feriados {{ anio }} ({{ feriados|length }})</h3>
+    <div class="cal-titulo">
+      <h3 style="margin:0">{{ anio }}</h3>
+      <span class="cal-pill cal-pill-fer">{{ n_feriados }} feriado{{ 's' if n_feriados != 1 }}</span>
+      <span class="cal-pill cal-pill-nl">{{ n_no_lab }} no laborable{{ 's' if n_no_lab != 1 }}</span>
+    </div>
     <a class="btn mini" href="/administracion/calendario?anio={{ anio + 1 }}">{{ anio + 1 }} →</a>
   </div>
   {% if feriados %}
   <table class="list">
-    <thead><tr><th>Fecha</th><th>Día</th><th>Feriado</th><th></th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Día</th><th>Tipo</th><th>Nombre</th><th></th></tr></thead>
     <tbody>
     {% for f in feriados %}
       <tr>
-        <td class="nowrap">{{ f.d.strftime('%d/%m/%Y') }}</td>
+        <td class="nowrap">{{ f.d.strftime('%d/%m/%Y') }}<small class="cal-dia">{{ f.dia }}</small></td>
         <td>{{ f.dia }}</td>
+        <td><span class="cal-pill {{ 'cal-pill-nl' if f.tipo == 'NO_LABORABLE' else 'cal-pill-fer' }}">{{ tipos.get(f.tipo, f.tipo) }}</span></td>
         <td>{{ f.nombre }}</td>
         <td class="nowrap">
           <form method="post" action="/administracion/calendario/{{ f.id }}/borrar" style="display:inline"
-                onsubmit="return confirm('¿Borrar este feriado?')">
+                onsubmit="return confirm('¿Borrar este día del calendario?')">
             <button class="mini danger" title="Borrar">✕</button>
           </form>
         </td>
@@ -49,7 +63,7 @@
     </tbody>
   </table>
   {% else %}
-  <p class="muted">Todavía no hay feriados cargados para {{ anio }}.</p>
+  <p class="muted">Todavía no hay nada cargado para {{ anio }}.</p>
   {% endif %}
 </div>
 
@@ -57,7 +71,24 @@
 .cal-add { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
 .cal-add label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .cal-add .cal-nombre { flex: 1; min-width: 220px; }
+.cal-notas { margin: 12px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+.cal-notas li { margin-bottom: 4px; }
 .cal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-@media (max-width: 640px) { .cal-add label, .cal-add button { width: 100%; } }
+.cal-titulo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cal-pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+.cal-pill-fer { background: #fee2e2; color: #991b1b; }
+.cal-pill-nl { background: #fef3c7; color: #92400e; }
+.cal-dia { display: none; }
+@media (max-width: 640px) {
+  .cal-add label, .cal-add button { width: 100%; }
+  table.list { table-layout: fixed; width: 100%; }
+  table.list th:nth-child(2), table.list td:nth-child(2) { display: none; }
+  table.list th, table.list td { padding-left: 6px; padding-right: 6px; overflow-wrap: anywhere; }
+  table.list td.nowrap { white-space: normal; }
+  .cal-dia { display: block; color: var(--muted); font-size: 12px; }
+  table.list th:first-child { width: 27%; }
+  table.list th:nth-child(3) { width: 30%; }
+  table.list th:last-child { width: 44px; }
+}
 </style>
 {% endblock %}
