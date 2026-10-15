@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block nav_vouchers %}active{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Vouchers</h1>
+    <span class="muted">Service Certificate de cada barco operado, uno por agencia a facturar</span>
+  </div>
+</div>
+
+{% if listo %}<p class="flash-inline" style="background:#ecfdf3;border-color:#a6e0bd;color:#166534">Listo, no quedan vouchers por completar.</p>{% endif %}
+
+{% if pendientes %}
+<section class="card vl-pend">
+  <h3 style="margin:0 0 8px">Por completar ({{ pendientes|length }})</h3>
+  <ul class="vl-pend-lista">
+    {% for o in pendientes %}
+    <li>
+      <span><b>COMPLETAR VOUCHER</b> · BARCO {{ o.vessel_name|upper }} <span class="muted">· {{ o.principal }}{% if o.voucher and o.voucher.estado == 'ENVIADO' %} · falta confirmar los turnos del Head Tally{% endif %}</span></span>
+      <a class="btn mini primary" href="/vouchers/nuevo?operated_id={{ o.id }}">Completar</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card" style="margin-top:14px">
+  <h3 style="margin:0 0 10px">Todos los vouchers</h3>
+  {% if filas %}
+  <table class="list">
+    <thead><tr><th>Barco</th><th>Agencia</th><th>Formato</th><th>Estado</th><th>Head Tally</th><th></th></tr></thead>
+    <tbody>
+    {% for f in filas %}
+    {% set v = f.v %}
+    <tr>
+      <td><b>{{ v.buque|upper }}</b></td>
+      <td>{{ v.agencia }}</td>
+      <td>{{ 'Word' if v.formato == 'WORD' else 'Excel' }}</td>
+      <td>
+        {% if v.estado == 'ENVIADO' %}<span class="vl-pill vl-ok">Enviado</span> <span class="muted">{{ v.enviado_por }} · {{ v.enviado_en|localdt("%d/%m %H:%M") }}</span>
+        {% else %}<span class="vl-pill vl-bor">Borrador</span> <span class="muted">{{ v.creado_por }}</span>{% endif %}
+      </td>
+      <td>{% if f.head_tally %}{% if f.turnos_ok %}<span class="vl-pill vl-ok">turnos listos</span>{% else %}<span class="vl-pill vl-bor">faltan turnos</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td class="nowrap">
+        <a class="mini" href="/vouchers/{{ v.id }}">{{ 'Abrir' if v.estado == 'ENVIADO' else 'Completar' }}</a>
+        <a class="mini" href="/vouchers/{{ v.id }}/descargar">⬇ Descargar</a>
+        {% if f.head_tally %}<a class="mini" href="/vouchers/{{ v.id }}/turnos">Turnos</a>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Todavía no hay vouchers. Aparecen cuando se completan los datos de un barco en Nuestros barcos → Operados.</p>
+  {% endif %}
+</section>
+
+<style>
+.vl-pend { border-color: #f0a830; background: #fffaf0; }
+.vl-pend-lista { list-style: none; margin: 0; padding: 0; }
+.vl-pend-lista li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid #f3e1bf; flex-wrap: wrap; }
+.vl-pend-lista li:first-child { border-top: 0; }
+.vl-pill { font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+.vl-ok { background: #dcfce7; color: #166534; }
+.vl-bor { background: #fef3c7; color: #92400e; }
+@media (max-width: 640px) {
+  table.list { table-layout: fixed; width: 100%; }
+  table.list th:nth-child(3), table.list td:nth-child(3), table.list th:nth-child(5), table.list td:nth-child(5) { display: none; }
+  table.list th, table.list td { padding-left: 6px; padding-right: 6px; overflow-wrap: anywhere; }
+  table.list td.nowrap { white-space: normal; }
+}
+</style>
+{% endblock %}

@@ -42,8 +42,18 @@ def admin_home(
             "signature_html": get_setting(db, SIGNATURE_KEY, ""),
             "report_cc": get_setting(db, CC_KEY, DEFAULT_CC),
             "flammable_list_emails": split_emails(get_setting(db, FLAMMABLE_LIST_KEY, "")),
+            "voucher_bloqueo": __import__("app.vouchers_lib", fromlist=["bloqueo_activo"]).bloqueo_activo(db),
         },
     )
+
+
+@router.post("/voucher-bloqueo")
+def voucher_bloqueo(db: Session = Depends(get_db), admin: User = Depends(admin_required), activo: str = Form("")):
+    """Prende o apaga el bloqueo del voucher (quien carga los datos de un barco queda clavado en su voucher)."""
+    from ..vouchers_lib import set_bloqueo
+
+    set_bloqueo(db, activo == "1")
+    return RedirectResponse("/admin?tab=usuarios&bloqueo=1", status_code=303)
 
 
 @router.post("/flammable-list")

@@ -23,6 +23,17 @@
 {% endif %}
 
 {% if tab == 'usuarios' %}
+<section class="card" style="margin-bottom:14px">
+  <h3 style="margin-top:0">Bloqueo del voucher</h3>
+  <p class="muted" style="margin:0 0 10px">Cuando está <b>prendido</b>, quien carga los datos finales de un barco queda clavado en su voucher: no puede usar nada más del sistema hasta enviarlo.
+  Viene <b>apagado</b>: se prende cuando termines de probar todo. Apagado, el voucher se abre igual pero se puede salir.</p>
+  <form method="post" action="/admin/voucher-bloqueo" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <b>Estado: {{ 'PRENDIDO' if voucher_bloqueo else 'apagado' }}</b>
+    <input type="hidden" name="activo" value="{{ '0' if voucher_bloqueo else '1' }}">
+    <button class="btn {{ '' if voucher_bloqueo else 'danger' }}" onclick="return confirm('{{ '¿Apagar el bloqueo del voucher?' if voucher_bloqueo else '¿Prender el bloqueo? Quien cargue los datos de un barco no va a poder usar el sistema hasta enviar su voucher.' }}')">{{ 'Apagar' if voucher_bloqueo else 'Prender' }}</button>
+  </form>
+</section>
+
 <section>
   <h2>Usuarios</h2>
   <p class="muted">Por seguridad, las contraseñas no se pueden ver (quedan encriptadas) — ni vos ni nadie.

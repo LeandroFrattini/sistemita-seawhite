@@ -342,6 +342,17 @@ def completar_operado(
             h.fin_operacion = row.fin_operacion
             h.zarpe = row.zarpe
             h.cantidad_operada = row.cantidad_operada
+        # Agencia con los 5 datos completos: se abre el voucher (uno por agencia a facturar). Las estibas no llevan voucher.
+        if tipo.upper() != "ESTIBA" and row.datos_completos(False):
+            ahora = datetime.utcnow()
+            estibas = {c.name.strip().lower() for c in db.scalars(select(Client).where(Client.client_type == "ESTIBA"))}
+            for r in [row, *hermanas]:
+                if (r.principal or "").strip().lower() in estibas:
+                    continue  # las estibas no llevan voucher
+                if r.datos_completos(False) and r.datos_completados_at is None:
+                    r.datos_completados_at, r.completado_por = ahora, user.username
+            db.commit()
+            return RedirectResponse(f"/vouchers/nuevo?operated_id={row.id}", status_code=303)
         db.commit()
     partes = ([f"mes={volver}"] if volver else []) + [f"tipo={'ESTIBA' if tipo.upper() == 'ESTIBA' else 'AGENCY'}"]
     return RedirectResponse("/nuestros-barcos?" + "&".join(partes) + "#operados", status_code=302)

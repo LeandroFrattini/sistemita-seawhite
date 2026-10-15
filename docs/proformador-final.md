@@ -151,6 +151,20 @@ Oceanway muestra un solo valor (117 %).
 - **Bloqueo del voucher:** hasta terminar de probar todo **no debe trabar la PC del administrador**. Cuando se construya va a venir **apagado** y lo prende el administrador desde la pantalla de Admin.
 - Pantalla de Agencias rediseñada: tabla con los porcentajes en cada fila, editor de fee desplegable por agencia, barra de guardado fija y versión de celular.
 
+## Voucher: lo ya construido (ronda 5)
+
+- **Se abre solo** al completar los 5 datos de una agencia en Nuestros barcos → Operados → Completar datos. Las estibas no llevan voucher. Un voucher **por agencia a facturar** (cada fila de Operados).
+  Las filas hermanas (mismo barco, otra agencia) quedan pendientes de su voucher. Las filas completadas antes de existir esta función no generan tarea: se abren con el botón **Voucher** de la tabla de Operados.
+- **Formatos:** general de Sea White (Excel, REG-AM-36, `app/docgen/templates/voucher.xlsx`) y **Oceanway en Word** (`voucher_oceanway.docx`). Generador: `app/docgen/voucher.py`.
+- **Conceptos:** todos tildados de entrada. Tipos: simple (con "AT BUOY 11" opcional), **CUSTOM OVERTIME** con sub-conceptos (Entrance, Loading, Permanence, Bunkering, Clearance, Store list endorsed),
+  y migraciones/taxis con **IN y OUT** (cada uno puede ir en boya: si difieren salen en dos líneas). Concepto nuevo **SHORE GANGWAY** (después suma la ESCALA de LDS en el amarre).
+  Se pueden **agregar conceptos**, que quedan en una **memoria** para ofrecerlos la próxima vez (con ✕ para olvidarlos).
+- **ENVIAR** lo deja disponible para todos (descarga). Se puede seguir editando. Si lleva **Head Tally**, abre la pantalla de **turnos** (01–07, 07–13, 13–19, 19–01), pre-tildados los que cruzan el horario de carga,
+  con el tipo de día (hábil, sábado, domingo, feriado, no laborable). El documento del voucher de Head Tally queda pendiente de su formato.
+- **Tarea pendiente para todos:** "COMPLETAR VOUCHER BARCO X" en Pendientes, en la lista de Vouchers y en el cartel de la home, hasta que se envía (y se confirman los turnos si lleva Head Tally).
+- **Bloqueo:** quien completó los datos queda clavado en su voucher; **viene APAGADO**, se prende/apaga desde Admin → Usuarios. Funciona desde `current_user` (redirige al voucher salvo vouchers, logout, estilos y cambio de clave).
+- Menú: **Operaciones → Vouchers** (y en el menú de celular).
+
 ## Fee y cargas sociales por agencia (de `FEE.pdf`, "Clientes 2026") — transcripción, A VERIFICAR
 
 Columna "Serenos y Encargado" = cargas sociales (dos valores: serenos / encargado). **PENDIENTE:** qué significa el % (¿multiplicador sobre el costo?).

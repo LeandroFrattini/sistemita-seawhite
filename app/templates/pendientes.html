@@ -15,6 +15,20 @@
 </div>
 {% endif %}
 
+{% if vouchers %}
+<section class="card pend-barco" id="vouchers" style="border-color:#f0a830;background:#fffaf0">
+  <h2>Vouchers por completar <span class="pend-count">{{ vouchers|length }}</span></h2>
+  <ul class="pend-list">
+    {% for o in vouchers %}
+    <li class="pend-task">
+      <span class="pend-t"><b>COMPLETAR VOUCHER</b> · BARCO {{ o.vessel_name|upper }} <small class="muted">· {{ o.principal }}{% if o.voucher and o.voucher.estado == 'ENVIADO' %} · faltan los turnos del Head Tally{% endif %}</small></span>
+      <a class="btn mini primary" href="/vouchers/nuevo?operated_id={{ o.id }}">Completar</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
 <p class="muted">Cada barco aparece cuando faltan {{ dias_aviso }} días o menos para su ETA del line-up (o si ya está en puerto) y se queda mientras su legajo esté abierto.
 Elegí el tipo de contrato: con <b>Charter</b> se abre la lista de documentos. Si viene del exterior, tildá la casilla para pedir también PBIP y Libre plática.</p>
 

@@ -27,12 +27,13 @@
     </div>
 
     <div class="nav-group">
-      <button type="button" class="nav-drop-btn {{ self.nav_ours() }} {{ self.nav_files() }} {{ self.nav_proformador() }} {{ self.nav_clients() }} {{ self.nav_reports() }} {{ self.nav_finalize() }} {{ self.nav_utilidades() }} {{ self.nav_operaciones() }}">Operaciones ▾</button>
+      <button type="button" class="nav-drop-btn {{ self.nav_ours() }} {{ self.nav_files() }} {{ self.nav_proformador() }} {{ self.nav_vouchers() }} {{ self.nav_clients() }} {{ self.nav_reports() }} {{ self.nav_finalize() }} {{ self.nav_utilidades() }} {{ self.nav_operaciones() }}">Operaciones ▾</button>
       <div class="nav-drop-panel">
         <a href="/barcos" class="{% block nav_files %}{% endblock %}">Barcos (ID)</a>
         <a href="/clients" class="{% block nav_clients %}{% endblock %}">Clientes</a>
         <a href="/nuestros-barcos" class="{% block nav_ours %}{% endblock %}">Nuestros barcos</a>
         <a href="/proformador" class="{% block nav_proformador %}{% endblock %}">Proformador</a>
+        <a href="/vouchers" class="{% block nav_vouchers %}{% endblock %}">Vouchers</a>
         <a href="/reports" class="{% block nav_reports %}{% endblock %}">Reportes</a>
         <a href="/operaciones/utilidades" class="{% block nav_utilidades %}{% endblock %}">Utilidades</a>
       </div>
@@ -59,6 +60,7 @@
     <a href="/clients" class="{{ self.nav_clients() }}">Clientes</a>
     <a href="/nuestros-barcos" class="{{ self.nav_ours() }}">Nuestros barcos</a>
     <a href="/proformador" class="{{ self.nav_proformador() }}">Proformador</a>
+    <a href="/vouchers" class="{{ self.nav_vouchers() }}">Vouchers</a>
     <a href="/reports" class="{{ self.nav_reports() }}">Reportes</a>
     <a href="/operaciones/utilidades" class="{{ self.nav_utilidades() }}">Utilidades</a>
     {% if user.is_admin or user.is_administracion %}<a href="/administracion" class="{{ self.nav_administracion() }}">Administración</a>{% endif %}

@@ -22,6 +22,7 @@ from .routers import (
     proformador,
     reports,
     vessels,
+    vouchers,
 )
 from .security import origin_ok, security_headers, warn_if_insecure_config
 from .seed import init_db
@@ -89,6 +90,7 @@ app.include_router(admin.router)
 app.include_router(exports.router)
 app.include_router(reports.router)
 app.include_router(vessels.router)
+app.include_router(vouchers.router)
 app.include_router(pendientes.router)
 app.include_router(proformador.router)
 app.include_router(operaciones.router)

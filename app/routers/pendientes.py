@@ -111,19 +111,28 @@ def pending_cards(db: Session) -> tuple[list[dict], list[dict]]:
 
 
 def pending_summary(db: Session) -> dict:
-    """Cuantas casillas sin tildar hay en los barcos que ya aparecen, y en cuantos barcos."""
+    """Cuantas casillas sin tildar hay en los barcos que ya aparecen, y en cuantos barcos.
+    Cada voucher por completar ("COMPLETAR VOUCHER BARCO X") cuenta como un pendiente para todos."""
+    from ..vouchers_lib import pendientes as vouchers_por_completar
+
     shown, _ = pending_cards(db)
-    return {"count": sum(c["open"] for c in shown), "vessels": sum(1 for c in shown if c["open"]), "overdue": 0}
+    vouchers = vouchers_por_completar(db)
+    barcos = {c["vf"].vessel_name.strip().lower() for c in shown if c["open"]} | {(o.vessel_name or "").strip().lower() for o in vouchers}
+    return {"count": sum(c["open"] for c in shown) + len(vouchers), "vessels": len(barcos), "overdue": 0}
 
 
 @router.get("/pendientes", response_class=HTMLResponse)
 def pendientes_page(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    from ..vouchers_lib import pendientes as vouchers_por_completar
+
     shown, later = pending_cards(db)
+    vouchers = vouchers_por_completar(db)
     return templates.TemplateResponse(request, "pendientes.html", {
         "user": user,
         "cards": shown,
         "later": later,
-        "summary": {"count": sum(c["open"] for c in shown), "vessels": sum(1 for c in shown if c["open"])},
+        "vouchers": vouchers,
+        "summary": pending_summary(db),
         "contratos": CONTRATOS,
         "dias_aviso": DIAS_AVISO,
     })

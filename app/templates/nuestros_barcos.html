@@ -139,6 +139,7 @@
         </form>
       </td>
       <td class="nowrap">
+        {% if not es_estiba and o.datos_completos(false) %}<a class="mini" href="/vouchers/nuevo?operated_id={{ o.id }}" title="Voucher de este barco">Voucher</a>{% endif %}
         <button type="button" class="mini btn-completar"
           data-id="{{ o.id }}" data-vessel="{{ o.vessel_name|upper }}" data-estiba="{{ '1' if es_estiba else '' }}"
           data-amarre="{{ o.amarre }}" data-inicio="{{ o.inicio_operacion }}" data-fin="{{ o.fin_operacion }}"

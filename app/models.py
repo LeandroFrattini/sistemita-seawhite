@@ -305,6 +305,10 @@ class OperatedVessel(Base):
     fin_operacion: Mapped[str] = mapped_column(String(40), default="")
     zarpe: Mapped[str] = mapped_column(String(40), default="")
     cantidad_operada: Mapped[str] = mapped_column(String(40), default="")
+    # Se completan al cargar los datos de una agencia: dispara el voucher (ver Voucher)
+    datos_completados_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completado_por: Mapped[str] = mapped_column(String(120), default="")
+    voucher: Mapped["Voucher | None"] = relationship(cascade="all, delete-orphan", uselist=False)
 
     def datos_completos(self, es_estiba: bool) -> bool:
         """Estiba: solo hace falta el fin de carga/descarga. Agencia: los
@@ -315,6 +319,42 @@ class OperatedVessel(Base):
             self.amarre.strip(), self.inicio_operacion.strip(), self.fin_operacion.strip(),
             self.zarpe.strip(), self.cantidad_operada.strip(),
         ])
+
+
+class Voucher(Base):
+    """Service Certificate de un barco operado, uno por agencia a facturar (la que figura en Operados).
+    Se completa al irse el barco: conceptos tildados, mas los agregados a mano. ENVIAR lo deja disponible
+    para Administracion. Se puede editar despues de enviado."""
+
+    __tablename__ = "vouchers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    operated_id: Mapped[int] = mapped_column(ForeignKey("operated_vessels.id"), unique=True, index=True)
+    formato: Mapped[str] = mapped_column(String(10), default="EXCEL")  # EXCEL | WORD (Oceanway)
+    buque: Mapped[str] = mapped_column(String(120), default="")
+    agencia: Mapped[str] = mapped_column(String(120), default="")
+    fecha: Mapped[str] = mapped_column(String(10), default="")  # ISO; sale en el Word
+    items: Mapped[str] = mapped_column(Text, default="")  # JSON: conceptos tildados y agregados
+    turnos: Mapped[str] = mapped_column(Text, default="")  # JSON: turnos de Head Tally elegidos ("" = sin confirmar)
+    estado: Mapped[str] = mapped_column(String(12), default="BORRADOR")  # BORRADOR | ENVIADO
+    bloqueo_user: Mapped[str] = mapped_column(String(120), default="")  # quien lo tiene que completar si o si
+    creado_por: Mapped[str] = mapped_column(String(120), default="")
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    actualizado_por: Mapped[str] = mapped_column(String(120), default="")
+    actualizado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    enviado_por: Mapped[str] = mapped_column(String(120), default="")
+    enviado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class VoucherConcepto(Base):
+    """Memoria de conceptos agregados a mano en los vouchers: suelen ser siempre los mismos."""
+
+    __tablename__ = "voucher_conceptos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    texto: Mapped[str] = mapped_column(String(200), unique=True, index=True)
+    usos: Mapped[int] = mapped_column(Integer, default=0)
+    creado_por: Mapped[str] = mapped_column(String(120), default="")
 
 
 VESSEL_REPORT_TYPES = [

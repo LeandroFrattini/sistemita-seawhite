@@ -97,11 +97,26 @@ def session_user(request: Request, db: Session) -> User | None:
     return user
 
 
+_LIBRES_DE_BLOQUEO = ("/vouchers", "/logout", "/static", "/cambiar-clave", "/login", "/seguridad")
+
+
 def current_user(request: Request, db: Session = Depends(get_db)) -> User:
     user = session_user(request, db)
     if not user:
         raise _redirect_login()
+    if not request.url.path.startswith(_LIBRES_DE_BLOQUEO):
+        _bloqueo_voucher(db, user)
     return user
+
+
+def _bloqueo_voucher(db: Session, user: User) -> None:
+    """Si el bloqueo esta prendido (Admin) y este usuario tiene un voucher por completar, lo manda al voucher.
+    Viene APAGADO. Solo se mira cuando esta prendido, asi que apagado no cuesta nada."""
+    from .vouchers_lib import voucher_bloqueante
+
+    v = voucher_bloqueante(db, user.username)
+    if v is not None:
+        raise HTTPException(status_code=status.HTTP_307_TEMPORARY_REDIRECT, headers={"Location": f"/vouchers/{v.id}"})
 
 
 def admin_required(user: User = Depends(current_user)) -> User:
