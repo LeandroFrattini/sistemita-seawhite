@@ -99,6 +99,9 @@ class Client(Base):
     client_type: Mapped[str] = mapped_column(String(20), default="AGENCY")
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[str] = mapped_column(Text, default="")
+    # Proforma final (Administracion): fee fijo en USD y cargas sociales propias (None = usa el general)
+    fee_usd: Mapped[float] = mapped_column(Float, default=0)
+    cargas_sociales_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     @property
     def display_to(self) -> str:
@@ -484,6 +487,17 @@ class AppSetting(Base):
 
     key: Mapped[str] = mapped_column(String(60), primary_key=True)
     value: Mapped[str] = mapped_column(Text, default="")
+
+
+class Feriado(Base):
+    """Calendario de feriados (Administracion): cambia el precio de ciertos servicios (Tally, Serenos, amarre)."""
+
+    __tablename__ = "feriados"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    fecha: Mapped[str] = mapped_column(String(10), unique=True, index=True)  # ISO yyyy-mm-dd
+    nombre: Mapped[str] = mapped_column(String(120), default="")
+    creado_por: Mapped[str] = mapped_column(String(120), default="")
 
 
 class EventTemplate(Base):

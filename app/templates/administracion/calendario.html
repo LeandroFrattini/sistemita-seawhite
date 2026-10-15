@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block nav_administracion %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Calendario</h1>
+    <span class="muted">Feriados: el precio de ciertos servicios cambia en feriado, sábado y domingo</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/administracion">← Administración</a>
+  </div>
+</div>
+
+{% if error == 'fecha' %}<p class="flash-inline">Elegí una fecha válida.</p>{% elif error == 'repetido' %}<p class="flash-inline">Ese día ya está cargado como feriado.</p>{% endif %}
+
+<div class="card">
+  <h3 style="margin-top:0">Agregar feriado</h3>
+  <form method="post" action="/administracion/calendario/agregar" class="cal-add">
+    <label>Fecha<input type="date" name="fecha" required></label>
+    <label class="cal-nombre">Nombre<input name="nombre" maxlength="120" placeholder="ej. Día de la Soberanía Nacional"></label>
+    <button class="btn primary">Agregar</button>
+  </form>
+  <p class="muted" style="margin:8px 0 0">Cargá también los feriados puente y los que se mueven de fecha. Si un feriado cae sábado o domingo, se toma como feriado.</p>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="cal-head">
+    <a class="btn mini" href="/administracion/calendario?anio={{ anio - 1 }}">← {{ anio - 1 }}</a>
+    <h3 style="margin:0">Feriados {{ anio }} ({{ feriados|length }})</h3>
+    <a class="btn mini" href="/administracion/calendario?anio={{ anio + 1 }}">{{ anio + 1 }} →</a>
+  </div>
+  {% if feriados %}
+  <table class="list">
+    <thead><tr><th>Fecha</th><th>Día</th><th>Feriado</th><th></th></tr></thead>
+    <tbody>
+    {% for f in feriados %}
+      <tr>
+        <td class="nowrap">{{ f.d.strftime('%d/%m/%Y') }}</td>
+        <td>{{ f.dia }}</td>
+        <td>{{ f.nombre }}</td>
+        <td class="nowrap">
+          <form method="post" action="/administracion/calendario/{{ f.id }}/borrar" style="display:inline"
+                onsubmit="return confirm('¿Borrar este feriado?')">
+            <button class="mini danger" title="Borrar">✕</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">Todavía no hay feriados cargados para {{ anio }}.</p>
+  {% endif %}
+</div>
+
+<style>
+.cal-add { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.cal-add label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.cal-add .cal-nombre { flex: 1; min-width: 220px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+@media (max-width: 640px) { .cal-add label, .cal-add button { width: 100%; } }
+</style>
+{% endblock %}

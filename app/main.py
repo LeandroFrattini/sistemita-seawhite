@@ -18,6 +18,7 @@ from .routers import (
     mfa,
     operaciones,
     pendientes,
+    proforma_final,
     proformador,
     reports,
     vessels,
@@ -93,3 +94,4 @@ app.include_router(proformador.router)
 app.include_router(operaciones.router)
 app.include_router(docgen.router)
 app.include_router(administracion.router)
+app.include_router(proforma_final.router)

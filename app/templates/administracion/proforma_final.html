@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block nav_administracion %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Proforma final</h1>
+    <span class="muted">Se baja como Excel; ese mismo Excel se puede volver a cargar para rehacerla o modificarla. El sistema no guarda las proformas.</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/administracion/calendario">Calendario</a>
+    <a class="btn" href="/administracion/agencias">Agencias</a>
+    <a class="btn" href="/administracion">← Administración</a>
+  </div>
+</div>
+
+<div class="pfn-bar card">
+  <button type="button" class="btn primary" id="pfn-bajar">⬇ Descargar Excel</button>
+  <label class="btn" for="pfn-subir">Cargar proforma anterior…</label>
+  <input type="file" id="pfn-subir" accept=".xlsx" hidden>
+  <span id="pfn-msg" class="muted" role="status"></span>
+</div>
+
+<div class="pfn-layout">
+  <nav class="pfn-steps card" aria-label="Pasos">
+    {% for n, titulo, sub in pasos %}
+    <button type="button" class="pfn-step" data-step="{{ n }}"><span class="pfn-n">{{ n }}</span><span><b>{{ titulo }}</b><small>{{ sub }}</small></span></button>
+    {% endfor %}
+  </nav>
+
+  <section class="card pfn-body">
+    <div data-pane="1">
+      <h2>1 · Dólar</h2>
+      <p class="muted">Divisa del Banco Nación, como en el proformador inicial. Si el barco se fue hace unos días, poné la cotización de la fecha que corresponda.</p>
+      <div class="pfn-grid">
+        <label>Dólar divisa (ARS por USD)<input id="dolar-valor" inputmode="decimal" placeholder="ej. 1050,50"></label>
+        <label>Cotización del día<input type="date" id="dolar-fecha" value="{{ hoy }}"></label>
+      </div>
+      <p class="muted">Se carga a mano. El botón para traerlo automáticamente del Banco Nación se suma cuando haya una fuente confiable.</p>
+    </div>
+
+    <div data-pane="2" hidden>
+      <h2>2 · Agencia a facturar</h2>
+      <p class="muted">Salen las agencias de Clientes. El fee y las cargas sociales vienen de <a href="/administracion/agencias">Agencias</a>; en esta proforma se pueden ajustar y queda guardado el valor usado.</p>
+      <div class="pfn-grid">
+        <label class="pfn-wide">Agencia
+          <select id="ag-sel"></select>
+        </label>
+        <label>Fee (USD)<input id="ag-fee" inputmode="decimal"></label>
+        <label>Cargas sociales (%)<input id="ag-pct" inputmode="decimal"></label>
+      </div>
+      <p class="muted" id="ag-hint"></p>
+    </div>
+
+    {% for n, titulo, sub in pasos if n > 2 %}
+    <div data-pane="{{ n }}" hidden>
+      <h2>{{ n }} · {{ titulo }}</h2>
+      <p class="muted">{{ sub }}.</p>
+      <p class="pfn-soon">Este paso se arma más adelante, con sus reglas y un caso real para comparar.</p>
+    </div>
+    {% endfor %}
+
+    <div class="pfn-nav">
+      <button type="button" class="btn" id="pfn-prev">← Anterior</button>
+      <button type="button" class="btn primary" id="pfn-next">Siguiente →</button>
+    </div>
+  </section>
+</div>
+
+<style>
+.pfn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.pfn-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 14px; align-items: start; }
+.pfn-steps { display: flex; flex-direction: column; gap: 4px; padding: 10px; }
+.pfn-step { display: flex; gap: 10px; align-items: center; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 10px; cursor: pointer; font: inherit; color: inherit; }
+.pfn-step:hover { background: #eaf2fb; }
+.pfn-step.on { background: #dbe9f8; }
+.pfn-step small { display: block; color: var(--muted); font-size: 11.5px; }
+.pfn-step.done .pfn-n { background: #1f9d55; color: #fff; }
+.pfn-n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: #e3e9f2; color: #1b3a63; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.pfn-step.on .pfn-n { background: #1f67b0; color: #fff; }
+.pfn-body h2 { margin-top: 0; }
+.pfn-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 14px 0; }
+.pfn-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.pfn-grid .pfn-wide { grid-column: 1 / -1; }
+.pfn-grid input, .pfn-grid select { width: 100%; min-width: 0; }
+.pfn-soon { padding: 18px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); }
+.pfn-nav { display: flex; justify-content: space-between; margin-top: 18px; }
+@media (max-width: 860px) {
+  .pfn-layout { grid-template-columns: 1fr; }
+  .pfn-steps { flex-direction: row; overflow-x: auto; }
+  .pfn-step { flex: none; }
+  .pfn-step small { display: none; }
+}
+</style>
+
+<script>
+const AGENCIAS = {{ agencias|tojson }};
+const TOTAL = {{ pasos|length }};
+let step = 1;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const num = (v) => { const n = parseFloat(String(v).replace(",", ".")); return Number.isFinite(n) && n >= 0 ? n : 0; };
+const fmt = (n) => String(Math.round(n * 10000) / 10000).replace(".", ",");
+
+function getState() {
+  return {
+    v: 1,
+    dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
+    agencia: {
+      id: $("#ag-sel").value ? Number($("#ag-sel").value) : null,
+      nombre: $("#ag-sel").value ? $("#ag-sel").selectedOptions[0].textContent : "",
+      fee_usd: num($("#ag-fee").value),
+      cargas_pct: num($("#ag-pct").value),
+    },
+  };
+}
+
+function setState(s) {
+  $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
+  $("#dolar-fecha").value = s.dolar.fecha || "";
+  const sel = $("#ag-sel");
+  const hay = AGENCIAS.some((a) => a.id === s.agencia.id);
+  if (!hay && s.agencia.nombre) {  // la agencia ya no esta en Clientes: se conserva igual, con lo que tenia la proforma
+    sel.add(new Option(s.agencia.nombre + " (ya no figura en Clientes)", s.agencia.id ?? "", true, true));
+  }
+  sel.value = s.agencia.id ?? "";
+  $("#ag-fee").value = s.agencia.fee_usd ? fmt(s.agencia.fee_usd) : "";
+  $("#ag-pct").value = s.agencia.cargas_pct ? fmt(s.agencia.cargas_pct) : "";
+  hint();
+}
+
+function hint() {
+  const a = AGENCIAS.find((x) => String(x.id) === $("#ag-sel").value);
+  $("#ag-hint").textContent = a ? `Valores de ${a.nombre} en Agencias: fee USD ${fmt(a.fee_usd)} · cargas sociales ${fmt(a.cargas_pct)} %.` : "";
+}
+
+function render() {
+  $$("[data-pane]").forEach((p) => (p.hidden = Number(p.dataset.pane) !== step));
+  const s = getState();
+  const done = { 1: s.dolar.valor > 0, 2: !!s.agencia.id };
+  $$(".pfn-step").forEach((b) => {
+    const n = Number(b.dataset.step);
+    b.classList.toggle("on", n === step);
+    b.classList.toggle("done", !!done[n]);
+  });
+  $("#pfn-prev").disabled = step === 1;
+  $("#pfn-next").disabled = step === TOTAL;
+}
+
+$$(".pfn-step").forEach((b) => b.addEventListener("click", () => { step = Number(b.dataset.step); render(); }));
+$("#pfn-prev").addEventListener("click", () => { step = Math.max(1, step - 1); render(); });
+$("#pfn-next").addEventListener("click", () => { step = Math.min(TOTAL, step + 1); render(); });
+document.addEventListener("input", render);
+
+const sel = $("#ag-sel");
+sel.add(new Option("— Elegí una agencia —", ""));
+AGENCIAS.forEach((a) => sel.add(new Option(a.nombre, a.id)));
+sel.addEventListener("change", () => {
+  const a = AGENCIAS.find((x) => String(x.id) === sel.value);
+  $("#ag-fee").value = a ? fmt(a.fee_usd) : "";
+  $("#ag-pct").value = a ? fmt(a.cargas_pct) : "";
+  hint(); render();
+});
+
+function msg(t, ok = true) { const m = $("#pfn-msg"); m.textContent = t; m.style.color = ok ? "" : "#b91c1c"; }
+
+$("#pfn-bajar").addEventListener("click", async () => {
+  const s = getState();
+  if (!s.agencia.id) { msg("Elegí la agencia (paso 2) antes de bajar el Excel.", false); step = 2; render(); return; }
+  const res = await fetch("/administracion/proforma-final/excel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) });
+  if (!res.ok) { msg("No se pudo generar el Excel.", false); return; }
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = res.headers.get("X-Filename") || "Proforma final.xlsx";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  msg("Excel descargado. El sistema no guarda la proforma: guardá ese archivo.");
+});
+
+$("#pfn-subir").addEventListener("change", async (ev) => {
+  const f = ev.target.files[0];
+  ev.target.value = "";
+  if (!f) return;
+  const fd = new FormData();
+  fd.append("archivo", f);
+  const res = await fetch("/administracion/proforma-final/leer", { method: "POST", body: fd });
+  const data = await res.json().catch(() => ({ ok: false, error: "No se pudo leer el archivo." }));
+  if (!data.ok) { msg(data.error, false); return; }
+  setState(data.state);
+  step = 1; render();
+  msg("Proforma cargada. Podés modificar lo que necesites y volver a bajarla.");
+});
+
+render();
+</script>
+{% endblock %}

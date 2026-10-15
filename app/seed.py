@@ -108,6 +108,8 @@ _MIGRATIONS = [
     ("operated_vessels", "zarpe", "TEXT DEFAULT ''"),
     ("operated_vessels", "cantidad_operada", "TEXT DEFAULT ''"),
     ("vessel_files", "imo", "TEXT DEFAULT ''"),
+    ("clients", "fee_usd", "FLOAT DEFAULT 0"),
+    ("clients", "cargas_sociales_pct", "FLOAT"),
     ("vessel_files", "contrato", "TEXT DEFAULT ''"),
     ("vessel_files", "exterior", "BOOLEAN DEFAULT FALSE"),
     ("vessel_files", "checklist", "TEXT DEFAULT ''"),
