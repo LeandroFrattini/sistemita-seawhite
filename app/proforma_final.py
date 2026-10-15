@@ -14,7 +14,7 @@ from datetime import date, datetime
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
-VERSION = 4
+VERSION = 5
 MARCA = "SEAWHITE-PROFORMA-FINAL"
 HOJA_ESTADO = "_estado"
 MAX_BYTES = 5 * 1024 * 1024
@@ -28,7 +28,7 @@ PASOS = [
     (2, "Agencia a facturar", "Fee y cargas sociales"),
     (3, "Datos del buque", "Horarios, medidas, TRN y calados"),
     (4, "Practicaje", "Entrada y salida, según calado"),
-    (5, "Uso de muelle, fondeadero y vías navegables", "Con sus reglas y límites"),
+    (5, "Uso de muelle, fondeadero y vías navegables", "Días por bloques de 8 horas"),
     (6, "Amarre y desamarre", "Tarifa fija según el horario"),
     (7, "Habilitaciones de aduana", "Conceptos y valores"),
     (8, "Tally", "En base a lo ya completado"),
@@ -148,10 +148,24 @@ def clean_state(raw) -> dict:
         m = pr.get(k) if isinstance(pr.get(k), dict) else {}
         return {"usd": _num(m.get("usd"), 100_000_000), "manual": bool(m.get("manual"))}
 
+    def sub(k):
+        return raw.get(k) if isinstance(raw.get(k), dict) else {}
+
+    def concepto(d, extra=None):
+        out = {"usd": _num(d.get("usd"), 100_000_000), "manual": bool(d.get("manual")), "cuenta_ajena": bool(d.get("cuenta_ajena"))}
+        out.update(extra or {})
+        return out
+
+    mu, fo, vi = sub("muelle"), sub("fondeo"), sub("vias")
+
     return {
         "v": VERSION,
         "buque": clean_buque(raw.get("buque")),
         "practicaje": {"in": mov("in"), "out": mov("out")},
+        # entrada/salida vacias = las del paso 3 (amarre y zarpe); "cuenta_ajena" = figura en FOR YOUR ACCOUNT (no se factura)
+        "muelle": concepto(mu, {"entrada": _datetime(mu.get("entrada")), "salida": _datetime(mu.get("salida"))}),
+        "fondeo": concepto(fo, {"on": bool(fo.get("on")), "entrada": _datetime(fo.get("entrada")), "salida": _datetime(fo.get("salida"))}),
+        "vias": concepto(vi, {"solo_bunker": bool(vi.get("solo_bunker")), "factor": _num(vi.get("factor"), 10) or 1.0}),
         "dolar": {
             "valor": _num(dolar.get("valor"), 1_000_000),
             "fecha": _fecha(dolar.get("fecha")),
@@ -169,6 +183,16 @@ def clean_state(raw) -> dict:
 
 def total_fee(state: dict) -> float:
     return round(sum(f["monto_usd"] for f in state["agencia"]["fees"] if f["on"]), 2)
+
+
+def _nota_concepto(c: dict, entrada: str = "", salida: str = "") -> str:
+    partes = []
+    if entrada or salida:
+        partes.append(f"{entrada.replace('T', ' ')} → {salida.replace('T', ' ')}")
+    partes.append("modificado a mano" if c["manual"] else "calculado")
+    if c["cuenta_ajena"]:
+        partes.append("FOR YOUR ACCOUNT (no se factura)")
+    return " · ".join(partes)
 
 
 def build_excel(state: dict) -> bytes:
@@ -195,6 +219,9 @@ def build_excel(state: dict) -> bytes:
         ("Calado entrada / salida (pies)", f"{b['calado_entrada'] or '—'} / {b['calado_salida'] or '—'}", ""),
         ("Practicaje IN (USD)", s["practicaje"]["in"]["usd"] or "", "modificado a mano" if s["practicaje"]["in"]["manual"] else "según tabla de calado"),
         ("Practicaje OUT (USD)", s["practicaje"]["out"]["usd"] or "", "modificado a mano" if s["practicaje"]["out"]["manual"] else "según tabla de calado"),
+        ("Uso de muelle (USD)", s["muelle"]["usd"] or "", _nota_concepto(s["muelle"], s["muelle"]["entrada"] or b["amarre"], s["muelle"]["salida"] or b["zarpe"])),
+        ("Uso de fondeadero (USD)", s["fondeo"]["usd"] or "" if s["fondeo"]["on"] else "—", _nota_concepto(s["fondeo"], s["fondeo"]["entrada"], s["fondeo"]["salida"]) if s["fondeo"]["on"] else "sin fondeo"),
+        ("Vías navegables (USD)", s["vias"]["usd"] or "", _nota_concepto(s["vias"]) + (" · solo bunker: 20 % del TRN × " + str(s["vias"]["factor"]) if s["vias"]["solo_bunker"] else "")),
         ("Dólar (divisa BNA)", s["dolar"]["valor"] or "", "Cotización del " + (s["dolar"]["fecha"] or "—")
          + (" · traído del BNA" if s["dolar"]["origen"] == "BNA" else " · cargado a mano")),
         ("Agencia a facturar", s["agencia"]["nombre"], ""),

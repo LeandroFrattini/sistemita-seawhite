@@ -18,6 +18,7 @@ from ..docgen.fechas import parse_number
 from ..docgen import voucher as vch
 from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, User
 from .. import practicaje as pract
+from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
 from ..templating import templates
@@ -170,6 +171,19 @@ async def proforma_final_practicaje(request: Request, db: Session = Depends(get_
     """Practicaje IN y OUT con el desglose (misma formula y tablas que el proformador inicial)."""
     b = pf.clean_buque(await request.json())
     return pract.calcular(db, b["eslora"], b["manga"], b["puntal"], b["calado_entrada"], b["calado_salida"])
+
+
+@router.post("/proforma-final/muelle")
+async def proforma_final_muelle(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Uso de muelle, fondeadero y vias navegables con el desglose de dias por bloques de 8 horas."""
+    d = await request.json()
+    d = d if isinstance(d, dict) else {}
+    fechas = {k: pf._datetime(d.get(k)) for k in ("entrada", "salida", "fondeo_entrada", "fondeo_salida")}
+    return muelle_calc.calcular(
+        db, trn=pf._num(d.get("trn"), 1_000_000), cantidad=pf._num(d.get("cantidad"), 100_000_000), fondeo=bool(d.get("fondeo")),
+        solo_bunker=bool(d.get("solo_bunker")), factor_via=pf._num(d.get("factor"), 10) or 1.0,
+        entrada=fechas["entrada"], salida=fechas["salida"], fondeo_entrada=fechas["fondeo_entrada"], fondeo_salida=fechas["fondeo_salida"],
+    )
 
 
 @router.post("/proforma-final/excel")

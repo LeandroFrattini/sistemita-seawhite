@@ -112,7 +112,16 @@
       <p class="pfn-total">Total practicaje: <b id="pr-total">USD 0</b></p>
     </div>
 
-    {% for n, titulo, sub in pasos if n > 4 %}
+    <div data-pane="5" hidden>
+      <h2>5 · Uso de muelle, fondeadero y vías navegables</h2>
+      <p class="muted">Los <b>días</b> se cuentan por bloques de 8 horas: de 00 a 08 = 0,33 · de 08 a 16 = 0,34 · de 16 a 24 = 0,33. Si el barco está en cualquier parte de un bloque, se cobra el bloque entero.
+      Uso de muelle = USD 0,46 × TRN × días · Fondeadero = USD 0,15 × TRN × días · Vías navegables = USD 2,05 × coeficiente según el TRN × toneladas (si es solo bunker, el 20 % del TRN).
+      Las tarifas y la tabla de coeficientes son las del proformador inicial (<a href="/proformador/config/formulas">Fórmulas</a>).</p>
+      <div id="mu-box" class="pfn-pract-box"></div>
+      <p class="pfn-total">Total que se factura: <b id="mu-total">USD 0,00</b><span id="mu-ajena" class="muted"></span></p>
+    </div>
+
+    {% for n, titulo, sub in pasos if n > 5 %}
     <div data-pane="{{ n }}" hidden>
       <h2>{{ n }} · {{ titulo }}</h2>
       <p class="muted">{{ sub }}.</p>
@@ -166,6 +175,12 @@
 .pfn-pract .pfn-mod { font-size: 12px; color: #92400e; margin-top: 6px; }
 .pfn-pract .pfn-mod button { border: 0; background: none; color: var(--blue-dark, #154a86); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
 .pfn-pract .falta { color: #b45309; font-weight: 600; font-size: 13.5px; }
+.pfn-fechas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.pfn-fechas label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.pfn-fechas input { width: 100%; min-width: 0; }
+.pfn-chk { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; font-size: 13.5px !important; color: var(--ink) !important; margin: 8px 0; cursor: pointer; }
+.pfn-chk input { width: 18px !important; height: 18px; min-width: 0 !important; margin: 0; flex: none; }
+@media (max-width: 640px) { .pfn-fechas { grid-template-columns: 1fr; } }
 .pfn-sub { margin: 18px 0 4px; font-size: 15px; color: var(--navy, #12355f); }
 .pfn-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 16px; padding: 12px 14px; margin-bottom: 8px; background: #f4f8fd; border: 1px solid var(--line-soft); border-radius: 12px; }
 .pfn-datos div { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
@@ -218,9 +233,10 @@ function getState() {
     manga: num($("#b-manga").value), puntal: num($("#b-puntal").value), bandera: $("#b-bandera").value.trim(),
     calado_entrada: num($("#b-cal-ent").value), calado_salida: num($("#b-cal-sal").value) };
   return {
-    v: 4,
+    v: 5,
     buque: BUQUE,
     practicaje: PRACT,
+    muelle: MUELLE, fondeo: FONDEO, vias: VIAS,
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
       id: sel.value ? Number(sel.value) : null,
@@ -353,11 +369,13 @@ function pintarPaso3(hayBarco, o) {
 function setState(s) {
   BUQUE = { ...s.buque };
   PRACT = { in: { ...s.practicaje.in }, out: { ...s.practicaje.out } };
+  MUELLE = { ...muelleVacio(), ...s.muelle }; FONDEO = { ...fondeoVacio(), ...s.fondeo }; VIAS = { ...viasVacio(), ...s.vias };
   $("#barco-sel").value = BUQUE.operated_id && BARCOS.some((x) => x.id === BUQUE.operated_id) ? String(BUQUE.operated_id) : (BUQUE.nombre ? "manual" : "");
   if ($("#barco-sel").value === "manual") $("#barco-nombre").value = BUQUE.nombre;
   renderBuque();
   pintarPaso3(false);
   firmaCargada = firmaPract(); firmaPractAnt = "";
+  firmaMuCargada = firmaMu(); firmaMuAnt = "";
   $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
   $("#dolar-fecha").value = s.dolar.fecha || "";
   const hay = AGENCIAS.some((a) => a.id === s.agencia.id);
@@ -380,6 +398,7 @@ function setState(s) {
 function resetPract() {  // al cambiar de barco los importes de practicaje empiezan de cero
   PRACT = { in: { usd: 0, manual: false }, out: { usd: 0, manual: false } }; PRACT_CALC = null; firmaCargada = null; firmaPractAnt = "";
   pintarPracticaje();
+  resetMuelle();
 }
 const firmaPract = () => { const b = BUQUE; return [b.eslora, b.manga, b.puntal, b.calado_entrada, b.calado_salida].join("|"); };
 const usd2 = (n) => "USD " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -444,13 +463,146 @@ function pintarPracticaje() {
 function actualizarTotalPract() { $("#pr-total").textContent = usd2(PRACT.in.usd + PRACT.out.usd); }
 $("#pr-ir3").addEventListener("click", (ev) => { ev.preventDefault(); step = 3; render(); });
 
+// ---- Paso 5: uso de muelle, fondeadero y vias navegables (calculo en el servidor, con las tarifas del proformador inicial)
+const muelleVacio = () => ({ entrada: "", salida: "", usd: 0, manual: false, cuenta_ajena: false });
+const fondeoVacio = () => ({ on: false, entrada: "", salida: "", usd: 0, manual: false, cuenta_ajena: false });
+const viasVacio = () => ({ solo_bunker: false, factor: 1, usd: 0, manual: false, cuenta_ajena: false });
+let MUELLE = muelleVacio(), FONDEO = fondeoVacio(), VIAS = viasVacio();
+let MU_CALC = null, firmaMuAnt = "", firmaMuCargada = null;
+const entradaEf = () => MUELLE.entrada || BUQUE.amarre || "";   // sin cargar a mano, las del paso 3 (amarre y zarpe)
+const salidaEf = () => MUELLE.salida || BUQUE.zarpe || "";
+const firmaMu = () => [BUQUE.trn, num(BUQUE.cantidad), entradaEf(), salidaEf(), FONDEO.on, FONDEO.entrada, FONDEO.salida, VIAS.solo_bunker, VIAS.factor].join("|");
+
+function resetMuelle() {  // al cambiar de barco, el paso 5 empieza de cero
+  MUELLE = muelleVacio(); FONDEO = fondeoVacio(); VIAS = viasVacio(); MU_CALC = null; firmaMuCargada = null; firmaMuAnt = "";
+  pintarMuelle();
+}
+
+async function calcularMuelle() {
+  getState();  // sincroniza lo que se ve en el paso 3
+  firmaMuAnt = firmaMu();
+  const body = { trn: BUQUE.trn, cantidad: num(BUQUE.cantidad), entrada: entradaEf(), salida: salidaEf(), fondeo: FONDEO.on,
+    fondeo_entrada: FONDEO.entrada, fondeo_salida: FONDEO.salida, solo_bunker: VIAS.solo_bunker, factor: VIAS.factor };
+  const r = await fetch("/administracion/proforma-final/muelle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) return;
+  MU_CALC = await r.json();
+  const respetar = firmaMuCargada !== null && firmaMuCargada === firmaMu();  // Excel cargado y sin tocar los datos: se conservan sus importes
+  [[MUELLE, MU_CALC.muelle], [FONDEO, MU_CALC.fondeo], [VIAS, MU_CALC.vias]].forEach(([obj, c]) => {
+    if (!obj.manual && !(respetar && obj.usd > 0)) obj.usd = c && c.total ? c.total : 0;
+  });
+  pintarMuelle();
+  render();
+}
+
+const dmy = (iso) => iso.slice(8, 10) + "/" + iso.slice(5, 7);
+const f2 = (n) => String(n).replace(".", ",");
+const elx = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+
+function filaTabla(t, a, v, cls) { const tr = elx("tr", cls); tr.append(elx("td", null, a), elx("td", null, v)); t.appendChild(tr); }
+
+function tablaDias(c, trn, tarifa, extra) {
+  const t = elx("table");
+  (c.detalle || []).forEach((d) => filaTabla(t, `${dmy(d.fecha)} · ` + d.bloques.map((b) => `${b.desde}–${b.hasta} (${f2(b.peso)})`).join(" + "), f2(d.subtotal) + " d"));
+  filaTabla(t, "Total de días", f2(c.dias) + " d", "sub");
+  filaTabla(t, `USD ${f2(tarifa)} × TRN ${fmt(trn)} × ${f2(c.dias)} días`, c.total ? usd2(c.total) : "—");
+  return t;
+}
+
+function campoFecha(texto, valor, alCambiar) {
+  const l = elx("label", null, texto); const i = elx("input"); i.type = "datetime-local"; i.value = valor || "";
+  i.addEventListener("change", () => alCambiar(i.value)); l.appendChild(i); return l;
+}
+
+function casilla(texto, marcada, alCambiar) {
+  const l = elx("label", "pfn-chk"); const i = elx("input"); i.type = "checkbox"; i.checked = marcada;
+  i.addEventListener("change", () => alCambiar(i.checked)); l.append(i, document.createTextNode(" " + texto)); return l;
+}
+
+// importe a facturar (modificable a mano) y "por cuenta del armador"
+function bloqueImporte(obj, calc) {
+  const frag = document.createDocumentFragment();
+  const lab = elx("label", null, "Importe a facturar (USD)");
+  const inp = elx("input"); inp.inputMode = "decimal"; inp.value = obj.usd ? fmt(obj.usd) : "";
+  const mod = elx("div", "pfn-mod"); mod.hidden = !obj.manual;
+  inp.addEventListener("input", () => { obj.usd = num(inp.value); obj.manual = true; mod.hidden = false; actualizarTotalesMu(); render(); });
+  lab.appendChild(inp);
+  const btn = elx("button", null, "Volver al calculado"); btn.type = "button";
+  btn.addEventListener("click", () => { obj.manual = false; obj.usd = calc && calc.total ? calc.total : 0; pintarMuelle(); render(); });
+  mod.append("Modificado a mano" + (calc && calc.total ? ` (calculado: ${usd2(calc.total)}). ` : ". "), btn);
+  frag.append(lab, mod, casilla("Va «FOR YOUR ACCOUNT» (por cuenta del armador, no se factura)", obj.cuenta_ajena, (v) => { obj.cuenta_ajena = v; actualizarTotalesMu(); render(); }));
+  return frag;
+}
+
+function pintarMuelle() {
+  const box = $("#mu-box"); box.replaceChildren();
+  const c = MU_CALC, trn = BUQUE.trn;
+  const card = (titulo) => { const d = elx("div", "pfn-pract"); d.appendChild(elx("h4", null, titulo)); box.appendChild(d); return d; };
+  const falta = (d, txt) => d.appendChild(elx("p", "falta", txt));
+
+  // uso de muelle
+  let d = card("USO DE MUELLE (PORT DUES)");
+  const g1 = elx("div", "pfn-fechas");
+  g1.append(
+    campoFecha("Entrada al muelle (amarre)", entradaEf(), (v) => { MUELLE.entrada = v === (BUQUE.amarre || "") ? "" : v; render(); pintarMuelle(); }),
+    campoFecha("Salida del muelle (zarpe)", salidaEf(), (v) => { MUELLE.salida = v === (BUQUE.zarpe || "") ? "" : v; render(); pintarMuelle(); }));
+  d.appendChild(g1);
+  if (c && c.muelle.dias) d.appendChild(tablaDias(c.muelle, trn, c.muelle.tarifa));
+  else falta(d, !trn ? "Falta el TRN (paso 3)." : "Falta la entrada y la salida del muelle (el amarre y el zarpe del paso 3).");
+  d.appendChild(bloqueImporte(MUELLE, c && c.muelle));
+
+  // fondeadero
+  d = card("USO DE FONDEADERO");
+  d.appendChild(casilla("Tomó bunker en boya (hubo fondeo)", FONDEO.on, (v) => { FONDEO.on = v; render(); pintarMuelle(); }));
+  if (FONDEO.on) {
+    const g2 = elx("div", "pfn-fechas");
+    g2.append(
+      campoFecha("Entrada al fondeo", FONDEO.entrada, (v) => { FONDEO.entrada = v; render(); }),
+      campoFecha("Salida del fondeo", FONDEO.salida, (v) => { FONDEO.salida = v; render(); }));
+    d.appendChild(g2);
+    if (c && c.fondeo && c.fondeo.dias) d.appendChild(tablaDias(c.fondeo, trn, c.fondeo.tarifa));
+    else falta(d, !trn ? "Falta el TRN (paso 3)." : "Cargá la entrada y la salida del fondeo.");
+    d.appendChild(bloqueImporte(FONDEO, c && c.fondeo));
+  } else d.appendChild(elx("p", "muted", "Se calcula solo si el barco tomó bunker en boya: con la misma lógica de días, con otro multiplicador."));
+
+  // vias navegables
+  d = card("VÍAS NAVEGABLES (CHANNEL TOLL)");
+  d.appendChild(casilla("Es solo bunker (no cargó mercadería)", VIAS.solo_bunker, (v) => { VIAS.solo_bunker = v; VIAS.factor = v ? 0.7 : 1; render(); pintarMuelle(); }));
+  if (VIAS.solo_bunker) {
+    const l = elx("label", null, "Factor de recorrido (bunker en boya: 0,7)");
+    const i = elx("input"); i.inputMode = "decimal"; i.value = fmt(VIAS.factor);
+    i.addEventListener("change", () => { VIAS.factor = num(i.value) || 1; render(); pintarMuelle(); });
+    l.appendChild(i); d.appendChild(l);
+  }
+  if (c && c.vias.total) {
+    const t = elx("table");
+    filaTabla(t, VIAS.solo_bunker ? `Base: 20 % del TRN (${fmt(trn)})` : "Toneladas cargadas (cantidad operada)", fmt(c.vias.base));
+    filaTabla(t, `Coeficiente según TRN`, "× " + fmt(c.vias.coef));
+    filaTabla(t, "Tarifa por tonelada", "USD " + f2(c.vias.tarifa));
+    if (VIAS.solo_bunker) filaTabla(t, "Factor de recorrido", "× " + f2(c.vias.factor));
+    filaTabla(t, "Calculado", usd2(c.vias.total), "sub");
+    d.appendChild(t);
+  } else falta(d, !trn ? "Falta el TRN (paso 3)." : (VIAS.solo_bunker ? "Falta el TRN (paso 3)." : "Falta la cantidad operada (paso 3)."));
+  d.appendChild(bloqueImporte(VIAS, c && c.vias));
+  actualizarTotalesMu();
+}
+
+function actualizarTotalesMu() {
+  const lista = [MUELLE, FONDEO.on ? FONDEO : null, VIAS].filter(Boolean);
+  const fact = lista.filter((x) => !x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
+  const ajena = lista.filter((x) => x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
+  $("#mu-total").textContent = usd2(fact);
+  $("#mu-ajena").textContent = ajena ? ` · por cuenta del armador (informativo): ${usd2(ajena)}` : "";
+}
+
 function render() {
   $$("[data-pane]").forEach((p) => (p.hidden = Number(p.dataset.pane) !== step));
   const s = getState();
   if (step === 4 && firmaPract() !== firmaPractAnt) calcularPracticaje();
+  if (step === 5 && firmaMu() !== firmaMuAnt) calcularMuelle();
   const done = { 1: s.dolar.valor > 0 && !!s.buque.nombre, 2: !!s.agencia.id,
     3: !!(s.buque.amarre && s.buque.inicio && s.buque.fin && s.buque.zarpe && s.buque.trn > 0),
-    4: s.practicaje.in.usd > 0 && s.practicaje.out.usd > 0 };
+    4: s.practicaje.in.usd > 0 && s.practicaje.out.usd > 0,
+    5: s.muelle.usd > 0 && s.vias.usd > 0 };
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
     b.classList.toggle("on", n === step);
@@ -521,6 +673,7 @@ $("#pfn-subir").addEventListener("change", async (ev) => {
 renderFees();
 pintarPaso3(false);
 pintarPracticaje();
+pintarMuelle();
 render();
 </script>
 {% endblock %}

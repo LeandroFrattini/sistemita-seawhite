@@ -199,6 +199,34 @@ Oceanway muestra un solo valor (117 %).
 - **AT BUOY 11 solo en migraciones:** se quitó de todos los demás conceptos del voucher (los taxis, el custom overtime, los conceptos agregados, etc. ya no lo llevan).
 - Los costos del voucher (migraciones IN/OUT en boya, sanitary free pratique, etc.) alimentan el paso 10.
 
+## Paso 5 — Uso de muelle, fondeadero y vías navegables (construido) y formato de la proforma final
+
+Fórmulas (confirmadas contra 4 proformas finales reales: PORT ALBERNI, SHI DAI 9, DISCOVERER y AMANDA C, que se reproducen **al centavo**):
+
+- **Días:** cada día se divide en 3 bloques: **00–08 = 0,33 · 08–16 = 0,34 · 16–24 = 0,33**. Si el barco está en cualquier parte de un bloque, se cobra el bloque entero.
+  Ej.: 15/10 00:30 a 16/10 13:30 = 1,00 + 0,67 = **1,67 días**. Los bloques son [desde, hasta): a las 16:00 en punto ya es el otro bloque (a confirmar).
+- **Uso de muelle (PORT DUES)** = USD 0,46 × TRN × días. Igual para Grain y Flammable. Entrada = amarre y salida = zarpe del paso 3 (se pueden cambiar).
+- **Uso de fondeadero (ANCHOR DUES)** = USD 0,15 × TRN × días, con la misma lógica de días. Se activa con la casilla **"Tomó bunker en boya"**, con entrada y salida del fondeo.
+- **Vías navegables (CHANNEL TOLL)** = USD 2,05 × coeficiente según TRN × toneladas (cantidad operada). Coeficiente: hasta 5.000 = 0,60 · hasta 10.000 = 0,85 · hasta 17.000 = 1,00 · más = 1,15.
+  **Solo bunker:** las toneladas pasan a ser el **20 % del TRN** y se multiplica por el **factor de recorrido 0,7** (confirmado con AMANDA C: 2,05 × 20 % × TRN × 0,7).
+- Las proformas finales **no redondean** los importes (el proformador inicial redondeaba para arriba): se muestran con 2 decimales.
+- Cada concepto: importe **modificable a mano** y casilla **"Va FOR YOUR ACCOUNT"** (por cuenta del armador: figura en el pie, sin impuestos, y no se factura).
+
+Cómo se ve la **proforma final** (4 ejemplos):
+
+- Una hoja con el **nombre de la agencia** (OCEANWAY, BLUE, SEVEN SEAS, AMI, HEINLEIN), más hojas **SERENOS/WATCHMEN** y **TALLY**.
+- Encabezado: TRN, carga/shipper, cantidad, ENTRADA y SALIDA con día y hora, DIAS, **CAMBIO VENTA** y **CAMBIO COMPRA**. Título "MV <BUQUE>".
+- Renglones numerados, cada uno en **ARS (columna D) y USD (columna E)**. Se pasa de USD a ARS con el cambio venta o compra, o de ARS a USD dividiendo por el cambio (a definir cuál va en cada concepto).
+- Conceptos fijos habituales: IMMIGRATION TAX EXPENSES IN/OUT (USD 1.250 por movimiento; 1.875 en boya), FREE PRATIQUE (`(TRN − 1001)/1000 × 6942,9 + 416574` ARS), TAXIS (ARS 160.000 cada uno), CUSTOM HOUSE OVERTIME (USD 125 por turno),
+  COMPULSORY SENASA (USD 40–45), MARITIME CENTER (USD 80), **FEE** de la agencia, y **LAW NR 25413 = 1,2 %** de la suma de los renglones (sin el fee).
+- Pie **"FOR YOUR ACCOUNT"**: PILOT SERVICE IN/OUT, TUGBOATS IN/OUT, MOORING/UNMOORING (LDS), OSRO; y según la agencia también PORT DUES, CHANNEL TOLL y ANCHOR DUES, "* sin impuestos".
+- **TALLY:** sueldos por turno (hábil, sábado, domingo...) × cantidad de tally clerks; **cargas sociales se suman** (117 % → total × 2,17); hoja **SERENOS** igual, más conveyances (movilidad).
+- **Respuestas del usuario (ronda 7):**
+  1. **Un solo dólar:** todas las conversiones (USD ↔ ARS) usan el dólar cargado en el **paso 1**; no se distingue cambio venta y compra.
+  2. **FOR YOUR ACCOUNT va proforma por proforma** (no hay una regla por agencia): queda como casilla en cada concepto.
+  3. **LAW NR 25413:** por ahora **monto fijo** (a definir después); se carga en el chequeo general.
+  4. **Bloques de días:** a las 16:00 en punto todavía es el bloque anterior; a las **16:01 ya pasa al siguiente** (igual a medianoche: 00:01). Los bloques tienen **otras reglas** que el usuario va a pasar después.
+
 ## Fee y cargas sociales por agencia (de `FEE.pdf`, "Clientes 2026") — transcripción, A VERIFICAR
 
 Columna "Serenos y Encargado" = cargas sociales (dos valores: serenos / encargado). **PENDIENTE:** qué significa el % (¿multiplicador sobre el costo?).
