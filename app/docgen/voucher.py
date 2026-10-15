@@ -267,3 +267,45 @@ def generar(formato: str, buque: str, agencia: str, estado: dict, fecha: date) -
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     return (_excel(buque, agencia, lines), base + ".xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+# ------------------------------------------------------------ head tally --
+ACTIVIDADES_TALLY = ["BERTHING", "LDG"]  # LDG = loading; se puede escribir otra
+_ORDEN_TURNO = {"01-07": 0, "07-13": 1, "13-19": 2, "19-01": 3}
+
+
+def horas_turno(turno: str) -> str:
+    """'07-13' -> '0700-1300'; '19-01' -> '1900-0100'."""
+    a, b = turno.split("-")
+    return f"{a}00-{b}00"
+
+
+def tally(buque: str, turnos: list[dict]) -> bytes:
+    """Voucher del Head Tally (REG-AM-39): una fila por turno elegido, con la fecha solo en el primero de cada dia.
+    `turnos` = [{'fecha': 'yyyy-mm-dd', 'turno': '07-13', 'act': 'LDG'}, ...]."""
+    x = Xlsx(TEMPLATES / "voucher_tally.xlsx")
+    x.set_text("D7", buque.upper())
+    filas = sorted(turnos, key=lambda t: (t["fecha"], _ORDEN_TURNO.get(t["turno"], 9)))
+    primera, ultima = 12, 38
+    capacidad = ultima - primera  # la ultima fila de la plantilla es la del borde de abajo
+    if len(filas) > capacidad:  # mas turnos que filas: se agregan filas con el formato de las del medio
+        extra = len(filas) - capacidad
+        x.insert_rows(ultima, extra)
+        for r in range(ultima, ultima + extra):
+            x.show_row(r, 18)
+            for col in "BCDEF":
+                x.copy_style(f"{col}37", f"{col}{r}")
+    anterior = None
+    for i, t in enumerate(filas):
+        r = primera + i
+        if t["fecha"] != anterior:
+            x.set_date(f"B{r}", date.fromisoformat(t["fecha"]))
+            x.copy_style("B12", f"B{r}")
+            anterior = t["fecha"]
+        if r != primera:  # la plantilla tiene alineaciones distintas segun la fila: se usa la de la segunda para todas
+            for col in "CDEF":
+                x.copy_style(f"{col}13", f"{col}{r}")
+        x.set_number(f"C{r}", 1)
+        x.set_text(f"D{r}", horas_turno(t["turno"]))
+        x.set_text(f"E{r}", t.get("act") or "LDG")
+    return x.to_bytes()

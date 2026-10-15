@@ -16,14 +16,15 @@
 
   {% if filas %}
   <table class="list" id="tn-tabla">
-    <thead><tr><th style="width:44px"></th><th>Fecha</th><th>Día</th><th>Turno</th><th>Tipo de día</th></tr></thead>
+    <thead><tr><th style="width:44px"></th><th>Fecha</th><th>Día</th><th>Turno</th><th>Actividad</th><th>Tipo de día</th></tr></thead>
     <tbody>
     {% for f in filas %}
-    <tr data-fecha="{{ f.fecha }}" data-turno="{{ f.turno }}">
+    <tr data-fecha="{{ f.fecha }}" data-turno="{{ f.turno }}"{% if f.extra %} class="tn-extra"{% endif %}>
       <td><input type="checkbox" class="tn-on" {{ 'checked' if f.on }} aria-label="Turno {{ f.turno }} del {{ f.fecha }}"></td>
-      <td class="nowrap">{{ f.fecha[8:10] }}/{{ f.fecha[5:7] }}/{{ f.fecha[:4] }}<small class="tn-dia">{{ f.dia }}</small></td>
+      <td class="nowrap">{{ f.fecha[8:10] }}/{{ f.fecha[5:7] }}/{{ f.fecha[:4] }}{% if f.extra %} <span class="tn-pill-extra">extra</span>{% endif %}<small class="tn-dia">{{ f.dia }}</small></td>
       <td>{{ f.dia }}</td>
       <td><b>{{ f.turno[:2] }}:00 – {{ f.turno[3:] }}:00</b></td>
+      <td><input class="tn-act" list="tn-acts" value="{{ f.act }}" maxlength="30" aria-label="Actividad del turno {{ f.turno }}"></td>
       <td><span class="tn-tipo tn-{{ f.tipo|lower }}">{{ f.tipo_txt }}</span></td>
     </tr>
     {% endfor %}
@@ -33,17 +34,33 @@
   <p class="flash-inline">No se pueden calcular los turnos porque faltan el inicio y el fin de operación del barco (se cargan en Nuestros barcos → Operados → Completar datos).</p>
   {% endif %}
 
+  <div class="tn-extra-form" id="tn-extra-form">
+    <b>Agregar un turno extra</b> <span class="muted">(por ejemplo el del mooring)</span>
+    <input type="date" id="tn-x-fecha" aria-label="Fecha del turno extra">
+    <select id="tn-x-turno" aria-label="Turno extra">
+      <option value="01-07">01:00 – 07:00</option><option value="07-13">07:00 – 13:00</option>
+      <option value="13-19">13:00 – 19:00</option><option value="19-01">19:00 – 01:00</option>
+    </select>
+    <input id="tn-x-act" list="tn-acts" value="MOORING" maxlength="30" aria-label="Actividad del turno extra">
+    <button type="button" class="btn" id="tn-x-agregar">+ Agregar</button>
+  </div>
+  <datalist id="tn-acts">{% for a in actividades %}<option value="{{ a }}">{% endfor %}</datalist>
   <div class="tn-pie">
     <span id="tn-msg" class="muted" role="status"></span>
+    {% if confirmado %}<a class="btn" href="/vouchers/{{ v.id }}/tally">⬇ Descargar voucher del Head Tally</a>{% endif %}
     <button type="button" class="btn primary" id="tn-guardar">{{ 'Guardar turnos' if confirmado else 'Confirmar turnos' }}</button>
   </div>
-  <p class="muted" style="margin-bottom:0">El documento del voucher de Head Tally se arma cuando esté definido su formato; por ahora quedan guardados los turnos elegidos.</p>
+  <p class="muted" style="margin-bottom:0">El Head Tally arranca desde el berthing (amarre). Actividad: «BERTHING» hasta que arranca la carga y «LDG» (carga) después; se puede cambiar o escribir otra. Primero confirmá los turnos y después descargá el voucher.</p>
 </div>
 
 <style>
 .tn-dia { display: none; }
 @media (max-width: 640px) { .tn-dia { display: block; color: var(--muted); font-size: 12px; } }
 .tn-pie { display: flex; justify-content: flex-end; align-items: center; gap: 14px; margin: 14px 0 6px; }
+.tn-act { width: 130px; text-transform: uppercase; }
+.tn-extra-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding: 10px 12px; background: #f4f8fd; border: 1px dashed var(--line); border-radius: 12px; }
+.tn-extra-form input, .tn-extra-form select { width: auto; }
+.tn-pill-extra { font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: #e3ecf8; color: #1b3a63; }
 .tn-on { width: 20px !important; height: 20px; min-width: 0 !important; margin: 0; cursor: pointer; }
 .tn-tipo { font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #e3ecf8; color: #1b3a63; white-space: nowrap; }
 .tn-sabado, .tn-domingo { background: #fef3c7; color: #92400e; }
@@ -53,6 +70,7 @@
   #tn-tabla { table-layout: fixed; width: 100%; }
   #tn-tabla th, #tn-tabla td { padding-left: 6px; padding-right: 6px; overflow-wrap: anywhere; }
   #tn-tabla th:nth-child(3), #tn-tabla td:nth-child(3) { display: none; }
+  .tn-act { width: 100%; min-width: 0; }
   #tn-tabla td.nowrap { white-space: normal; }
   #tn-tabla th:first-child { width: 40px; }
   .tn-tipo { white-space: normal; }
@@ -60,10 +78,37 @@
 }
 </style>
 <script>
+document.getElementById("tn-x-agregar").addEventListener("click", async () => {
+  const fecha = document.getElementById("tn-x-fecha").value, turno = document.getElementById("tn-x-turno").value;
+  const msg = document.getElementById("tn-msg");
+  if (!fecha) { msg.textContent = "Elegí la fecha del turno extra."; return; }
+  if ([...document.querySelectorAll("#tn-tabla tbody tr")].some((tr) => tr.dataset.fecha === fecha && tr.dataset.turno === turno)) { msg.textContent = "Ese turno ya está en la lista."; return; }
+  const r = await fetch(`/vouchers/{{ v.id }}/turno-info?fecha=${fecha}&turno=${turno}`);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { msg.textContent = d.error || "No se pudo agregar ese turno."; return; }
+  msg.textContent = "";
+  const tb = document.querySelector("#tn-tabla tbody");
+  const [aa, mm, dd] = fecha.split("-");
+  const tr = document.createElement("tr");
+  tr.dataset.fecha = fecha; tr.dataset.turno = turno; tr.className = "tn-extra";
+  tr.innerHTML = `<td><input type="checkbox" class="tn-on" checked></td><td class="nowrap"></td><td></td><td><b></b></td><td><input class="tn-act" list="tn-acts" maxlength="30"></td><td><span class="tn-tipo"></span></td>`;
+  tr.children[1].textContent = `${dd}/${mm}/${aa} `;
+  const pill = document.createElement("span"); pill.className = "tn-pill-extra"; pill.textContent = "extra"; tr.children[1].appendChild(pill);
+  tr.children[2].textContent = d.dia;
+  tr.querySelector("b").textContent = turno.slice(0, 2) + ":00 – " + turno.slice(3) + ":00";
+  tr.querySelector(".tn-act").value = document.getElementById("tn-x-act").value.toUpperCase();
+  const t = tr.querySelector(".tn-tipo"); t.textContent = d.tipo_txt; t.classList.add("tn-" + d.tipo.toLowerCase());
+  // se ubica en su lugar, ordenado por fecha y turno
+  const orden = ["01-07", "07-13", "13-19", "19-01"];
+  const clave = (x) => x.dataset.fecha + orden.indexOf(x.dataset.turno);
+  const despues = [...tb.children].find((x) => clave(x) > clave(tr));
+  tb.insertBefore(tr, despues || null);
+});
+
 document.getElementById("tn-guardar").addEventListener("click", async () => {
   const turnos = [...document.querySelectorAll("#tn-tabla tbody tr")]
     .filter((tr) => tr.querySelector(".tn-on").checked)
-    .map((tr) => ({ fecha: tr.dataset.fecha, turno: tr.dataset.turno }));
+    .map((tr) => ({ fecha: tr.dataset.fecha, turno: tr.dataset.turno, act: tr.querySelector(".tn-act").value }));
   const r = await fetch("/vouchers/{{ v.id }}/turnos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ turnos }) });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) { document.getElementById("tn-msg").textContent = "No se pudieron guardar los turnos."; return; }

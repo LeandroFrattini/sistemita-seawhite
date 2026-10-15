@@ -84,21 +84,48 @@ def _parse_dt(raw: str) -> datetime | None:
         return None
 
 
-def turnos_posibles(inicio: str, fin: str) -> list[dict]:
-    """Turnos de 6 horas que se cruzan con el horario de carga (de inicio a fin de operacion).
+def _rango(inicio: str, fin: str, amarre: str = "") -> tuple[datetime | None, datetime | None]:
+    """El Head Tally arranca desde el berthing (amarre); si no hay amarre cargado, desde el inicio de la operacion."""
+    fechas = [d for d in (_parse_dt(amarre), _parse_dt(inicio)) if d]
+    a, b = (min(fechas) if fechas else None), _parse_dt(fin)
+    return (a, b) if a and b and b >= a else (None, None)
+
+
+def _turno_en(dia: date, nombre: str, h1: int, h2: int) -> dict:
+    base = datetime.combine(dia, datetime.min.time())
+    return {"fecha": dia.isoformat(), "turno": nombre, "desde": (base + timedelta(hours=h1)).isoformat(timespec="minutes"),
+            "hasta": (base + timedelta(hours=h2)).isoformat(timespec="minutes")}
+
+
+def turnos_posibles(inicio: str, fin: str, amarre: str = "") -> list[dict]:
+    """Turnos de 6 horas que se cruzan con el horario del Head Tally (del amarre al fin de la operacion).
     Cada uno: fecha del turno (la del dia en que empieza), nombre ('07-13') y desde/hasta."""
-    a, b = _parse_dt(inicio), _parse_dt(fin)
-    if not a or not b or b < a:
+    a, b = _rango(inicio, fin, amarre)
+    if not a:
         return []
     out = []
     dia = a.date() - timedelta(days=1)  # el turno 19-01 del dia anterior puede tocar el comienzo
     while dia <= b.date():
         for nombre, h1, h2 in TURNOS:
-            desde = datetime.combine(dia, datetime.min.time()) + timedelta(hours=h1)
-            hasta = datetime.combine(dia, datetime.min.time()) + timedelta(hours=h2)
-            if desde < b and hasta > a:
-                out.append({"fecha": dia.isoformat(), "turno": nombre, "desde": desde.isoformat(timespec="minutes"),
-                            "hasta": hasta.isoformat(timespec="minutes")})
+            t = _turno_en(dia, nombre, h1, h2)
+            if datetime.fromisoformat(t["desde"]) < b and datetime.fromisoformat(t["hasta"]) > a:
+                out.append(t)
+        dia += timedelta(days=1)
+    return out
+
+
+def turnos_validos(inicio: str, fin: str, amarre: str = "") -> dict[tuple[str, str], dict]:
+    """Todos los turnos que se pueden elegir: los de la lista y los extra (por ejemplo el del mooring), que son
+    cualquiera de los cuatro turnos de los dias desde un dia antes del amarre hasta un dia despues del fin."""
+    a, b = _rango(inicio, fin, amarre)
+    if not a:
+        return {}
+    out = {}
+    dia = a.date() - timedelta(days=1)
+    while dia <= b.date() + timedelta(days=1):
+        for nombre, h1, h2 in TURNOS:
+            t = _turno_en(dia, nombre, h1, h2)
+            out[(t["fecha"], nombre)] = t
         dia += timedelta(days=1)
     return out
 

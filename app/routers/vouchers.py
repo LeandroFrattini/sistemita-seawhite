@@ -173,6 +173,41 @@ def descargar(vid: int, db: Session = Depends(get_db), user: User = Depends(curr
                     headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nombre)}"})
 
 
+@router.get("/{vid}/turno-info")
+def turno_info(vid: int, fecha: str = "", turno: str = "", db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Datos de un turno extra que se agrega a mano (dia de la semana y tipo de dia), para mostrarlo en la tabla."""
+    v = _con_permiso(db, vid)
+    o = db.get(OperatedVessel, v.operated_id) if v else None
+    validos = lib.turnos_validos(o.inicio_operacion, o.fin_operacion, o.amarre) if o else {}
+    t = validos.get((fecha, turno))
+    if not t:
+        return JSONResponse({"ok": False, "error": "Ese turno queda fuera del período del barco."}, status_code=400)
+    feriados, no_lab = conjuntos(db)
+    d = date.fromisoformat(fecha)
+    tipo = tipo_dia(d, feriados, no_lab)
+    return {"ok": True, "dia": DIAS[d.weekday()], "tipo": tipo, "tipo_txt": TIPO_DIA_TXT[tipo]}
+
+
+@router.get("/{vid}/tally")
+def descargar_tally(vid: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Voucher del Head Tally (Excel): los turnos elegidos con su horario y actividad."""
+    v = _con_permiso(db, vid)
+    if not v:
+        return RedirectResponse("/vouchers", status_code=303)
+    if not lib.turnos_confirmados(v):
+        return RedirectResponse(f"/vouchers/{v.id}/turnos", status_code=303)
+    try:
+        turnos_elegidos = [t for t in json.loads(v.turnos) if isinstance(t, dict)]
+    except ValueError:
+        turnos_elegidos = []
+    nombre = f"VOUCHER TALLY {v.buque}".strip()
+    return Response(
+        content=vch.tally(v.buque, turnos_elegidos),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nombre)}.xlsx"},
+    )
+
+
 @router.post("/conceptos/{cid}/borrar")
 def olvidar_concepto(cid: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
     m = db.get(VoucherConcepto, cid)
@@ -189,22 +224,35 @@ def turnos(vid: int, request: Request, db: Session = Depends(get_db), user: User
     if not v:
         return RedirectResponse("/vouchers", status_code=303)
     o = db.get(OperatedVessel, v.operated_id)
-    posibles = lib.turnos_posibles(o.inicio_operacion, o.fin_operacion) if o else []
-    elegidos = set()
+    posibles = lib.turnos_posibles(o.inicio_operacion, o.fin_operacion, o.amarre) if o else []
+    elegidos: dict[tuple[str, str], str] = {}
     if lib.turnos_confirmados(v):
         try:
-            elegidos = {(t["fecha"], t["turno"]) for t in json.loads(v.turnos)}
+            elegidos = {(t["fecha"], t["turno"]): t.get("act") or "LDG" for t in json.loads(v.turnos)}
         except (ValueError, KeyError, TypeError):
-            elegidos = set()
+            elegidos = {}
     feriados, no_lab = conjuntos(db)
+    # los turnos extra ya guardados (por ejemplo el del mooring) que no estan en la lista se muestran igual
+    ya = {(t["fecha"], t["turno"]) for t in posibles}
+    validos = lib.turnos_validos(o.inicio_operacion, o.fin_operacion, o.amarre) if o else {}
+    extras = [dict(validos[k], extra=True) for k in elegidos if k not in ya and k in validos]
+    todos = sorted(posibles + extras, key=lambda t: (t["fecha"], [n for n, _, _ in lib.TURNOS].index(t["turno"])))
     filas = []
-    for t in posibles:
+    for t in todos:
         d = date.fromisoformat(t["fecha"])
         tipo = tipo_dia(d, feriados, no_lab)
+        guardado = (t["fecha"], t["turno"]) in elegidos
         filas.append({**t, "dia": DIAS[d.weekday()], "tipo": tipo, "tipo_txt": TIPO_DIA_TXT[tipo],
-                      "on": ((t["fecha"], t["turno"]) in elegidos) if lib.turnos_confirmados(v) else True})
+                      "on": guardado if lib.turnos_confirmados(v) else True,
+                      "act": elegidos.get((t["fecha"], t["turno"]), "LDG")})
+    # por defecto: BERTHING hasta que arranca la carga (el turno del amarre y los que terminan antes del inicio); despues, LDG
+    if filas and not lib.turnos_confirmados(v) and o:
+        for f in filas:
+            if (o.amarre and f["desde"] <= o.amarre < f["hasta"]) or (o.inicio_operacion and f["hasta"] <= o.inicio_operacion):
+                f["act"] = "BERTHING"
     return templates.TemplateResponse(request, "vouchers/turnos.html", {
         "user": user, "v": v, "o": o, "filas": filas, "confirmado": lib.turnos_confirmados(v),
+        "actividades": vch.ACTIVIDADES_TALLY,
     })
 
 
@@ -214,12 +262,13 @@ async def guardar_turnos(vid: int, request: Request, db: Session = Depends(get_d
     if not v:
         return JSONResponse({"error": "no existe"}, status_code=404)
     o = db.get(OperatedVessel, v.operated_id)
-    validos = {(t["fecha"], t["turno"]) for t in lib.turnos_posibles(o.inicio_operacion, o.fin_operacion)} if o else set()
+    validos = set(lib.turnos_validos(o.inicio_operacion, o.fin_operacion, o.amarre)) if o else set()
     data = await request.json()
     elegidos = []
     for t in (data.get("turnos") if isinstance(data.get("turnos"), list) else []):
         if isinstance(t, dict) and (t.get("fecha"), t.get("turno")) in validos and (t["fecha"], t["turno"]) not in {(e["fecha"], e["turno"]) for e in elegidos}:
-            elegidos.append({"fecha": t["fecha"], "turno": t["turno"]})
+            act = " ".join(str(t.get("act") or "").split())[:30].upper() or "LDG"
+            elegidos.append({"fecha": t["fecha"], "turno": t["turno"], "act": act})
     v.turnos = json.dumps(elegidos)
     v.actualizado_por, v.actualizado_en = user.username, datetime.utcnow()
     db.commit()

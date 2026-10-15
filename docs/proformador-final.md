@@ -165,6 +165,19 @@ Oceanway muestra un solo valor (117 %).
 - **Bloqueo:** quien completó los datos queda clavado en su voucher; **viene APAGADO**, se prende/apaga desde Admin → Usuarios. Funciona desde `current_user` (redirige al voucher salvo vouchers, logout, estilos y cambio de clave).
 - Menú: **Operaciones → Vouchers** (y en el menú de celular).
 
+## Voucher del Head Tally (`VOUCHER TALLY.xlsx`, REG-AM-39)
+
+- Formato: "COMPULSORY HEAD TALLY CLERK", `M/V <BUQUE>` y "PORT OF BAHIA BLANCA". Tabla con DATE · CHIEF TALLY CLERK (cantidad, siempre 1) · HOURS (`0700-1300`) · actividad (`BERTHING` / `LDG`) · REMARKS.
+  La fecha solo va en el primer turno de cada día. Plantilla: `app/docgen/templates/voucher_tally.xlsx`; generador `voucher.tally()`.
+- Sale desde la pantalla de turnos del voucher (después de **confirmar** los turnos): cada turno lleva su **actividad**, editable. Por defecto el turno del amarre es BERTHING y los demás LDG.
+- Si hay más turnos que filas (26) se agregan filas con el mismo formato.
+- La **tabla auxiliar** que traía el archivo a la derecha (columnas J a L, con turnos y valores) **no se copia**: se ve más adelante, al llegar al paso del Tally.
+- **Confirmado:** el voucher del Head Tally es **el mismo para todas las agencias** (solo cambian las cargas sociales al calcular).
+- **El Head Tally arranca desde el berthing (amarre)**: los turnos se cuentan desde el amarre hasta el fin de la operación (si no hay amarre cargado, desde el inicio de la carga).
+  Actividad por defecto: BERTHING hasta que arranca la carga (el turno del amarre y los que terminan antes del inicio) y LDG después; editable.
+- **Turno extra:** a veces se suma un turno extra (a precio normal), el del **mooring (amarre)**: se agrega a mano con fecha, turno y actividad (por defecto MOORING) y se marca como "extra".
+- **PENDIENTE (a confirmar):** qué otras actividades hay además de BERTHING, LDG y MOORING; si el turno del mooring es siempre el anterior al del berthing.
+
 ## Fee y cargas sociales por agencia (de `FEE.pdf`, "Clientes 2026") — transcripción, A VERIFICAR
 
 Columna "Serenos y Encargado" = cargas sociales (dos valores: serenos / encargado). **PENDIENTE:** qué significa el % (¿multiplicador sobre el costo?).
