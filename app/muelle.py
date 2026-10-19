@@ -6,6 +6,9 @@ esta presente en cualquier parte de un bloque, se cobra el bloque entero. Ejempl
 
 - Uso de muelle (port dues) = USD 0,46 x TRN x dias de estadia en el muelle.
 - Uso de fondeadero = USD 0,15 x TRN x dias de fondeo, con la misma logica de dias (el barco que toma bunker en boya).
+  Un bloque en el que el barco ya esta cobrado en el muelle NO se cobra tambien como fondeadero (seria un costo duplicado): se cobra
+  siempre el de muelle. Ejemplo: zarpa del muelle a las 16:30 y llega al fondeadero a las 21:00: el bloque 16 a 24 es del muelle y el
+  fondeadero cobra desde las 00:00.
 - Vias navegables (channel toll) = USD 2,05 x coeficiente segun el TRN x toneladas cargadas. Si es SOLO bunker, las
   toneladas se reemplazan por el 20 % del TRN.
 Las tarifas y la tabla de coeficientes son las del proformador inicial (se editan en Proformador -> Formulas).
@@ -98,8 +101,11 @@ def calcular(db: Session, *, trn: float, cantidad: float, entrada: str, salida: 
 
     fond = None
     if fondeo:
-        d_f = dias(fondeo_entrada, fondeo_salida)
-        fond = {"tarifa": fondeadero, "dias": d_f["total"], "detalle": d_f["detalle"],
+        # lo que ya cobra el muelle (cualquier bloque en el que el barco estuvo amarrado) no se cobra de nuevo como fondeadero
+        ocupados = frozenset((x["fecha"], int(b["desde"])) for x in d_bruto["detalle"] for b in x["bloques"])
+        d_f = dias(fondeo_entrada, fondeo_salida, ocupados)
+        fond = {"tarifa": fondeadero, "dias": d_f["total"], "detalle": d_f["detalle"], "dias_brutos": dias(fondeo_entrada, fondeo_salida)["total"],
+                "solapado": d_f["perdonados"], "motivo_libre": "muelle",
                 "total": round(fondeadero * trn * d_f["total"], 2) if trn and d_f["total"] else None}
 
     coef = coeficiente_channel_toll(db, trn) if trn else 0

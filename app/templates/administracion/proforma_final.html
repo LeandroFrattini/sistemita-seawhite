@@ -154,11 +154,11 @@
 
     <div data-pane="7" hidden>
       <h2>7 · Habilitaciones de aduana</h2>
-      <p class="muted">Se abre una tarjeta por cada habilitación que se tildó en el voucher. En cada una indicá <b>cuántas</b> fueron (por ejemplo 6 de carga, 1 de entrada y 2 de permanencia): el sistema multiplica solo.
-      Si falta alguna, agregala abajo.</p>
+      <p class="muted">Acá aparece una lista con las habilitaciones que se tildaron en el voucher. Al costado de cada una indicá <b>cuántas</b> fueron (por ejemplo 6 de carga, 1 de entrada y 2 de permanencia): el sistema multiplica solo.
+      Si falta alguna, agregala abajo. En cada una elegís si <b>se factura</b>, si va <b>FOR YOUR ACCOUNT</b> o, si no tildás ninguna, si no figura en la proforma.</p>
       <details class="pfn-info"><summary>Cómo se calcula</summary>
         <p>Cada habilitación vale USD {{ '%g'|format(aduana_usd) }} (se cambia en <a href="/administracion/formulas">Administración → Fórmulas</a>). El precio de cada una también se puede modificar a mano.
-        Si alguna no se factura en este barco, destildá «Esto sí lo facturamos»: pasa al pie como FOR YOUR ACCOUNT.</p>
+        Los dos tildes de cada fila: «Esto sí lo facturamos» (cuerpo de la proforma) o «FOR YOUR ACCOUNT» (al pie, no se factura). Con los dos destildados, esa habilitación no figura en ningún lado.</p>
       </details>
       <div id="ad-box"></div>
       <div id="ad-agregar" class="pfn-agregar"></div>
@@ -343,7 +343,8 @@
 .ck-tabla td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
 .ck-tabla td.num, .ck-tabla th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ck-tabla td.n { width: 28px; color: var(--muted); }
-.ck-tabla .col-factura { text-align: center; width: 170px; }
+.ck-tabla .col-factura { text-align: center; width: 92px; }
+.ck-tabla .col-factura input { width: 18px; height: 18px; margin: 0; cursor: pointer; }
 .ck-omitidas { margin: 10px 0; font-size: 13.5px; }
 .ck-omitidas summary { cursor: pointer; color: #92400e; font-weight: 600; }
 .ck-tabla tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
@@ -407,22 +408,18 @@
   .pfn-adu > :nth-child(5) { grid-column: 2 / -1; grid-row: 3; text-align: left; }
   .pfn-adu.cab { display: none; }
 }
-.ad-card { border: 1px solid #9cc3ec; background: #eef6ff; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
-.ad-card.ajena { background: #fffbeb; border-color: #f5d27a; }
-.ad-cab { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
-.ad-cab .ad-nombre { font-size: 15px; color: var(--navy, #12355f); }
-.ad-cab input { flex: 1; min-width: 0; font-weight: 700; }
-.ad-cab .quitar { border: 0; background: none; cursor: pointer; font-size: 17px; color: #b91c1c; padding: 4px 8px; }
-.ad-cuerpo { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: end; }
-.ad-cuerpo label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
-.ad-cuerpo input { width: 100%; min-width: 0; font-weight: 700; }
-.ad-cant { display: flex; gap: 6px; }
-.ad-cant button { flex: none; width: 42px; font-size: 20px; font-weight: 700; border: 1px solid var(--line); background: #fff; border-radius: 10px; cursor: pointer; }
-.ad-cant input { text-align: center; font-size: 17px; }
-.ad-total { display: flex; flex-direction: column; align-items: flex-end; }
-.ad-total small { color: var(--muted); font-size: 12px; }
-.ad-total .tot { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
-@media (max-width: 640px) { .ad-cuerpo { grid-template-columns: 1fr 1fr; } .ad-cuerpo > :first-child { grid-column: 1 / -1; } }
+.ad-fila { display: grid; grid-template-columns: minmax(150px, 1.5fr) 150px minmax(90px, .7fr) minmax(100px, .8fr) 30px; gap: 8px 12px; align-items: center; padding: 8px 12px; margin-bottom: 6px; border: 1px solid #9cc3ec; background: #eef6ff; border-radius: 10px; }
+.ad-fila.ajena { background: #fffbeb; border-color: #f5d27a; }
+.ad-fila.ad-cab { border: 0; background: none; padding: 0 12px; margin-bottom: 0; font-size: 11.5px; color: var(--muted); }
+.ad-fila .ad-nombre { font-size: 14px; color: var(--navy, #12355f); }
+.ad-fila input[type=text], .ad-fila > input { width: 100%; min-width: 0; font-weight: 700; }
+.ad-fila .quitar { border: 0; background: none; cursor: pointer; font-size: 17px; color: #b91c1c; padding: 4px; }
+.ad-fila .tot { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ad-fila .ad-ticks { grid-column: 1 / -1; margin: 0; }
+.ad-cant { display: flex; gap: 4px; }
+.ad-cant button { flex: none; width: 34px; font-size: 18px; font-weight: 700; border: 1px solid var(--line); background: #fff; border-radius: 8px; cursor: pointer; }
+.ad-cant input { width: 100%; min-width: 0; text-align: center; font-size: 15px; font-weight: 700; }
+@media (max-width: 760px) { .ad-fila { grid-template-columns: 1fr 1fr; } .ad-fila.ad-cab { display: none; } .ad-fila > :first-child { grid-column: 1 / -1; } }
 .pfn-pract tr.pfn-benef td { background: #ecfdf5; color: #065f46; }
 .pfn-pract label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .pfn-pract input { width: 100%; min-width: 0; font-weight: 700; }
@@ -433,12 +430,9 @@
 .pfn-fechas label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .pfn-fechas input { width: 100%; min-width: 0; }
 .pfn-chk { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; font-size: 13.5px !important; color: var(--ink) !important; margin: 8px 0; cursor: pointer; }
-.pfn-factura.ajeno span { color: #92400e; font-weight: 600; }
-.pfn-factura-bloque { margin: 6px 0 2px; }
-.pfn-factura-bloque .pfn-chk { margin: 0 0 4px; }
-.pfn-destino { width: 100%; max-width: 420px; font-size: 12.5px; }
-.pfn-destino[hidden] { display: none; }
-.ck-destino { width: 100%; min-width: 150px; font-size: 12px; padding: 3px 4px; }
+.pfn-factura-bloque { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 22px; margin: 6px 0 2px; }
+.pfn-factura-bloque .pfn-chk { margin: 0; }
+.pfn-nota-destino { color: #92400e; font-weight: 600; }
 .pfn-chk input { width: 18px !important; height: 18px; min-width: 0 !important; margin: 0; flex: none; }
 @media (max-width: 640px) { .pfn-fechas { grid-template-columns: 1fr; } }
 .pfn-sub { margin: 18px 0 4px; font-size: 15px; color: var(--navy, #12355f); }
@@ -838,15 +832,20 @@ function filaTabla(t, a, v, cls) { const tr = elx("tr", cls); tr.append(elx("td"
 
 function tablaDias(c, trn, tarifa, extra) {
   const t = elx("table");
+  const enMuelle = c.motivo_libre === "muelle";  // fondeadero: los bloques libres son los que ya cobra el muelle
   (c.detalle || []).forEach((d) => {
     const cobrados = d.bloques.filter((b) => !b.beneficio), libres = d.bloques.filter((b) => b.beneficio);
     const txt = `${dmy(d.fecha)} · ` + (cobrados.length ? cobrados.map((b) => `${b.desde}–${b.hasta} (${f2(b.peso)})`).join(" + ") : "sin cobro")
-      + (libres.length ? ` · beneficio: ${libres.map((b) => `${b.desde}–${b.hasta} (${f2(b.peso)})`).join(" + ")} no se cobra` : "");
+      + (libres.length ? ` · ${enMuelle ? "ya se cobra en el muelle" : "beneficio"}: ${libres.map((b) => `${b.desde}–${b.hasta} (${f2(b.peso)})`).join(" + ")} no se cobra${enMuelle ? " acá" : ""}` : "");
     filaTabla(t, txt, f2(d.subtotal) + " d", libres.length ? "pfn-benef" : "");
   });
   if (c.beneficio && c.beneficio.aplicado) {
     filaTabla(t, "Días de estadía sin el beneficio", f2(c.dias_brutos) + " d");
     filaTabla(t, "Días sin cobrar por el beneficio", "− " + f2(c.beneficio.dias) + " d");
+  }
+  if (enMuelle && c.solapado > 0) {
+    filaTabla(t, "Días de fondeo en total", f2(c.dias_brutos) + " d");
+    filaTabla(t, "Días que ya se cobran en el muelle (no se duplican)", "− " + f2(c.solapado) + " d");
   }
   filaTabla(t, "Total de días a cobrar", f2(c.dias) + " d", "sub");
   filaTabla(t, `USD ${f2(tarifa)} × TRN ${fmt(trn)} × ${f2(c.dias)} días`, c.total ? usd2(c.total) : "—");
@@ -858,21 +857,30 @@ function campoFecha(texto, valor, alCambiar) {
   i.addEventListener("change", () => alCambiar(i.value)); l.appendChild(i); return l;
 }
 
-// "Esto si lo facturamos": tildado = se factura. Destildado = NO figura en ningun lado de la proforma (ni en el cuerpo ni al pie ni en sus hojas);
-// si se prefiere, se elige "figura al pie, por cuenta del armador" (FOR YOUR ACCOUNT). Guarda cuenta_ajena y omitido (nunca las dos).
+// Dos tildes en cada punto: "Esto si lo facturamos" y "FOR YOUR ACCOUNT" (por cuenta del armador). No pueden estar los dos.
+//   facturamos tildado .......... se factura (cuerpo de la proforma)
+//   FOR YOUR ACCOUNT tildado .... figura al pie, por cuenta del armador (no se factura)
+//   los dos destildados ......... no figura en ningun lado de la proforma
+// Guarda cuenta_ajena (al pie) y omitido (no figura); nunca las dos.
+function dosTildes(obj, alCambiar) {
+  const f = elx("input"); f.type = "checkbox"; f.checked = !(obj.cuenta_ajena || obj.omitido);
+  const y = elx("input"); y.type = "checkbox"; y.checked = !!obj.cuenta_ajena;
+  const aplicar = (cambio) => {
+    if (cambio === f && f.checked) y.checked = false;
+    if (cambio === y && y.checked) f.checked = false;
+    obj.cuenta_ajena = y.checked; obj.omitido = !f.checked && !y.checked; alCambiar();
+  };
+  f.addEventListener("change", () => aplicar(f)); y.addEventListener("change", () => aplicar(y));
+  return [f, y];
+}
 function casillaFactura(obj, alCambiar) {
   const cont = elx("div", "pfn-factura-bloque");
-  const l = elx("label", "pfn-chk pfn-factura"); const i = elx("input"); i.type = "checkbox"; i.checked = !(obj.cuenta_ajena || obj.omitido);
-  const sel = elx("select", "pfn-destino"); sel.setAttribute("aria-label", "Dónde figura si no se factura");
-  sel.append(new Option("No figura en la proforma", "no"), new Option("Figura al pie, por cuenta del armador (FOR YOUR ACCOUNT)", "pie"));
-  sel.value = obj.cuenta_ajena ? "pie" : "no";
-  const pintar = () => { sel.hidden = i.checked; l.classList.toggle("ajeno", !i.checked); };
-  const aplicar = () => {
-    obj.cuenta_ajena = !i.checked && sel.value === "pie"; obj.omitido = !i.checked && sel.value === "no";
-    pintar(); alCambiar();
-  };
-  i.addEventListener("change", aplicar); sel.addEventListener("change", aplicar);
-  l.append(i, elx("span", null, "Esto sí lo facturamos")); pintar(); cont.append(l, sel); return cont;
+  const nota = elx("small", "pfn-nota-destino");
+  const pintar = () => { nota.textContent = obj.omitido ? "No figura en la proforma" : ""; };
+  const [f, y] = dosTildes(obj, () => { pintar(); alCambiar(); });
+  const lf = elx("label", "pfn-chk pfn-factura"); lf.append(f, elx("span", null, "Esto sí lo facturamos"));
+  const ly = elx("label", "pfn-chk pfn-factura"); ly.append(y, elx("span", null, "FOR YOUR ACCOUNT"));
+  pintar(); cont.append(lf, ly, nota); return cont;
 }
 
 function casilla(texto, marcada, alCambiar) {
@@ -927,7 +935,7 @@ function pintarMuelle() {
     if (c && c.fondeo && c.fondeo.dias) d.appendChild(tablaDias(c.fondeo, trn, c.fondeo.tarifa));
     else falta(d, !trn ? "Falta el TRN (paso 3)." : "Cargá la entrada y la salida del fondeo.");
     d.appendChild(bloqueImporte(FONDEO, c && c.fondeo));
-  } else d.appendChild(elx("p", "muted", "Se calcula solo si el barco tomó bunker en boya: con la misma lógica de días, con otro multiplicador."));
+  } else d.appendChild(elx("p", "muted", "Se calcula solo si el barco tomó bunker en boya: con la misma lógica de días, con otro multiplicador. Lo que ya se cobra en el muelle no se cobra de nuevo acá."));
 
   // vias navegables
   d = card("VÍAS NAVEGABLES (CHANNEL TOLL)");
@@ -1089,33 +1097,33 @@ function pintarAduana() {
   const box = $("#ad-box"); box.replaceChildren();
   const abiertas = ADUANA.items.filter((i) => i.on);
   if (!abiertas.length) box.appendChild(elx("p", "muted", "El voucher no trae habilitaciones de aduana. Si en este barco hubo alguna, agregala abajo; si no, seguí con el paso siguiente."));
+  else {
+    const cab = elx("div", "ad-fila ad-cab"); ["Habilitación", "Cuántas fueron", "Precio c/u (USD)", "Total", ""].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
+  }
   abiertas.forEach((it) => {
-    const card = elx("div", "ad-card" + (it.cuenta_ajena || it.omitido ? " ajena" : ""));
-    const cab = elx("div", "ad-cab");
+    const fila = elx("div", "ad-fila" + (it.cuenta_ajena || it.omitido ? " ajena" : ""));
     let nom;
     if (it.key === "extra") { nom = elx("input"); nom.type = "text"; nom.maxLength = 80; nom.placeholder = "Escribí el concepto"; nom.value = it.texto; nom.setAttribute("aria-label", "Nombre de la habilitación"); nom.addEventListener("input", () => { it.texto = nom.value; render(); }); }
     else nom = elx("b", "ad-nombre", it.texto);
-    const quitar = elx("button", "quitar", "✕"); quitar.type = "button"; quitar.title = "Quitar esta habilitación"; quitar.setAttribute("aria-label", "Quitar " + (it.texto || "la habilitación"));
-    quitar.addEventListener("click", () => { it.on = false; it.cant = 0; it.cuenta_ajena = false; it.omitido = false; pintarAduana(); render(); });
-    cab.append(nom, quitar);
-    const cuerpo = elx("div", "ad-cuerpo");
     const tot = elx("span", "tot", usd2(it.cant * it.precio));
     const refrescar = () => { tot.textContent = usd2(it.cant * it.precio); actualizarTotalesAd(); render(); };
-    // cantidad con - y +
-    const lc = elx("label", null, "Cuántas fueron"); const cc = elx("div", "ad-cant");
+    // cantidad con - y +, al costado del nombre
+    const cc = elx("div", "ad-cant");
     const menos = elx("button", null, "−"); menos.type = "button"; menos.setAttribute("aria-label", "Una menos");
     const cant = elx("input"); cant.inputMode = "numeric"; cant.value = String(it.cant); cant.setAttribute("aria-label", "Cantidad de " + (it.texto || "habilitaciones"));
     const mas = elx("button", null, "+"); mas.type = "button"; mas.setAttribute("aria-label", "Una más");
     const poner = (n) => { it.cant = Math.max(0, Math.min(1000, Math.round(n))); cant.value = String(it.cant); refrescar(); };
     menos.addEventListener("click", () => poner(it.cant - 1)); mas.addEventListener("click", () => poner(it.cant + 1));
     cant.addEventListener("input", () => { it.cant = Math.max(0, Math.min(1000, Math.round(num(cant.value)))); refrescar(); });
-    cc.append(menos, cant, mas); lc.appendChild(cc);
-    const lp = elx("label", null, "Precio de cada una (USD)"); const precio = elx("input"); precio.inputMode = "decimal"; precio.value = fmt(it.precio); precio.setAttribute("aria-label", "Precio de " + (it.texto || "la habilitación"));
-    precio.addEventListener("input", () => { it.precio = num(precio.value); refrescar(); }); lp.appendChild(precio);
-    const lt = elx("div", "ad-total"); lt.append(elx("small", null, "Total"), tot);
-    cuerpo.append(lc, lp, lt);
-    card.append(cab, cuerpo, casillaFactura(it, () => { card.classList.toggle("ajena", it.cuenta_ajena || it.omitido); actualizarTotalesAd(); render(); }));
-    box.appendChild(card);
+    cc.append(menos, cant, mas);
+    const precio = elx("input"); precio.inputMode = "decimal"; precio.value = fmt(it.precio); precio.setAttribute("aria-label", "Precio de " + (it.texto || "la habilitación"));
+    precio.addEventListener("input", () => { it.precio = num(precio.value); refrescar(); });
+    const quitar = elx("button", "quitar", "✕"); quitar.type = "button"; quitar.title = "Quitar esta habilitación"; quitar.setAttribute("aria-label", "Quitar " + (it.texto || "la habilitación"));
+    quitar.addEventListener("click", () => { it.on = false; it.cant = 0; it.cuenta_ajena = false; it.omitido = false; pintarAduana(); render(); });
+    const ticks = casillaFactura(it, () => { fila.classList.toggle("ajena", it.cuenta_ajena || it.omitido); actualizarTotalesAd(); render(); });
+    ticks.classList.add("ad-ticks");
+    fila.append(nom, cc, precio, tot, quitar, ticks);
+    box.appendChild(fila);
   });
   // agregar otra habilitacion
   const ag = $("#ad-agregar"); ag.replaceChildren();
@@ -1418,15 +1426,15 @@ function objetoLinea(clave) {
   if (clave.startsWith("extra_")) return CHEQ.extras[Number(clave.slice(6))] || null;
   return MIG.items.find((x) => x.key === clave) || null;  // migraciones, taxis y free pratique
 }
-function celdaFactura(l) {
-  const td = elx("td", "col-factura"); const o = objetoLinea(l.clave);
+function celdasDestino(l) {  // dos celdas: "Lo facturamos" y "FOR YOUR ACCOUNT"
+  const fr = document.createDocumentFragment(); const o = objetoLinea(l.clave);
+  const t1 = elx("td", "col-factura"), t2 = elx("td", "col-factura");
   if (o) {
-    const sel = elx("select", "ck-destino"); sel.append(new Option("Se factura", "si"), new Option("Al pie (por cuenta del armador)", "pie"), new Option("No figura", "no"));
-    sel.value = o.omitido ? "no" : (o.cuenta_ajena ? "pie" : "si"); sel.setAttribute("aria-label", "Esto sí lo facturamos: " + l.texto);
-    sel.addEventListener("change", () => { o.cuenta_ajena = sel.value === "pie"; o.omitido = sel.value === "no"; render(); pintarCheq(); });
-    td.appendChild(sel);
+    const [f, y] = dosTildes(o, () => { render(); pintarCheq(); });
+    f.setAttribute("aria-label", "Esto sí lo facturamos: " + l.texto); y.setAttribute("aria-label", "FOR YOUR ACCOUNT: " + l.texto);
+    t1.appendChild(f); t2.appendChild(y);
   }
-  return td;
+  fr.append(t1, t2); return fr;
 }
 const FIJOS_TXT = { senasa: "Compulsory SENASA inspection", maritime: "Maritime Center", misc: "Miscellaneous" };
 
@@ -1506,25 +1514,25 @@ function pintarCheq() {
   if (!c) { tb.appendChild(elx("p", "muted", "Armando la proforma…")); return; }
   if (c.sin_dolar) tb.appendChild(elx("p", "falta", "Falta el dólar (paso 1): los renglones en pesos no se pueden pasar a dólares."));
   const t = elx("table", "ck-tabla");
-  const th = elx("tr"); [["", "n"], ["Concepto", ""], ["USD", "num"], ["Pesos (ARS)", "num"], ["Lo facturamos", "col-factura"], ["", "col-paso"]].forEach(([x, cl]) => th.appendChild(elx("th", cl, x))); t.appendChild(th);
+  const th = elx("tr"); [["", "n"], ["Concepto", ""], ["USD", "num"], ["Pesos (ARS)", "num"], ["Lo facturamos", "col-factura"], ["FOR YOUR ACCOUNT", "col-factura"], ["", "col-paso"]].forEach(([x, cl]) => th.appendChild(elx("th", cl, x))); t.appendChild(th);
   c.lineas.forEach((l) => {
     const tr = elx("tr"); tr.appendChild(elx("td", "n", String(l.n))); tr.appendChild(elx("td", null, l.texto));
-    tr.appendChild(elx("td", "num", l.usd != null ? usd2(l.usd) : "—")); tr.appendChild(elx("td", "num", ars(l.ars))); tr.appendChild(celdaFactura(l));
+    tr.appendChild(elx("td", "num", l.usd != null ? usd2(l.usd) : "—")); tr.appendChild(elx("td", "num", ars(l.ars))); tr.appendChild(celdasDestino(l));
     const td = elx("td", "col-paso"); if (l.paso !== 11) { const bb = elx("button", "corregir", "Corregir"); bb.type = "button"; bb.title = "Ir al paso " + l.paso; bb.addEventListener("click", () => ir(l.paso)); td.appendChild(bb); }
     tr.appendChild(td); t.appendChild(tr);
   });
-  const tot = elx("tr", "total"); tot.append(elx("td"), elx("td", null, "TOTAL"), elx("td", "num", c.total_usd != null ? usd2(c.total_usd) : "—"), elx("td", "num", ars(c.total_ars)), elx("td", "col-factura"), elx("td", "col-paso")); t.appendChild(tot);
+  const tot = elx("tr", "total"); tot.append(elx("td"), elx("td", null, "TOTAL"), elx("td", "num", c.total_usd != null ? usd2(c.total_usd) : "—"), elx("td", "num", ars(c.total_ars)), elx("td", "col-factura"), elx("td", "col-factura"), elx("td", "col-paso")); t.appendChild(tot);
   tb.appendChild(t);
   if (c.ajenas.length || c.pie.length) {
-    const a = elx("table", "ck-tabla"); const h = elx("tr"); ["FOR YOUR ACCOUNT (no se factura)", "USD", "Pesos (ARS)", "Lo facturamos"].forEach((x, i) => h.appendChild(elx("th", i === 1 || i === 2 ? "num" : (i === 3 ? "col-factura" : ""), x))); a.appendChild(h);
-    c.ajenas.forEach((l) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, l.texto + "  · sin impuestos"), elx("td", "num", l.usd != null ? usd2(l.usd) : "—"), elx("td", "num", ars(l.ars)), celdaFactura(l)); a.appendChild(tr); });
-    c.pie.forEach((t2) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, t2), elx("td"), elx("td"), elx("td")); a.appendChild(tr); });
+    const a = elx("table", "ck-tabla"); const h = elx("tr"); ["FOR YOUR ACCOUNT (no se factura)", "USD", "Pesos (ARS)", "Lo facturamos", "FOR YOUR ACCOUNT"].forEach((x, i) => h.appendChild(elx("th", i === 1 || i === 2 ? "num" : (i >= 3 ? "col-factura" : ""), x))); a.appendChild(h);
+    c.ajenas.forEach((l) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, l.texto + "  · sin impuestos"), elx("td", "num", l.usd != null ? usd2(l.usd) : "—"), elx("td", "num", ars(l.ars))); tr.appendChild(celdasDestino(l)); a.appendChild(tr); });
+    c.pie.forEach((t2) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, t2), elx("td"), elx("td"), elx("td"), elx("td")); a.appendChild(tr); });
     tb.appendChild(a);
   }
   if (c.omitidas && c.omitidas.length) {
-    const det = elx("details", "ck-omitidas"); det.appendChild(elx("summary", null, `No figuran en esta proforma (${c.omitidas.length}) — se destildó «Esto sí lo facturamos»`));
-    const o = elx("table", "ck-tabla"); const h = elx("tr"); ["Concepto", "USD", "Pesos (ARS)", "Volver a incluirlo"].forEach((x, i) => h.appendChild(elx("th", i === 1 || i === 2 ? "num" : (i === 3 ? "col-factura" : ""), x))); o.appendChild(h);
-    c.omitidas.forEach((l) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, l.texto), elx("td", "num", l.usd != null ? usd2(l.usd) : "—"), elx("td", "num", ars(l.ars)), celdaFactura(l)); o.appendChild(tr); });
+    const det = elx("details", "ck-omitidas"); det.appendChild(elx("summary", null, `No figuran en esta proforma (${c.omitidas.length}) — tildá «Lo facturamos» o «FOR YOUR ACCOUNT» para volver a incluirlos`));
+    const o = elx("table", "ck-tabla"); const h = elx("tr"); ["Concepto", "USD", "Pesos (ARS)", "Lo facturamos", "FOR YOUR ACCOUNT"].forEach((x, i) => h.appendChild(elx("th", i === 1 || i === 2 ? "num" : (i >= 3 ? "col-factura" : ""), x))); o.appendChild(h);
+    c.omitidas.forEach((l) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, l.texto), elx("td", "num", l.usd != null ? usd2(l.usd) : "—"), elx("td", "num", ars(l.ars))); tr.appendChild(celdasDestino(l)); o.appendChild(tr); });
     det.appendChild(o); tb.appendChild(det);
   }
   $("#ck-usd").textContent = c.total_usd != null ? usd2(c.total_usd) : "—";
@@ -1629,6 +1637,7 @@ function render() {
   VISITADOS.add(step);
   if (step === 4 && firmaPract() !== firmaPractAnt) calcularPracticaje();
   if (step === 5 && firmaMu() !== firmaMuAnt) calcularMuelle();
+  if (step === 7 && document.querySelectorAll("#ad-box .ad-fila:not(.ad-cab)").length !== ADUANA.items.filter((i) => i.on).length) pintarAduana();  // que la lista siempre muestre lo elegido
   if (step === 6 && firmaLd() !== firmaLdAnt) calcularLds();
   if (step === 8 && firmaTa() !== firmaTaAnt) calcularTally();
   if (step === 9 && firmaSe() !== firmaSeAnt) calcularSerenos();

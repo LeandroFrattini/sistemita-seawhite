@@ -451,10 +451,19 @@ Acceso: quien tenga el permiso de Administración (o sea admin). Los textos de l
 - **Aduanas (paso 7):** se abre **una tarjeta por cada habilitación que se tildó en el voucher**, con «cuántas fueron» (botones − y +, o escribiendo), precio de cada una y total; se quita con ✕ y se agregan otras con «Agregar otra habilitación». Ejemplo: 6 de carga, 1 de entrada y 2 de permanencia.
 - **Versión visible:** arriba de la proforma final figura «versión xxxxxxx» (el commit que está sirviendo Render) para saber si se está viendo lo último.
 
-## «Esto sí lo facturamos» destildado = no figura en ningún lado (ronda 16)
+## Dos tildes en cada punto: «Esto sí lo facturamos» y «FOR YOUR ACCOUNT» (ronda 16)
 
-- Al **destildar «Esto sí lo facturamos»**, ese punto **no figura en ningún lado de la proforma**: ni en el cuerpo, ni en FOR YOUR ACCOUNT, ni en el total, ni en la base de LAW; si es el Tally o los Serenos, **tampoco lleva su hoja** (TALLY / SERENOS) en el Excel.
-- Si se prefiere que figure al pie, al destildar aparece una elección: **«No figura en la proforma»** (por defecto) o **«Figura al pie, por cuenta del armador (FOR YOUR ACCOUNT)»**.
-- Estado: `omitido` (no figura) y `cuenta_ajena` (al pie) en cada concepto, nunca las dos (si llegan las dos, manda «al pie»).
-- En el **chequeo general** cada renglón tiene un desplegable (Se factura / Al pie / No figura) y, abajo, una lista plegable **«No figuran en esta proforma»** para volver a incluirlos.
+Cada punto lleva **dos tildes** (no un desplegable), que no pueden estar los dos a la vez:
+- **«Esto sí lo facturamos»** tildado (por defecto): se factura, va en el cuerpo de la proforma.
+- **«FOR YOUR ACCOUNT»** tildado: figura al pie, por cuenta del armador (no se factura, con su importe en pesos y USD).
+- **Los dos destildados: no figura en ningún lado de la proforma**: ni en el cuerpo, ni al pie, ni en el total, ni en la base de LAW; si es el Tally o los Serenos, **tampoco lleva su hoja** (TALLY / SERENOS) en el Excel.
+- Estado: `cuenta_ajena` (al pie) y `omitido` (no figura) en cada concepto, nunca las dos (si llegan las dos, manda «al pie»).
+- En el **chequeo general** cada renglón tiene las dos columnas con tilde («Lo facturamos» y «FOR YOUR ACCOUNT») y, abajo, una lista plegable **«No figuran en esta proforma»** para volver a incluirlos.
 - Lo que no figura no se pide como pendiente en los pasos (por ejemplo, si el practicaje no figura no se exigen sus datos) y no aparece en el resumen.
+- **Paso 7 (aduanas) como lista**: una fila por cada habilitación elegida en el voucher, con la cantidad al costado (− / + o escribiendo), el precio de cada una, el total y los dos tildes; se agregan otras con «Agregar otra habilitación». La lista se vuelve a dibujar sola si faltara alguna.
+
+## Muelle y fondeadero no se cobran dos veces el mismo bloque (ronda 17)
+
+Un bloque de 8 horas en el que el barco ya está cobrado en el **muelle** **no se vuelve a cobrar como fondeadero** (sería un costo duplicado): se cobra siempre el de muelle y el fondeadero cobra desde el primer bloque que no esté en el muelle.
+Ejemplo: zarpa del muelle a las 16:30 y llega al fondeadero a las 21:00 → el bloque 16–24 de ese día es del muelle y el fondeadero cobra desde las 00:00. Vale también si el fondeo es antes de amarrar (el bloque en que amarra es del muelle).
+La tabla de días del fondeadero marca en verde los bloques que ya cobra el muelle y muestra «Días de fondeo en total» y «Días que ya se cobran en el muelle (no se duplican)». Código: `app/muelle.py::calcular` (`solapado`, `dias_brutos`).
