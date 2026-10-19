@@ -178,11 +178,12 @@ async def proforma_final_muelle(request: Request, db: Session = Depends(get_db),
     """Uso de muelle, fondeadero y vias navegables con el desglose de dias por bloques de 8 horas."""
     d = await request.json()
     d = d if isinstance(d, dict) else {}
-    fechas = {k: pf._datetime(d.get(k)) for k in ("entrada", "salida", "fondeo_entrada", "fondeo_salida")}
+    fechas = {k: pf._datetime(d.get(k)) for k in ("entrada", "salida", "fondeo_entrada", "fondeo_salida", "inicio")}
     return muelle_calc.calcular(
         db, trn=pf._num(d.get("trn"), 1_000_000), cantidad=pf._num(d.get("cantidad"), 100_000_000), fondeo=bool(d.get("fondeo")),
         solo_bunker=bool(d.get("solo_bunker")), factor_via=pf._num(d.get("factor"), 10) or 1.0,
         entrada=fechas["entrada"], salida=fechas["salida"], fondeo_entrada=fechas["fondeo_entrada"], fondeo_salida=fechas["fondeo_salida"],
+        inicio=fechas["inicio"], aplicar_beneficio=d.get("aplicar_beneficio") is not False,
     )
 
 

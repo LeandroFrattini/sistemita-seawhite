@@ -170,6 +170,7 @@
 .pfn-pract td { padding: 3px 0; }
 .pfn-pract td:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pfn-pract tr.sub td { border-top: 1px solid var(--line-soft); font-weight: 700; }
+.pfn-pract tr.pfn-benef td { background: #ecfdf5; color: #065f46; }
 .pfn-pract label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .pfn-pract input { width: 100%; min-width: 0; font-weight: 700; }
 .pfn-pract .pfn-mod { font-size: 12px; color: #92400e; margin-top: 6px; }
@@ -464,14 +465,14 @@ function actualizarTotalPract() { $("#pr-total").textContent = usd2(PRACT.in.usd
 $("#pr-ir3").addEventListener("click", (ev) => { ev.preventDefault(); step = 3; render(); });
 
 // ---- Paso 5: uso de muelle, fondeadero y vias navegables (calculo en el servidor, con las tarifas del proformador inicial)
-const muelleVacio = () => ({ entrada: "", salida: "", usd: 0, manual: false, cuenta_ajena: false });
+const muelleVacio = () => ({ entrada: "", salida: "", usd: 0, manual: false, cuenta_ajena: false, sin_beneficio: false, perdonados: 0 });
 const fondeoVacio = () => ({ on: false, entrada: "", salida: "", usd: 0, manual: false, cuenta_ajena: false });
 const viasVacio = () => ({ solo_bunker: false, factor: 1, usd: 0, manual: false, cuenta_ajena: false });
 let MUELLE = muelleVacio(), FONDEO = fondeoVacio(), VIAS = viasVacio();
 let MU_CALC = null, firmaMuAnt = "", firmaMuCargada = null;
 const entradaEf = () => MUELLE.entrada || BUQUE.amarre || "";   // sin cargar a mano, las del paso 3 (amarre y zarpe)
 const salidaEf = () => MUELLE.salida || BUQUE.zarpe || "";
-const firmaMu = () => [BUQUE.trn, num(BUQUE.cantidad), entradaEf(), salidaEf(), FONDEO.on, FONDEO.entrada, FONDEO.salida, VIAS.solo_bunker, VIAS.factor].join("|");
+const firmaMu = () => [BUQUE.trn, num(BUQUE.cantidad), entradaEf(), salidaEf(), BUQUE.inicio, MUELLE.sin_beneficio, FONDEO.on, FONDEO.entrada, FONDEO.salida, VIAS.solo_bunker, VIAS.factor].join("|");
 
 function resetMuelle() {  // al cambiar de barco, el paso 5 empieza de cero
   MUELLE = muelleVacio(); FONDEO = fondeoVacio(); VIAS = viasVacio(); MU_CALC = null; firmaMuCargada = null; firmaMuAnt = "";
@@ -481,11 +482,12 @@ function resetMuelle() {  // al cambiar de barco, el paso 5 empieza de cero
 async function calcularMuelle() {
   getState();  // sincroniza lo que se ve en el paso 3
   firmaMuAnt = firmaMu();
-  const body = { trn: BUQUE.trn, cantidad: num(BUQUE.cantidad), entrada: entradaEf(), salida: salidaEf(), fondeo: FONDEO.on,
+  const body = { trn: BUQUE.trn, cantidad: num(BUQUE.cantidad), entrada: entradaEf(), salida: salidaEf(), inicio: BUQUE.inicio, aplicar_beneficio: !MUELLE.sin_beneficio, fondeo: FONDEO.on,
     fondeo_entrada: FONDEO.entrada, fondeo_salida: FONDEO.salida, solo_bunker: VIAS.solo_bunker, factor: VIAS.factor };
   const r = await fetch("/administracion/proforma-final/muelle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) return;
   MU_CALC = await r.json();
+  MUELLE.perdonados = MU_CALC.muelle.beneficio.aplicado ? MU_CALC.muelle.beneficio.dias : 0;
   const respetar = firmaMuCargada !== null && firmaMuCargada === firmaMu();  // Excel cargado y sin tocar los datos: se conservan sus importes
   [[MUELLE, MU_CALC.muelle], [FONDEO, MU_CALC.fondeo], [VIAS, MU_CALC.vias]].forEach(([obj, c]) => {
     if (!obj.manual && !(respetar && obj.usd > 0)) obj.usd = c && c.total ? c.total : 0;
@@ -502,8 +504,17 @@ function filaTabla(t, a, v, cls) { const tr = elx("tr", cls); tr.append(elx("td"
 
 function tablaDias(c, trn, tarifa, extra) {
   const t = elx("table");
-  (c.detalle || []).forEach((d) => filaTabla(t, `${dmy(d.fecha)} · ` + d.bloques.map((b) => `${b.desde}–${b.hasta} (${f2(b.peso)})`).join(" + "), f2(d.subtotal) + " d"));
-  filaTabla(t, "Total de días", f2(c.dias) + " d", "sub");
+  (c.detalle || []).forEach((d) => {
+    const cobrados = d.bloques.filter((b) => !b.beneficio), libres = d.bloques.filter((b) => b.beneficio);
+    const txt = `${dmy(d.fecha)} · ` + (cobrados.length ? cobrados.map((b) => `${b.desde}–${b.hasta} (${f2(b.peso)})`).join(" + ") : "sin cobro")
+      + (libres.length ? ` · beneficio: ${libres.map((b) => `${b.desde}–${b.hasta} (${f2(b.peso)})`).join(" + ")} no se cobra` : "");
+    filaTabla(t, txt, f2(d.subtotal) + " d", libres.length ? "pfn-benef" : "");
+  });
+  if (c.beneficio && c.beneficio.aplicado) {
+    filaTabla(t, "Días de estadía sin el beneficio", f2(c.dias_brutos) + " d");
+    filaTabla(t, "Días sin cobrar por el beneficio", "− " + f2(c.beneficio.dias) + " d");
+  }
+  filaTabla(t, "Total de días a cobrar", f2(c.dias) + " d", "sub");
   filaTabla(t, `USD ${f2(tarifa)} × TRN ${fmt(trn)} × ${f2(c.dias)} días`, c.total ? usd2(c.total) : "—");
   return t;
 }
@@ -546,6 +557,9 @@ function pintarMuelle() {
     campoFecha("Entrada al muelle (amarre)", entradaEf(), (v) => { MUELLE.entrada = v === (BUQUE.amarre || "") ? "" : v; render(); pintarMuelle(); }),
     campoFecha("Salida del muelle (zarpe)", salidaEf(), (v) => { MUELLE.salida = v === (BUQUE.zarpe || "") ? "" : v; render(); pintarMuelle(); }));
   d.appendChild(g1);
+  if (c && c.muelle.beneficio.detectado)
+    d.appendChild(casilla("Beneficio: amarró en fin de semana o feriado después de las 21:00 y no operó ese día (no se cobra ese tercio ni los días libres hasta que arranca la operación)",
+      !MUELLE.sin_beneficio, (v) => { MUELLE.sin_beneficio = !v; render(); pintarMuelle(); }));
   if (c && c.muelle.dias) d.appendChild(tablaDias(c.muelle, trn, c.muelle.tarifa));
   else falta(d, !trn ? "Falta el TRN (paso 3)." : "Falta la entrada y la salida del muelle (el amarre y el zarpe del paso 3).");
   d.appendChild(bloqueImporte(MUELLE, c && c.muelle));
