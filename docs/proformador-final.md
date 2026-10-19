@@ -342,3 +342,12 @@ Pedido del usuario: UX/UI cuidada y a prueba de errores en todo. Cambios:
 - Fechas en las tarjetas: una debajo de la otra cuando no entran.
 - **Voucher:** conserva CLEARANCE y STORE LIST ENDORSED y suma **FRESH WATER** y **PROVISIONS** (en Oceanway sin STORE LIST ENDORSED, como antes). Un voucher ya guardado no recibe las líneas nuevas.
   El paso 7 muestra las ocho habilitaciones del voucher, en su orden, más el renglón libre.
+
+## Calados en metros (ronda 10)
+
+- En el paso 3 los calados se **cargan en metros** (así trabajan en la oficina); el estado y el Excel siguen guardando **pies** (la tabla del practicaje es en pies, `1 m = 3,28084 pies`).
+  Debajo de cada calado se ve el equivalente en pies y el tramo del coeficiente. Hay un desplegable **«Tabla de pies a metros»** con los tramos del practicaje en las dos unidades (marca el tramo del calado cargado).
+- El calado de entrada del Generador de documentos ya viene en metros: se muestra tal cual. En el paso 4 el calado aparece en las dos unidades. En el Excel, la nota de la fila de calados trae los metros.
+- Se guarda el valor en pies sin releerlo del campo en cada cambio (evita deriva por redondeo).
+- **Corrección en Fórmulas:** al guardar, un formulario al que le faltaba el campo «hasta» de un tramo (calado, remolcadores, toneladas) borraba el tope. Ahora solo se cambia si el campo llega
+  (campo presente y vacío = «sin tope», a propósito). Detectado porque en la base local los tramos de calado y de remolcadores habían quedado sin tope.

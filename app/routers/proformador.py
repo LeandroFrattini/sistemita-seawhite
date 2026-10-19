@@ -1004,7 +1004,8 @@ async def guardar_formulas(request: Request, db: Session = Depends(get_db), user
     for t in db.scalars(select(ProformaCoefTramo)):
         hasta = form.get(f"tramo_hasta_{t.id}")
         coef = form.get(f"tramo_coef_{t.id}")
-        t.hasta_toneladas = float(hasta) if hasta not in (None, "") else None
+        if f"tramo_hasta_{t.id}" in form:
+            t.hasta_toneladas = float(hasta) if hasta not in (None, "") else None
         if coef not in (None, ""):
             try:
                 t.coeficiente = float(coef)
@@ -1014,7 +1015,8 @@ async def guardar_formulas(request: Request, db: Session = Depends(get_db), user
     for tg in db.scalars(select(ProformaTugTarifa)):
         hasta = form.get(f"tug_hasta_{tg.id}")
         valor = form.get(f"tug_valor_{tg.id}")
-        tg.hasta_loa = float(hasta) if hasta not in (None, "") else None
+        if f"tug_hasta_{tg.id}" in form:
+            tg.hasta_loa = float(hasta) if hasta not in (None, "") else None
         if valor not in (None, ""):
             try:
                 tg.valor_usd = float(valor)
@@ -1024,7 +1026,8 @@ async def guardar_formulas(request: Request, db: Session = Depends(get_db), user
     for pt in db.scalars(select(ProformaPilotageTramo)):
         hasta = form.get(f"pilot_hasta_{pt.id}")
         valor = form.get(f"pilot_valor_{pt.id}")
-        pt.hasta_pies = float(hasta) if hasta not in (None, "") else None
+        if f"pilot_hasta_{pt.id}" in form:
+            pt.hasta_pies = float(hasta) if hasta not in (None, "") else None
         if valor not in (None, ""):
             try:
                 pt.valor_usd = float(valor)

@@ -241,6 +241,10 @@ def _nota_concepto(c: dict, entrada: str = "", salida: str = "") -> str:
     return " · ".join(partes)
 
 
+def _metros(pies: float) -> str:
+    return f"{pies / 3.28084:.2f} m" if pies else "—"
+
+
 def _nota_practicaje(m: dict) -> str:
     return ("modificado a mano" if m["manual"] else "según tabla de calado") + (" · FOR YOUR ACCOUNT (no se factura)" if m["cuenta_ajena"] else "")
 
@@ -274,7 +278,8 @@ def build_excel(state: dict) -> bytes:
         ("Cantidad operada", b["cantidad"], ""),
         ("TRN", b["trn"] or "", "TRB " + str(b["trb"]) if b["trb"] else ""),
         ("Eslora / manga / puntal (m)", f"{b['eslora'] or '—'} / {b['manga'] or '—'} / {b['puntal'] or '—'}", b["bandera"] and ("Bandera " + b["bandera"]) or ""),
-        ("Calado entrada / salida (pies)", f"{b['calado_entrada'] or '—'} / {b['calado_salida'] or '—'}", ""),
+        ("Calado entrada / salida (pies)", f"{b['calado_entrada'] or '—'} / {b['calado_salida'] or '—'}",
+         (f"en metros: {_metros(b['calado_entrada'])} / {_metros(b['calado_salida'])}" if b["calado_entrada"] or b["calado_salida"] else "")),
         ("Practicaje IN (USD)", s["practicaje"]["in"]["usd"] or "", _nota_practicaje(s["practicaje"]["in"])),
         ("Practicaje OUT (USD)", s["practicaje"]["out"]["usd"] or "", _nota_practicaje(s["practicaje"]["out"])),
         ("Uso de muelle (USD)", s["muelle"]["usd"] or "", _nota_concepto(s["muelle"], s["muelle"]["entrada"] or b["amarre"], s["muelle"]["salida"] or b["zarpe"])

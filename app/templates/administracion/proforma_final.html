@@ -100,12 +100,15 @@
       </div>
       <p class="muted" id="b-trn-nota">El TRN es la base de varios cálculos de los pasos siguientes.</p>
 
-      <h3 class="pfn-sub">Calados (en pies)</h3>
+      <h3 class="pfn-sub">Calados (en metros)</h3>
       <div class="pfn-grid">
-        <label>Calado de entrada (pies)<input id="b-cal-ent" inputmode="decimal" placeholder="ej. 31,5"></label>
-        <label>Calado de salida (pies)<input id="b-cal-sal" inputmode="decimal" placeholder="ej. 38,2"></label>
+        <label>Calado de entrada (metros)<input id="b-cal-ent" inputmode="decimal" placeholder="ej. 9,60"><small class="pfn-pies" id="b-cal-ent-pies" aria-live="polite"></small></label>
+        <label>Calado de salida (metros)<input id="b-cal-sal" inputmode="decimal" placeholder="ej. 11,60"><small class="pfn-pies" id="b-cal-sal-pies" aria-live="polite"></small></label>
       </div>
-      <p class="muted" id="b-calado-nota">Con los calados se calcula el practicaje (paso 4), con la misma tabla de coeficientes del proformador inicial.</p>
+      <p class="muted" id="b-calado-nota">Cargá los calados en metros: el sistema los pasa a pies solo, porque el practicaje (paso 4) se calcula con la tabla de calado en pies.</p>
+      <details class="pfn-info"><summary>Tabla de pies a metros</summary>
+        <div id="b-tabla-pies"></div>
+      </details>
 
       <h3 class="pfn-sub">Servicios del voucher</h3>
       <div id="b-servicios" class="pfn-servicios"></div>
@@ -113,7 +116,7 @@
 
     <div data-pane="4" hidden>
       <h2>4 · Practicaje</h2>
-      <p class="muted">Entrada y salida por separado, cada una con su calado. Los calados, la eslora, la manga y el puntal se cargan en el <a href="#" id="pr-ir3">paso 3</a>.</p>
+      <p class="muted">Entrada y salida por separado, cada una con su calado. Los calados (en metros), la eslora, la manga y el puntal se cargan en el <a href="#" id="pr-ir3">paso 3</a>.</p>
       <details class="pfn-info"><summary>Cómo se calcula</summary>
         <p>Es la misma fórmula y la misma tabla de coeficientes de calado del proformador inicial. Se editan en <a href="/proformador/config/formulas">Proformador → Fórmulas</a>.</p>
       </details>
@@ -193,6 +196,12 @@
 .pfn-aviso.falta { background: #fffbeb; border-color: #f5d27a; color: #78350f; }
 .pfn-aviso.listo { background: #ecfdf5; border-color: #9fdcbc; color: #065f46; }
 .pfn-aviso.pronto { background: #f4f6fa; color: var(--muted); }
+.pfn-pies { color: var(--muted); font-size: 12px; min-height: 16px; }
+.pfn-pies b { color: var(--ink); }
+.pfn-tabla { width: 100%; max-width: 520px; border-collapse: collapse; font-size: 13px; margin: 8px 0 4px; }
+.pfn-tabla th, .pfn-tabla td { padding: 4px 8px; text-align: left; border-bottom: 1px solid var(--line-soft); }
+.pfn-tabla th { color: var(--muted); font-weight: 600; font-size: 12px; }
+.pfn-tabla tr.on td { background: #dbe9f8; font-weight: 700; }
 .pfn-info { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 .pfn-info summary { cursor: pointer; color: var(--blue-dark, #154a86); font-weight: 600; width: fit-content; }
 .pfn-info p { margin: 6px 0 0; }
@@ -310,8 +319,7 @@ function getState() {
   // lo que se ve en el paso 3 es lo que manda (se puede corregir lo traido de Operaciones)
   BUQUE = { ...BUQUE, amarre: $("#b-amarre").value, inicio: $("#b-inicio").value, fin: $("#b-fin").value, zarpe: $("#b-zarpe").value,
     cantidad: $("#b-cantidad").value.trim(), trn: num($("#b-trn").value), trb: num($("#b-trb").value), eslora: num($("#b-eslora").value),
-    manga: num($("#b-manga").value), puntal: num($("#b-puntal").value), bandera: $("#b-bandera").value.trim(),
-    calado_entrada: num($("#b-cal-ent").value), calado_salida: num($("#b-cal-sal").value) };
+    manga: num($("#b-manga").value), puntal: num($("#b-puntal").value), bandera: $("#b-bandera").value.trim() };
   return {
     v: 5,
     buque: BUQUE,
@@ -374,6 +382,41 @@ function renderFees() {
   updateTotal();
 }
 
+// Calados: se cargan en METROS y se guardan en PIES (el practicaje usa la tabla en pies)
+const PIES_POR_METRO = 3.28084;
+const TRAMOS_CALADO = {{ tramos_calado|tojson }};   // [{hasta: pies o null, coef}]
+const aPies = (m) => Math.round(m * PIES_POR_METRO * 10000) / 10000;
+const aMetros = (p) => p / PIES_POR_METRO;
+const fm2 = (n) => (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const tramoDe = (pies) => TRAMOS_CALADO.findIndex((t) => t.hasta === null || pies <= t.hasta);
+
+function pintarPiesCalado() {
+  [["#b-cal-ent", "calado_entrada"], ["#b-cal-sal", "calado_salida"]].forEach(([id, k]) => {
+    const p = BUQUE[k], el = $(id + "-pies");
+    el.replaceChildren();
+    if (!(p > 0)) return;
+    el.append("= ", elx("b", null, fm2(p) + " pies"));
+    const i = tramoDe(p);
+    if (i >= 0) el.append(` · tramo ${i === 0 ? "hasta " + TRAMOS_CALADO[0].hasta : (TRAMOS_CALADO[i].hasta === null ? "más de " + TRAMOS_CALADO[i - 1].hasta : TRAMOS_CALADO[i - 1].hasta + " a " + TRAMOS_CALADO[i].hasta)} pies`);
+  });
+  const t = $("#b-tabla-pies"); t.replaceChildren();
+  if (!TRAMOS_CALADO.length) return;
+  const tb = elx("table", "pfn-tabla");
+  const cab = elx("tr"); ["Calado en metros", "Calado en pies", "Coeficiente"].forEach((x) => cab.appendChild(elx("th", null, x))); tb.appendChild(cab);
+  const activos = new Set([BUQUE.calado_entrada, BUQUE.calado_salida].filter((p) => p > 0).map(tramoDe));
+  TRAMOS_CALADO.forEach((tr, i) => {
+    const prev = i ? TRAMOS_CALADO[i - 1].hasta : null;
+    const pies = tr.hasta === null ? `más de ${prev}` : (prev === null ? `hasta ${tr.hasta}` : `más de ${prev} hasta ${tr.hasta}`);
+    const met = tr.hasta === null ? `más de ${fm2(aMetros(prev))}` : (prev === null ? `hasta ${fm2(aMetros(tr.hasta))}` : `más de ${fm2(aMetros(prev))} hasta ${fm2(aMetros(tr.hasta))}`);
+    const r = elx("tr", activos.has(i) ? "on" : ""); [met + " m", pies + " pies", fmt(tr.coef)].forEach((x) => r.appendChild(elx("td", null, x))); tb.appendChild(r);
+  });
+  t.appendChild(tb);
+  t.appendChild(elx("p", "muted", "1 metro = 3,28084 pies. En la tabla se marca el tramo del calado cargado."));
+}
+["#b-cal-ent", "#b-cal-sal"].forEach((id, n) => $(id).addEventListener("input", () => {
+  BUQUE[n ? "calado_salida" : "calado_entrada"] = aPies(num($(id).value)); pintarPiesCalado();
+}));
+
 const fmtDT = (v) => (v ? v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4) + " " + v.slice(11, 16) : "—");
 
 function renderBuque() {
@@ -423,10 +466,12 @@ function pintarPaso3(hayBarco, o) {
   const campo = (id, v) => { $(id).value = v ? fmt(v) : ""; };
   campo("#b-trn", b.trn); campo("#b-trb", b.trb); campo("#b-eslora", b.eslora); campo("#b-manga", b.manga); campo("#b-puntal", b.puntal);
   $("#b-bandera").value = b.bandera || "";
-  campo("#b-cal-ent", b.calado_entrada); campo("#b-cal-sal", b.calado_salida);
+  const campoM = (id, pies) => { $(id).value = pies ? fm2(aMetros(pies)) : ""; };  // se muestra en metros; lo guardado sigue siendo pies
+  campoM("#b-cal-ent", b.calado_entrada); campoM("#b-cal-sal", b.calado_salida);
+  pintarPiesCalado();
   $("#b-calado-nota").textContent = o && o.calado_historial
-    ? "Calado de entrada traído del último «Calados Entrada» del Generador de documentos (viene en metros: se pasó a pies). Completá el de salida y corregí lo que haga falta."
-    : "Cargá los calados en pies. Con ellos se calcula el practicaje (paso 4), con la misma tabla de coeficientes del proformador inicial.";
+    ? "Calado de entrada traído del último «Calados Entrada» del Generador de documentos (en metros). Completá el de salida y corregí lo que haga falta. El sistema los pasa a pies solo."
+    : "Cargá los calados en metros: el sistema los pasa a pies solo, porque el practicaje (paso 4) se calcula con la tabla de calado en pies.";
   $("#b-origen").textContent = b.nombre
     ? `${b.nombre} · horarios cargados por Operaciones en «Completar datos». Podés corregir lo que haga falta.`
     : "Elegí el barco en el paso 1: se traen los horarios que cargó Operaciones. Podés corregir lo que haga falta.";
@@ -522,7 +567,7 @@ function pintarPracticaje() {
     if (m) {
       const t = document.createElement("table");
       const fila = (a, v, cls) => { const tr = document.createElement("tr"); if (cls) tr.className = cls; const x = document.createElement("td"); x.textContent = a; const y = document.createElement("td"); y.textContent = v; tr.append(x, y); t.appendChild(tr); };
-      fila(`Calado ${fmt(m.calado_pies)} pies · coeficiente`, "× " + fmt(m.factor));
+      fila(`Calado ${fm2(aMetros(m.calado_pies))} m (${fm2(m.calado_pies)} pies) · coeficiente`, "× " + fmt(m.factor));
       fila("Maniobra / practicaje", usd2(m.maniobra));
       fila("Navegación / pilotaje + recorrido", usd2(m.navegacion));
       const sub = m.maniobra + m.navegacion;

@@ -16,7 +16,7 @@ from ..auth import administracion_required
 from ..database import get_db
 from ..docgen.fechas import parse_number
 from ..docgen import voucher as vch
-from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, User
+from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, User
 from .. import practicaje as pract
 from .. import lds as lds_calc
 from .. import muelle as muelle_calc
@@ -166,6 +166,9 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
         "user": user, "agencias": agencias, "barcos": _barcos_a_proformar(db), "pasos": pf.PASOS,
         "hoy": date.today().isoformat(),
         "aduana_usd": get_param(db, "aduana_habilitacion_usd", pf.ADUANA_USD),
+        # tramos de calado del practicaje (en pies) para mostrarlos tambien en metros
+        "tramos_calado": [{"hasta": t.hasta_pies, "coef": t.valor_usd}
+                          for t in db.scalars(select(ProformaPilotageTramo).order_by(ProformaPilotageTramo.orden))],
     })
 
 
