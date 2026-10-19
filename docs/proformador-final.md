@@ -351,3 +351,26 @@ Pedido del usuario: UX/UI cuidada y a prueba de errores en todo. Cambios:
 - Se guarda el valor en pies sin releerlo del campo en cada cambio (evita deriva por redondeo).
 - **Corrección en Fórmulas:** al guardar, un formulario al que le faltaba el campo «hasta» de un tramo (calado, remolcadores, toneladas) borraba el tope. Ahora solo se cambia si el campo llega
   (campo presente y vacío = «sin tope», a propósito). Detectado porque en la base local los tramos de calado y de remolcadores habían quedado sin tope.
+
+## Tally (encargado) y Serenos — tarifas «serenos y encargado.xlsx» (Cámara Portuaria y Marítima de Bahía Blanca, AGOSTO 2026) — EN ANÁLISIS
+
+**Encargado = Head Tally** (jornal entero, ARS por turno). Básico 192.587,30 (+10 % = 211.846,03). Cada renglón = básico + adicionales + productividad (25 % del básico):
+cereal = + insalubridad 30 %; bolsones/materiales = + peligrosidad 50 %; fertilizantes = ambos (80 %); aceite = ninguno. Valor «con 10 %» (columna L = base × 1,10):
+
+| | Aceite | Cereal | Bolsones/Materiales | Fertilizantes |
+|---|---|---|---|---|
+| Básico (H) | 264.807,53 | 328.361,34 | 370.730,55 | 434.284,36 |
+| Extra 100 % | 476.653,55 | 540.207,36 | 582.576,57 | 646.130,38 |
+| Extra 150 % | 582.576,57 | 646.130,38 | 688.499,58 | 752.053,39 |
+
+(Las proformas usan 328.361,35 / 540.207,38 / 646.130,40 = tabla de la hoja. Antes del +10 %: cereal 298.510,31 / 491.097,60 / 587.391,25.) El básico solo: 211.846,03; extra 100 %: ×2; extra 150 %: ×2,5.
+
+**Serenos** (ARS por turno de 6 h: 00–06, 06–12, 12–18, 18–24): hábil 06–12, 12–18 y sábado 06–12 · inhábil 00–06, 18–24 y sábados · domingos y feriados.
+NORMAL (aceite) 193.493,56 / 290.239,54 / 386.930,38 · INSALUBRE (cereal, fertilizantes, bolsones-materiales) 290.229,31 / 435.353,11 / 580.462,60 · PELIGROSO (amoníaco, gasoil, posta) 348.316,28 / 522.503,33 / 696.633,10.
+**Viáticos por turno (conveyances):** 17.588,21 (sitio ADM / sitio 21 / TBB / Cargill / Profertil) · 28.710,71 (Galvan, Moreno sitio 5-2/3, Dreyfus, Posta y Mega, OTA 1, LDC).
+
+**Cómo se arman las hojas de la proforma (verificado contra PORT ALBERNI, SHI DAI 9 y DISCOVERER):**
+- TALLY: cuatro renglones «WAGES AT» (cantidad × valor): básico, cereal hábil «H», extra «100» y extra «150». Cada turno del voucher se asigna a uno. Suma × (1 + % tally de la agencia) y se suma al total
+  (SHI DAI: 3 × 328.361,35 + 1 × 540.207,38 = 1.525.291,43; × 1,67 = 2.547.236,69; total 4.072.528,12).
+- SERENOS: una celda por turno trabajado con la tarifa que corresponde; subtotal × (1 + % serenos) + conveyances (cantidad de turnos × viático del sitio); las cargas NO se aplican a los viáticos
+  (PORT ALBERNI: 2.079.905,78 + 2.433.489,76 + 5 × 17.588,21 = 4.601.336,59).
