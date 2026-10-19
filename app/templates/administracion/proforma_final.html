@@ -160,9 +160,9 @@
         <p>Cada habilitación vale USD {{ '%g'|format(aduana_usd) }} (se cambia en <a href="/administracion/formulas">Administración → Fórmulas</a>). El precio de cada una también se puede modificar a mano.
         Los dos tildes de cada fila: «Esto sí lo facturamos» (cuerpo de la proforma) o «FOR YOUR ACCOUNT» (al pie, no se factura). Con los dos destildados, esa habilitación no figura en ningún lado.</p>
       </details>
-      <div id="ad-box"></div>
-      <div id="ad-agregar" class="pfn-agregar"></div>
-      <p class="pfn-total">Habilitaciones que se facturan: <b id="ad-total">USD 0,00</b><span id="ad-ajena" class="muted"></span></p>
+      <div id="hab-box"></div>
+      <div id="hab-agregar" class="pfn-agregar"></div>
+      <p class="pfn-total">Habilitaciones que se facturan: <b id="hab-total">USD 0,00</b><span id="hab-ajena" class="muted"></span></p>
     </div>
 
     <div data-pane="8" hidden>
@@ -408,18 +408,18 @@
   .pfn-adu > :nth-child(5) { grid-column: 2 / -1; grid-row: 3; text-align: left; }
   .pfn-adu.cab { display: none; }
 }
-.ad-fila { display: grid; grid-template-columns: minmax(150px, 1.5fr) 150px minmax(90px, .7fr) minmax(100px, .8fr) 30px; gap: 8px 12px; align-items: center; padding: 8px 12px; margin-bottom: 6px; border: 1px solid #9cc3ec; background: #eef6ff; border-radius: 10px; }
-.ad-fila.ajena { background: #fffbeb; border-color: #f5d27a; }
-.ad-fila.ad-cab { border: 0; background: none; padding: 0 12px; margin-bottom: 0; font-size: 11.5px; color: var(--muted); }
-.ad-fila .ad-nombre { font-size: 14px; color: var(--navy, #12355f); }
-.ad-fila input[type=text], .ad-fila > input { width: 100%; min-width: 0; font-weight: 700; }
-.ad-fila .quitar { border: 0; background: none; cursor: pointer; font-size: 17px; color: #b91c1c; padding: 4px; }
-.ad-fila .tot { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
-.ad-fila .ad-ticks { grid-column: 1 / -1; margin: 0; }
-.ad-cant { display: flex; gap: 4px; }
-.ad-cant button { flex: none; width: 34px; font-size: 18px; font-weight: 700; border: 1px solid var(--line); background: #fff; border-radius: 8px; cursor: pointer; }
-.ad-cant input { width: 100%; min-width: 0; text-align: center; font-size: 15px; font-weight: 700; }
-@media (max-width: 760px) { .ad-fila { grid-template-columns: 1fr 1fr; } .ad-fila.ad-cab { display: none; } .ad-fila > :first-child { grid-column: 1 / -1; } }
+.hab-fila { display: grid; grid-template-columns: minmax(150px, 1.5fr) 150px minmax(90px, .7fr) minmax(100px, .8fr) 30px; gap: 8px 12px; align-items: center; padding: 8px 12px; margin-bottom: 6px; border: 1px solid #9cc3ec; background: #eef6ff; border-radius: 10px; }
+.hab-fila.ajena { background: #fffbeb; border-color: #f5d27a; }
+.hab-fila.hab-cab { border: 0; background: none; padding: 0 12px; margin-bottom: 0; font-size: 11.5px; color: var(--muted); }
+.hab-fila .hab-nombre { font-size: 14px; color: var(--navy, #12355f); }
+.hab-fila input[type=text], .hab-fila > input { width: 100%; min-width: 0; font-weight: 700; }
+.hab-fila .quitar { border: 0; background: none; cursor: pointer; font-size: 17px; color: #b91c1c; padding: 4px; }
+.hab-fila .tot { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hab-fila .hab-ticks { grid-column: 1 / -1; margin: 0; }
+.hab-cant { display: flex; gap: 4px; }
+.hab-cant button { flex: none; width: 34px; font-size: 18px; font-weight: 700; border: 1px solid var(--line); background: #fff; border-radius: 8px; cursor: pointer; }
+.hab-cant input { width: 100%; min-width: 0; text-align: center; font-size: 15px; font-weight: 700; }
+@media (max-width: 760px) { .hab-fila { grid-template-columns: 1fr 1fr; } .hab-fila.hab-cab { display: none; } .hab-fila > :first-child { grid-column: 1 / -1; } }
 .pfn-pract tr.pfn-benef td { background: #ecfdf5; color: #065f46; }
 .pfn-pract label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .pfn-pract input { width: 100%; min-width: 0; font-weight: 700; }
@@ -1094,21 +1094,21 @@ const ajenaAduana = () => Math.round(ADUANA.items.filter((i) => i.on && i.cuenta
 function resetAduana() { ADUANA = aduanaInicial(); pintarAduana(); }
 
 function pintarAduana() {
-  const box = $("#ad-box"); box.replaceChildren();
+  const box = $("#hab-box"); box.replaceChildren();
   const abiertas = ADUANA.items.filter((i) => i.on);
   if (!abiertas.length) box.appendChild(elx("p", "muted", "El voucher no trae habilitaciones de aduana. Si en este barco hubo alguna, agregala abajo; si no, seguí con el paso siguiente."));
   else {
-    const cab = elx("div", "ad-fila ad-cab"); ["Habilitación", "Cuántas fueron", "Precio c/u (USD)", "Total", ""].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
+    const cab = elx("div", "hab-fila hab-cab"); ["Habilitación", "Cuántas fueron", "Precio c/u (USD)", "Total", ""].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
   }
   abiertas.forEach((it) => {
-    const fila = elx("div", "ad-fila" + (it.cuenta_ajena || it.omitido ? " ajena" : ""));
+    const fila = elx("div", "hab-fila" + (it.cuenta_ajena || it.omitido ? " ajena" : ""));
     let nom;
     if (it.key === "extra") { nom = elx("input"); nom.type = "text"; nom.maxLength = 80; nom.placeholder = "Escribí el concepto"; nom.value = it.texto; nom.setAttribute("aria-label", "Nombre de la habilitación"); nom.addEventListener("input", () => { it.texto = nom.value; render(); }); }
-    else nom = elx("b", "ad-nombre", it.texto);
+    else nom = elx("b", "hab-nombre", it.texto);
     const tot = elx("span", "tot", usd2(it.cant * it.precio));
     const refrescar = () => { tot.textContent = usd2(it.cant * it.precio); actualizarTotalesAd(); render(); };
     // cantidad con - y +, al costado del nombre
-    const cc = elx("div", "ad-cant");
+    const cc = elx("div", "hab-cant");
     const menos = elx("button", null, "−"); menos.type = "button"; menos.setAttribute("aria-label", "Una menos");
     const cant = elx("input"); cant.inputMode = "numeric"; cant.value = String(it.cant); cant.setAttribute("aria-label", "Cantidad de " + (it.texto || "habilitaciones"));
     const mas = elx("button", null, "+"); mas.type = "button"; mas.setAttribute("aria-label", "Una más");
@@ -1121,12 +1121,12 @@ function pintarAduana() {
     const quitar = elx("button", "quitar", "✕"); quitar.type = "button"; quitar.title = "Quitar esta habilitación"; quitar.setAttribute("aria-label", "Quitar " + (it.texto || "la habilitación"));
     quitar.addEventListener("click", () => { it.on = false; it.cant = 0; it.cuenta_ajena = false; it.omitido = false; pintarAduana(); render(); });
     const ticks = casillaFactura(it, () => { fila.classList.toggle("ajena", it.cuenta_ajena || it.omitido); actualizarTotalesAd(); render(); });
-    ticks.classList.add("ad-ticks");
+    ticks.classList.add("hab-ticks");
     fila.append(nom, cc, precio, tot, quitar, ticks);
     box.appendChild(fila);
   });
   // agregar otra habilitacion
-  const ag = $("#ad-agregar"); ag.replaceChildren();
+  const ag = $("#hab-agregar"); ag.replaceChildren();
   const cerradas = ADUANA.items.filter((i) => !i.on);
   if (cerradas.length) {
     const l = elx("label", null, "Agregar otra habilitación"); const sel = elx("select");
@@ -1140,8 +1140,8 @@ function pintarAduana() {
 
 function actualizarTotalesAd() {
   const aj = ajenaAduana();
-  $("#ad-total").textContent = usd2(totalAduana());
-  $("#ad-ajena").textContent = aj ? ` · por cuenta del armador (informativo): ${usd2(aj)}` : "";
+  $("#hab-total").textContent = usd2(totalAduana());
+  $("#hab-ajena").textContent = aj ? ` · por cuenta del armador (informativo): ${usd2(aj)}` : "";
 }
 
 // ---- Paso 8 (Tally) y paso 9 (Serenos): en pesos; el calculo y las reglas estan en el servidor (app/personal.py)
@@ -1637,7 +1637,7 @@ function render() {
   VISITADOS.add(step);
   if (step === 4 && firmaPract() !== firmaPractAnt) calcularPracticaje();
   if (step === 5 && firmaMu() !== firmaMuAnt) calcularMuelle();
-  if (step === 7 && document.querySelectorAll("#ad-box .ad-fila:not(.ad-cab)").length !== ADUANA.items.filter((i) => i.on).length) pintarAduana();  // que la lista siempre muestre lo elegido
+  if (step === 7 && document.querySelectorAll("#hab-box .hab-fila:not(.hab-cab)").length !== ADUANA.items.filter((i) => i.on).length) pintarAduana();  // que la lista siempre muestre lo elegido
   if (step === 6 && firmaLd() !== firmaLdAnt) calcularLds();
   if (step === 8 && firmaTa() !== firmaTaAnt) calcularTally();
   if (step === 9 && firmaSe() !== firmaSeAnt) calcularSerenos();
