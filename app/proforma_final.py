@@ -157,7 +157,7 @@ def clean_state(raw) -> dict:
         return out
 
     mu, fo, vi = sub("muelle"), sub("fondeo"), sub("vias")
-    la, ld, es = sub("lds_amarre"), sub("lds_desamarre"), sub("escala")
+    la, ld, es, dr = sub("lds_amarre"), sub("lds_desamarre"), sub("escala"), sub("lds_draft")
 
     return {
         "v": VERSION,
@@ -174,6 +174,8 @@ def clean_state(raw) -> dict:
         "lds_desamarre": concepto(ld, {"momento": _datetime(ld.get("momento")), "lanchas": int(_num(ld.get("lanchas"), 4))}),
         # escala (SHORE GANGWAY): on_set indica que alguien tildo o destildo la casilla (si no, manda lo que dice el voucher)
         "escala": concepto(es, {"on": bool(es.get("on")), "on_set": bool(es.get("on_set")), "dias": int(_num(es.get("dias"), 365))}),
+        # lancha de draft (opcional): momento vacio = el fin de operacion del paso 3
+        "lds_draft": concepto(dr, {"on": bool(dr.get("on")), "momento": _datetime(dr.get("momento"))}),
         "dolar": {
             "valor": _num(dolar.get("valor"), 1_000_000),
             "fecha": _fecha(dolar.get("fecha")),
@@ -234,6 +236,8 @@ def build_excel(state: dict) -> bytes:
         ("Amarre LDS (USD)", s["lds_amarre"]["usd"] or "", _nota_concepto(s["lds_amarre"], s["lds_amarre"]["momento"] or b["amarre"])),
         ("Desamarre LDS (USD)", s["lds_desamarre"]["usd"] or "", _nota_concepto(s["lds_desamarre"], s["lds_desamarre"]["momento"] or b["zarpe"])),
         ("Escala LDS (USD)", s["escala"]["usd"] or "" if s["escala"]["on"] else "—", _nota_concepto(s["escala"]) if s["escala"]["on"] else "sin shore gangway"),
+        ("Lancha de draft LDS (USD)", s["lds_draft"]["usd"] or "" if s["lds_draft"]["on"] else "—",
+         _nota_concepto(s["lds_draft"], s["lds_draft"]["momento"] or b["fin"]) if s["lds_draft"]["on"] else "sin uso de lancha de draft"),
         ("Dólar (divisa BNA)", s["dolar"]["valor"] or "", "Cotización del " + (s["dolar"]["fecha"] or "—")
          + (" · traído del BNA" if s["dolar"]["origen"] == "BNA" else " · cargado a mano")),
         ("Agencia a facturar", s["agencia"]["nombre"], ""),

@@ -9,6 +9,7 @@ Reglas confirmadas por el usuario:
     domingo y feriado, todo el dia: 100 %
   Domingo 23:00 = 100 %; lunes 03:00 = noche de dia habil (50 %), salvo que el lunes sea feriado.
 - ESCALA (colocacion, retiro, alquiler diario) solo si en el voucher se selecciona SHORE GANGWAY.
+- Lancha de DRAFT (opcional, se agrega a mano): 290 / 435 / 580 con el mismo recargo por dia y hora.
 - Buques argentinos (tarifa DCI 22): por ahora no se cargan.
 """
 from __future__ import annotations
@@ -26,6 +27,7 @@ TARIFA = {
     "lancha": (1070.0, 1610.0, 2140.0),
     "desamarre": (1900.0, 2850.0, 3800.0),
 }
+DRAFT = (290.0, 435.0, 580.0)  # uso de la lancha para el draft survey (habil, extra 50 %, extra 100 %)
 ESCALA = {"colocacion": 490.0, "retiro": 490.0, "alquiler_diario": 280.0}
 ESLORA_DOS_LANCHAS = 150.0  # "eslora de mas de 150 lleva dos lanchas"
 
@@ -72,6 +74,13 @@ def _dt(raw: str) -> datetime | None:
         return None
 
 
+def costo_draft(momento: datetime, feriados: set[str]) -> dict:
+    """Uso de la lancha para el draft: una tarifa por uso, con el mismo recargo por dia y hora que el amarre."""
+    pct = recargo_pct(momento, feriados)
+    return {"momento": momento.isoformat(timespec="minutes"), "recargo_pct": pct, "tipo_dia": tipo_dia(momento.date(), feriados),
+            "total_usd": DRAFT[_columna(pct)]}
+
+
 def escala_costo(dias: int) -> dict:
     """Escala (pasarela de tierra): colocacion + retiro + alquiler por dia. No lleva recargo horario en el tarifario."""
     alquiler = ESCALA["alquiler_diario"] * dias
@@ -80,15 +89,18 @@ def escala_costo(dias: int) -> dict:
 
 
 def calcular(db: Session, *, eslora: float, amarre: str, desamarre: str, lanchas_amarre: int = 0, lanchas_desamarre: int = 0,
-             escala: bool = False, escala_dias: int = 0) -> dict:
+             escala: bool = False, escala_dias: int = 0, draft: bool = False, draft_momento: str = "") -> dict:
     """Amarre, desamarre y (si se pide) escala. Sin fecha valida el servicio queda en None (no se inventa un importe).
     Dias de la escala: los indicados o, si no, los dias de calendario entre el amarre y el desamarre (ambos inclusive)."""
     feriados, _ = conjuntos(db)
-    out = {"lanchas_auto": 2 if eslora > ESLORA_DOS_LANCHAS else 1, "amarre": None, "desamarre": None, "escala": None}
+    out = {"lanchas_auto": 2 if eslora > ESLORA_DOS_LANCHAS else 1, "amarre": None, "desamarre": None, "escala": None, "draft": None}
     for clave, raw, lanchas in (("amarre", amarre, lanchas_amarre), ("desamarre", desamarre, lanchas_desamarre)):
         m = _dt(raw)
         if m:
             out[clave] = costo_servicio(clave, m, eslora, feriados, lanchas)
+    if draft:
+        m = _dt(draft_momento)
+        out["draft"] = costo_draft(m, feriados) if m else {"total_usd": None}
     if escala:
         a, d = _dt(amarre), _dt(desamarre)
         auto = (d.date() - a.date()).days + 1 if a and d and d >= a else 0

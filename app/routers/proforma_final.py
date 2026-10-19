@@ -197,6 +197,7 @@ async def proforma_final_lds(request: Request, db: Session = Depends(get_db), us
         db, eslora=pf._num(d.get("eslora"), 1000), amarre=pf._datetime(d.get("amarre")), desamarre=pf._datetime(d.get("desamarre")),
         lanchas_amarre=int(pf._num(d.get("lanchas_amarre"), 4)), lanchas_desamarre=int(pf._num(d.get("lanchas_desamarre"), 4)),
         escala=bool(d.get("escala")), escala_dias=int(pf._num(d.get("escala_dias"), 365)),
+        draft=bool(d.get("draft")), draft_momento=pf._datetime(d.get("draft_momento")),
     )
 
 

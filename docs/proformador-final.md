@@ -315,3 +315,7 @@ Código: `app/lds.py` (`calcular`, `costo_servicio`, `escala_costo`), endpoint `
   **Días de alquiler:** por defecto los días de calendario del amarre al desamarre, ambos inclusive (**a confirmar**); se pueden escribir a mano. Sin recargo horario.
 - Cada concepto: importe modificable a mano, «Volver al calculado» y casilla FOR YOUR ACCOUNT (mooring suele ir así, pero se decide proforma por proforma).
 - **Pendiente:** DRAFT (290 / 435 / 580) y buques argentinos (tarifa DCI 22), no se cargan por ahora.
+- **Respuestas del usuario (ronda 8):** días de alquiler de la escala = días de calendario del amarre al desamarre, ambos inclusive (correcto); la escala no lleva recargo horario (correcto);
+  la fecha del desamarre es la del **zarpe** (correcto).
+- **Uso lancha de draft** (concepto opcional, se agrega a mano con una casilla): **USD 290 hábil · 435 hábil en overtime · 580 domingo** (con el mismo criterio de día y hora que el amarre:
+  feriado y sábado desde las 13 también 580). Fecha por defecto: el fin de operación (se puede cambiar). Estado `lds_draft`; sale en el Excel como «Lancha de draft LDS».
