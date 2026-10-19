@@ -343,8 +343,9 @@
 .ck-tabla td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
 .ck-tabla td.num, .ck-tabla th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ck-tabla td.n { width: 28px; color: var(--muted); }
-.ck-tabla .col-factura { text-align: center; width: 90px; }
-.ck-tabla .col-factura input { width: 18px; height: 18px; margin: 0; cursor: pointer; }
+.ck-tabla .col-factura { text-align: center; width: 170px; }
+.ck-omitidas { margin: 10px 0; font-size: 13.5px; }
+.ck-omitidas summary { cursor: pointer; color: #92400e; font-weight: 600; }
 .ck-tabla tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
 .ck-tabla tr.ajena td { color: var(--muted); }
 .ck-tabla .corregir { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
@@ -433,6 +434,11 @@
 .pfn-fechas input { width: 100%; min-width: 0; }
 .pfn-chk { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; font-size: 13.5px !important; color: var(--ink) !important; margin: 8px 0; cursor: pointer; }
 .pfn-factura.ajeno span { color: #92400e; font-weight: 600; }
+.pfn-factura-bloque { margin: 6px 0 2px; }
+.pfn-factura-bloque .pfn-chk { margin: 0 0 4px; }
+.pfn-destino { width: 100%; max-width: 420px; font-size: 12.5px; }
+.pfn-destino[hidden] { display: none; }
+.ck-destino { width: 100%; min-width: 150px; font-size: 12px; padding: 3px 4px; }
 .pfn-chk input { width: 18px !important; height: 18px; min-width: 0 !important; margin: 0; flex: none; }
 @media (max-width: 640px) { .pfn-fechas { grid-template-columns: 1fr; } }
 .pfn-sub { margin: 18px 0 4px; font-size: 15px; color: var(--navy, #12355f); }
@@ -784,7 +790,7 @@ function pintarPracticaje() {
 }
 function actualizarTotalPract() {
   const l = [PRACT.in, PRACT.out];
-  const fact = l.filter((x) => !x.cuenta_ajena).reduce((a, x) => a + x.usd, 0), ajena = l.filter((x) => x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
+  const fact = l.filter((x) => !x.cuenta_ajena && !x.omitido).reduce((a, x) => a + x.usd, 0), ajena = l.filter((x) => x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
   $("#pr-total").textContent = usd2(fact) + (ajena ? ` · por cuenta del armador (informativo): ${usd2(ajena)}` : "");
 }
 $("#pr-ir3").addEventListener("click", (ev) => { ev.preventDefault(); step = 3; render(); });
@@ -852,13 +858,21 @@ function campoFecha(texto, valor, alCambiar) {
   i.addEventListener("change", () => alCambiar(i.value)); l.appendChild(i); return l;
 }
 
-// "Esto si lo facturamos": tildado = se factura; destildado = pasa al pie como FOR YOUR ACCOUNT (por cuenta del armador). Guarda cuenta_ajena (lo contrario).
+// "Esto si lo facturamos": tildado = se factura. Destildado = NO figura en ningun lado de la proforma (ni en el cuerpo ni al pie ni en sus hojas);
+// si se prefiere, se elige "figura al pie, por cuenta del armador" (FOR YOUR ACCOUNT). Guarda cuenta_ajena y omitido (nunca las dos).
 function casillaFactura(obj, alCambiar) {
-  const l = elx("label", "pfn-chk pfn-factura"); const i = elx("input"); i.type = "checkbox"; i.checked = !obj.cuenta_ajena;
-  const t = elx("span");
-  const pintar = () => { t.textContent = i.checked ? "Esto sí lo facturamos" : "No se factura: va al pie como FOR YOUR ACCOUNT"; l.classList.toggle("ajeno", !i.checked); };
-  i.addEventListener("change", () => { obj.cuenta_ajena = !i.checked; pintar(); alCambiar(); });
-  pintar(); l.append(i, t); return l;
+  const cont = elx("div", "pfn-factura-bloque");
+  const l = elx("label", "pfn-chk pfn-factura"); const i = elx("input"); i.type = "checkbox"; i.checked = !(obj.cuenta_ajena || obj.omitido);
+  const sel = elx("select", "pfn-destino"); sel.setAttribute("aria-label", "Dónde figura si no se factura");
+  sel.append(new Option("No figura en la proforma", "no"), new Option("Figura al pie, por cuenta del armador (FOR YOUR ACCOUNT)", "pie"));
+  sel.value = obj.cuenta_ajena ? "pie" : "no";
+  const pintar = () => { sel.hidden = i.checked; l.classList.toggle("ajeno", !i.checked); };
+  const aplicar = () => {
+    obj.cuenta_ajena = !i.checked && sel.value === "pie"; obj.omitido = !i.checked && sel.value === "no";
+    pintar(); alCambiar();
+  };
+  i.addEventListener("change", aplicar); sel.addEventListener("change", aplicar);
+  l.append(i, elx("span", null, "Esto sí lo facturamos")); pintar(); cont.append(l, sel); return cont;
 }
 
 function casilla(texto, marcada, alCambiar) {
@@ -939,7 +953,7 @@ function pintarMuelle() {
 
 function actualizarTotalesMu() {
   const lista = [MUELLE, FONDEO.on ? FONDEO : null, VIAS].filter(Boolean);
-  const fact = lista.filter((x) => !x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
+  const fact = lista.filter((x) => !x.cuenta_ajena && !x.omitido).reduce((a, x) => a + x.usd, 0);
   const ajena = lista.filter((x) => x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
   $("#mu-total").textContent = usd2(fact);
   $("#mu-ajena").textContent = ajena ? ` · por cuenta del armador (informativo): ${usd2(ajena)}` : "";
@@ -1051,7 +1065,7 @@ function pintarLds() {
 
 function actualizarTotalesLd() {
   const lista = [AMLDS, DESLDS, escalaOn() ? ESCALA : null, DRAFT.on ? DRAFT : null].filter(Boolean);
-  const fact = lista.filter((x) => !x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
+  const fact = lista.filter((x) => !x.cuenta_ajena && !x.omitido).reduce((a, x) => a + x.usd, 0);
   const ajena = lista.filter((x) => x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
   $("#ld-total").textContent = usd2(fact);
   $("#ld-ajena").textContent = ajena ? ` · por cuenta del armador (informativo): ${usd2(ajena)}` : "";
@@ -1063,10 +1077,10 @@ const ADU_BASE = [["entrance", "FOR ENTRANCE"], ["loading", "FOR LOADING"], ["pe
   ["clearance", "FOR CLEARANCE"], ["store_list", "FOR STORE LIST ENDORSED"], ["fresh_water", "FOR FRESH WATER"], ["provisions", "FOR PROVISIONS"]];
 // las que se tildaron en el voucher: "CUSTOM OVERTIME FOR ENTRANCE", etc.
 const enVoucher = (k) => (BUQUE.servicios || []).some((x) => x.toUpperCase().startsWith("CUSTOM OVERTIME " + k));
-const aduanaInicial = () => ({ cuenta_ajena: false, items: [...ADU_BASE.map(([key, texto]) => ({ key, texto, on: enVoucher(texto), cant: enVoucher(texto) ? 1 : 0, precio: ADUANA_USD, cuenta_ajena: false })),
-  { key: "extra", texto: "", on: false, cant: 0, precio: ADUANA_USD, cuenta_ajena: false }] });
+const aduanaInicial = () => ({ cuenta_ajena: false, items: [...ADU_BASE.map(([key, texto]) => ({ key, texto, on: enVoucher(texto), cant: enVoucher(texto) ? 1 : 0, precio: ADUANA_USD, cuenta_ajena: false, omitido: false })),
+  { key: "extra", texto: "", on: false, cant: 0, precio: ADUANA_USD, cuenta_ajena: false, omitido: false }] });
 let ADUANA = aduanaInicial();
-const totalAduana = () => Math.round(ADUANA.items.filter((i) => i.on && !i.cuenta_ajena).reduce((a, i) => a + i.cant * i.precio, 0) * 100) / 100;
+const totalAduana = () => Math.round(ADUANA.items.filter((i) => i.on && !i.cuenta_ajena && !i.omitido).reduce((a, i) => a + i.cant * i.precio, 0) * 100) / 100;
 const ajenaAduana = () => Math.round(ADUANA.items.filter((i) => i.on && i.cuenta_ajena).reduce((a, i) => a + i.cant * i.precio, 0) * 100) / 100;
 
 function resetAduana() { ADUANA = aduanaInicial(); pintarAduana(); }
@@ -1076,13 +1090,13 @@ function pintarAduana() {
   const abiertas = ADUANA.items.filter((i) => i.on);
   if (!abiertas.length) box.appendChild(elx("p", "muted", "El voucher no trae habilitaciones de aduana. Si en este barco hubo alguna, agregala abajo; si no, seguí con el paso siguiente."));
   abiertas.forEach((it) => {
-    const card = elx("div", "ad-card" + (it.cuenta_ajena ? " ajena" : ""));
+    const card = elx("div", "ad-card" + (it.cuenta_ajena || it.omitido ? " ajena" : ""));
     const cab = elx("div", "ad-cab");
     let nom;
     if (it.key === "extra") { nom = elx("input"); nom.type = "text"; nom.maxLength = 80; nom.placeholder = "Escribí el concepto"; nom.value = it.texto; nom.setAttribute("aria-label", "Nombre de la habilitación"); nom.addEventListener("input", () => { it.texto = nom.value; render(); }); }
     else nom = elx("b", "ad-nombre", it.texto);
     const quitar = elx("button", "quitar", "✕"); quitar.type = "button"; quitar.title = "Quitar esta habilitación"; quitar.setAttribute("aria-label", "Quitar " + (it.texto || "la habilitación"));
-    quitar.addEventListener("click", () => { it.on = false; it.cant = 0; it.cuenta_ajena = false; pintarAduana(); render(); });
+    quitar.addEventListener("click", () => { it.on = false; it.cant = 0; it.cuenta_ajena = false; it.omitido = false; pintarAduana(); render(); });
     cab.append(nom, quitar);
     const cuerpo = elx("div", "ad-cuerpo");
     const tot = elx("span", "tot", usd2(it.cant * it.precio));
@@ -1100,7 +1114,7 @@ function pintarAduana() {
     precio.addEventListener("input", () => { it.precio = num(precio.value); refrescar(); }); lp.appendChild(precio);
     const lt = elx("div", "ad-total"); lt.append(elx("small", null, "Total"), tot);
     cuerpo.append(lc, lp, lt);
-    card.append(cab, cuerpo, casillaFactura(it, () => { card.classList.toggle("ajena", it.cuenta_ajena); actualizarTotalesAd(); render(); }));
+    card.append(cab, cuerpo, casillaFactura(it, () => { card.classList.toggle("ajena", it.cuenta_ajena || it.omitido); actualizarTotalesAd(); render(); }));
     box.appendChild(card);
   });
   // agregar otra habilitacion
@@ -1140,7 +1154,7 @@ function celdaFecha(fecha, tipo) {
 }
 
 // ----- Tally
-const tallyVacio = () => ({ cuenta_ajena: false, categoria: "", armado: false, turnos: [], precios: { H: 0, "100": 0, "150": 0, F3: 0 }, resumen: [], subtotal_ars: 0, cargas_ars: 0, total_ars: 0 });
+const tallyVacio = () => ({ cuenta_ajena: false, omitido: false, categoria: "", armado: false, turnos: [], precios: { H: 0, "100": 0, "150": 0, F3: 0 }, resumen: [], subtotal_ars: 0, cargas_ars: 0, total_ars: 0 });
 let TALLY = tallyVacio(), TA_CALC = null, firmaTaAnt = "";
 const firmaTa = () => JSON.stringify([TALLY.categoria, TALLY.turnos.map((t) => [t.fecha, t.turno, t.nivel]), TALLY.precios, $("#ag-tal").value, $("#dolar-valor").value, refFecha()]);
 
@@ -1224,13 +1238,13 @@ function pintarTally() {
     if (c.vigencia) box.appendChild(elx("p", "muted", "Tarifas vigentes desde el " + fechaDMY(c.vigencia) + "."));
   }
   box.appendChild(casillaFactura(TALLY, () => { pintarTally(); render(); }));
-  $("#ta-total").textContent = ars(TALLY.cuenta_ajena ? 0 : TALLY.total_ars) + (TALLY.cuenta_ajena ? " (por cuenta del armador)" : "");
+  $("#ta-total").textContent = ars(TALLY.cuenta_ajena || TALLY.omitido ? 0 : TALLY.total_ars) + (TALLY.cuenta_ajena ? " (por cuenta del armador)" : (TALLY.omitido ? " (no figura en la proforma)" : ""));
   $("#ta-usd").textContent = TA_CALC && TA_CALC.total_usd != null ? "· " + usd2(TA_CALC.total_usd) : "";
 }
 $("#ta-cat").addEventListener("change", (ev) => { TALLY.categoria = ev.target.value; render(); });
 
 // ----- Serenos
-const serenosVacio = () => ({ cuenta_ajena: false, categoria: "", viatico: "", viatico_precio: 0, armado: false, turnos: [], cantidad: 0, subtotal_ars: 0, cargas_ars: 0, viaticos_ars: 0, total_ars: 0 });
+const serenosVacio = () => ({ cuenta_ajena: false, omitido: false, categoria: "", viatico: "", viatico_precio: 0, armado: false, turnos: [], cantidad: 0, subtotal_ars: 0, cargas_ars: 0, viaticos_ars: 0, total_ars: 0 });
 let SERENOS = serenosVacio(), SE_CALC = null, firmaSeAnt = "";
 const firmaSe = () => JSON.stringify([SERENOS.categoria, SERENOS.viatico, SERENOS.viatico_precio, SERENOS.armado, SERENOS.turnos.map((t) => [t.fecha, t.ventana, t.cat, t.cant, t.precio]), $("#ag-ser").value, $("#dolar-valor").value,
   refFecha(), SERENOS.armado ? "" : [BUQUE.amarre, BUQUE.zarpe]]);
@@ -1326,7 +1340,7 @@ function pintarSerenos() {
     if (c.vigencia) box.appendChild(elx("p", "muted", "Tarifas vigentes desde el " + fechaDMY(c.vigencia) + "."));
   }
   box.appendChild(casillaFactura(SERENOS, () => { pintarSerenos(); render(); }));
-  $("#se-total").textContent = ars(SERENOS.cuenta_ajena ? 0 : SERENOS.total_ars) + (SERENOS.cuenta_ajena ? " (por cuenta del armador)" : "");
+  $("#se-total").textContent = ars(SERENOS.cuenta_ajena || SERENOS.omitido ? 0 : SERENOS.total_ars) + (SERENOS.cuenta_ajena ? " (por cuenta del armador)" : (SERENOS.omitido ? " (no figura en la proforma)" : ""));
   $("#se-usd").textContent = SE_CALC && SE_CALC.total_usd != null ? "· " + usd2(SE_CALC.total_usd) : "";
 }
 $("#se-cat").addEventListener("change", (ev) => { SERENOS.categoria = ev.target.value; render(); });
@@ -1335,7 +1349,7 @@ $("#se-viat").addEventListener("change", (ev) => { SERENOS.viatico = ev.target.v
 // ---- Paso 10: migraciones y sanitary free pratique (el calculo y los valores estan en el servidor, app/migraciones.py)
 const MIG_INFO = { mig_in: ["Migraciones IN", "USD", true], mig_out: ["Migraciones OUT", "USD", true], taxi_in: ["Taxi para el oficial de migraciones IN", "ARS", false],
   taxi_out: ["Taxi para el oficial de migraciones OUT", "ARS", false], free_pratique: ["Free pratique (sanidad)", "ARS", false], taxi_sanidad: ["Taxi para sanidad", "ARS", false] };
-const migVacio = () => ({ armado: false, items: Object.keys(MIG_INFO).map((key) => ({ key, on: false, boya: false, precio: 0, cuenta_ajena: false })), usd: 0, ars: 0 });
+const migVacio = () => ({ armado: false, items: Object.keys(MIG_INFO).map((key) => ({ key, on: false, boya: false, precio: 0, cuenta_ajena: false, omitido: false })), usd: 0, ars: 0 });
 let MIG = migVacio(), MG_CALC = null, firmaMgAnt = "";
 const firmaMg = () => JSON.stringify([MIG.items, BUQUE.trn, $("#dolar-valor").value]);
 
@@ -1392,7 +1406,7 @@ function pintarMig() {
 }
 
 // ---- Paso 11: chequeo general (la proforma consolidada la arma el servidor: app/chequeo.py)
-const cheqVacio = () => ({ armado: false, senasa: { on: false, precio: 0, cuenta_ajena: false }, maritime: { on: true, precio: 0, cuenta_ajena: false }, misc: { on: false, precio: 0, cuenta_ajena: false }, law: { on: true, precio: 0 },
+const cheqVacio = () => ({ armado: false, senasa: { on: false, precio: 0, cuenta_ajena: false, omitido: false }, maritime: { on: true, precio: 0, cuenta_ajena: false, omitido: false }, misc: { on: false, precio: 0, cuenta_ajena: false, omitido: false }, law: { on: true, precio: 0 },
   extras: [], pie: { tugboats: true, osro: true } });
 let CHEQ = cheqVacio(), CK_CALC = null, firmaCkAnt = "";
 // el objeto del estado donde vive "se factura o no" de cada renglon de la proforma (null: no se puede pasar al pie, como el fee y LAW)
@@ -1406,8 +1420,12 @@ function objetoLinea(clave) {
 }
 function celdaFactura(l) {
   const td = elx("td", "col-factura"); const o = objetoLinea(l.clave);
-  if (o) { const i = elx("input"); i.type = "checkbox"; i.checked = !l.ajena; i.title = l.ajena ? "Tildá para facturarlo" : "Destildá si en este barco no se factura (pasa al pie)";
-    i.setAttribute("aria-label", "Esto sí lo facturamos: " + l.texto); i.addEventListener("change", () => { o.cuenta_ajena = !i.checked; render(); pintarCheq(); }); td.appendChild(i); }
+  if (o) {
+    const sel = elx("select", "ck-destino"); sel.append(new Option("Se factura", "si"), new Option("Al pie (por cuenta del armador)", "pie"), new Option("No figura", "no"));
+    sel.value = o.omitido ? "no" : (o.cuenta_ajena ? "pie" : "si"); sel.setAttribute("aria-label", "Esto sí lo facturamos: " + l.texto);
+    sel.addEventListener("change", () => { o.cuenta_ajena = sel.value === "pie"; o.omitido = sel.value === "no"; render(); pintarCheq(); });
+    td.appendChild(sel);
+  }
   return td;
 }
 const FIJOS_TXT = { senasa: "Compulsory SENASA inspection", maritime: "Maritime Center", misc: "Miscellaneous" };
@@ -1503,6 +1521,12 @@ function pintarCheq() {
     c.pie.forEach((t2) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, t2), elx("td"), elx("td"), elx("td")); a.appendChild(tr); });
     tb.appendChild(a);
   }
+  if (c.omitidas && c.omitidas.length) {
+    const det = elx("details", "ck-omitidas"); det.appendChild(elx("summary", null, `No figuran en esta proforma (${c.omitidas.length}) — se destildó «Esto sí lo facturamos»`));
+    const o = elx("table", "ck-tabla"); const h = elx("tr"); ["Concepto", "USD", "Pesos (ARS)", "Volver a incluirlo"].forEach((x, i) => h.appendChild(elx("th", i === 1 || i === 2 ? "num" : (i === 3 ? "col-factura" : ""), x))); o.appendChild(h);
+    c.omitidas.forEach((l) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, l.texto), elx("td", "num", l.usd != null ? usd2(l.usd) : "—"), elx("td", "num", ars(l.ars)), celdaFactura(l)); o.appendChild(tr); });
+    det.appendChild(o); tb.appendChild(det);
+  }
   $("#ck-usd").textContent = c.total_usd != null ? usd2(c.total_usd) : "—";
   $("#ck-ars").textContent = "· " + ars(c.total_ars);
 }
@@ -1521,25 +1545,26 @@ function faltantes(s) {
   f[4] = [];
   [[b.eslora, "la eslora"], [b.manga, "la manga"], [b.puntal, "el puntal"], [b.calado_entrada, "el calado de entrada"], [b.calado_salida, "el calado de salida"]]
     .forEach(([v, t]) => { if (!(v > 0)) f[4].push("Falta " + t + " (se carga en el paso 3)."); });
-  if (!f[4].length) { if (!(s.practicaje.in.usd > 0)) f[4].push("Falta el importe del practicaje de entrada."); if (!(s.practicaje.out.usd > 0)) f[4].push("Falta el importe del practicaje de salida."); }
+  if (s.practicaje.in.omitido && s.practicaje.out.omitido) f[4] = [];  // si no figura el practicaje, no se piden sus datos
+  if (!f[4].length) { if (!s.practicaje.in.omitido && !(s.practicaje.in.usd > 0)) f[4].push("Falta el importe del practicaje de entrada."); if (!s.practicaje.out.omitido && !(s.practicaje.out.usd > 0)) f[4].push("Falta el importe del practicaje de salida."); }
   f[5] = [];
-  if (!(s.muelle.usd > 0)) f[5].push("Falta el importe de uso de muelle (revisá el TRN, el amarre y el zarpe)." );
-  if (s.fondeo.on && !(s.fondeo.usd > 0)) f[5].push("Falta el importe del fondeadero (cargá la entrada y la salida del fondeo).");
-  if (!(s.vias.usd > 0)) f[5].push(s.vias.solo_bunker ? "Falta el importe de vías navegables (revisá el TRN)." : "Falta el importe de vías navegables (revisá la cantidad operada y el TRN).");
+  if (!s.muelle.omitido && !(s.muelle.usd > 0)) f[5].push("Falta el importe de uso de muelle (revisá el TRN, el amarre y el zarpe)." );
+  if (s.fondeo.on && !s.fondeo.omitido && !(s.fondeo.usd > 0)) f[5].push("Falta el importe del fondeadero (cargá la entrada y la salida del fondeo).");
+  if (!s.vias.omitido && !(s.vias.usd > 0)) f[5].push(s.vias.solo_bunker ? "Falta el importe de vías navegables (revisá el TRN)." : "Falta el importe de vías navegables (revisá la cantidad operada y el TRN).");
   f[6] = [];
-  if (!(s.lds_amarre.usd > 0)) f[6].push("Falta el importe del amarre (revisá la fecha de la maniobra).");
-  if (!(s.lds_desamarre.usd > 0)) f[6].push("Falta el importe del desamarre (revisá la fecha de la maniobra).");
-  if (s.escala.on && !(s.escala.usd > 0)) f[6].push("Falta el importe de la escala (revisá los días de alquiler).");
-  if (s.lds_draft.on && !(s.lds_draft.usd > 0)) f[6].push("Falta el importe de la lancha de draft (revisá la fecha del uso).");
-  f[7] = s.aduana.items.some((i) => i.on && !(i.cant > 0)) ? ["Hay habilitaciones tildadas sin cantidad."] : [];
+  if (!s.lds_amarre.omitido && !(s.lds_amarre.usd > 0)) f[6].push("Falta el importe del amarre (revisá la fecha de la maniobra).");
+  if (!s.lds_desamarre.omitido && !(s.lds_desamarre.usd > 0)) f[6].push("Falta el importe del desamarre (revisá la fecha de la maniobra).");
+  if (s.escala.on && !s.escala.omitido && !(s.escala.usd > 0)) f[6].push("Falta el importe de la escala (revisá los días de alquiler).");
+  if (s.lds_draft.on && !s.lds_draft.omitido && !(s.lds_draft.usd > 0)) f[6].push("Falta el importe de la lancha de draft (revisá la fecha del uso).");
+  f[7] = s.aduana.items.some((i) => i.on && !i.omitido && !(i.cant > 0)) ? ["Hay habilitaciones tildadas sin cantidad."] : [];
   f[8] = [];
-  if (s.tally.turnos.length && !s.tally.categoria) f[8].push("Elegí la categoría de la carga: con ella se pone el precio de cada turno.");
-  if (s.tally.turnos.length && s.tally.categoria && !(s.tally.total_ars > 0)) f[8].push("Todavía no hay un total: revisá la categoría y los turnos.");
+  if (!s.tally.omitido && s.tally.turnos.length && !s.tally.categoria) f[8].push("Elegí la categoría de la carga: con ella se pone el precio de cada turno.");
+  if (!s.tally.omitido && s.tally.turnos.length && s.tally.categoria && !(s.tally.total_ars > 0)) f[8].push("Todavía no hay un total: revisá la categoría y los turnos.");
   f[9] = [];
-  if (!s.serenos.turnos.length && !(b.amarre && b.zarpe)) f[9].push("Faltan el amarre y el zarpe (paso 3) para armar los turnos, o agregalos a mano.");
-  if (s.serenos.turnos.length && !s.serenos.categoria && s.serenos.turnos.some((t) => !t.cat)) f[9].push("Elegí la categoría de los serenos (normal, insalubre o peligroso).");
-  if (s.serenos.turnos.length && !s.serenos.viatico) f[9].push("Elegí los viáticos (White, Galván o sin viáticos).");
-  f[10] = s.migraciones.items.some((i) => i.on && i.key === "free_pratique") && !(b.trn > 0) ? ["Falta el TRN (paso 3) para calcular el free pratique."] : [];
+  if (!s.serenos.omitido && !s.serenos.turnos.length && !(b.amarre && b.zarpe)) f[9].push("Faltan el amarre y el zarpe (paso 3) para armar los turnos, o agregalos a mano.");
+  if (!s.serenos.omitido && s.serenos.turnos.length && !s.serenos.categoria && s.serenos.turnos.some((t) => !t.cat)) f[9].push("Elegí la categoría de los serenos (normal, insalubre o peligroso).");
+  if (!s.serenos.omitido && s.serenos.turnos.length && !s.serenos.viatico) f[9].push("Elegí los viáticos (White, Galván o sin viáticos).");
+  f[10] = s.migraciones.items.some((i) => i.on && !i.omitido && i.key === "free_pratique") && !(b.trn > 0) ? ["Falta el TRN (paso 3) para calcular el free pratique."] : [];
   const pendientes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((n) => f[n].length);
   f[11] = pendientes.length ? ["Faltan completar los pasos: " + pendientes.join(", ") + "."] : [];
   for (let n = 12; n <= TOTAL; n++) f[n] = [];
@@ -1579,21 +1604,21 @@ function pintarResumen(s) {
   };
   const fee = FEES.filter((x) => x.on).reduce((a, x) => a + x.monto_usd, 0);
   fila("Fee de la agencia", fee, false);
-  fila("Practicaje entrada", s.practicaje.in.usd, s.practicaje.in.cuenta_ajena);
-  fila("Practicaje salida", s.practicaje.out.usd, s.practicaje.out.cuenta_ajena);
-  fila("Uso de muelle", s.muelle.usd, s.muelle.cuenta_ajena);
-  fila("Uso de fondeadero", s.fondeo.usd, s.fondeo.cuenta_ajena, s.fondeo.on);
-  fila("Vías navegables", s.vias.usd, s.vias.cuenta_ajena);
-  fila("Amarre", s.lds_amarre.usd, s.lds_amarre.cuenta_ajena);
-  fila("Desamarre", s.lds_desamarre.usd, s.lds_desamarre.cuenta_ajena);
-  fila("Escala (shore gangway)", s.escala.usd, s.escala.cuenta_ajena, s.escala.on);
-  fila("Lancha de draft", s.lds_draft.usd, s.lds_draft.cuenta_ajena, s.lds_draft.on);
+  fila("Practicaje entrada", s.practicaje.in.usd, s.practicaje.in.cuenta_ajena, !s.practicaje.in.omitido);
+  fila("Practicaje salida", s.practicaje.out.usd, s.practicaje.out.cuenta_ajena, !s.practicaje.out.omitido);
+  fila("Uso de muelle", s.muelle.usd, s.muelle.cuenta_ajena, !s.muelle.omitido);
+  fila("Uso de fondeadero", s.fondeo.usd, s.fondeo.cuenta_ajena, s.fondeo.on && !s.fondeo.omitido);
+  fila("Vías navegables", s.vias.usd, s.vias.cuenta_ajena, !s.vias.omitido);
+  fila("Amarre", s.lds_amarre.usd, s.lds_amarre.cuenta_ajena, !s.lds_amarre.omitido);
+  fila("Desamarre", s.lds_desamarre.usd, s.lds_desamarre.cuenta_ajena, !s.lds_desamarre.omitido);
+  fila("Escala (shore gangway)", s.escala.usd, s.escala.cuenta_ajena, s.escala.on && !s.escala.omitido);
+  fila("Lancha de draft", s.lds_draft.usd, s.lds_draft.cuenta_ajena, s.lds_draft.on && !s.lds_draft.omitido);
   fila("Habilitaciones de aduana", s.aduana.usd, s.aduana.cuenta_ajena);
   const aUsd = (ars_) => (s.dolar.valor > 0 && ars_ > 0 ? ars_ / s.dolar.valor : 0);
   fila("Migraciones", s.migraciones.usd, false);
   fila("Free pratique y taxis", aUsd(s.migraciones.ars), false);
-  fila("Tally (head tally)", aUsd(s.tally.total_ars), s.tally.cuenta_ajena);
-  fila("Serenos", aUsd(s.serenos.total_ars), s.serenos.cuenta_ajena);
+  fila("Tally (head tally)", aUsd(s.tally.total_ars), s.tally.cuenta_ajena, !s.tally.omitido);
+  fila("Serenos", aUsd(s.serenos.total_ars), s.serenos.cuenta_ajena, !s.serenos.omitido);
   $("#rs-total").textContent = usd2(fact); $("#nav-total").textContent = usd2(fact);
   $("#rs-nota").textContent = (ajena ? `Por cuenta del armador (no se suma): ${usd2(ajena)}. ` : "") + "Sin el fee ni LAW NR 25413 ni los otros conceptos: el total final a facturar está en el paso 11.";
 }
@@ -1612,7 +1637,7 @@ function render() {
   const faltan = faltantes(s);
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
-    const pronto = n > PASOS_LISTOS, completo = !pronto && faltan[n].length === 0 && (n !== 7 || s.aduana.usd > 0) && (n !== 8 || s.tally.total_ars > 0) && (n !== 9 || s.serenos.total_ars > 0) && (n !== 10 || s.migraciones.usd + s.migraciones.ars > 0) && (n !== 11 || !!CK_CALC);
+    const pronto = n > PASOS_LISTOS, completo = !pronto && faltan[n].length === 0 && (n !== 7 || s.aduana.usd > 0) && (n !== 8 || s.tally.omitido || s.tally.total_ars > 0) && (n !== 9 || s.serenos.omitido || s.serenos.total_ars > 0) && (n !== 10 || s.migraciones.usd + s.migraciones.ars > 0) && (n !== 11 || !!CK_CALC);
     const aviso = !pronto && !completo && faltan[n].length > 0 && VISITADOS.has(n) && n !== step;
     b.classList.toggle("on", n === step);
     b.classList.toggle("done", completo);

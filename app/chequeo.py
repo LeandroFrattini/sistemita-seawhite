@@ -51,7 +51,7 @@ def clean(raw) -> dict:
     out = {"armado": bool(raw.get("armado"))}
     for k in CLAVES_FIJOS:
         it = raw.get(k) if isinstance(raw.get(k), dict) else {}
-        out[k] = {"on": bool(it.get("on")), "precio": _num(it.get("precio"), 1e9), "cuenta_ajena": bool(it.get("cuenta_ajena"))}
+        out[k] = {"on": bool(it.get("on")), "precio": _num(it.get("precio"), 1e9), "cuenta_ajena": bool(it.get("cuenta_ajena")), "omitido": bool(it.get("omitido")) and not it.get("cuenta_ajena")}
     law = raw.get("law") if isinstance(raw.get("law"), dict) else {}
     out["law"] = {"on": bool(law.get("on", True)) if "on" in law else True, "precio": _num(law.get("precio"), 1e9)}
     extras = []
@@ -60,7 +60,8 @@ def clean(raw) -> dict:
             continue
         texto = " ".join(str(e.get("texto") or "").split())[:120].upper()
         if texto:
-            extras.append({"texto": texto, "moneda": "ARS" if e.get("moneda") == "ARS" else "USD", "monto": _num(e.get("monto"), 1e12), "cuenta_ajena": bool(e.get("cuenta_ajena"))})
+            extras.append({"texto": texto, "moneda": "ARS" if e.get("moneda") == "ARS" else "USD", "monto": _num(e.get("monto"), 1e12), "cuenta_ajena": bool(e.get("cuenta_ajena")),
+                           "omitido": bool(e.get("omitido")) and not e.get("cuenta_ajena")})
     out["extras"] = extras
     pie = raw.get("pie") if isinstance(raw.get("pie"), dict) else {}
     out["pie"] = {k: (bool(pie.get(k)) if k in pie else True) for k, _t in PIE_SIN_IMPORTE}
@@ -82,38 +83,43 @@ def armar(db: Session, s: dict) -> dict:
     b, ch = s["buque"], s["chequeo"]
     lineas: list[dict] = []
 
-    def add(clave, texto, moneda, monto, ajena, paso, base_law=True):
-        if monto and monto > 0:
-            lineas.append({"clave": clave, "texto": texto, "moneda": moneda, "monto": monto, "ajena": bool(ajena), "paso": paso, "base_law": base_law})
+    omitidas: list[dict] = []
+
+    def add(clave, texto, moneda, monto, destino, paso, base_law=True):
+        """`destino` es el concepto del estado: se factura, va al pie (cuenta_ajena) o no figura en ningun lado (omitido)."""
+        if not (monto and monto > 0):
+            return
+        l = {"clave": clave, "texto": texto, "moneda": moneda, "monto": monto, "ajena": bool(destino.get("cuenta_ajena")), "paso": paso, "base_law": base_law}
+        (omitidas if destino.get("omitido") and not destino.get("cuenta_ajena") else lineas).append(l)
 
     pr = s["practicaje"]
-    add("pilot_in", "PILOT SERVICE IN", "USD", pr["in"]["usd"], pr["in"]["cuenta_ajena"], 4)
-    add("pilot_out", "PILOT SERVICE OUT", "USD", pr["out"]["usd"], pr["out"]["cuenta_ajena"], 4)
-    add("port_dues", "PORT DUES", "USD", s["muelle"]["usd"], s["muelle"]["cuenta_ajena"], 5)
+    add("pilot_in", "PILOT SERVICE IN", "USD", pr["in"]["usd"], pr["in"], 4)
+    add("pilot_out", "PILOT SERVICE OUT", "USD", pr["out"]["usd"], pr["out"], 4)
+    add("port_dues", "PORT DUES", "USD", s["muelle"]["usd"], s["muelle"], 5)
     if s["fondeo"]["on"]:
-        add("anchor", "ANCHOR DUES", "USD", s["fondeo"]["usd"], s["fondeo"]["cuenta_ajena"], 5)
-    add("channel_toll", "CHANNEL TOLL", "USD", s["vias"]["usd"], s["vias"]["cuenta_ajena"], 5)
-    add("mooring", "MOORING SERVICE (LDS)", "USD", s["lds_amarre"]["usd"], s["lds_amarre"]["cuenta_ajena"], 6)
-    add("unmooring", "UNMOORING SERVICE (LDS)", "USD", s["lds_desamarre"]["usd"], s["lds_desamarre"]["cuenta_ajena"], 6)
+        add("anchor", "ANCHOR DUES", "USD", s["fondeo"]["usd"], s["fondeo"], 5)
+    add("channel_toll", "CHANNEL TOLL", "USD", s["vias"]["usd"], s["vias"], 5)
+    add("mooring", "MOORING SERVICE (LDS)", "USD", s["lds_amarre"]["usd"], s["lds_amarre"], 6)
+    add("unmooring", "UNMOORING SERVICE (LDS)", "USD", s["lds_desamarre"]["usd"], s["lds_desamarre"], 6)
     if s["escala"]["on"]:
-        add("gangway", "SHORE GANGWAY (LDS)", "USD", s["escala"]["usd"], s["escala"]["cuenta_ajena"], 6)
+        add("gangway", "SHORE GANGWAY (LDS)", "USD", s["escala"]["usd"], s["escala"], 6)
     if s["lds_draft"]["on"]:
-        add("draft", "LAUNCH FOR DRAFT SURVEY (LDS)", "USD", s["lds_draft"]["usd"], s["lds_draft"]["cuenta_ajena"], 6)
-    add("tally", "HEAD TALLY CLERK", "ARS", s["tally"]["total_ars"], s["tally"]["cuenta_ajena"], 8)
-    add("serenos", "WATCHMEN SERVICES", "ARS", s["serenos"]["total_ars"], s["serenos"]["cuenta_ajena"], 9)
+        add("draft", "LAUNCH FOR DRAFT SURVEY (LDS)", "USD", s["lds_draft"]["usd"], s["lds_draft"], 6)
+    add("tally", "HEAD TALLY CLERK", "ARS", s["tally"]["total_ars"], s["tally"], 8)
+    add("serenos", "WATCHMEN SERVICES", "ARS", s["serenos"]["total_ars"], s["serenos"], 9)
     calc = migraciones.calcular(db, trn=b["trn"], items=s["migraciones"]["items"], dolar=dolar)
     textos_mig = {"mig_in": "IMMIGRATION TAX EXPENSES IN", "mig_out": "IMMIGRATION TAX EXPENSES OUT", "taxi_in": "TAXI HIRED FOR IMMIGRATION OFFICER IN",
                   "taxi_out": "TAXI HIRED FOR IMMIGRATION OFFICER OUT", "free_pratique": "FREE PRATIQUE DUES", "taxi_sanidad": "TAXI HIRED FOR SANITARY AUTHORITY"}
     for f in calc["filas"]:
-        add(f["key"], textos_mig[f["key"]] + (" AT BUOY 11" if f["boya"] else ""), f["moneda"], f["total"], f["cuenta_ajena"], 10)
+        add(f["key"], textos_mig[f["key"]] + (" AT BUOY 11" if f["boya"] else ""), f["moneda"], f["total"], f, 10)
     for i in s["aduana"]["items"]:
         if i["on"]:
-            add("aduana_" + i["key"], "CUSTOM HOUSE OVERTIME " + (i["texto"] or "OTHER"), "USD", i["cant"] * i["precio"], i["cuenta_ajena"], 7)
+            add("aduana_" + i["key"], "CUSTOM HOUSE OVERTIME " + (i["texto"] or "OTHER"), "USD", i["cant"] * i["precio"], i, 7)
     for clave, texto, param, defecto in FIJOS:
         if ch[clave]["on"]:
-            add(clave, texto, "USD", ch[clave]["precio"] or get_param(db, param, defecto), ch[clave]["cuenta_ajena"], 11)
+            add(clave, texto, "USD", ch[clave]["precio"] or get_param(db, param, defecto), ch[clave], 11)
     for k, e in enumerate(ch["extras"]):
-        add(f"extra_{k}", e["texto"], e["moneda"], e["monto"], e["cuenta_ajena"], 11)
+        add(f"extra_{k}", e["texto"], e["moneda"], e["monto"], e, 11)
     fees = []
     for f in s["agencia"]["fees"]:
         if f["on"] and f["monto_usd"] > 0:
@@ -140,8 +146,9 @@ def armar(db: Session, s: dict) -> dict:
         l["ars"] = _r2(a_ars(l))
     total_usd = sum(l["usd"] or 0.0 for l in todas)
     ajenas = [dict(l, usd=_r2(a_usd(l)) if a_usd(l) is not None else None, ars=_r2(a_ars(l))) for l in lineas if l["ajena"]]
+    omitidas_out = [dict(l, usd=_r2(a_usd(l)) if a_usd(l) is not None else None, ars=_r2(a_ars(l))) for l in sorted(omitidas, key=lambda x: _lugar(x["clave"]))]
     pie = [t for k, t in PIE_SIN_IMPORTE if ch["pie"].get(k)]
-    return {"lineas": todas, "ajenas": ajenas, "pie": pie, "dolar": dolar,
+    return {"lineas": todas, "ajenas": ajenas, "omitidas": omitidas_out, "pie": pie, "dolar": dolar,
             "total_usd": _r2(total_usd) if dolar or all(l["moneda"] == "USD" for l in todas) else None, "total_ars": _r2(sum(l["ars"] for l in todas)),
             "law": {"pct": pct, "base_usd": _r2(base_usd), "auto_usd": _r2(law_auto), "usd": _r2(law_monto), "manual": bool(ch["law"]["precio"]) and ch["law"]["on"]},
             "fijos": {k: _r2(get_param(db, p, d)) for k, _t, p, d in FIJOS}, "sin_dolar": not dolar}

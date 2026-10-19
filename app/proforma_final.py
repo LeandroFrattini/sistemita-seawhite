@@ -154,13 +154,14 @@ def _aduana_items(raw, grupo_ajeno: bool = False) -> list[dict]:
             "cant": int(_num(it.get("cant"), 1000)),
             "precio": precio if "precio" in it else ADUANA_USD,
             "cuenta_ajena": bool(it.get("cuenta_ajena")) or grupo_ajeno,
+            "omitido": bool(it.get("omitido")) and not (it.get("cuenta_ajena") or grupo_ajeno),
         })
     return out
 
 
 def aduana_total(items: list[dict]) -> float:
     """Lo que se factura (lo que va por cuenta del armador no suma)."""
-    return round(sum(i["cant"] * i["precio"] for i in items if i["on"] and not i["cuenta_ajena"]), 2)
+    return round(sum(i["cant"] * i["precio"] for i in items if i["on"] and not i["cuenta_ajena"] and not i["omitido"]), 2)
 
 
 def clean_state(raw) -> dict:
@@ -187,13 +188,16 @@ def clean_state(raw) -> dict:
 
     def mov(k):
         m = pr.get(k) if isinstance(pr.get(k), dict) else {}
-        return {"usd": _num(m.get("usd"), 100_000_000), "manual": bool(m.get("manual")), "cuenta_ajena": bool(m.get("cuenta_ajena"))}
+        return {"usd": _num(m.get("usd"), 100_000_000), "manual": bool(m.get("manual")), "cuenta_ajena": bool(m.get("cuenta_ajena")),
+                "omitido": bool(m.get("omitido")) and not m.get("cuenta_ajena")}
 
     def sub(k):
         return raw.get(k) if isinstance(raw.get(k), dict) else {}
 
     def concepto(d, extra=None):
-        out = {"usd": _num(d.get("usd"), 100_000_000), "manual": bool(d.get("manual")), "cuenta_ajena": bool(d.get("cuenta_ajena"))}
+        # cuenta_ajena = figura al pie (FOR YOUR ACCOUNT, no se factura); omitido = no figura en ningun lado de la proforma
+        out = {"usd": _num(d.get("usd"), 100_000_000), "manual": bool(d.get("manual")), "cuenta_ajena": bool(d.get("cuenta_ajena")),
+               "omitido": bool(d.get("omitido")) and not d.get("cuenta_ajena")}
         out.update(extra or {})
         return out
 

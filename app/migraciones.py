@@ -96,12 +96,15 @@ def calcular(db: Session, *, trn: float, items: list[dict], dolar: float) -> dic
         on = bool(it.get("on"))
         total = precio if on else 0.0
         ajeno = bool(it.get("cuenta_ajena"))
-        if moneda == "USD":
+        omitido = bool(it.get("omitido")) and not ajeno
+        if omitido:
+            pass  # no figura en la proforma: no suma en ningun lado
+        elif moneda == "USD":
             ajena_usd, usd = (ajena_usd + total, usd) if ajeno else (ajena_usd, usd + total)
         else:
             ajena_ars, ars = (ajena_ars + total, ars) if ajeno else (ajena_ars, ars + total)
         filas.append({"key": clave, "texto": texto, "moneda": moneda, "puede_boya": puede_boya, "on": on, "boya": boya, "precio_auto": round(auto, 2),
-                      "precio": round(precio, 2), "manual": manual > 0, "total": round(total, 2), "cuenta_ajena": ajeno})
+                      "precio": round(precio, 2), "manual": manual > 0, "total": round(total, 2), "cuenta_ajena": ajeno, "omitido": omitido})
     # los totales son lo que se factura; lo que va por cuenta del armador se informa aparte
     return {"filas": filas, "total_usd": round(usd, 2), "total_ars": round(ars, 2), "ajena_usd": round(ajena_usd, 2), "ajena_ars": round(ajena_ars, 2),
             "ars_en_usd": round(ars / dolar, 2) if dolar else None, "total_usd_equiv": round(usd + ars / dolar, 2) if dolar else None,
@@ -127,5 +130,5 @@ def clean(raw) -> dict:
     for clave, _t, _m, puede_boya in ITEMS:
         it = por_clave.get(clave, {})
         items.append({"key": clave, "on": bool(it.get("on")), "boya": bool(it.get("boya")) and puede_boya, "precio": _num(it.get("precio"), 1e12),
-                      "cuenta_ajena": bool(it.get("cuenta_ajena"))})
+                      "cuenta_ajena": bool(it.get("cuenta_ajena")), "omitido": bool(it.get("omitido")) and not it.get("cuenta_ajena")})
     return {"armado": bool(raw.get("armado")), "items": items, "usd": _num(raw.get("usd"), 1e12), "ars": _num(raw.get("ars"), 1e13)}

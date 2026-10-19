@@ -178,6 +178,44 @@ class Libro:
         wb.find(M + "sheets")[indice - 1].set("name", nombre)
         self.parts["xl/workbook.xml"] = etree.tostring(wb, **SALIDA)
 
+    def quitar_hoja(self, indice: int) -> None:
+        """Saca una hoja del libro (con su parte, sus relaciones y lo que solo ella usaba). Indice base 1, segun el orden actual."""
+        wb = etree.fromstring(self.parts["xl/workbook.xml"])
+        sheets = wb.find(M + "sheets")
+        el = sheets[indice - 1]
+        rid = el.get("{%s}id" % NS_R)
+        sheets.remove(el)
+        self.parts["xl/workbook.xml"] = etree.tostring(wb, **SALIDA)
+        rels = etree.fromstring(self.parts["xl/_rels/workbook.xml.rels"])
+        destino = None
+        for r in list(rels):
+            if r.get("Id") == rid:
+                destino = "xl/" + r.get("Target").lstrip("/").replace("xl/", "", 1)
+                rels.remove(r)
+        self.parts["xl/_rels/workbook.xml.rels"] = etree.tostring(rels, **SALIDA)
+        if destino is None:
+            return
+        ct = etree.fromstring(self.parts["[Content_Types].xml"])
+        for o in list(ct):
+            if o.get("PartName") == "/" + destino:
+                ct.remove(o)
+        self.parts["[Content_Types].xml"] = etree.tostring(ct, **SALIDA)
+        propias = [destino, destino.replace("worksheets/", "worksheets/_rels/") + ".rels"]
+        rel_hoja = propias[1]
+        if rel_hoja in self.parts:  # lo que solo esta hoja usaba (por ejemplo su configuracion de impresora)
+            for r in etree.fromstring(self.parts[rel_hoja]):
+                t = "xl/" + r.get("Target").replace("../", "")
+                propias.append(t)
+        for n in propias:
+            self.parts.pop(n, None)
+            if n in self.order:
+                self.order.remove(n)
+            ct = etree.fromstring(self.parts["[Content_Types].xml"])
+            for o in list(ct):
+                if o.get("PartName") == "/" + n:
+                    ct.remove(o)
+            self.parts["[Content_Types].xml"] = etree.tostring(ct, **SALIDA)
+
     def estilo_con_numfmt(self, base: int, fuente: int) -> int:
         """Un estilo igual a `base` pero con el formato de numero de `fuente` (por ejemplo, el de USD)."""
         import copy
@@ -582,15 +620,22 @@ def _serenos(h: Hoja, s: dict, serenos: dict, nombre_buque: str, dolar: float, f
 def generar(s: dict, ch: dict, tally: dict, serenos: dict, dias: dict, feriados: set[str], filas_resumen: list[list], filas_estado: list[list]) -> bytes:
     """El libro completo: hoja de la agencia, SERENOS, TALLY y las dos hojas ocultas (_estado y _resumen)."""
     lib = Libro()
-    principal, hoja_ser, hoja_tal = lib.hoja(1), lib.hoja(2), lib.hoja(3)
+    principal = lib.hoja(1)
     lib.renombrar(1, nombre_hoja(s["agencia"]["nombre"]))
     lib.renombrar(2, "SERENOS")
     lib.renombrar(3, "TALLY")
     dolar = s["dolar"]["valor"] or 0.0
     titulo = titulo_buque(s["buque"]["nombre"])
     _principal(principal, s, ch, dias)
-    _serenos(hoja_ser, s, serenos, titulo, dolar, feriados)
-    _tally(hoja_tal, s, tally, titulo, dolar)
+    # lo que no figura en la proforma (se destildo «Esto si lo facturamos» y no va al pie) tampoco tiene hoja
+    if s["tally"]["omitido"]:
+        lib.quitar_hoja(3)
+    else:
+        _tally(lib.hoja(3), s, tally, titulo, dolar)
+    if s["serenos"]["omitido"]:
+        lib.quitar_hoja(2)
+    else:
+        _serenos(lib.hoja(2), s, serenos, titulo, dolar, feriados)
     lib.agregar_hoja_oculta("_resumen", filas_resumen)
     lib.agregar_hoja_oculta("_estado", filas_estado)
     return lib.to_bytes()
