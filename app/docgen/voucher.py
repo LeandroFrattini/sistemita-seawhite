@@ -29,7 +29,7 @@ MAX_EXTRA = 30
 
 EXCEL, WORD = "EXCEL", "WORD"
 
-CUSTOM_SUBS = ["ENTRANCE", "LOADING", "PERMANENCE", "BUNKERING", "CLEARANCE", "STORE LIST ENDORSED"]
+CUSTOM_SUBS = ["ENTRANCE", "LOADING", "PERMANENCE", "BUNKERING", "CLEARANCE", "STORE LIST ENDORSED", "FRESH WATER", "PROVISIONS"]
 
 
 def _s(key, text, **kw):
@@ -74,7 +74,7 @@ CATALOGO = {
         _s("head_tally", "HEAD TALLY CLERK EXPENSES", head_tally=True),
         _s("watchman", "WATCHMAN EXPENSES"),
         _s("osro", "OSRO CERTIFICATE FOR BUNKER"),
-        _g("custom", "CUSTOM OVERTIME FOR ", CUSTOM_SUBS[:5]),
+        _g("custom", "CUSTOM OVERTIME FOR ", CUSTOM_SUBS[:5] + CUSTOM_SUBS[6:]),  # el formato Oceanway no lleva STORE LIST ENDORSED
         _d("immigration", "IMMIGRATION EXPENSES", boya=True),
         _s("sanitary", "SANITARY FREE PRATIQUE"),
         _d("taxi_immigration", "TAXI HIRED FOR IMMIGRATION"),
@@ -120,6 +120,8 @@ def normalizar(formato: str, raw) -> dict:
             for name in c["subs"]:
                 if isinstance(subs.get(name), dict):
                     dst["subs"][name] = {"on": bool(subs[name].get("on")), "buoy": False}
+                else:  # un voucher ya guardado no conocia este sub-concepto (se agrego despues): no se le suma una linea nueva
+                    dst["subs"][name] = {"on": False, "buoy": False}
         elif c["tipo"] == "dir":
             for k in ("in", "out"):
                 dst[k] = bool(src.get(k))

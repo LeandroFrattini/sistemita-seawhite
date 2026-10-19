@@ -329,3 +329,16 @@ Estado `aduana` (`items` + `cuenta_ajena`); `app/proforma_final.py` (`ADUANA_CLA
 - Salen tildados (cantidad 1) los que el voucher trae como «CUSTOM OVERTIME FOR …»; se pueden tildar o destildar y cambiar la cantidad.
 - Una casilla para todo el paso: **FOR YOUR ACCOUNT** (por cuenta del armador, no se factura).
 - **PENDIENTE (duda abierta):** el voucher hoy tiene CLEARANCE y STORE LIST ENDORSED (y no FRESH WATER ni PROVISIONS). Si hay que cambiar esos dos renglones del voucher, se toca `CUSTOM_SUBS` en `app/docgen/voucher.py`.
+
+## Pasada de UX de todo el asistente (ronda 9)
+
+Pedido del usuario: UX/UI cuidada y a prueba de errores en todo. Cambios:
+- **Resumen** en la columna izquierda (cada concepto con su importe, los de FOR YOUR ACCOUNT marcados y fuera del total) y **total parcial siempre a la vista** junto a Anterior / Siguiente (pie pegado abajo).
+- **Cartel por paso** debajo del título: «Para completar este paso:» con lo que falta (ámbar) o «Este paso está completo» (verde). Menú de pasos: ✓ completo, ! falta completar (solo si ya se pasó por ahí), pasos 8 a 11 atenuados con «próximamente».
+- **Aviso al cerrar o recargar** si hay cambios sin bajar a Excel (el sistema no guarda las proformas). Al bajar el Excel se avisa si quedaron pasos incompletos. Cargar un Excel no marca cambios.
+- Al cambiar de paso se **vuelve arriba** y en celular el menú se centra en el paso actual.
+- Explicaciones largas de los pasos 4 a 7 pasan a un desplegable **«Cómo se calcula»**; queda una línea corta.
+- **Practicaje**: ahora tiene la casilla **FOR YOUR ACCOUNT** (por movimiento).
+- Fechas en las tarjetas: una debajo de la otra cuando no entran.
+- **Voucher:** conserva CLEARANCE y STORE LIST ENDORSED y suma **FRESH WATER** y **PROVISIONS** (en Oceanway sin STORE LIST ENDORSED, como antes). Un voucher ya guardado no recibe las líneas nuevas.
+  El paso 7 muestra las ocho habilitaciones del voucher, en su orden, más el renglón libre.

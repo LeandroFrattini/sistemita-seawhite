@@ -27,7 +27,15 @@
     {% endfor %}
   </nav>
 
-  <section class="card pfn-body">
+  <aside class="card pfn-resumen" aria-label="Resumen de la proforma">
+    <h3>Resumen</h3>
+    <div id="rs-filas"></div>
+    <div class="rs-total"><span>Total parcial a facturar</span><b id="rs-total">USD 0,00</b></div>
+    <div class="rs-nota" id="rs-nota">Pasos 1 a 7. Tally, serenos, migraciones y el chequeo general se suman en los próximos pasos.</div>
+  </aside>
+
+  <section class="card pfn-body" id="pfn-body">
+    <div id="pfn-aviso" class="pfn-aviso" role="status"></div>
     <div data-pane="1">
       <h2>1 · Barco y dólar</h2>
       <div class="pfn-grid">
@@ -105,37 +113,44 @@
 
     <div data-pane="4" hidden>
       <h2>4 · Practicaje</h2>
-      <p class="muted">Entrada y salida por separado, cada una con su calado. Es la misma fórmula y la misma tabla de coeficientes de calado del proformador inicial (se editan en <a href="/proformador/config/formulas">Proformador → Fórmulas</a>).
-      Los calados, la eslora, la manga y el puntal se cargan en el <a href="#" id="pr-ir3">paso 3</a>.</p>
+      <p class="muted">Entrada y salida por separado, cada una con su calado. Los calados, la eslora, la manga y el puntal se cargan en el <a href="#" id="pr-ir3">paso 3</a>.</p>
+      <details class="pfn-info"><summary>Cómo se calcula</summary>
+        <p>Es la misma fórmula y la misma tabla de coeficientes de calado del proformador inicial. Se editan en <a href="/proformador/config/formulas">Proformador → Fórmulas</a>.</p>
+      </details>
       <div id="pr-resumen" class="pfn-datos"></div>
       <div id="pr-box" class="pfn-pract-box"></div>
-      <p class="pfn-total">Total practicaje: <b id="pr-total">USD 0</b></p>
+      <p class="pfn-total">Total practicaje que se factura: <b id="pr-total">USD 0</b></p>
     </div>
 
     <div data-pane="5" hidden>
       <h2>5 · Uso de muelle, fondeadero y vías navegables</h2>
-      <p class="muted">Los <b>días</b> se cuentan por bloques de 8 horas: de 00 a 08 = 0,33 · de 08 a 16 = 0,34 · de 16 a 24 = 0,33. Si el barco está en cualquier parte de un bloque, se cobra el bloque entero.
-      Uso de muelle = USD 0,46 × TRN × días · Fondeadero = USD 0,15 × TRN × días · Vías navegables = USD 2,05 × coeficiente según el TRN × toneladas (si es solo bunker, el 20 % del TRN).
-      Las tarifas y la tabla de coeficientes son las del proformador inicial (<a href="/proformador/config/formulas">Fórmulas</a>).</p>
+      <p class="muted">Los importes se calculan solos con los datos del paso 3. Si hace falta, se corrige cualquier importe a mano.</p>
+      <details class="pfn-info"><summary>Cómo se calcula</summary>
+        <p>Los <b>días</b> se cuentan por bloques de 8 horas: de 00 a 08 = 0,33 · de 08 a 16 = 0,34 · de 16 a 24 = 0,33. Si el barco está en cualquier parte de un bloque, se cobra el bloque entero.</p>
+        <p>Uso de muelle = USD 0,46 × TRN × días · Fondeadero = USD 0,15 × TRN × días · Vías navegables = USD 2,05 × coeficiente según el TRN × toneladas (si es solo bunker, el 20 % del TRN).
+        Las tarifas y la tabla de coeficientes son las del proformador inicial (<a href="/proformador/config/formulas">Fórmulas</a>).</p>
+      </details>
       <div id="mu-box" class="pfn-pract-box"></div>
       <p class="pfn-total">Total que se factura: <b id="mu-total">USD 0,00</b><span id="mu-ajena" class="muted"></span></p>
     </div>
 
     <div data-pane="6" hidden>
       <h2>6 · Amarre y desamarre</h2>
-      <p class="muted">Lanchas del Sur (tarifario 2026, buques extranjeros). Cada maniobra = servicio + lancha, con recargo según el día y la hora:
-      día hábil 07–19 sin recargo · día hábil 19–07 50 % · sábado 00–07 50 % · sábado 07–13 sin recargo · sábado desde las 13 100 % · domingo y feriado 100 %.
-      Si la eslora supera 150 m lleva dos lanchas. Los feriados salen del <a href="/administracion/calendario">Calendario</a>; el día no laborable cuenta como hábil.
-      La <b>escala</b> solo se cobra si el voucher tiene SHORE GANGWAY (también se puede tildar acá).</p>
+      <p class="muted">Lanchas del Sur: cada maniobra es servicio + lancha, con recargo según el día y la hora. La escala solo se cobra si el voucher tiene SHORE GANGWAY (también se puede tildar acá).</p>
+      <details class="pfn-info"><summary>Cómo se calcula</summary>
+        <p>Tarifario 2026, buques extranjeros. Recargo: día hábil 07–19 sin recargo · día hábil 19–07 50 % · sábado 00–07 50 % · sábado 07–13 sin recargo · sábado desde las 13 100 % · domingo y feriado 100 %.
+        Si la eslora supera 150 m lleva dos lanchas. Los feriados salen del <a href="/administracion/calendario">Calendario</a>; el día no laborable cuenta como hábil.</p>
+      </details>
       <div id="ld-box" class="pfn-pract-box"></div>
       <p class="pfn-total">Total que se factura: <b id="ld-total">USD 0,00</b><span id="ld-ajena" class="muted"></span></p>
     </div>
 
     <div data-pane="7" hidden>
       <h2>7 · Habilitaciones de aduana</h2>
-      <p class="muted">Las habilitaciones de aduana (customs overtime) que figuran en el voucher. Cada una vale USD {{ '%g'|format(aduana_usd) }}
-      (se cambia en <a href="/proformador/config/formulas">Proformador → Fórmulas</a>): se indica <b>cuántas</b> son y el sistema multiplica solo.
-      El precio de cada renglón también se puede modificar. Abajo queda un renglón libre para otro concepto.</p>
+      <p class="muted">Las habilitaciones de aduana que figuran en el voucher salen tildadas. Indicá <b>cuántas</b> son de cada una: el sistema multiplica solo. Abajo hay un renglón libre para otro concepto.</p>
+      <details class="pfn-info"><summary>Cómo se calcula</summary>
+        <p>Cada habilitación vale USD {{ '%g'|format(aduana_usd) }} (se cambia en <a href="/proformador/config/formulas">Proformador → Fórmulas</a>). El precio de cada renglón también se puede modificar a mano.</p>
+      </details>
       <div id="ad-box"></div>
       <p class="pfn-total">Total habilitaciones: <b id="ad-total">USD 0,00</b><span id="ad-ajena" class="muted"></span></p>
       <label class="pfn-chk"><input type="checkbox" id="ad-ajena-chk"> Van «FOR YOUR ACCOUNT» (por cuenta del armador, no se facturan)</label>
@@ -145,12 +160,13 @@
     <div data-pane="{{ n }}" hidden>
       <h2>{{ n }} · {{ titulo }}</h2>
       <p class="muted">{{ sub }}.</p>
-      <p class="pfn-soon">Este paso se arma más adelante, con sus reglas y un caso real para comparar.</p>
+      <p class="pfn-soon"><b>Próximamente.</b> Este paso todavía no está disponible. Mientras tanto, la proforma se puede bajar a Excel con los pasos 1 a 7.</p>
     </div>
     {% endfor %}
 
     <div class="pfn-nav">
       <button type="button" class="btn" id="pfn-prev">← Anterior</button>
+      <span class="pfn-nav-total">Total parcial <b id="nav-total">USD 0,00</b></span>
       <button type="button" class="btn primary" id="pfn-next">Siguiente →</button>
     </div>
   </section>
@@ -158,13 +174,38 @@
 
 <style>
 .pfn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-.pfn-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 14px; align-items: start; }
+.pfn-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); grid-template-areas: "steps body" "resumen body"; grid-template-rows: auto 1fr; gap: 14px; align-items: start; }
+.pfn-steps { grid-area: steps; }
+.pfn-body { grid-area: body; scroll-margin-top: 76px; }
+.pfn-resumen { grid-area: resumen; padding: 14px 16px; }
+.pfn-resumen h3 { margin: 0 0 8px; font-size: 15px; color: var(--navy, #12355f); }
+.rs-fila { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 3px 0; color: var(--ink); }
+.rs-fila span:last-child { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+.rs-fila.vacio { color: var(--muted); }
+.rs-fila.vacio span:last-child { font-weight: 400; }
+.rs-fila small { display: block; color: #92400e; font-size: 11px; font-weight: 600; }
+.rs-total { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line-soft); font-size: 14px; }
+.rs-total b { font-variant-numeric: tabular-nums; }
+.rs-nota { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+.pfn-aviso { margin: 0 0 14px; padding: 10px 14px; border-radius: 12px; font-size: 13.5px; border: 1px solid var(--line-soft); background: #f4f8fd; color: var(--ink); }
+.pfn-aviso b { display: block; margin-bottom: 2px; }
+.pfn-aviso ul { margin: 4px 0 0 18px; padding: 0; }
+.pfn-aviso.falta { background: #fffbeb; border-color: #f5d27a; color: #78350f; }
+.pfn-aviso.listo { background: #ecfdf5; border-color: #9fdcbc; color: #065f46; }
+.pfn-aviso.pronto { background: #f4f6fa; color: var(--muted); }
+.pfn-info { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+.pfn-info summary { cursor: pointer; color: var(--blue-dark, #154a86); font-weight: 600; width: fit-content; }
+.pfn-info p { margin: 6px 0 0; }
+.pfn-step.pronto { opacity: .55; }
+.pfn-step.pronto small::after { content: " · próximamente"; }
+.pfn-step.warn .pfn-n { background: #f59e0b; color: #fff; }
 .pfn-steps { display: flex; flex-direction: column; gap: 4px; padding: 10px; }
 .pfn-step { display: flex; gap: 10px; align-items: center; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 10px; cursor: pointer; font: inherit; color: inherit; }
 .pfn-step:hover { background: #eaf2fb; }
 .pfn-step.on { background: #dbe9f8; }
 .pfn-step small { display: block; color: var(--muted); font-size: 11.5px; }
 .pfn-step.done .pfn-n { background: #1f9d55; color: #fff; }
+.pfn-step.pronto .pfn-n { background: #eef1f6; color: #8a97ab; }
 .pfn-n { flex: none; width: 26px; height: 26px; border-radius: 50%; background: #e3e9f2; color: #1b3a63; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
 .pfn-step.on .pfn-n { background: #1f67b0; color: #fff; }
 .pfn-body h2 { margin-top: 0; }
@@ -212,7 +253,7 @@
 .pfn-pract .pfn-mod { font-size: 12px; color: #92400e; margin-top: 6px; }
 .pfn-pract .pfn-mod button { border: 0; background: none; color: var(--blue-dark, #154a86); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
 .pfn-pract .falta { color: #b45309; font-weight: 600; font-size: 13.5px; }
-.pfn-fechas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+.pfn-fechas { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-bottom: 10px; }
 .pfn-fechas label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .pfn-fechas input { width: 100%; min-width: 0; }
 .pfn-chk { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; font-size: 13.5px !important; color: var(--ink) !important; margin: 8px 0; cursor: pointer; }
@@ -224,9 +265,11 @@
 .pfn-datos b { font-size: 14px; color: var(--ink); font-weight: 600; }
 .pfn-datos b.falta { color: #b45309; font-weight: 700; }
 .pfn-soon { padding: 18px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); }
-.pfn-nav { display: flex; justify-content: space-between; margin-top: 18px; }
+.pfn-nav { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; padding: 10px 0; position: sticky; bottom: 0; background: #fff; border-top: 1px solid var(--line-soft); z-index: 5; }
+.pfn-nav-total { font-size: 13px; color: var(--muted); text-align: center; }
+.pfn-nav-total b { display: block; font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
 @media (max-width: 860px) {
-  .pfn-layout { grid-template-columns: 1fr; }
+  .pfn-layout { grid-template-columns: 1fr; grid-template-areas: "steps" "body" "resumen"; grid-template-rows: auto; }
   .pfn-steps { flex-direction: row; overflow-x: auto; }
   .pfn-step { flex: none; }
   .pfn-step small { display: none; }
@@ -239,7 +282,7 @@ const BARCOS = {{ barcos|tojson }};
 const buqueVacio = () => ({ operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "", trn: 0, trb: 0, eslora: 0, manga: 0, puntal: 0, bandera: "",
   calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [] });
 let BUQUE = buqueVacio();
-let PRACT = { in: { usd: 0, manual: false }, out: { usd: 0, manual: false } };  // importe de cada movimiento (calculado o modificado a mano)
+let PRACT = { in: { usd: 0, manual: false, cuenta_ajena: false }, out: { usd: 0, manual: false, cuenta_ajena: false } };  // importe de cada movimiento (calculado o modificado a mano)
 let PRACT_CALC = null;       // ultima respuesta del servidor (con el desglose)
 let firmaPractAnt = "";      // con que datos se calculo por ultima vez
 let firmaCargada = null;     // datos con los que se guardo la proforma que se cargo de un Excel (esos importes se respetan)
@@ -414,6 +457,7 @@ function setState(s) {
   pintarPaso3(false);
   firmaCargada = firmaPract(); firmaPractAnt = "";
   firmaMuCargada = firmaMu(); firmaMuAnt = "";
+  SUCIO = false;
   AMLDS = { ...ldVacio(), ...s.lds_amarre }; DESLDS = { ...ldVacio(), ...s.lds_desamarre };
   ESCALA = { ...escalaVacia(), ...s.escala }; DRAFT = { ...draftVacio(), ...s.lds_draft };
   ADUANA = { cuenta_ajena: !!(s.aduana && s.aduana.cuenta_ajena), items: s.aduana && s.aduana.items ? s.aduana.items.map((i) => ({ ...i })) : aduanaInicial().items };
@@ -439,7 +483,7 @@ function setState(s) {
 
 // ---- Paso 4: practicaje (la formula y las tablas son las del proformador inicial, se calculan en el servidor)
 function resetPract() {  // al cambiar de barco los importes de practicaje empiezan de cero
-  PRACT = { in: { usd: 0, manual: false }, out: { usd: 0, manual: false } }; PRACT_CALC = null; firmaCargada = null; firmaPractAnt = "";
+  PRACT = { in: { usd: 0, manual: false, cuenta_ajena: false }, out: { usd: 0, manual: false, cuenta_ajena: false } }; PRACT_CALC = null; firmaCargada = null; firmaPractAnt = "";
   pintarPracticaje();
   resetMuelle();
   resetLds();
@@ -501,11 +545,16 @@ function pintarPracticaje() {
     const btn = document.createElement("button"); btn.type = "button"; btn.textContent = "Volver al calculado";
     btn.addEventListener("click", () => { PRACT[k].manual = false; PRACT[k].usd = m ? m.total : 0; pintarPracticaje(); render(); });
     mod.append("Modificado a mano" + (m ? ` (calculado: ${usd2(m.total)}). ` : ". "), btn); card.appendChild(mod);
+    card.appendChild(casilla("Va «FOR YOUR ACCOUNT» (por cuenta del armador, no se factura)", !!PRACT[k].cuenta_ajena, (v) => { PRACT[k].cuenta_ajena = v; actualizarTotalPract(); render(); }));
     box.appendChild(card);
   });
   actualizarTotalPract();
 }
-function actualizarTotalPract() { $("#pr-total").textContent = usd2(PRACT.in.usd + PRACT.out.usd); }
+function actualizarTotalPract() {
+  const l = [PRACT.in, PRACT.out];
+  const fact = l.filter((x) => !x.cuenta_ajena).reduce((a, x) => a + x.usd, 0), ajena = l.filter((x) => x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
+  $("#pr-total").textContent = usd2(fact) + (ajena ? ` · por cuenta del armador (informativo): ${usd2(ajena)}` : "");
+}
 $("#pr-ir3").addEventListener("click", (ev) => { ev.preventDefault(); step = 3; render(); });
 
 // ---- Paso 5: uso de muelle, fondeadero y vias navegables (calculo en el servidor, con las tarifas del proformador inicial)
@@ -764,7 +813,7 @@ function actualizarTotalesLd() {
 // ---- Paso 7: habilitaciones de aduana (customs overtime del voucher + un renglon libre). Cada una = cantidad x precio
 const ADUANA_USD = {{ aduana_usd }};
 const ADU_BASE = [["entrance", "FOR ENTRANCE"], ["loading", "FOR LOADING"], ["permanence", "FOR PERMANENCE"], ["bunkering", "FOR BUNKERING"],
-  ["fresh_water", "FOR FRESH WATER"], ["provisions", "FOR PROVISIONS"]];
+  ["clearance", "FOR CLEARANCE"], ["store_list", "FOR STORE LIST ENDORSED"], ["fresh_water", "FOR FRESH WATER"], ["provisions", "FOR PROVISIONS"]];
 // tildadas segun el voucher: "CUSTOM OVERTIME FOR ENTRANCE", etc.
 const enVoucher = (k) => (BUQUE.servicios || []).some((x) => x.toUpperCase().startsWith("CUSTOM OVERTIME " + k));
 const aduanaInicial = () => ({ cuenta_ajena: false, items: [...ADU_BASE.map(([key, texto]) => ({ key, texto, on: enVoucher(texto), cant: enVoucher(texto) ? 1 : 0, precio: ADUANA_USD })),
@@ -803,30 +852,116 @@ function actualizarTotalesAd() {
 }
 $("#ad-ajena-chk").addEventListener("change", (ev) => { ADUANA.cuenta_ajena = ev.target.checked; actualizarTotalesAd(); render(); });
 
+// ---- Estado de cada paso: que falta, aviso del paso actual y resumen
+const PASOS_LISTOS = 7;          // pasos ya armados; del 8 en adelante figuran como "Próximamente"
+const VISITADOS = new Set([1]);  // pasos por los que ya se paso (solo ahi se marca "falta completar")
+
+function faltantes(s) {
+  const b = s.buque, f = {};
+  f[1] = []; if (!b.nombre) f[1].push("Elegí el barco."); if (!(s.dolar.valor > 0)) f[1].push("Cargá el dólar (cotización divisa del Banco Nación).");
+  f[2] = s.agencia.id ? [] : ["Elegí la agencia a facturar."];
+  f[3] = [];
+  [[b.amarre, "el amarre"], [b.inicio, "el inicio de operación"], [b.fin, "el final de operación"], [b.zarpe, "el zarpe"], [b.cantidad, "la cantidad operada"], [b.trn > 0, "el TRN"]]
+    .forEach(([v, t]) => { if (!v) f[3].push("Falta cargar " + t + "."); });
+  f[4] = [];
+  [[b.eslora, "la eslora"], [b.manga, "la manga"], [b.puntal, "el puntal"], [b.calado_entrada, "el calado de entrada"], [b.calado_salida, "el calado de salida"]]
+    .forEach(([v, t]) => { if (!(v > 0)) f[4].push("Falta " + t + " (se carga en el paso 3)."); });
+  if (!f[4].length) { if (!(s.practicaje.in.usd > 0)) f[4].push("Falta el importe del practicaje de entrada."); if (!(s.practicaje.out.usd > 0)) f[4].push("Falta el importe del practicaje de salida."); }
+  f[5] = [];
+  if (!(s.muelle.usd > 0)) f[5].push("Falta el importe de uso de muelle (revisá el TRN, el amarre y el zarpe)." );
+  if (s.fondeo.on && !(s.fondeo.usd > 0)) f[5].push("Falta el importe del fondeadero (cargá la entrada y la salida del fondeo).");
+  if (!(s.vias.usd > 0)) f[5].push(s.vias.solo_bunker ? "Falta el importe de vías navegables (revisá el TRN)." : "Falta el importe de vías navegables (revisá la cantidad operada y el TRN).");
+  f[6] = [];
+  if (!(s.lds_amarre.usd > 0)) f[6].push("Falta el importe del amarre (revisá la fecha de la maniobra).");
+  if (!(s.lds_desamarre.usd > 0)) f[6].push("Falta el importe del desamarre (revisá la fecha de la maniobra).");
+  if (s.escala.on && !(s.escala.usd > 0)) f[6].push("Falta el importe de la escala (revisá los días de alquiler).");
+  if (s.lds_draft.on && !(s.lds_draft.usd > 0)) f[6].push("Falta el importe de la lancha de draft (revisá la fecha del uso).");
+  f[7] = s.aduana.items.some((i) => i.on && !(i.cant > 0)) ? ["Hay habilitaciones tildadas sin cantidad."] : [];
+  for (let n = 8; n <= TOTAL; n++) f[n] = [];
+  return f;
+}
+
+function pintarAviso(s, faltan) {
+  const a = $("#pfn-aviso"); a.replaceChildren(); a.className = "pfn-aviso";
+  const titulo = $(`[data-pane="${step}"] h2`); if (titulo) titulo.after(a);
+  if (step > PASOS_LISTOS) { a.classList.add("pronto"); a.textContent = "Este paso todavía no está disponible."; return; }
+  const f = faltan[step];
+  if (f.length) {
+    a.classList.add("falta");
+    a.appendChild(elx("b", null, "Para completar este paso:"));
+    const ul = elx("ul"); f.forEach((t) => ul.appendChild(elx("li", null, t))); a.appendChild(ul);
+  } else if (step === 7 && !(s.aduana.usd > 0)) {
+    a.textContent = "No hay habilitaciones tildadas. Si el barco no tuvo, seguí con el paso siguiente.";
+  } else { a.classList.add("listo"); a.textContent = "✓ Este paso está completo. Revisá los importes y seguí con el siguiente."; }
+}
+
+function pintarResumen(s) {
+  const box = $("#rs-filas"); box.replaceChildren();
+  let fact = 0, ajena = 0;
+  const fila = (txt, usd, ajeno, aplica = true) => {
+    if (!aplica) return;
+    const r = elx("div", "rs-fila" + (usd > 0 ? "" : " vacio"));
+    const l = elx("span", null, txt);
+    if (ajeno && usd > 0) l.appendChild(elx("small", null, "FOR YOUR ACCOUNT"));
+    r.append(l, elx("span", null, usd > 0 ? usd2(usd) : "—")); box.appendChild(r);
+    if (usd > 0) { if (ajeno) ajena += usd; else fact += usd; }
+  };
+  const fee = FEES.filter((x) => x.on).reduce((a, x) => a + x.monto_usd, 0);
+  fila("Fee de la agencia", fee, false);
+  fila("Practicaje entrada", s.practicaje.in.usd, s.practicaje.in.cuenta_ajena);
+  fila("Practicaje salida", s.practicaje.out.usd, s.practicaje.out.cuenta_ajena);
+  fila("Uso de muelle", s.muelle.usd, s.muelle.cuenta_ajena);
+  fila("Uso de fondeadero", s.fondeo.usd, s.fondeo.cuenta_ajena, s.fondeo.on);
+  fila("Vías navegables", s.vias.usd, s.vias.cuenta_ajena);
+  fila("Amarre", s.lds_amarre.usd, s.lds_amarre.cuenta_ajena);
+  fila("Desamarre", s.lds_desamarre.usd, s.lds_desamarre.cuenta_ajena);
+  fila("Escala (shore gangway)", s.escala.usd, s.escala.cuenta_ajena, s.escala.on);
+  fila("Lancha de draft", s.lds_draft.usd, s.lds_draft.cuenta_ajena, s.lds_draft.on);
+  fila("Habilitaciones de aduana", s.aduana.usd, s.aduana.cuenta_ajena);
+  $("#rs-total").textContent = usd2(fact); $("#nav-total").textContent = usd2(fact);
+  $("#rs-nota").textContent = (ajena ? `Por cuenta del armador (no se suma): ${usd2(ajena)}. ` : "") + "Pasos 1 a 7. Tally, serenos, migraciones y el chequeo general se suman en los próximos pasos.";
+}
+
 function render() {
   $$("[data-pane]").forEach((p) => (p.hidden = Number(p.dataset.pane) !== step));
   const s = getState();
+  VISITADOS.add(step);
   if (step === 4 && firmaPract() !== firmaPractAnt) calcularPracticaje();
   if (step === 5 && firmaMu() !== firmaMuAnt) calcularMuelle();
   if (step === 6 && firmaLd() !== firmaLdAnt) calcularLds();
-  const done = { 1: s.dolar.valor > 0 && !!s.buque.nombre, 2: !!s.agencia.id,
-    3: !!(s.buque.amarre && s.buque.inicio && s.buque.fin && s.buque.zarpe && s.buque.trn > 0),
-    4: s.practicaje.in.usd > 0 && s.practicaje.out.usd > 0,
-    5: s.muelle.usd > 0 && s.vias.usd > 0,
-    6: s.lds_amarre.usd > 0 && s.lds_desamarre.usd > 0,
-    7: s.aduana.usd > 0 };
+  const faltan = faltantes(s);
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
+    const pronto = n > PASOS_LISTOS, completo = !pronto && faltan[n].length === 0 && (n !== 7 || s.aduana.usd > 0);
+    const aviso = !pronto && !completo && faltan[n].length > 0 && VISITADOS.has(n) && n !== step;
     b.classList.toggle("on", n === step);
-    b.classList.toggle("done", !!done[n]);
+    b.classList.toggle("done", completo);
+    b.classList.toggle("warn", aviso);
+    b.classList.toggle("pronto", pronto);
+    b.querySelector(".pfn-n").textContent = completo ? "✓" : (aviso ? "!" : String(n));
+    b.setAttribute("aria-label", `Paso ${n}: ${b.querySelector("b").textContent}` + (completo ? " (completo)" : aviso ? " (falta completar)" : pronto ? " (próximamente)" : ""));
+    if (n === step) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current");
   });
+  pintarAviso(s, faltan);
+  pintarResumen(s);
   $("#pfn-prev").disabled = step === 1;
   $("#pfn-next").disabled = step === TOTAL;
 }
 
-$$(".pfn-step").forEach((b) => b.addEventListener("click", () => { step = Number(b.dataset.step); render(); }));
-$("#pfn-prev").addEventListener("click", () => { step = Math.max(1, step - 1); render(); });
-$("#pfn-next").addEventListener("click", () => { step = Math.min(TOTAL, step + 1); render(); });
+function ir(n) {  // cambia de paso y vuelve arriba, para que se vea el principio del paso nuevo
+  step = Math.max(1, Math.min(TOTAL, n)); render();
+  $("#pfn-body").scrollIntoView({ behavior: "smooth", block: "start" });
+  const b = $(`.pfn-step[data-step="${step}"]`); if (b) b.scrollIntoView({ inline: "center", block: "nearest" });
+}
+$$(".pfn-step").forEach((b) => b.addEventListener("click", () => ir(Number(b.dataset.step))));
+$("#pfn-prev").addEventListener("click", () => ir(step - 1));
+$("#pfn-next").addEventListener("click", () => ir(step + 1));
+
+// el sistema no guarda las proformas: si hay cambios sin bajar a Excel, el navegador avisa antes de cerrar o recargar
+let SUCIO = false;
+["input", "change"].forEach((ev) => $("#pfn-body").addEventListener(ev, () => { SUCIO = true; }));
+$("#barco-sel").addEventListener("change", () => { SUCIO = true; });
+window.addEventListener("beforeunload", (e) => { if (SUCIO) { e.preventDefault(); e.returnValue = ""; } });
 document.addEventListener("input", render);
 
 const bsel = $("#barco-sel");
@@ -865,7 +1000,9 @@ $("#pfn-bajar").addEventListener("click", async () => {
   a.download = res.headers.get("X-Filename") || "Proforma final.xlsx";
   a.click();
   URL.revokeObjectURL(a.href);
-  msg("Excel descargado. El sistema no guarda la proforma: guardá ese archivo.");
+  SUCIO = false;
+  const f = faltantes(getState()), pend = [1, 2, 3, 4, 5, 6].filter((n) => f[n].length);
+  msg("Excel descargado. El sistema no guarda la proforma: guardá ese archivo." + (pend.length ? ` Ojo: quedaron incompletos los pasos ${pend.join(", ")}.` : ""), !pend.length);
 });
 
 $("#pfn-subir").addEventListener("change", async (ev) => {

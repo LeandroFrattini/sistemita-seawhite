@@ -56,9 +56,10 @@ def con_cargas(costo: float, pct: float) -> float:
     return costo * (1 + pct / 100)
 
 
-# Habilitaciones de aduana (customs overtime): las del voucher mas una libre. Cada una = cantidad x precio (USD 200 por defecto, editable).
+# Habilitaciones de aduana (customs overtime): todas las del voucher mas una libre. Cada una = cantidad x precio (USD 200 por defecto, editable).
 ADUANA_CLAVES = [("entrance", "FOR ENTRANCE"), ("loading", "FOR LOADING"), ("permanence", "FOR PERMANENCE"),
-                 ("bunkering", "FOR BUNKERING"), ("fresh_water", "FOR FRESH WATER"), ("provisions", "FOR PROVISIONS")]
+                 ("bunkering", "FOR BUNKERING"), ("clearance", "FOR CLEARANCE"), ("store_list", "FOR STORE LIST ENDORSED"),
+                 ("fresh_water", "FOR FRESH WATER"), ("provisions", "FOR PROVISIONS")]  # el mismo orden que el voucher
 ADUANA_EXTRA = "extra"
 ADUANA_USD = 200.0
 
@@ -177,7 +178,7 @@ def clean_state(raw) -> dict:
 
     def mov(k):
         m = pr.get(k) if isinstance(pr.get(k), dict) else {}
-        return {"usd": _num(m.get("usd"), 100_000_000), "manual": bool(m.get("manual"))}
+        return {"usd": _num(m.get("usd"), 100_000_000), "manual": bool(m.get("manual")), "cuenta_ajena": bool(m.get("cuenta_ajena"))}
 
     def sub(k):
         return raw.get(k) if isinstance(raw.get(k), dict) else {}
@@ -240,6 +241,10 @@ def _nota_concepto(c: dict, entrada: str = "", salida: str = "") -> str:
     return " · ".join(partes)
 
 
+def _nota_practicaje(m: dict) -> str:
+    return ("modificado a mano" if m["manual"] else "según tabla de calado") + (" · FOR YOUR ACCOUNT (no se factura)" if m["cuenta_ajena"] else "")
+
+
 def _nota_aduana(a: dict) -> str:
     on = [i for i in a["items"] if i["on"]]
     if not on:
@@ -270,8 +275,8 @@ def build_excel(state: dict) -> bytes:
         ("TRN", b["trn"] or "", "TRB " + str(b["trb"]) if b["trb"] else ""),
         ("Eslora / manga / puntal (m)", f"{b['eslora'] or '—'} / {b['manga'] or '—'} / {b['puntal'] or '—'}", b["bandera"] and ("Bandera " + b["bandera"]) or ""),
         ("Calado entrada / salida (pies)", f"{b['calado_entrada'] or '—'} / {b['calado_salida'] or '—'}", ""),
-        ("Practicaje IN (USD)", s["practicaje"]["in"]["usd"] or "", "modificado a mano" if s["practicaje"]["in"]["manual"] else "según tabla de calado"),
-        ("Practicaje OUT (USD)", s["practicaje"]["out"]["usd"] or "", "modificado a mano" if s["practicaje"]["out"]["manual"] else "según tabla de calado"),
+        ("Practicaje IN (USD)", s["practicaje"]["in"]["usd"] or "", _nota_practicaje(s["practicaje"]["in"])),
+        ("Practicaje OUT (USD)", s["practicaje"]["out"]["usd"] or "", _nota_practicaje(s["practicaje"]["out"])),
         ("Uso de muelle (USD)", s["muelle"]["usd"] or "", _nota_concepto(s["muelle"], s["muelle"]["entrada"] or b["amarre"], s["muelle"]["salida"] or b["zarpe"])
          + (f" · beneficio de fin de semana: {str(s['muelle']['perdonados']).replace('.', ',')} días no cobrados" if s["muelle"]["perdonados"] and not s["muelle"]["sin_beneficio"] else "")),
         ("Uso de fondeadero (USD)", s["fondeo"]["usd"] or "" if s["fondeo"]["on"] else "—", _nota_concepto(s["fondeo"], s["fondeo"]["entrada"], s["fondeo"]["salida"]) if s["fondeo"]["on"] else "sin fondeo"),
