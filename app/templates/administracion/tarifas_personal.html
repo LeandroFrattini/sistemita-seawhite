@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block nav_administracion %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Tarifas de Tally y Serenos</h1>
+    <span class="muted">Precio por turno de 6 horas, en pesos. La proforma usa la tarifa vigente a la fecha del amarre.</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/administracion/proforma-final">Proforma final</a>
+    <a class="btn" href="/administracion">← Administración</a>
+  </div>
+</div>
+
+{% if aviso == 'guardado' %}<p class="flash-ok" role="status">✓ Tarifas guardadas.</p>
+{% elif aviso == 'sin_cambios' %}<p class="flash-inline" role="status">No había cambios para guardar.</p>
+{% elif aviso == 'nueva' %}<p class="flash-ok" role="status">✓ Vigencia creada con los valores de la anterior. Corregí los precios que cambiaron y guardá.</p>{% endif %}
+{% if error == 'numero' %}<p class="flash-inline" role="alert">Hay un precio que no es un número. No se guardó nada: revisalo.</p>
+{% elif error == 'fecha' %}<p class="flash-inline" role="alert">Elegí una fecha válida para la nueva vigencia.</p>
+{% elif error == 'repetida' %}<p class="flash-inline" role="alert">Ya existe una vigencia con esa fecha.</p>{% elif error == 'sin_base' %}<p class="flash-inline" role="alert">No hay una vigencia para copiar.</p>{% endif %}
+
+<div class="card">
+  <div class="tf-bar">
+    <form method="get" class="tf-sel">
+      <label>Vigencia desde
+        <select name="vigencia" onchange="this.form.submit()">
+          {% for v in vigencias %}<option value="{{ v }}" {{ 'selected' if v == elegida }}>{{ v[8:10] }}/{{ v[5:7] }}/{{ v[:4] }}{{ ' (la más nueva)' if loop.first }}</option>{% endfor %}
+        </select>
+      </label>
+    </form>
+    <form method="post" action="/administracion/tarifas-personal/nueva" class="tf-nueva" onsubmit="return confirm('Se crea una vigencia nueva con los mismos precios de la que estás viendo. Después corregís los que cambiaron. ¿Seguir?')">
+      <input type="hidden" name="copiar" value="{{ elegida }}">
+      <label>Nueva vigencia desde<input type="date" name="desde" required value="{{ hoy }}"></label>
+      <button class="btn" type="submit">+ Crear nueva vigencia</button>
+    </form>
+  </div>
+  <p class="muted" style="margin-bottom:0">Cuando suben los sueldos <b>no se pisan los precios</b>: se crea una vigencia nueva con la fecha desde la que rigen. Las proformas de fechas anteriores siguen usando la tarifa de su momento.
+  Editar la vigencia de abajo cambia los precios de todas las proformas de esa época.</p>
+</div>
+
+{% if elegida %}
+<form method="post" action="/administracion/tarifas-personal/guardar" id="tf-form">
+  <input type="hidden" name="vigencia" value="{{ elegida }}">
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:0">Tally (encargado) · por turno</h3>
+    <p class="muted">Básico = día de semana 07–19 y sábado 07–13 · Extra 100 % y Extra 150 % según el día y la hora (ver el paso 8 de la proforma). El feriado y el día no laborable valen 3 veces el básico.</p>
+    <table class="list tf-tabla">
+      <thead><tr><th>Categoría de la carga</th><th>Básico (H)</th><th>Extra 100 %</th><th>Extra 150 %</th></tr></thead>
+      <tbody>
+      {% for fila in tally %}
+        <tr><td>{{ fila.etiqueta }}</td>{% for c in fila.celdas %}<td>{% if c %}<input name="v_{{ c.id }}" value="{{ ('{:,.2f}'.format(c.valor))|replace(',', '§')|replace('.', ',')|replace('§', '.') }}" inputmode="decimal" aria-label="{{ fila.etiqueta }}">{% endif %}</td>{% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:0">Serenos · por turno</h3>
+    <p class="muted">Día hábil = 06–12 y 12–18 de día de semana y sábado 06–12 · Día inhábil = 00–06 y 18–24 de día de semana, y sábados el resto · Domingo y feriado = todo el día.</p>
+    <table class="list tf-tabla">
+      <thead><tr><th>Categoría</th><th>Día hábil</th><th>Día inhábil</th><th>Domingo y feriado</th></tr></thead>
+      <tbody>
+      {% for fila in serenos %}
+        <tr><td>{{ fila.etiqueta }}</td>{% for c in fila.celdas %}<td>{% if c %}<input name="v_{{ c.id }}" value="{{ ('{:,.2f}'.format(c.valor))|replace(',', '§')|replace('.', ',')|replace('§', '.') }}" inputmode="decimal" aria-label="{{ fila.etiqueta }}">{% endif %}</td>{% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:0">Viáticos (conveyances) · por turno de sereno</h3>
+    <table class="list tf-tabla">
+      <thead><tr><th>Sitio</th><th>Por turno</th></tr></thead>
+      <tbody>
+      {% for fila in viaticos %}
+        <tr><td>{{ fila.etiqueta }}</td>{% for c in fila.celdas %}<td>{% if c %}<input name="v_{{ c.id }}" value="{{ ('{:,.2f}'.format(c.valor))|replace(',', '§')|replace('.', ',')|replace('§', '.') }}" inputmode="decimal" aria-label="{{ fila.etiqueta }}">{% endif %}</td>{% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tf-guardar"><span class="muted" id="tf-msg" role="status"></span><button class="btn primary" type="submit">Guardar tarifas</button></div>
+</form>
+{% else %}
+<div class="card"><p class="muted">No hay tarifas cargadas.</p></div>
+{% endif %}
+
+<style>
+.tf-bar { display: flex; gap: 24px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+.tf-bar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.tf-nueva { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.tf-tabla input { width: 150px; max-width: 100%; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tf-guardar { position: sticky; bottom: 0; display: flex; justify-content: flex-end; align-items: center; gap: 14px; padding: 10px 0; margin-top: 10px; background: var(--bg, #f3f6fb); }
+@media (max-width: 640px) { .tf-tabla { display: block; overflow-x: auto; } .tf-bar { gap: 12px; } .tf-nueva, .tf-sel { width: 100%; } }
+</style>
+<script>
+// avisa si se sale con cambios sin guardar
+let tfSucio = false;
+const tfForm = document.getElementById("tf-form");
+if (tfForm) {
+  tfForm.addEventListener("input", () => { tfSucio = true; document.getElementById("tf-msg").textContent = "Hay cambios sin guardar."; });
+  tfForm.addEventListener("submit", () => { tfSucio = false; });
+  window.addEventListener("beforeunload", (e) => { if (tfSucio) { e.preventDefault(); e.returnValue = ""; } });
+}
+</script>
+{% endblock %}

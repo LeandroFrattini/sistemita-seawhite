@@ -374,3 +374,26 @@ NORMAL (aceite) 193.493,56 / 290.239,54 / 386.930,38 · INSALUBRE (cereal, ferti
   (SHI DAI: 3 × 328.361,35 + 1 × 540.207,38 = 1.525.291,43; × 1,67 = 2.547.236,69; total 4.072.528,12).
 - SERENOS: una celda por turno trabajado con la tarifa que corresponde; subtotal × (1 + % serenos) + conveyances (cantidad de turnos × viático del sitio); las cargas NO se aplican a los viáticos
   (PORT ALBERNI: 2.079.905,78 + 2.433.489,76 + 5 × 17.588,21 = 4.601.336,59).
+
+## Pasos 8 (Tally) y 9 (Serenos) — construidos (ronda 11)
+
+Código: `app/personal.py` (reglas y cálculos), tabla `TarifaPersonal` con **vigencia** (se edita en **Administración → Tarifas de Tally y Serenos**: se crea una vigencia nueva con la fecha desde la que rigen los precios y se corrigen los que cambiaron),
+endpoints `POST /administracion/proforma-final/tally` y `/serenos`, estado `tally` y `serenos`. Tarifas de agosto 2026 cargadas (encargado, serenos y viáticos), **sin el 10 %** (se usan los valores de la tabla tal cual).
+
+**Tally (Head Tally = encargado)** — los turnos salen del voucher (se pueden quitar, agregar, cambiar el escalón a mano o «traer de nuevo los del voucher»):
+- Día de semana: 07–13 y 13–19 = **Básico (H)**; 19–01 y 01–07 = **Extra 100 %**. Sábado: 07–13 = H · 01–07 y 13–19 = 100 % · 19–01 = **150 %**. Domingo: 07–13 y 13–19 = 100 % · 01–07 y 19–01 = 150 %.
+  El lunes 01–07 vuelve a ser 100 % (día de semana).
+- **Feriado = 3 × el turno básico** de la categoría, todo el día. (Se aplicó igual al día no laborable: **a confirmar**.)
+- Categoría de la carga a elegir (**aceite, cereal, bolsones/materiales, fertilizantes**; sin default: hay que elegirla). Precio por escalón de la tabla, editable por escalón.
+- Cargas sociales del Tally de la agencia (el % se suma). Total en pesos y en dólares (el dólar único del paso 1).
+- Verificado: DISCOVERER (cereal, 2 × H + 1 × 100 %, 167 %) = 3.195.803,31 = la proforma real.
+- Estas reglas cambian dos turnos respecto de proformas viejas: sábado 01–07 (era 150, ahora 100 %) y domingo 13–19 (era H, ahora 100 %).
+
+**Serenos** — turnos de 6 h (00–06, 06–12, 12–18, 18–24) **desde el amarre hasta el zarpe** (todos los que el barco toca), que se pueden quitar y a los que se pueden **agregar turnos**: fecha, turno, categoría y cantidad de serenos (todos los que hagan falta):
+- La tabla manda: **hábil** = 06–12 y 12–18 de día de semana y sábado 06–12; **inhábil** = 00–06 y 18–24 de día de semana y sábado 00–06, 12–18 y 18–24; **domingo y feriado** = todo el día como domingo.
+  (El día no laborable se trató como feriado: **a confirmar**.)
+- Categoría: normal, insalubre, peligroso (una general y, por turno, «como arriba» u otra). Precio por turno editable.
+- Cargas sociales de serenos sobre los sueldos (**no** sobre los viáticos). **Viáticos por turno**: White (17.588,21: sitio ADM, 21, TBB, Cargill, Profertil) o Galván (28.710,71: Galván, Moreno, Dreyfus, Posta y Mega, OTA 1, LDC) o sin viáticos; se multiplican por la cantidad de serenos.
+- Verificado: PORT ALBERNI (5 turnos, 117 %) y SHI DAI 9 (7 turnos, los 7 viáticos de la proforma). Con las reglas nuevas algunos turnos cambian de tarifa respecto de esas proformas (la tabla manda).
+
+Corrección de fondo: los cálculos del asistente (practicaje, muelle, LDS, tally, serenos) ignoran una respuesta vieja si ya hay un pedido más nuevo (dos cálculos seguidos podían pisarse y dejar el total desactualizado).

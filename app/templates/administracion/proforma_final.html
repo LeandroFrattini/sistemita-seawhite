@@ -9,6 +9,7 @@
   <div class="actions">
     <a class="btn" href="/administracion/calendario">Calendario</a>
     <a class="btn" href="/administracion/agencias">Agencias</a>
+    <a class="btn" href="/administracion/tarifas-personal">Tarifas</a>
     <a class="btn" href="/administracion">← Administración</a>
   </div>
 </div>
@@ -31,7 +32,7 @@
     <h3>Resumen</h3>
     <div id="rs-filas"></div>
     <div class="rs-total"><span>Total parcial a facturar</span><b id="rs-total">USD 0,00</b></div>
-    <div class="rs-nota" id="rs-nota">Pasos 1 a 7. Tally, serenos, migraciones y el chequeo general se suman en los próximos pasos.</div>
+    <div class="rs-nota" id="rs-nota">Pasos 1 a 9. Migraciones y el chequeo general se suman en los próximos pasos. Tally y serenos se pasan a dólares con el dólar del paso 1.</div>
   </aside>
 
   <section class="card pfn-body" id="pfn-body">
@@ -159,7 +160,56 @@
       <label class="pfn-chk"><input type="checkbox" id="ad-ajena-chk"> Van «FOR YOUR ACCOUNT» (por cuenta del armador, no se facturan)</label>
     </div>
 
-    {% for n, titulo, sub in pasos if n > 7 %}
+    <div data-pane="8" hidden>
+      <h2>8 · Tally (Head Tally)</h2>
+      <p class="muted">Salen los turnos que se tildaron en el voucher. Elegí la categoría de la carga y el sistema pone el precio de cada turno según el día y la hora.</p>
+      <details class="pfn-info"><summary>Cómo se calcula</summary>
+        <p>Cada turno de 6 horas va a un escalón: <b>Básico</b> (día de semana 07–19 y sábado 07–13), <b>Extra 100 %</b> (día de semana 19–07, sábado 01–07 y 13–19, domingo 07–19)
+        o <b>Extra 150 %</b> (sábado 19–01, domingo 01–07 y 19–01). El <b>feriado</b> y el día no laborable valen 3 veces el turno básico, todo el día.</p>
+        <p>Al total se le suman las cargas sociales del Tally de la agencia (el % se suma: 167 % da ×2,67). Los precios son los de la <a href="/administracion/tarifas-personal">tabla de tarifas</a> vigente a la fecha del amarre.</p>
+      </details>
+      <div class="pfn-grid">
+        <label>Categoría de la carga
+          <select id="ta-cat">
+            <option value="">— Elegí la categoría —</option>
+            <option value="ACEITE">Aceite</option><option value="CEREAL">Cereal</option>
+            <option value="BOLSONES">Bolsones / materiales</option><option value="FERTILIZANTES">Fertilizantes</option>
+          </select>
+        </label>
+      </div>
+      <div id="ta-box"></div>
+      <p class="pfn-total">Total Tally: <b id="ta-total">$ 0,00</b> <span class="muted" id="ta-usd"></span></p>
+    </div>
+
+    <div data-pane="9" hidden>
+      <h2>9 · Serenos</h2>
+      <p class="muted">Los turnos arrancan en el amarre y terminan en el zarpe. Elegí la categoría y los viáticos; podés quitar turnos y agregar los que hagan falta, cada uno con su categoría.</p>
+      <details class="pfn-info"><summary>Cómo se calcula</summary>
+        <p>Turnos de 6 horas (00–06, 06–12, 12–18, 18–24). Según la tabla: <b>día hábil</b> = 06–12 y 12–18 de día de semana y sábado 06–12; <b>día inhábil</b> = 00–06 y 18–24 de día de semana, y sábado 00–06, 12–18 y 18–24;
+        <b>domingo y feriado</b> = todo el día. La categoría es normal, insalubre o peligroso.</p>
+        <p>A los sueldos se les suman las cargas sociales de serenos de la agencia. Los <b>viáticos</b> son por turno, van aparte y no llevan cargas. Precios de la <a href="/administracion/tarifas-personal">tabla de tarifas</a> vigente a la fecha del amarre.</p>
+      </details>
+      <div class="pfn-grid">
+        <label>Categoría de los serenos
+          <select id="se-cat">
+            <option value="">— Elegí la categoría —</option>
+            <option value="NORMAL">Normal (aceite)</option><option value="INSALUBRE">Insalubre (cereal, fertilizantes, bolsones)</option><option value="PELIGROSO">Peligroso (amoníaco, gasoil, posta)</option>
+          </select>
+        </label>
+        <label>Viáticos
+          <select id="se-viat">
+            <option value="">— Elegí los viáticos —</option>
+            <option value="WHITE">Viáticos White (sitio ADM, 21, TBB, Cargill, Profertil)</option>
+            <option value="GALVAN">Viáticos Galván (Galván, Moreno, Dreyfus, Posta y Mega, OTA 1, LDC)</option>
+            <option value="NINGUNO">Sin viáticos</option>
+          </select>
+        </label>
+      </div>
+      <div id="se-box"></div>
+      <p class="pfn-total">Total serenos: <b id="se-total">$ 0,00</b> <span class="muted" id="se-usd"></span></p>
+    </div>
+
+    {% for n, titulo, sub in pasos if n > 9 %}
     <div data-pane="{{ n }}" hidden>
       <h2>{{ n }} · {{ titulo }}</h2>
       <p class="muted">{{ sub }}.</p>
@@ -202,6 +252,26 @@
 .pfn-tabla th, .pfn-tabla td { padding: 4px 8px; text-align: left; border-bottom: 1px solid var(--line-soft); }
 .pfn-tabla th { color: var(--muted); font-weight: 600; font-size: 12px; }
 .pfn-tabla tr.on td { background: #dbe9f8; font-weight: 700; }
+.pfn-trn { display: grid; grid-template-columns: minmax(110px, 1fr) 100px minmax(70px, .6fr) minmax(130px, 1.3fr) minmax(105px, .9fr) 30px; gap: 8px; align-items: center; padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: 10px; margin-bottom: 5px; background: #fff; font-size: 13.5px; }
+.pfn-trn.se { grid-template-columns: minmax(105px, 1fr) 100px minmax(115px, 1.1fr) 56px minmax(105px, .9fr) minmax(105px, .9fr) 30px; }
+.pfn-trn.cab { border: 0; background: none; padding: 0 10px; font-size: 11.5px; color: var(--muted); margin-bottom: 0; }
+.pfn-trn small { display: block; color: var(--muted); font-size: 11.5px; }
+.pfn-trn input, .pfn-trn select { width: 100%; min-width: 0; }
+.pfn-trn .num { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pfn-trn .quitar { border: 0; background: none; cursor: pointer; font-size: 16px; color: #b91c1c; padding: 4px; }
+.pfn-trn.feriado { background: #fef2f2; border-color: #f3c0c0; }
+.pfn-agregar { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 10px 0; padding: 10px 12px; background: #f4f8fd; border: 1px dashed var(--line); border-radius: 12px; }
+.pfn-agregar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.pfn-agregar input, .pfn-agregar select { width: auto; min-width: 0; }
+.pfn-tabla input { width: 130px; text-align: right; font-weight: 600; }
+.pfn-tabla td.num, .pfn-tabla th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pfn-tabla td:last-child { white-space: nowrap; }
+.pfn-tabla tr.sub td { font-weight: 700; border-top: 2px solid var(--line-soft); }
+@media (max-width: 760px) {
+  .pfn-trn, .pfn-trn.se { grid-template-columns: 1fr 1fr; }
+  .pfn-trn.cab { display: none; }
+  .pfn-trn .quitar { justify-self: end; grid-column: 2; }
+}
 .pfn-info { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 .pfn-info summary { cursor: pointer; color: var(--blue-dark, #154a86); font-weight: 600; width: fit-content; }
 .pfn-info p { margin: 6px 0 0; }
@@ -277,6 +347,7 @@
 .pfn-nav { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; padding: 10px 0; position: sticky; bottom: 0; background: #fff; border-top: 1px solid var(--line-soft); z-index: 5; }
 .pfn-nav-total { font-size: 13px; color: var(--muted); text-align: center; }
 .pfn-nav-total b { display: block; font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .pfn-nav .btn { padding: 8px 10px; font-size: 13px; white-space: nowrap; } .pfn-nav-total { font-size: 12px; } .pfn-nav-total b { font-size: 13px; white-space: nowrap; } }
 @media (max-width: 860px) {
   .pfn-layout { grid-template-columns: 1fr; grid-template-areas: "steps" "body" "resumen"; grid-template-rows: auto; }
   .pfn-steps { flex-direction: row; overflow-x: auto; }
@@ -299,6 +370,9 @@ const TOTAL = {{ pasos|length }};
 let step = 1;
 let FEES = [];  // renglones de fee de la agencia elegida: {texto, monto_usd, on, revisar, manual}
 const $ = (s, r = document) => r.querySelector(s);
+// Si dos calculos del mismo paso salen casi juntos, solo vale la respuesta del ultimo pedido (la vieja puede llegar despues y pisarlo)
+const SEQ = {};
+const nuevoPedido = (k) => (SEQ[k] = (SEQ[k] || 0) + 1);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 // Numeros como se escriben aca: "1.050,50" -> 1050,5 ; "21.173" -> 21173 (punto de miles) ; "750.5" y "0.125" son decimales
 const num = (v) => {
@@ -325,7 +399,7 @@ function getState() {
     buque: BUQUE,
     practicaje: PRACT,
     muelle: MUELLE, fondeo: FONDEO, vias: VIAS,
-    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_draft: DRAFT, aduana: { ...ADUANA, usd: totalAduana() }, escala: { ...ESCALA, on: escalaOn(), on_set: true },
+    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_draft: DRAFT, aduana: { ...ADUANA, usd: totalAduana() }, tally: TALLY, serenos: SERENOS, escala: { ...ESCALA, on: escalaOn(), on_set: true },
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
       id: sel.value ? Number(sel.value) : null,
@@ -507,6 +581,8 @@ function setState(s) {
   ESCALA = { ...escalaVacia(), ...s.escala }; DRAFT = { ...draftVacio(), ...s.lds_draft };
   ADUANA = { cuenta_ajena: !!(s.aduana && s.aduana.cuenta_ajena), items: s.aduana && s.aduana.items ? s.aduana.items.map((i) => ({ ...i })) : aduanaInicial().items };
   pintarAduana();
+  TALLY = { ...tallyVacio(), ...s.tally, precios: { ...tallyVacio().precios, ...(s.tally && s.tally.precios) } }; TA_CALC = null; firmaTaAnt = ""; pintarTally();
+  SERENOS = { ...serenosVacio(), ...s.serenos }; SE_CALC = null; firmaSeAnt = ""; pintarSerenos();
   firmaLdCargada = firmaLd(); firmaLdAnt = "";
   $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
   $("#dolar-fecha").value = s.dolar.fecha || "";
@@ -533,16 +609,21 @@ function resetPract() {  // al cambiar de barco los importes de practicaje empie
   resetMuelle();
   resetLds();
   resetAduana();
+  resetTally();
+  resetSerenos();
 }
 const firmaPract = () => { const b = BUQUE; return [b.eslora, b.manga, b.puntal, b.calado_entrada, b.calado_salida].join("|"); };
 const usd2 = (n) => "USD " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 async function calcularPracticaje() {
+  const pedido = nuevoPedido("pract");
   const b = getState().buque;
   firmaPractAnt = firmaPract();
   const r = await fetch("/administracion/proforma-final/practicaje", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(b) });
   if (!r.ok) return;
-  PRACT_CALC = await r.json();
+  const dato = await r.json();
+  if (pedido !== SEQ.pract) return;  // llego una respuesta vieja: ya hay un pedido mas nuevo
+  PRACT_CALC = dato;
   const respetar = firmaCargada !== null && firmaCargada === firmaPract();  // proforma cargada de un Excel y sin tocar los datos: se conservan sus importes
   ["in", "out"].forEach((k) => {
     if (!PRACT[k].manual && !(respetar && PRACT[k].usd > 0)) PRACT[k].usd = PRACT_CALC[k] ? PRACT_CALC[k].total : 0;
@@ -618,13 +699,16 @@ function resetMuelle() {  // al cambiar de barco, el paso 5 empieza de cero
 }
 
 async function calcularMuelle() {
+  const pedido = nuevoPedido("muelle");
   getState();  // sincroniza lo que se ve en el paso 3
   firmaMuAnt = firmaMu();
   const body = { trn: BUQUE.trn, cantidad: num(BUQUE.cantidad), entrada: entradaEf(), salida: salidaEf(), inicio: BUQUE.inicio, aplicar_beneficio: !MUELLE.sin_beneficio, fondeo: FONDEO.on,
     fondeo_entrada: FONDEO.entrada, fondeo_salida: FONDEO.salida, solo_bunker: VIAS.solo_bunker, factor: VIAS.factor };
   const r = await fetch("/administracion/proforma-final/muelle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) return;
-  MU_CALC = await r.json();
+  const dato = await r.json();
+  if (pedido !== SEQ.muelle) return;  // llego una respuesta vieja: ya hay un pedido mas nuevo
+  MU_CALC = dato;
   MUELLE.perdonados = MU_CALC.muelle.beneficio.aplicado ? MU_CALC.muelle.beneficio.dias : 0;
   const respetar = firmaMuCargada !== null && firmaMuCargada === firmaMu();  // Excel cargado y sin tocar los datos: se conservan sus importes
   [[MUELLE, MU_CALC.muelle], [FONDEO, MU_CALC.fondeo], [VIAS, MU_CALC.vias]].forEach(([obj, c]) => {
@@ -766,13 +850,16 @@ function resetLds() {  // al cambiar de barco, el paso 6 empieza de cero
 }
 
 async function calcularLds() {
+  const pedido = nuevoPedido("lds");
   getState();
   firmaLdAnt = firmaLd();
   const body = { eslora: BUQUE.eslora, amarre: momAm(), desamarre: momDes(), lanchas_amarre: AMLDS.lanchas, lanchas_desamarre: DESLDS.lanchas,
     escala: escalaOn(), escala_dias: ESCALA.dias, draft: DRAFT.on, draft_momento: momDraft() };
   const r = await fetch("/administracion/proforma-final/lds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) return;
-  LD_CALC = await r.json();
+  const dato = await r.json();
+  if (pedido !== SEQ.lds) return;  // llego una respuesta vieja: ya hay un pedido mas nuevo
+  LD_CALC = dato;
   const respetar = firmaLdCargada !== null && firmaLdCargada === firmaLd();  // Excel cargado y sin tocar los datos: se conservan sus importes
   [[AMLDS, LD_CALC.amarre], [DESLDS, LD_CALC.desamarre], [ESCALA, LD_CALC.escala], [DRAFT, LD_CALC.draft]].forEach(([obj, c]) => {
     if (!obj.manual && !(respetar && obj.usd > 0)) obj.usd = c && c.total_usd ? c.total_usd : 0;
@@ -897,8 +984,213 @@ function actualizarTotalesAd() {
 }
 $("#ad-ajena-chk").addEventListener("change", (ev) => { ADUANA.cuenta_ajena = ev.target.checked; actualizarTotalesAd(); render(); });
 
+// ---- Paso 8 (Tally) y paso 9 (Serenos): en pesos; el calculo y las reglas estan en el servidor (app/personal.py)
+const TURNOS_TXT = { "01-07": "01:00–07:00", "07-13": "07:00–13:00", "13-19": "13:00–19:00", "19-01": "19:00–01:00" };
+const VENT_TXT = { "00-06": "00:00–06:00", "06-12": "06:00–12:00", "12-18": "12:00–18:00", "18-24": "18:00–24:00" };
+const NIV_TXT = { H: "Básico (hábil)", "100": "Extra 100 %", "150": "Extra 150 %", F3: "Feriado (×3)" };
+const NIV_CORTO = { H: "Básico", "100": "Extra 100 %", "150": "Extra 150 %", F3: "Feriado ×3" };  // para el desplegable, que es angosto
+const CAT_TXT = { NORMAL: "Normal", INSALUBRE: "Insalubre", PELIGROSO: "Peligroso" };
+const TIER_TXT = { HABIL: "día hábil", INHABIL: "día inhábil", DOMINGO: "domingo / feriado" };
+const ars = (n) => "$ " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fechaDMY = (iso) => iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4);
+const diaCorto = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("es-AR", { weekday: "short" }).replace(".", "");
+const refFecha = () => (BUQUE.amarre || "").slice(0, 10) || ((TALLY.turnos[0] || SERENOS.turnos[0] || {}).fecha || "");
+const ordenTurno = ["01-07", "07-13", "13-19", "19-01"], ordenVent = ["00-06", "06-12", "12-18", "18-24"];
+
+function celdaFecha(fecha, tipo) {
+  const c = elx("span"); c.append(fechaDMY(fecha)); c.appendChild(elx("small", null, diaCorto(fecha) + (tipo ? " · " + DIA_TXT[tipo] : ""))); return c;
+}
+
+// ----- Tally
+const tallyVacio = () => ({ categoria: "", armado: false, turnos: [], precios: { H: 0, "100": 0, "150": 0, F3: 0 }, resumen: [], subtotal_ars: 0, cargas_ars: 0, total_ars: 0 });
+let TALLY = tallyVacio(), TA_CALC = null, firmaTaAnt = "";
+const firmaTa = () => JSON.stringify([TALLY.categoria, TALLY.turnos.map((t) => [t.fecha, t.turno, t.nivel]), TALLY.precios, $("#ag-tal").value, $("#dolar-valor").value, refFecha()]);
+
+function armarTally() {  // los turnos que se tildaron en el voucher del Head Tally
+  TALLY.turnos = (BUQUE.turnos || []).map((t) => ({ fecha: t.fecha, turno: t.turno, act: t.act || "", nivel: "" })); TALLY.armado = true;
+}
+function resetTally() { TALLY = tallyVacio(); armarTally(); TA_CALC = null; firmaTaAnt = ""; pintarTally(); }
+
+async function calcularTally() {
+  const pedido = nuevoPedido("tally");
+  const s = getState(); firmaTaAnt = firmaTa();
+  const body = { categoria: TALLY.categoria, turnos: TALLY.turnos, precios: TALLY.precios, pct: s.agencia.tally_pct, dolar: s.dolar.valor, ref: refFecha() };
+  const r = await fetch("/administracion/proforma-final/tally", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) return;
+  const dato = await r.json();
+  if (pedido !== SEQ.tally) return;  // llego una respuesta vieja: ya hay un pedido mas nuevo
+  TA_CALC = dato;
+  TALLY.resumen = TA_CALC.resumen.filter((x) => x.cantidad).map((x) => ({ nivel: x.nivel, cantidad: x.cantidad, precio: x.precio }));
+  TALLY.subtotal_ars = TA_CALC.subtotal; TALLY.cargas_ars = TA_CALC.cargas; TALLY.total_ars = TA_CALC.total;
+  pintarTally(); render();
+}
+
+function pintarTally() {
+  $("#ta-cat").value = TALLY.categoria;
+  const box = $("#ta-box"); box.replaceChildren();
+  const c = TA_CALC, lista = TALLY.turnos;
+  const ok = !!(c && c.filas && c.filas.length === lista.length);
+  if (!lista.length) box.appendChild(elx("p", "muted", "No hay turnos de Head Tally. Si el voucher no lleva Head Tally no hace falta nada; si hubo, agregalos acá abajo."));
+  else {
+    const cab = elx("div", "pfn-trn cab"); ["Fecha", "Turno", "Actividad", "Escalón", "Precio", ""].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
+    lista.forEach((t, i) => {
+      const f = ok ? c.filas[i] : null;
+      const row = elx("div", "pfn-trn" + (f && f.nivel === "F3" ? " feriado" : ""));
+      const act = elx("input"); act.value = t.act; act.maxLength = 30; act.setAttribute("aria-label", "Actividad del turno"); act.addEventListener("input", () => { t.act = act.value.toUpperCase(); });
+      const sel = elx("select"); sel.setAttribute("aria-label", "Escalón del turno");
+      sel.appendChild(new Option("Auto" + (f ? ": " + NIV_CORTO[f.nivel_auto] : ""), ""));
+      Object.entries(NIV_CORTO).forEach(([k, v]) => sel.appendChild(new Option(v, k)));
+      sel.value = t.nivel; sel.addEventListener("change", () => { t.nivel = sel.value; render(); });
+      const x = elx("button", "quitar", "✕"); x.type = "button"; x.title = "Quitar este turno"; x.setAttribute("aria-label", "Quitar el turno");
+      x.addEventListener("click", () => { lista.splice(i, 1); render(); pintarTally(); });
+      row.append(celdaFecha(t.fecha, f && f.tipo_dia), elx("span", null, TURNOS_TXT[t.turno]), act, sel, elx("span", "num", f ? ars(f.precio) : "—"), x);
+      box.appendChild(row);
+    });
+  }
+  // agregar un turno y volver a traer los del voucher
+  const ag = elx("div", "pfn-agregar");
+  const lf = elx("label", null, "Fecha del turno"); const fi = elx("input"); fi.type = "date"; lf.appendChild(fi);
+  const lt = elx("label", null, "Turno"); const ts = elx("select"); ordenTurno.forEach((k) => ts.appendChild(new Option(TURNOS_TXT[k], k))); lt.appendChild(ts);
+  const b = elx("button", "btn", "+ Agregar turno"); b.type = "button";
+  b.addEventListener("click", () => {
+    if (!fi.value) { msg("Elegí la fecha del turno que querés agregar.", false); return; }
+    if (lista.some((t) => t.fecha === fi.value && t.turno === ts.value)) { msg("Ese turno ya está en la lista.", false); return; }
+    lista.push({ fecha: fi.value, turno: ts.value, act: "", nivel: "" });
+    lista.sort((p, q) => (p.fecha + ordenTurno.indexOf(p.turno)).localeCompare(q.fecha + ordenTurno.indexOf(q.turno)));
+    TALLY.armado = true; render(); pintarTally();
+  });
+  ag.append(lf, lt, b);
+  if ((BUQUE.turnos || []).length) {
+    const rb = elx("button", "btn", "↺ Traer de nuevo los turnos del voucher"); rb.type = "button";
+    rb.addEventListener("click", () => { if (confirm("Se reemplaza la lista por los turnos del voucher y se pierden los cambios hechos acá. ¿Seguir?")) { armarTally(); render(); pintarTally(); } });
+    ag.appendChild(rb);
+  }
+  box.appendChild(ag);
+  // resumen por escalon, con el precio editable
+  if (ok && c.resumen.some((r) => r.cantidad)) {
+    const t = elx("table", "pfn-tabla");
+    const th = elx("tr"); [["Escalón", ""], ["Turnos", "num"], ["Precio por turno", "num"], ["Total", "num"]].forEach(([x, cl]) => th.appendChild(elx("th", cl, x))); t.appendChild(th);
+    c.resumen.filter((r) => r.cantidad).forEach((r) => {
+      const tr = elx("tr"); tr.appendChild(elx("td", null, r.etiqueta)); tr.appendChild(elx("td", "num", String(r.cantidad)));
+      const td = elx("td", "num"); const inp = elx("input"); inp.inputMode = "decimal"; inp.value = fm2(r.precio); inp.setAttribute("aria-label", "Precio por turno, " + r.etiqueta);
+      inp.addEventListener("change", () => { const v = num(inp.value); TALLY.precios[r.nivel] = Math.abs(v - r.precio_tabla) < 0.005 ? 0 : v; render(); });
+      td.appendChild(inp); if (r.manual) td.appendChild(elx("small", null, "a mano (tabla: " + ars(r.precio_tabla) + ")"));
+      tr.append(td, elx("td", "num", ars(r.total))); t.appendChild(tr);
+    });
+    const fila = (txt, v, cl) => { const tr = elx("tr", cl); tr.append(elx("td", null, txt), elx("td"), elx("td"), elx("td", "num", v)); t.appendChild(tr); };
+    fila("Subtotal", ars(c.subtotal), "sub");
+    fila(`Cargas sociales Tally (${fmt(c.cargas_pct)} %)`, ars(c.cargas));
+    fila("Total en pesos", ars(c.total), "sub");
+    if (c.total_usd != null) fila("Total en dólares (dólar del paso 1)", usd2(c.total_usd));
+    box.appendChild(t);
+    if (c.vigencia) box.appendChild(elx("p", "muted", "Tarifas vigentes desde el " + fechaDMY(c.vigencia) + "."));
+  }
+  $("#ta-total").textContent = ars(TALLY.total_ars);
+  $("#ta-usd").textContent = TA_CALC && TA_CALC.total_usd != null ? "· " + usd2(TA_CALC.total_usd) : "";
+}
+$("#ta-cat").addEventListener("change", (ev) => { TALLY.categoria = ev.target.value; render(); });
+
+// ----- Serenos
+const serenosVacio = () => ({ categoria: "", viatico: "", viatico_precio: 0, armado: false, turnos: [], cantidad: 0, subtotal_ars: 0, cargas_ars: 0, viaticos_ars: 0, total_ars: 0 });
+let SERENOS = serenosVacio(), SE_CALC = null, firmaSeAnt = "";
+const firmaSe = () => JSON.stringify([SERENOS.categoria, SERENOS.viatico, SERENOS.viatico_precio, SERENOS.armado, SERENOS.turnos, $("#ag-ser").value, $("#dolar-valor").value,
+  refFecha(), SERENOS.armado ? "" : [BUQUE.amarre, BUQUE.zarpe]]);
+function resetSerenos() { SERENOS = serenosVacio(); SE_CALC = null; firmaSeAnt = ""; pintarSerenos(); }
+
+async function calcularSerenos(forzar) {
+  const pedido = nuevoPedido("serenos");
+  const s = getState(); if (forzar) SERENOS.armado = false;
+  firmaSeAnt = firmaSe();
+  const body = { categoria: SERENOS.categoria, viatico: SERENOS.viatico, viatico_precio: SERENOS.viatico_precio, turnos: SERENOS.armado ? SERENOS.turnos : null,
+    amarre: BUQUE.amarre, zarpe: BUQUE.zarpe, pct: s.agencia.serenos_pct, dolar: s.dolar.valor, ref: refFecha() };
+  const r = await fetch("/administracion/proforma-final/serenos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) return;
+  const dato = await r.json();
+  if (pedido !== SEQ.serenos) return;  // llego una respuesta vieja: ya hay un pedido mas nuevo
+  SE_CALC = dato;
+  if (!SERENOS.armado && SE_CALC.turnos_auto && SE_CALC.turnos_auto.length) {  // primera vez: los turnos desde el amarre hasta el zarpe
+    SERENOS.turnos = SE_CALC.turnos_auto; SERENOS.armado = true; firmaSeAnt = firmaSe();
+  }
+  SERENOS.cantidad = SE_CALC.cantidad; SERENOS.subtotal_ars = SE_CALC.subtotal; SERENOS.cargas_ars = SE_CALC.cargas;
+  SERENOS.viaticos_ars = SE_CALC.viatico.total; SERENOS.total_ars = SE_CALC.total;
+  pintarSerenos(); render();
+}
+
+function pintarSerenos() {
+  $("#se-cat").value = SERENOS.categoria; $("#se-viat").value = SERENOS.viatico;
+  const box = $("#se-box"); box.replaceChildren();
+  const c = SE_CALC, lista = SERENOS.turnos;
+  const ok = !!(c && c.filas && c.filas.length === lista.length);
+  if (!lista.length) {
+    box.appendChild(elx("p", SERENOS.armado || (BUQUE.amarre && BUQUE.zarpe) ? "muted" : "falta", SERENOS.armado ? "No hay turnos de serenos. Agregá los que hagan falta acá abajo." :
+      (BUQUE.amarre && BUQUE.zarpe ? "Armando los turnos desde el amarre hasta el zarpe…" : "Faltan el amarre y el zarpe (paso 3) para armar los turnos. También podés agregarlos a mano acá abajo.")));
+  } else {
+    const cab = elx("div", "pfn-trn se cab"); ["Fecha", "Turno", "Categoría", "Serenos", "Precio por turno", "Total", ""].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
+    lista.forEach((t, i) => {
+      const f = ok ? c.filas[i] : null;
+      const row = elx("div", "pfn-trn se" + (f && f.tier === "DOMINGO" && f.tipo_dia !== "DOMINGO" ? " feriado" : ""));
+      const sel = elx("select"); sel.setAttribute("aria-label", "Categoría del turno");
+      sel.appendChild(new Option(SERENOS.categoria ? "Como arriba: " + CAT_TXT[SERENOS.categoria] : "Como arriba", ""));
+      Object.entries(CAT_TXT).forEach(([k, v]) => sel.appendChild(new Option(v, k)));
+      sel.value = t.cat; sel.addEventListener("change", () => { t.cat = sel.value; render(); });
+      const cant = elx("input"); cant.inputMode = "numeric"; cant.value = String(t.cant); cant.setAttribute("aria-label", "Cantidad de serenos");
+      cant.addEventListener("change", () => { t.cant = Math.max(1, Math.min(100, Math.round(num(cant.value)) || 1)); render(); });
+      const pr = elx("input"); pr.inputMode = "decimal"; pr.value = f ? fm2(f.precio) : ""; pr.setAttribute("aria-label", "Precio por turno");
+      pr.title = f && f.manual ? "Modificado a mano (tabla: " + ars(f.precio_tabla) + ")" : (f ? TIER_TXT[f.tier] : "");
+      pr.addEventListener("change", () => { const v = num(pr.value); t.precio = f && Math.abs(v - f.precio_tabla) < 0.005 ? 0 : v; render(); });
+      const x = elx("button", "quitar", "✕"); x.type = "button"; x.title = "Quitar este turno"; x.setAttribute("aria-label", "Quitar el turno");
+      x.addEventListener("click", () => { lista.splice(i, 1); render(); pintarSerenos(); });
+      row.append(celdaFecha(t.fecha, f && f.tipo_dia), elx("span", null, VENT_TXT[t.ventana]), sel, cant, pr, elx("span", "num", f ? ars(f.total) : "—"), x);
+      box.appendChild(row);
+    });
+  }
+  // agregar turnos (cuantos hagan falta, de la categoria que se elija) y rearmar
+  const ag = elx("div", "pfn-agregar");
+  const lf = elx("label", null, "Fecha"); const fi = elx("input"); fi.type = "date"; lf.appendChild(fi);
+  const lt = elx("label", null, "Turno"); const ts = elx("select"); ordenVent.forEach((k) => ts.appendChild(new Option(VENT_TXT[k], k))); lt.appendChild(ts);
+  const lc = elx("label", null, "Categoría"); const cs = elx("select");
+  cs.appendChild(new Option("Igual que arriba", "")); Object.entries(CAT_TXT).forEach(([k, v]) => cs.appendChild(new Option(v, k))); lc.appendChild(cs);
+  const ln = elx("label", null, "Cantidad de serenos"); const ni = elx("input"); ni.inputMode = "numeric"; ni.value = "1"; ln.appendChild(ni);
+  const b = elx("button", "btn", "+ Agregar"); b.type = "button";
+  b.addEventListener("click", () => {
+    if (!fi.value) { msg("Elegí la fecha del turno que querés agregar.", false); return; }
+    const cant = Math.max(1, Math.min(100, Math.round(num(ni.value)) || 1));
+    const ya = lista.find((t) => t.fecha === fi.value && t.ventana === ts.value && t.cat === cs.value && !t.precio);
+    if (ya) ya.cant = Math.min(100, ya.cant + cant); else lista.push({ fecha: fi.value, ventana: ts.value, cat: cs.value, cant, precio: 0 });
+    lista.sort((p, q) => (p.fecha + ordenVent.indexOf(p.ventana)).localeCompare(q.fecha + ordenVent.indexOf(q.ventana)));
+    SERENOS.armado = true; render(); pintarSerenos();
+  });
+  ag.append(lf, lt, lc, ln, b);
+  if (BUQUE.amarre && BUQUE.zarpe) {
+    const rb = elx("button", "btn", "↺ Rearmar desde el amarre y el zarpe"); rb.type = "button";
+    rb.addEventListener("click", () => { if (!lista.length || confirm("Se reemplaza la lista por los turnos del amarre al zarpe y se pierden los cambios hechos acá. ¿Seguir?")) { SERENOS.turnos = []; calcularSerenos(true); } });
+    ag.appendChild(rb);
+  }
+  box.appendChild(ag);
+  if (ok && c.filas.length) {
+    const t = elx("table", "pfn-tabla");
+    const fila = (txt, v, cl, extra) => { const tr = elx("tr", cl); const a = elx("td", null, txt); if (extra) a.appendChild(extra); tr.append(a, elx("td", "num", v)); t.appendChild(tr); };
+    fila(`Sueldos (${c.cantidad} turno${c.cantidad === 1 ? "" : "s"})`, ars(c.subtotal), "sub");
+    fila(`Cargas sociales serenos (${fmt(c.cargas_pct)} %)`, ars(c.cargas));
+    if (c.viatico.tipo) {
+      const inp = elx("input"); inp.inputMode = "decimal"; inp.value = fm2(c.viatico.unit); inp.setAttribute("aria-label", "Viático por turno");
+      inp.addEventListener("change", () => { const v = num(inp.value); SERENOS.viatico_precio = Math.abs(v - c.viatico.unit_tabla) < 0.005 ? 0 : v; render(); });
+      const w = elx("span"); w.append(" ", inp, ` × ${c.viatico.cantidad}`);
+      fila("Viáticos por turno (sin cargas)", ars(c.viatico.total), "", w);
+    }
+    fila("Total en pesos", ars(c.total), "sub");
+    if (c.total_usd != null) fila("Total en dólares (dólar del paso 1)", usd2(c.total_usd));
+    box.appendChild(t);
+    if (c.vigencia) box.appendChild(elx("p", "muted", "Tarifas vigentes desde el " + fechaDMY(c.vigencia) + "."));
+  }
+  $("#se-total").textContent = ars(SERENOS.total_ars);
+  $("#se-usd").textContent = SE_CALC && SE_CALC.total_usd != null ? "· " + usd2(SE_CALC.total_usd) : "";
+}
+$("#se-cat").addEventListener("change", (ev) => { SERENOS.categoria = ev.target.value; render(); });
+$("#se-viat").addEventListener("change", (ev) => { SERENOS.viatico = ev.target.value; render(); });
+
 // ---- Estado de cada paso: que falta, aviso del paso actual y resumen
-const PASOS_LISTOS = 7;          // pasos ya armados; del 8 en adelante figuran como "Próximamente"
+const PASOS_LISTOS = 9;          // pasos ya armados; del 8 en adelante figuran como "Próximamente"
 const VISITADOS = new Set([1]);  // pasos por los que ya se paso (solo ahi se marca "falta completar")
 
 function faltantes(s) {
@@ -922,7 +1214,14 @@ function faltantes(s) {
   if (s.escala.on && !(s.escala.usd > 0)) f[6].push("Falta el importe de la escala (revisá los días de alquiler).");
   if (s.lds_draft.on && !(s.lds_draft.usd > 0)) f[6].push("Falta el importe de la lancha de draft (revisá la fecha del uso).");
   f[7] = s.aduana.items.some((i) => i.on && !(i.cant > 0)) ? ["Hay habilitaciones tildadas sin cantidad."] : [];
-  for (let n = 8; n <= TOTAL; n++) f[n] = [];
+  f[8] = [];
+  if (s.tally.turnos.length && !s.tally.categoria) f[8].push("Elegí la categoría de la carga: con ella se pone el precio de cada turno.");
+  if (s.tally.turnos.length && s.tally.categoria && !(s.tally.total_ars > 0)) f[8].push("Todavía no hay un total: revisá la categoría y los turnos.");
+  f[9] = [];
+  if (!s.serenos.turnos.length && !(b.amarre && b.zarpe)) f[9].push("Faltan el amarre y el zarpe (paso 3) para armar los turnos, o agregalos a mano.");
+  if (s.serenos.turnos.length && !s.serenos.categoria && s.serenos.turnos.some((t) => !t.cat)) f[9].push("Elegí la categoría de los serenos (normal, insalubre o peligroso).");
+  if (s.serenos.turnos.length && !s.serenos.viatico) f[9].push("Elegí los viáticos (White, Galván o sin viáticos).");
+  for (let n = 10; n <= TOTAL; n++) f[n] = [];
   return f;
 }
 
@@ -937,6 +1236,10 @@ function pintarAviso(s, faltan) {
     const ul = elx("ul"); f.forEach((t) => ul.appendChild(elx("li", null, t))); a.appendChild(ul);
   } else if (step === 7 && !(s.aduana.usd > 0)) {
     a.textContent = "No hay habilitaciones tildadas. Si el barco no tuvo, seguí con el paso siguiente.";
+  } else if (step === 8 && !(s.tally.total_ars > 0)) {
+    a.textContent = "No hay turnos de Head Tally. Si el barco no tuvo, seguí con el paso siguiente; si tuvo, agregalos abajo.";
+  } else if (step === 9 && !(s.serenos.total_ars > 0)) {
+    a.textContent = "Todavía no hay turnos de serenos con importe.";
   } else { a.classList.add("listo"); a.textContent = "✓ Este paso está completo. Revisá los importes y seguí con el siguiente."; }
 }
 
@@ -963,8 +1266,11 @@ function pintarResumen(s) {
   fila("Escala (shore gangway)", s.escala.usd, s.escala.cuenta_ajena, s.escala.on);
   fila("Lancha de draft", s.lds_draft.usd, s.lds_draft.cuenta_ajena, s.lds_draft.on);
   fila("Habilitaciones de aduana", s.aduana.usd, s.aduana.cuenta_ajena);
+  const aUsd = (ars_) => (s.dolar.valor > 0 && ars_ > 0 ? ars_ / s.dolar.valor : 0);
+  fila("Tally (head tally)", aUsd(s.tally.total_ars), false);
+  fila("Serenos", aUsd(s.serenos.total_ars), false);
   $("#rs-total").textContent = usd2(fact); $("#nav-total").textContent = usd2(fact);
-  $("#rs-nota").textContent = (ajena ? `Por cuenta del armador (no se suma): ${usd2(ajena)}. ` : "") + "Pasos 1 a 7. Tally, serenos, migraciones y el chequeo general se suman en los próximos pasos.";
+  $("#rs-nota").textContent = (ajena ? `Por cuenta del armador (no se suma): ${usd2(ajena)}. ` : "") + "Pasos 1 a 9. Migraciones y el chequeo general se suman en los próximos pasos.";
 }
 
 function render() {
@@ -974,10 +1280,12 @@ function render() {
   if (step === 4 && firmaPract() !== firmaPractAnt) calcularPracticaje();
   if (step === 5 && firmaMu() !== firmaMuAnt) calcularMuelle();
   if (step === 6 && firmaLd() !== firmaLdAnt) calcularLds();
+  if (step === 8 && firmaTa() !== firmaTaAnt) calcularTally();
+  if (step === 9 && firmaSe() !== firmaSeAnt) calcularSerenos();
   const faltan = faltantes(s);
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
-    const pronto = n > PASOS_LISTOS, completo = !pronto && faltan[n].length === 0 && (n !== 7 || s.aduana.usd > 0);
+    const pronto = n > PASOS_LISTOS, completo = !pronto && faltan[n].length === 0 && (n !== 7 || s.aduana.usd > 0) && (n !== 8 || s.tally.total_ars > 0) && (n !== 9 || s.serenos.total_ars > 0);
     const aviso = !pronto && !completo && faltan[n].length > 0 && VISITADOS.has(n) && n !== step;
     b.classList.toggle("on", n === step);
     b.classList.toggle("done", completo);

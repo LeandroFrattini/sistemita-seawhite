@@ -16,9 +16,10 @@ from ..auth import administracion_required
 from ..database import get_db
 from ..docgen.fechas import parse_number
 from ..docgen import voucher as vch
-from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, User
+from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, TarifaPersonal, User
 from .. import practicaje as pract
 from .. import lds as lds_calc
+from .. import personal
 from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
@@ -206,6 +207,35 @@ async def proforma_final_lds(request: Request, db: Session = Depends(get_db), us
     )
 
 
+def _ref_fecha(d: dict) -> date | None:
+    try:
+        return date.fromisoformat(str(d.get("ref") or "")[:10])
+    except ValueError:
+        return None
+
+
+@router.post("/proforma-final/tally")
+async def proforma_final_tally(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Tally (Head Tally): escalon de cada turno, precio por categoria de carga, cargas sociales y total en pesos y dolares."""
+    d = await request.json()
+    d = d if isinstance(d, dict) else {}
+    t = personal.clean_tally({"turnos": d.get("turnos"), "precios": d.get("precios"), "categoria": d.get("categoria")})
+    return personal.calcular_tally(db, categoria=t["categoria"], turnos=t["turnos"], precios=t["precios"], pct=pf._num(d.get("pct"), 1000),
+                                   dolar=pf._num(d.get("dolar"), 1_000_000), ref=_ref_fecha(d))
+
+
+@router.post("/proforma-final/serenos")
+async def proforma_final_serenos(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Serenos: turnos desde el amarre al zarpe (o los que se cargaron), tarifa por dia/hora/categoria, cargas y viaticos."""
+    d = await request.json()
+    d = d if isinstance(d, dict) else {}
+    armado = d.get("turnos") is not None
+    s = personal.clean_serenos({"turnos": d.get("turnos"), "categoria": d.get("categoria"), "viatico": d.get("viatico"), "viatico_precio": d.get("viatico_precio")})
+    return personal.calcular_serenos(db, categoria=s["categoria"], viatico=s["viatico"], viatico_precio=s["viatico_precio"], turnos=s["turnos"] if armado else None,
+                                     amarre=pf._datetime(d.get("amarre")), zarpe=pf._datetime(d.get("zarpe")), pct=pf._num(d.get("pct"), 1000),
+                                     dolar=pf._num(d.get("dolar"), 1_000_000), ref=_ref_fecha(d))
+
+
 @router.post("/proforma-final/excel")
 async def proforma_final_excel(request: Request, user: User = Depends(administracion_required)):
     state = pf.clean_state(await request.json())
@@ -280,6 +310,77 @@ def agencias_cargar_lista(db: Session = Depends(get_db), user: User = Depends(ad
         cargadas.append(c.name)
     db.commit()
     return RedirectResponse(f"/administracion/agencias?ok=1&cargadas={len(cargadas)}", status_code=303)
+
+
+# ------------------------------------------------------- tarifas de personal --
+def _numero_ar(txt: str) -> float | None:
+    """'193.493,56' o '193493,56' o '193493.56' -> 193493.56 (None si no es un numero)."""
+    t = (txt or "").strip().replace(" ", "")
+    if "," in t:
+        t = t.replace(".", "").replace(",", ".")
+    elif t.count(".") > 1:
+        t = t.replace(".", "")
+    try:
+        n = float(t)
+    except ValueError:
+        return None
+    return round(n, 2) if 0 <= n <= 1e10 else None
+
+
+@router.get("/tarifas-personal", response_class=HTMLResponse)
+def tarifas_personal_page(request: Request, vigencia: str = "", db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    filas = db.scalars(select(TarifaPersonal).order_by(TarifaPersonal.vigencia, TarifaPersonal.id)).all()
+    vigencias = sorted({f.vigencia for f in filas}, reverse=True)
+    elegida = vigencia if vigencia in vigencias else (vigencias[0] if vigencias else "")
+    por = {(f.servicio, f.categoria, f.nivel): f for f in filas if f.vigencia == elegida}
+
+    def grilla(servicio, categorias, niveles):
+        return [{"categoria": k, "etiqueta": et, "celdas": [por.get((servicio, k, n)) for n in niveles]} for k, et in categorias.items()]
+
+    return templates.TemplateResponse(request, "administracion/tarifas_personal.html", {
+        "user": user, "vigencias": vigencias, "elegida": elegida, "hoy": date.today().isoformat(),
+        "tally": grilla("TALLY", personal.CATEGORIAS_TALLY, ("H", "100", "150")),
+        "serenos": grilla("SERENO", personal.CATEGORIAS_SERENOS, ("HABIL", "INHABIL", "DOMINGO")),
+        "viaticos": grilla("VIATICO", personal.VIATICOS, ("TURNO",)),
+        "aviso": request.query_params.get("ok", ""), "error": request.query_params.get("error", ""),
+    })
+
+
+@router.post("/tarifas-personal/guardar")
+async def tarifas_personal_guardar(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    form = await request.form()
+    vig = str(form.get("vigencia") or "")
+    cambios = 0
+    for f in db.scalars(select(TarifaPersonal).where(TarifaPersonal.vigencia == vig)):
+        raw = form.get(f"v_{f.id}")
+        if raw is None:
+            continue
+        n = _numero_ar(str(raw))
+        if n is None:
+            return RedirectResponse(f"/administracion/tarifas-personal?vigencia={vig}&error=numero", status_code=303)
+        if abs(n - f.valor) > 0.004:
+            f.valor = n
+            cambios += 1
+    db.commit()
+    return RedirectResponse(f"/administracion/tarifas-personal?vigencia={vig}&ok={'guardado' if cambios else 'sin_cambios'}", status_code=303)
+
+
+@router.post("/tarifas-personal/nueva")
+def tarifas_personal_nueva(desde: str = Form(""), copiar: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Nueva vigencia: copia todos los valores de la vigencia elegida con la fecha nueva, para despues corregirlos."""
+    try:
+        nueva = date.fromisoformat(desde).isoformat()
+    except ValueError:
+        return RedirectResponse(f"/administracion/tarifas-personal?vigencia={copiar}&error=fecha", status_code=303)
+    if db.scalar(select(TarifaPersonal).where(TarifaPersonal.vigencia == nueva).limit(1)):
+        return RedirectResponse(f"/administracion/tarifas-personal?vigencia={copiar}&error=repetida", status_code=303)
+    base = db.scalars(select(TarifaPersonal).where(TarifaPersonal.vigencia == copiar)).all()
+    if not base:
+        return RedirectResponse("/administracion/tarifas-personal?error=sin_base", status_code=303)
+    for f in base:
+        db.add(TarifaPersonal(servicio=f.servicio, categoria=f.categoria, nivel=f.nivel, valor=f.valor, vigencia=nueva))
+    db.commit()
+    return RedirectResponse(f"/administracion/tarifas-personal?vigencia={nueva}&ok=nueva", status_code=303)
 
 
 # ------------------------------------------------------------- calendario --

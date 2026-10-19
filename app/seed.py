@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from .auth import hash_password
 from .config import settings
 from .database import Base, SessionLocal, engine
+from .personal import sembrar as sembrar_tarifas_personal
 from .models import (
     AppSetting,
     Client,
@@ -508,6 +509,8 @@ def _seed_proformador(db: Session) -> None:
                 db.add(ProformaTarifaTurno(servicio="SERENO", categoria=categoria, dia_tipo=dia_tipo,
                                             valor_ars_dia=valor, orden=orden))
                 orden += 1
+
+    sembrar_tarifas_personal(db)
 
     if not db.scalar(select(ProformaBunkerBoya).limit(1)):
         for i, (boya, etiqueta, osro, boat_trip, boat_hora, ch_anchor, pilotage, sipa) in enumerate(PROFORMA_BUNKER_BOYAS):

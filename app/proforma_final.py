@@ -192,6 +192,7 @@ def clean_state(raw) -> dict:
     la, ld, es, dr = sub("lds_amarre"), sub("lds_desamarre"), sub("escala"), sub("lds_draft")
     ad = sub("aduana")
     items = _aduana_items(ad.get("items"))
+    from . import personal  # import tardio: personal usa tipo_dia de este modulo
 
     return {
         "v": VERSION,
@@ -212,6 +213,9 @@ def clean_state(raw) -> dict:
         "lds_draft": concepto(dr, {"on": bool(dr.get("on")), "momento": _datetime(dr.get("momento"))}),
         # habilitaciones de aduana: cada renglon = cantidad x precio; el importe es la suma de los tildados (o el valor a mano)
         "aduana": concepto(ad, {"items": items}) | {"usd": aduana_total(items)},
+        # Tally y Serenos van en pesos: el estado guarda los renglones y los totales que se vieron en pantalla
+        "tally": personal.clean_tally(raw.get("tally")),
+        "serenos": personal.clean_serenos(raw.get("serenos")),
         "dolar": {
             "valor": _num(dolar.get("valor"), 1_000_000),
             "fecha": _fecha(dolar.get("fecha")),
@@ -247,6 +251,30 @@ def _metros(pies: float) -> str:
 
 def _nota_practicaje(m: dict) -> str:
     return ("modificado a mano" if m["manual"] else "según tabla de calado") + (" · FOR YOUR ACCOUNT (no se factura)" if m["cuenta_ajena"] else "")
+
+
+def _usd_txt(ars: float, dolar: float) -> str:
+    return f" · USD {ars / dolar:,.2f}" if ars and dolar else ""
+
+
+def _nota_tally(t: dict, pct: float, dolar: float) -> str:
+    if not t["turnos"]:
+        return "sin turnos de Head Tally"
+    from . import personal
+
+    partes = [f"{r['cantidad']} × {personal.NIVELES_TALLY[r['nivel']]}" for r in t["resumen"] if r["cantidad"]]
+    return (personal.CATEGORIAS_TALLY.get(t["categoria"], "SIN CATEGORÍA") + ": " + " + ".join(partes) + f" · cargas sociales {pct:g} % sumadas"
+            + _usd_txt(t["total_ars"], dolar))
+
+
+def _nota_serenos(s: dict, pct: float, dolar: float) -> str:
+    if not s["turnos"]:
+        return "sin turnos de serenos"
+    from . import personal
+
+    v = "sin viáticos" if s["viatico"] in ("", "NINGUNO") else personal.VIATICOS[s["viatico"]]
+    return (f"{s['cantidad'] or len(s['turnos'])} turnos · {personal.CATEGORIAS_SERENOS.get(s['categoria'], 'categoría por turno').split(' (')[0]} · cargas sociales {pct:g} % sobre sueldos · {v}"
+            + _usd_txt(s["total_ars"], dolar))
 
 
 def _nota_aduana(a: dict) -> str:
@@ -292,6 +320,8 @@ def build_excel(state: dict) -> bytes:
         ("Lancha de draft LDS (USD)", s["lds_draft"]["usd"] or "" if s["lds_draft"]["on"] else "—",
          _nota_concepto(s["lds_draft"], s["lds_draft"]["momento"] or b["fin"]) if s["lds_draft"]["on"] else "sin uso de lancha de draft"),
         ("Habilitaciones de aduana (USD)", s["aduana"]["usd"] or "" if any(i["on"] for i in s["aduana"]["items"]) else "—", _nota_aduana(s["aduana"])),
+        ("Tally (ARS)", s["tally"]["total_ars"] or "" if s["tally"]["turnos"] else "—", _nota_tally(s["tally"], s["agencia"]["tally_pct"], s["dolar"]["valor"])),
+        ("Serenos (ARS)", s["serenos"]["total_ars"] or "" if s["serenos"]["turnos"] else "—", _nota_serenos(s["serenos"], s["agencia"]["serenos_pct"], s["dolar"]["valor"])),
         ("Dólar (divisa BNA)", s["dolar"]["valor"] or "", "Cotización del " + (s["dolar"]["fecha"] or "—")
          + (" · traído del BNA" if s["dolar"]["origen"] == "BNA" else " · cargado a mano")),
         ("Agencia a facturar", s["agencia"]["nombre"], ""),

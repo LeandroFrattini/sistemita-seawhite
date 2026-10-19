@@ -678,6 +678,20 @@ class ProformaPilotageTramo(Base):
     orden: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class TarifaPersonal(Base):
+    """Tarifas de la proforma final para Tally (encargado), Serenos y viaticos, en ARS por turno, con su vigencia.
+    Para cada (servicio, categoria, nivel) rige la ultima vigencia que no pasa de la fecha de la proforma."""
+
+    __tablename__ = "tarifas_personal"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    servicio: Mapped[str] = mapped_column(String(10))   # TALLY | SERENO | VIATICO
+    categoria: Mapped[str] = mapped_column(String(20))  # ACEITE.. | NORMAL.. | WHITE / GALVAN
+    nivel: Mapped[str] = mapped_column(String(10))      # H / 100 / 150 | HABIL / INHABIL / DOMINGO | TURNO
+    valor: Mapped[float] = mapped_column(Float, default=0)
+    vigencia: Mapped[str] = mapped_column(String(10), default="")  # YYYY-MM-DD, desde cuando rige
+
+
 class ProformaTarifaTurno(Base):
     __tablename__ = "proforma_tarifas_turno"
 
