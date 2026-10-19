@@ -192,7 +192,7 @@ def clean_state(raw) -> dict:
     la, ld, es, dr = sub("lds_amarre"), sub("lds_desamarre"), sub("escala"), sub("lds_draft")
     ad = sub("aduana")
     items = _aduana_items(ad.get("items"))
-    from . import personal  # import tardio: personal usa tipo_dia de este modulo
+    from . import migraciones, personal  # import tardio: usan tipo_dia / _num de este modulo
 
     return {
         "v": VERSION,
@@ -214,6 +214,7 @@ def clean_state(raw) -> dict:
         # habilitaciones de aduana: cada renglon = cantidad x precio; el importe es la suma de los tildados (o el valor a mano)
         "aduana": concepto(ad, {"items": items}) | {"usd": aduana_total(items)},
         # Tally y Serenos van en pesos: el estado guarda los renglones y los totales que se vieron en pantalla
+        "migraciones": migraciones.clean(raw.get("migraciones")),
         "tally": personal.clean_tally(raw.get("tally")),
         "serenos": personal.clean_serenos(raw.get("serenos")),
         "dolar": {
@@ -251,6 +252,24 @@ def _metros(pies: float) -> str:
 
 def _nota_practicaje(m: dict) -> str:
     return ("modificado a mano" if m["manual"] else "según tabla de calado") + (" · FOR YOUR ACCOUNT (no se factura)" if m["cuenta_ajena"] else "")
+
+
+USD_KEYS = ("mig_in", "mig_out")
+ARS_KEYS = ("taxi_in", "taxi_out", "free_pratique", "taxi_sanidad")
+
+
+def _mig_on(m: dict, claves) -> bool:
+    return any(i["on"] for i in m["items"] if i["key"] in claves)
+
+
+def _nota_migraciones(m: dict, claves) -> str:
+    from . import migraciones
+
+    textos = {k: t for k, t, *_ in migraciones.ITEMS}
+    on = [i for i in m["items"] if i["key"] in claves and i["on"]]
+    if not on:
+        return "sin movimientos en el voucher"
+    return " · ".join(textos[i["key"]] + (" EN BOYA" if i["boya"] else "") + (f" ({i['precio']:g} a mano)" if i["precio"] else "") for i in on)
 
 
 def _usd_txt(ars: float, dolar: float) -> str:
@@ -320,6 +339,9 @@ def build_excel(state: dict) -> bytes:
         ("Lancha de draft LDS (USD)", s["lds_draft"]["usd"] or "" if s["lds_draft"]["on"] else "—",
          _nota_concepto(s["lds_draft"], s["lds_draft"]["momento"] or b["fin"]) if s["lds_draft"]["on"] else "sin uso de lancha de draft"),
         ("Habilitaciones de aduana (USD)", s["aduana"]["usd"] or "" if any(i["on"] for i in s["aduana"]["items"]) else "—", _nota_aduana(s["aduana"])),
+        ("Migraciones (USD)", s["migraciones"]["usd"] or "" if _mig_on(s["migraciones"], USD_KEYS) else "—", _nota_migraciones(s["migraciones"], USD_KEYS)),
+        ("Free pratique y taxis (ARS)", s["migraciones"]["ars"] or "" if _mig_on(s["migraciones"], ARS_KEYS) else "—", _nota_migraciones(s["migraciones"], ARS_KEYS)
+         + _usd_txt(s["migraciones"]["ars"], s["dolar"]["valor"])),
         ("Tally (ARS)", s["tally"]["total_ars"] or "" if s["tally"]["turnos"] else "—", _nota_tally(s["tally"], s["agencia"]["tally_pct"], s["dolar"]["valor"])),
         ("Serenos (ARS)", s["serenos"]["total_ars"] or "" if s["serenos"]["turnos"] else "—", _nota_serenos(s["serenos"], s["agencia"]["serenos_pct"], s["dolar"]["valor"])),
         ("Dólar (divisa BNA)", s["dolar"]["valor"] or "", "Cotización del " + (s["dolar"]["fecha"] or "—")

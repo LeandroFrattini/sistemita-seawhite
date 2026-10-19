@@ -12,14 +12,14 @@ from sqlalchemy.orm import Session
 
 from .. import proforma_final as pf
 from ..calendario import TIPOS as TIPOS_CALENDARIO
-from ..auth import administracion_required
+from ..auth import administracion_required, verify_password
 from ..database import get_db
 from ..docgen.fechas import parse_number
 from ..docgen import voucher as vch
 from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, TarifaPersonal, User
 from .. import practicaje as pract
 from .. import lds as lds_calc
-from .. import personal
+from .. import migraciones, personal
 from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
@@ -117,13 +117,14 @@ def _del_voucher(o: OperatedVessel) -> dict:
     """Lo que se uso segun el voucher del barco (conceptos tildados y turnos de Head Tally), si ya se armo."""
     v = o.voucher
     if v is None:
-        return {"servicios": [], "turnos": [], "hay_voucher": False}
+        return {"servicios": [], "turnos": [], "hay_voucher": False, "mig_voucher": {}}
     try:
         turnos = [t for t in json.loads(v.turnos or "[]") if isinstance(t, dict)]
     except ValueError:
         turnos = []
-    return {"servicios": vch.lineas(v.formato, estado_voucher(v)), "turnos": turnos, "hay_voucher": True,
-            "voucher_enviado": v.estado == "ENVIADO"}
+    servicios = vch.lineas(v.formato, estado_voucher(v))
+    return {"servicios": servicios, "turnos": turnos, "hay_voucher": True, "voucher_enviado": v.estado == "ENVIADO",
+            "mig_voucher": migraciones.desde_voucher(servicios)}
 
 
 def _barcos_a_proformar(db: Session, limite: int = 300) -> list[dict]:
@@ -212,6 +213,15 @@ def _ref_fecha(d: dict) -> date | None:
         return date.fromisoformat(str(d.get("ref") or "")[:10])
     except ValueError:
         return None
+
+
+@router.post("/proforma-final/migraciones")
+async def proforma_final_migraciones(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Migraciones IN/OUT, taxis y free pratique (segun el TRN): importe de cada concepto tildado y totales."""
+    d = await request.json()
+    d = d if isinstance(d, dict) else {}
+    m = migraciones.clean({"items": d.get("items")})
+    return migraciones.calcular(db, trn=pf._num(d.get("trn"), 1_000_000), items=m["items"], dolar=pf._num(d.get("dolar"), 1_000_000))
 
 
 @router.post("/proforma-final/tally")
@@ -350,6 +360,9 @@ def tarifas_personal_page(request: Request, vigencia: str = "", db: Session = De
 async def tarifas_personal_guardar(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     form = await request.form()
     vig = str(form.get("vigencia") or "")
+    clave = str(form.get("confirm_password") or "")
+    if not clave or not verify_password(clave, user.password_hash):
+        return RedirectResponse(f"/administracion/tarifas-personal?vigencia={vig}&error=password", status_code=303)
     cambios = 0
     for f in db.scalars(select(TarifaPersonal).where(TarifaPersonal.vigencia == vig)):
         raw = form.get(f"v_{f.id}")

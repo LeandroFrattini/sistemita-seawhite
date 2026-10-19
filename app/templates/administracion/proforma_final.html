@@ -32,7 +32,7 @@
     <h3>Resumen</h3>
     <div id="rs-filas"></div>
     <div class="rs-total"><span>Total parcial a facturar</span><b id="rs-total">USD 0,00</b></div>
-    <div class="rs-nota" id="rs-nota">Pasos 1 a 9. Migraciones y el chequeo general se suman en los próximos pasos. Tally y serenos se pasan a dólares con el dólar del paso 1.</div>
+    <div class="rs-nota" id="rs-nota">Pasos 1 a 10. El chequeo general se suma en el próximo paso. Lo que va en pesos se pasa a dólares con el dólar del paso 1.</div>
   </aside>
 
   <section class="card pfn-body" id="pfn-body">
@@ -119,7 +119,7 @@
       <h2>4 · Practicaje</h2>
       <p class="muted">Entrada y salida por separado, cada una con su calado. Los calados (en metros), la eslora, la manga y el puntal se cargan en el <a href="#" id="pr-ir3">paso 3</a>.</p>
       <details class="pfn-info"><summary>Cómo se calcula</summary>
-        <p>Es la misma fórmula y la misma tabla de coeficientes de calado del proformador inicial. Se editan en <a href="/proformador/config/formulas">Proformador → Fórmulas</a>.</p>
+        <p>Es la misma fórmula y la misma tabla de coeficientes de calado del proformador inicial. Se editan en <a href="/administracion/formulas">Administración → Fórmulas</a>.</p>
       </details>
       <div id="pr-resumen" class="pfn-datos"></div>
       <div id="pr-box" class="pfn-pract-box"></div>
@@ -132,7 +132,7 @@
       <details class="pfn-info"><summary>Cómo se calcula</summary>
         <p>Los <b>días</b> se cuentan por bloques de 8 horas: de 00 a 08 = 0,33 · de 08 a 16 = 0,34 · de 16 a 24 = 0,33. Si el barco está en cualquier parte de un bloque, se cobra el bloque entero.</p>
         <p>Uso de muelle = USD 0,46 × TRN × días · Fondeadero = USD 0,15 × TRN × días · Vías navegables = USD 2,05 × coeficiente según el TRN × toneladas (si es solo bunker, el 20 % del TRN).
-        Las tarifas y la tabla de coeficientes son las del proformador inicial (<a href="/proformador/config/formulas">Fórmulas</a>).</p>
+        Las tarifas y la tabla de coeficientes son las del proformador inicial (<a href="/administracion/formulas">Fórmulas</a>).</p>
       </details>
       <div id="mu-box" class="pfn-pract-box"></div>
       <p class="pfn-total">Total que se factura: <b id="mu-total">USD 0,00</b><span id="mu-ajena" class="muted"></span></p>
@@ -153,7 +153,7 @@
       <h2>7 · Habilitaciones de aduana</h2>
       <p class="muted">Las habilitaciones de aduana que figuran en el voucher salen tildadas. Indicá <b>cuántas</b> son de cada una: el sistema multiplica solo. Abajo hay un renglón libre para otro concepto.</p>
       <details class="pfn-info"><summary>Cómo se calcula</summary>
-        <p>Cada habilitación vale USD {{ '%g'|format(aduana_usd) }} (se cambia en <a href="/proformador/config/formulas">Proformador → Fórmulas</a>). El precio de cada renglón también se puede modificar a mano.</p>
+        <p>Cada habilitación vale USD {{ '%g'|format(aduana_usd) }} (se cambia en <a href="/administracion/formulas">Administración → Fórmulas</a>). El precio de cada renglón también se puede modificar a mano.</p>
       </details>
       <div id="ad-box"></div>
       <p class="pfn-total">Total habilitaciones: <b id="ad-total">USD 0,00</b><span id="ad-ajena" class="muted"></span></p>
@@ -209,7 +209,19 @@
       <p class="pfn-total">Total serenos: <b id="se-total">$ 0,00</b> <span class="muted" id="se-usd"></span></p>
     </div>
 
-    {% for n, titulo, sub in pasos if n > 9 %}
+    <div data-pane="10" hidden>
+      <h2>10 · Migraciones y sanitary free pratique</h2>
+      <p class="muted">Salen tildados los que se usaron según el voucher. Las migraciones van en dólares (más caras si fueron en boya); el free pratique y los taxis van en pesos.</p>
+      <details class="pfn-info"><summary>Cómo se calcula</summary>
+        <p><b>Migraciones</b> (IN y OUT por separado): USD 1.250 por movimiento, o USD 1.875 si ese movimiento fue en boya. Solo las migraciones van en boya.</p>
+        <p><b>Free pratique</b> = (TRN − 1.001) ÷ 1.000 × 6.942,90 + 416.574 pesos. <b>Taxis</b>: un importe en pesos por cada uno (oficial de migraciones IN, OUT y sanidad).
+        Estos valores se cambian en <a href="/administracion/formulas">Administración → Fórmulas</a>. Los importes también se pueden escribir a mano en cada renglón.</p>
+      </details>
+      <div id="mg-box"></div>
+      <p class="pfn-total">Migraciones: <b id="mg-usd">USD 0,00</b> · Free pratique y taxis: <b id="mg-ars">$ 0,00</b> <span class="muted" id="mg-eq"></span></p>
+    </div>
+
+    {% for n, titulo, sub in pasos if n > 10 %}
     <div data-pane="{{ n }}" hidden>
       <h2>{{ n }} · {{ titulo }}</h2>
       <p class="muted">{{ sub }}.</p>
@@ -271,6 +283,24 @@
   .pfn-trn, .pfn-trn.se { grid-template-columns: 1fr 1fr; }
   .pfn-trn.cab { display: none; }
   .pfn-trn .quitar { justify-self: end; grid-column: 2; }
+}
+.pfn-mig { display: grid; grid-template-columns: 24px minmax(0, 1fr) 96px 140px 140px; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: 10px; margin-bottom: 6px; background: #fff; }
+.pfn-mig.on { background: #eef6ff; border-color: #9cc3ec; }
+.pfn-mig.cab { border: 0; background: none; padding: 0 10px; font-size: 11.5px; color: var(--muted); margin-bottom: 2px; }
+.pfn-mig input[type=checkbox] { width: 20px !important; height: 20px; min-width: 0 !important; margin: 0; }
+.pfn-mig input[inputmode] { width: 100%; min-width: 0; text-align: right; font-weight: 600; }
+.pfn-mig .nom { font-weight: 600; }
+.pfn-mig .nom small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+.pfn-mig .boya { display: flex !important; flex-direction: row !important; justify-content: flex-start; align-items: center; gap: 6px; font-size: 12.5px !important; color: var(--ink) !important; cursor: pointer; }
+.pfn-mig .tot { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .pfn-mig { grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr); }
+  .pfn-mig > :nth-child(1) { grid-column: 1; grid-row: 1; }
+  .pfn-mig > :nth-child(2) { grid-column: 2 / -1; grid-row: 1; }
+  .pfn-mig > :nth-child(3) { grid-column: 2 / -1; grid-row: 2; }
+  .pfn-mig > :nth-child(4) { grid-column: 2; grid-row: 3; }
+  .pfn-mig > :nth-child(5) { grid-column: 3; grid-row: 3; }
+  .pfn-mig.cab { display: none; }
 }
 .pfn-info { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 .pfn-info summary { cursor: pointer; color: var(--blue-dark, #154a86); font-weight: 600; width: fit-content; }
@@ -399,7 +429,7 @@ function getState() {
     buque: BUQUE,
     practicaje: PRACT,
     muelle: MUELLE, fondeo: FONDEO, vias: VIAS,
-    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_draft: DRAFT, aduana: { ...ADUANA, usd: totalAduana() }, tally: TALLY, serenos: SERENOS, escala: { ...ESCALA, on: escalaOn(), on_set: true },
+    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_draft: DRAFT, aduana: { ...ADUANA, usd: totalAduana() }, tally: TALLY, serenos: SERENOS, migraciones: MIG, escala: { ...ESCALA, on: escalaOn(), on_set: true },
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
       id: sel.value ? Number(sel.value) : null,
@@ -518,7 +548,7 @@ function elegirBarco(valor) {
   if (!o) { BUQUE = buqueVacio(); resetPract(); renderBuque(); pintarPaso3(false); render(); return; }
   BUQUE = { operated_id: o.id, nombre: o.nombre, imo: o.imo, sitio: o.sitio, amarre: o.amarre, inicio: o.inicio, fin: o.fin, zarpe: o.zarpe, cantidad: o.cantidad,
     trn: o.trn || 0, trb: o.trb || 0, eslora: o.eslora || 0, manga: o.manga || 0, puntal: o.puntal || 0, bandera: o.bandera || "",
-    calado_entrada: o.calado_entrada || 0, calado_salida: o.calado_salida || 0, servicios: o.servicios || [], turnos: o.turnos || [] };
+    calado_entrada: o.calado_entrada || 0, calado_salida: o.calado_salida || 0, servicios: o.servicios || [], turnos: o.turnos || [], mig_voucher: o.mig_voucher || {} };
   resetPract();
   pintarPaso3(true, o);  // antes de cambiar la agencia: ese cambio vuelve a leer los campos de pantalla
   if (o.agencia_id && String(o.agencia_id) !== sel.value) {  // la agencia a facturar es la del barco
@@ -583,6 +613,7 @@ function setState(s) {
   pintarAduana();
   TALLY = { ...tallyVacio(), ...s.tally, precios: { ...tallyVacio().precios, ...(s.tally && s.tally.precios) } }; TA_CALC = null; firmaTaAnt = ""; pintarTally();
   SERENOS = { ...serenosVacio(), ...s.serenos }; SE_CALC = null; firmaSeAnt = ""; pintarSerenos();
+  MIG = { ...migVacio(), ...s.migraciones }; MG_CALC = null; firmaMgAnt = ""; pintarMig();
   firmaLdCargada = firmaLd(); firmaLdAnt = "";
   $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
   $("#dolar-fecha").value = s.dolar.fecha || "";
@@ -611,6 +642,7 @@ function resetPract() {  // al cambiar de barco los importes de practicaje empie
   resetAduana();
   resetTally();
   resetSerenos();
+  resetMig();
 }
 const firmaPract = () => { const b = BUQUE; return [b.eslora, b.manga, b.puntal, b.calado_entrada, b.calado_salida].join("|"); };
 const usd2 = (n) => "USD " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1189,8 +1221,65 @@ function pintarSerenos() {
 $("#se-cat").addEventListener("change", (ev) => { SERENOS.categoria = ev.target.value; render(); });
 $("#se-viat").addEventListener("change", (ev) => { SERENOS.viatico = ev.target.value; render(); });
 
+// ---- Paso 10: migraciones y sanitary free pratique (el calculo y los valores estan en el servidor, app/migraciones.py)
+const MIG_INFO = { mig_in: ["Migraciones IN", "USD", true], mig_out: ["Migraciones OUT", "USD", true], taxi_in: ["Taxi para el oficial de migraciones IN", "ARS", false],
+  taxi_out: ["Taxi para el oficial de migraciones OUT", "ARS", false], free_pratique: ["Free pratique (sanidad)", "ARS", false], taxi_sanidad: ["Taxi para sanidad", "ARS", false] };
+const migVacio = () => ({ armado: false, items: Object.keys(MIG_INFO).map((key) => ({ key, on: false, boya: false, precio: 0 })), usd: 0, ars: 0 });
+let MIG = migVacio(), MG_CALC = null, firmaMgAnt = "";
+const firmaMg = () => JSON.stringify([MIG.items, BUQUE.trn, $("#dolar-valor").value]);
+
+function armarMig() {  // tildado lo que el voucher dice que se uso (y en boya donde corresponda)
+  const v = BUQUE.mig_voucher || {};
+  MIG.items.forEach((i) => { const x = v[i.key]; i.on = !!x; i.boya = !!(x && x.boya); i.precio = 0; }); MIG.armado = true;
+}
+function resetMig() { MIG = migVacio(); armarMig(); MG_CALC = null; firmaMgAnt = ""; pintarMig(); }
+
+async function calcularMig() {
+  const pedido = nuevoPedido("mig");
+  const s = getState(); firmaMgAnt = firmaMg();
+  const r = await fetch("/administracion/proforma-final/migraciones", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trn: BUQUE.trn, items: MIG.items, dolar: s.dolar.valor }) });
+  if (!r.ok) return;
+  const dato = await r.json();
+  if (pedido !== SEQ.mig) return;  // llego una respuesta vieja: ya hay un pedido mas nuevo
+  MG_CALC = dato; MIG.usd = dato.total_usd; MIG.ars = dato.total_ars;
+  pintarMig(); render();
+}
+
+function pintarMig() {
+  const box = $("#mg-box"); box.replaceChildren();
+  const c = MG_CALC, ok = !!(c && c.filas && c.filas.length === MIG.items.length);
+  const cab = elx("div", "pfn-mig cab"); ["", "Concepto", "En boya", "Importe", "Total"].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
+  MIG.items.forEach((it, i) => {
+    const [texto, moneda, puedeBoya] = MIG_INFO[it.key], f = ok ? c.filas[i] : null;
+    const row = elx("div", "pfn-mig" + (it.on ? " on" : ""));
+    const cb = elx("input"); cb.type = "checkbox"; cb.checked = it.on; cb.setAttribute("aria-label", "Se usó: " + texto);
+    cb.addEventListener("change", () => { it.on = cb.checked; render(); pintarMig(); });
+    const nom = elx("span", "nom", texto); nom.appendChild(elx("small", null, moneda === "USD" ? "en dólares" : "en pesos" + (it.key === "free_pratique" ? ", según el TRN" : "")));
+    let boya = elx("span");
+    if (puedeBoya) {
+      boya = elx("label", "boya"); const bb = elx("input"); bb.type = "checkbox"; bb.checked = it.boya; bb.disabled = !it.on; bb.setAttribute("aria-label", "En boya: " + texto);
+      bb.addEventListener("change", () => { it.boya = bb.checked; render(); pintarMig(); }); boya.append(bb, "en boya");
+    }
+    const pr = elx("input"); pr.inputMode = "decimal"; pr.value = f ? fm2(f.precio) : ""; pr.disabled = !it.on; pr.setAttribute("aria-label", "Importe: " + texto);
+    pr.title = f && f.manual ? "Modificado a mano (tabla: " + fm2(f.precio_auto) + ")" : "";
+    pr.addEventListener("change", () => { const v = num(pr.value); it.precio = f && Math.abs(v - f.precio_auto) < 0.005 ? 0 : v; render(); });
+    const tot = elx("span", "tot", f && it.on ? (moneda === "USD" ? usd2(f.total) : ars(f.total)) : "—");
+    row.append(cb, nom, boya, pr, tot); box.appendChild(row);
+    if (it.on && f && f.manual) row.appendChild(elx("small", "muted", "")).remove();
+  });
+  if (c && c.faltan_trn) box.appendChild(elx("p", "falta", "Falta el TRN (paso 3) para calcular el free pratique."));
+  if (Object.keys(BUQUE.mig_voucher || {}).length || BUQUE.operated_id) {
+    const rb = elx("button", "btn", "↺ Volver a lo que dice el voucher"); rb.type = "button";
+    rb.addEventListener("click", () => { if (confirm("Se vuelve a tildar lo que dice el voucher y se pierden los cambios hechos acá. ¿Seguir?")) { armarMig(); render(); pintarMig(); } });
+    box.appendChild(rb);
+  }
+  $("#mg-usd").textContent = usd2(MIG.usd);
+  $("#mg-ars").textContent = ars(MIG.ars);
+  $("#mg-eq").textContent = c && c.ars_en_usd != null && MIG.ars ? `(= ${usd2(c.ars_en_usd)} con el dólar del paso 1)` : "";
+}
+
 // ---- Estado de cada paso: que falta, aviso del paso actual y resumen
-const PASOS_LISTOS = 9;          // pasos ya armados; del 8 en adelante figuran como "Próximamente"
+const PASOS_LISTOS = 10;          // pasos ya armados; del 8 en adelante figuran como "Próximamente"
 const VISITADOS = new Set([1]);  // pasos por los que ya se paso (solo ahi se marca "falta completar")
 
 function faltantes(s) {
@@ -1221,7 +1310,8 @@ function faltantes(s) {
   if (!s.serenos.turnos.length && !(b.amarre && b.zarpe)) f[9].push("Faltan el amarre y el zarpe (paso 3) para armar los turnos, o agregalos a mano.");
   if (s.serenos.turnos.length && !s.serenos.categoria && s.serenos.turnos.some((t) => !t.cat)) f[9].push("Elegí la categoría de los serenos (normal, insalubre o peligroso).");
   if (s.serenos.turnos.length && !s.serenos.viatico) f[9].push("Elegí los viáticos (White, Galván o sin viáticos).");
-  for (let n = 10; n <= TOTAL; n++) f[n] = [];
+  f[10] = s.migraciones.items.some((i) => i.on && i.key === "free_pratique") && !(b.trn > 0) ? ["Falta el TRN (paso 3) para calcular el free pratique."] : [];
+  for (let n = 11; n <= TOTAL; n++) f[n] = [];
   return f;
 }
 
@@ -1240,6 +1330,8 @@ function pintarAviso(s, faltan) {
     a.textContent = "No hay turnos de Head Tally. Si el barco no tuvo, seguí con el paso siguiente; si tuvo, agregalos abajo.";
   } else if (step === 9 && !(s.serenos.total_ars > 0)) {
     a.textContent = "Todavía no hay turnos de serenos con importe.";
+  } else if (step === 10 && !(s.migraciones.usd + s.migraciones.ars > 0)) {
+    a.textContent = "No hay migraciones ni free pratique tildados. Si el barco no tuvo, seguí con el paso siguiente.";
   } else { a.classList.add("listo"); a.textContent = "✓ Este paso está completo. Revisá los importes y seguí con el siguiente."; }
 }
 
@@ -1267,10 +1359,12 @@ function pintarResumen(s) {
   fila("Lancha de draft", s.lds_draft.usd, s.lds_draft.cuenta_ajena, s.lds_draft.on);
   fila("Habilitaciones de aduana", s.aduana.usd, s.aduana.cuenta_ajena);
   const aUsd = (ars_) => (s.dolar.valor > 0 && ars_ > 0 ? ars_ / s.dolar.valor : 0);
+  fila("Migraciones", s.migraciones.usd, false);
+  fila("Free pratique y taxis", aUsd(s.migraciones.ars), false);
   fila("Tally (head tally)", aUsd(s.tally.total_ars), false);
   fila("Serenos", aUsd(s.serenos.total_ars), false);
   $("#rs-total").textContent = usd2(fact); $("#nav-total").textContent = usd2(fact);
-  $("#rs-nota").textContent = (ajena ? `Por cuenta del armador (no se suma): ${usd2(ajena)}. ` : "") + "Pasos 1 a 9. Migraciones y el chequeo general se suman en los próximos pasos.";
+  $("#rs-nota").textContent = (ajena ? `Por cuenta del armador (no se suma): ${usd2(ajena)}. ` : "") + "Pasos 1 a 10. El chequeo general se suma en el próximo paso.";
 }
 
 function render() {
@@ -1282,10 +1376,11 @@ function render() {
   if (step === 6 && firmaLd() !== firmaLdAnt) calcularLds();
   if (step === 8 && firmaTa() !== firmaTaAnt) calcularTally();
   if (step === 9 && firmaSe() !== firmaSeAnt) calcularSerenos();
+  if (step === 10 && firmaMg() !== firmaMgAnt) calcularMig();
   const faltan = faltantes(s);
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
-    const pronto = n > PASOS_LISTOS, completo = !pronto && faltan[n].length === 0 && (n !== 7 || s.aduana.usd > 0) && (n !== 8 || s.tally.total_ars > 0) && (n !== 9 || s.serenos.total_ars > 0);
+    const pronto = n > PASOS_LISTOS, completo = !pronto && faltan[n].length === 0 && (n !== 7 || s.aduana.usd > 0) && (n !== 8 || s.tally.total_ars > 0) && (n !== 9 || s.serenos.total_ars > 0) && (n !== 10 || s.migraciones.usd + s.migraciones.ars > 0);
     const aviso = !pronto && !completo && faltan[n].length > 0 && VISITADOS.has(n) && n !== step;
     b.classList.toggle("on", n === step);
     b.classList.toggle("done", completo);
@@ -1317,11 +1412,28 @@ $("#barco-sel").addEventListener("change", () => { SUCIO = true; });
 window.addEventListener("beforeunload", (e) => { if (SUCIO) { e.preventDefault(); e.returnValue = ""; } });
 document.addEventListener("input", render);
 
+// Barco de prueba: datos de ejemplo para recorrer todos los pasos sin tocar un barco real (no se guarda nada en el sistema)
+(() => {
+  const ag = AGENCIAS.find((x) => /oceanway/i.test(x.nombre)) || AGENCIAS[0];
+  BARCOS.unshift({
+    id: "prueba", prueba: true, nombre: "MV BARCO DE PRUEBA", imo: "", sitio: "TBB 9 (ejemplo)", agencia: ag ? ag.nombre : "", agencia_id: ag ? ag.id : null,
+    amarre: "2026-09-25T14:12", inicio: "2026-09-25T16:00", fin: "2026-09-26T11:00", zarpe: "2026-09-26T13:50", cantidad: "10027,9",
+    trn: 11677, trb: 15000, eslora: 150, manga: 23, puntal: 14, bandera: "Panamá", calado_entrada: 30.84, calado_salida: 36.75,
+    trn_historial: false, calado_historial: false, hay_voucher: true, completo: true,
+    servicios: ["PORT DUES", "CHANNEL TOLL", "TUGBOATS FOR BERTHING / UNBERTHING", "PILOT SERVICE IN / OUT", "MOORING / UNMOORING (LDS)", "COMPULSORY WATCHMAN SERVICES",
+      "HEAD TALLY CLERK EXPENSES", "AGENCY EXPENSES", "BANK COMISION / LAW 25413 / ETC", "CUSTOM OVERTIME FOR ENTRANCE", "CUSTOM OVERTIME FOR LOADING", "CUSTOM OVERTIME FOR CLEARANCE",
+      "IMMIGRATION TAX EXPENSES IN AT BUOY 11", "IMMIGRATION TAX EXPENSES OUT", "TAXI HIRED FOR IMMIGRATION OFFICER IN/OUT", "FREE PRATIQUE TAX", "TAXI HIRED FOR SANITARY AUTHORITY", "SHORE GANGWAY"],
+    turnos: [{ fecha: "2026-09-25", turno: "13-19", act: "BERTHING" }, { fecha: "2026-09-25", turno: "19-01", act: "LDG" }, { fecha: "2026-09-26", turno: "01-07", act: "LDG" },
+      { fecha: "2026-09-26", turno: "07-13", act: "LDG" }],
+    mig_voucher: { mig_in: { on: true, boya: true }, mig_out: { on: true, boya: false }, taxi_in: { on: true, boya: false }, taxi_out: { on: true, boya: false },
+      free_pratique: { on: true, boya: false }, taxi_sanidad: { on: true, boya: false } },
+  });
+})();
 const bsel = $("#barco-sel");
 bsel.add(new Option("— Elegí el barco —", ""));
 BARCOS.forEach((b) => {
   const f = b.zarpe ? " · zarpó " + b.zarpe.slice(8, 10) + "/" + b.zarpe.slice(5, 7) : "";
-  bsel.add(new Option(`${b.nombre} · ${b.agencia || "sin cliente"}${f}${b.completo ? "" : " · datos incompletos"}`, b.id));
+  bsel.add(new Option(b.prueba ? "★ BARCO DE PRUEBA (datos de ejemplo, no se guarda nada)" : `${b.nombre} · ${b.agencia || "sin cliente"}${f}${b.completo ? "" : " · datos incompletos"}`, b.id));
 });
 bsel.add(new Option("Otro barco (escribir el nombre)", "manual"));
 bsel.addEventListener("change", () => elegirBarco(bsel.value));

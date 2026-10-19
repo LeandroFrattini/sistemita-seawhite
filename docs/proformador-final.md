@@ -397,3 +397,17 @@ endpoints `POST /administracion/proforma-final/tally` y `/serenos`, estado `tall
 - Verificado: PORT ALBERNI (5 turnos, 117 %) y SHI DAI 9 (7 turnos, los 7 viáticos de la proforma). Con las reglas nuevas algunos turnos cambian de tarifa respecto de esas proformas (la tabla manda).
 
 Corrección de fondo: los cálculos del asistente (practicaje, muelle, LDS, tally, serenos) ignoran una respuesta vieja si ya hay un pedido más nuevo (dos cálculos seguidos podían pisarse y dejar el total desactualizado).
+
+## Paso 10 — Migraciones y sanitary free pratique (construido) y otros ajustes (ronda 12)
+
+Código: `app/migraciones.py`, endpoint `POST /administracion/proforma-final/migraciones`, estado `migraciones`. Sale tildado lo que dice el voucher (`desde_voucher`: lee las líneas IMMIGRATION, TAXI HIRED FOR IMMIGRATION, TAXI HIRED FOR SANITARY y FREE PRATIQUE).
+- **Migraciones IN y OUT** en USD: 1.250 por movimiento; **1.875 si ese movimiento fue en boya** (solo las migraciones van en boya). Valores de `ProformaConceptoFijo` y del parámetro `immigration_boya_usd`.
+- **Free pratique** en pesos: `(TRN − 1.001) / 1.000 × 6.942,9 + 416.574` (parámetros `libre_platica_*`). Sin TRN no inventa el importe: avisa.
+- **Taxis** (oficial de migraciones IN, OUT y sanidad), en pesos, cada uno: parámetro `taxi_ars` = **222.000** (el de la proforma más reciente, SHI DAI 9; PORT ALBERNI cobró 160.000 → **a confirmar**).
+- Importes editables a mano en cada renglón; totales en USD (migraciones) y en pesos (free pratique y taxis, con su equivalente en dólares con el dólar único). Verificado: PORT ALBERNI (free pratique 490.696,40; migraciones 2.500).
+- SENASA, Maritime Center, Miscellaneous, Fee y LAW 25413 quedan para el chequeo general (paso 11).
+
+**Las fórmulas viven solo en Administración:** `/administracion/formulas` (antes `/proformador/config/formulas`, que ahora redirige) y `/administracion/tarifas-personal`. Guardar cualquiera de las dos pide la contraseña. Se sacó el botón «Fórmulas» del Proformador.
+Acceso: quien tenga el permiso de Administración (o sea admin). Los textos de la proforma final apuntan ahí.
+
+**Barco de prueba:** en el paso 1 hay una opción «★ BARCO DE PRUEBA» con datos de ejemplo completos (horarios, medidas, calados, voucher, turnos y lo usado en migraciones). No se guarda nada en el sistema.

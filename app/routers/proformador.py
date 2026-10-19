@@ -15,7 +15,7 @@ from openpyxl.utils.units import pixels_to_EMU
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..auth import admin_required, current_user, pda_admin_required, verify_password
+from ..auth import admin_required, administracion_required, current_user, pda_admin_required, verify_password
 from ..config import BASE_DIR
 from ..database import get_db
 from ..models import (
@@ -963,15 +963,21 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
     )
 
 
-# --- FORMULAS: visibles a todos, editables solo admin o is_pda_admin ----- #
+# --- FORMULAS: solo en Administracion (ahi las ve y las edita quien tiene ese permiso; guardar pide la contraseña) ----- #
 
-@router.get("/proformador/config/formulas", response_class=HTMLResponse)
-def ver_formulas(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    puede_editar = user.is_admin or user.is_pda_admin
+@router.get("/proformador/config/formulas")
+def formulas_ruta_vieja():
+    """Las formulas se mudaron a Administracion."""
+    return RedirectResponse(url="/administracion/formulas", status_code=301)
+
+
+@router.get("/administracion/formulas", response_class=HTMLResponse)
+def ver_formulas(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     return templates.TemplateResponse(request, "proformador/formulas.html", {
         "user": user,
-        "puede_editar": puede_editar,
+        "puede_editar": True,
         "error": request.query_params.get("error"),
+        "ok": request.query_params.get("ok"),
         "parametros": db.scalars(select(ProformaParametro).order_by(ProformaParametro.orden)).all(),
         "coef_tramos": db.scalars(select(ProformaCoefTramo).order_by(ProformaCoefTramo.orden)).all(),
         "tug_tarifas": db.scalars(select(ProformaTugTarifa).order_by(ProformaTugTarifa.orden)).all(),
@@ -985,13 +991,13 @@ def ver_formulas(request: Request, db: Session = Depends(get_db), user: User = D
     })
 
 
-@router.post("/proformador/config/formulas/guardar")
-async def guardar_formulas(request: Request, db: Session = Depends(get_db), user: User = Depends(pda_admin_required)):
+@router.post("/administracion/formulas/guardar")
+async def guardar_formulas(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     form = await request.form()
 
     password = form.get("confirm_password", "")
     if not password or not verify_password(password, user.password_hash):
-        return RedirectResponse(url="/proformador/config/formulas?error=password", status_code=302)
+        return RedirectResponse(url="/administracion/formulas?error=password", status_code=302)
 
     for p in db.scalars(select(ProformaParametro)):
         v = form.get(f"param_{p.id}")
@@ -1085,4 +1091,4 @@ async def guardar_formulas(request: Request, db: Session = Depends(get_db), user
                 pass
 
     db.commit()
-    return RedirectResponse(url="/proformador/config/formulas", status_code=302)
+    return RedirectResponse(url="/administracion/formulas?ok=1", status_code=302)
