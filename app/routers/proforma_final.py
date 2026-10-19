@@ -18,6 +18,7 @@ from ..docgen.fechas import parse_number
 from ..docgen import voucher as vch
 from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, User
 from .. import practicaje as pract
+from .. import lds as lds_calc
 from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
@@ -184,6 +185,18 @@ async def proforma_final_muelle(request: Request, db: Session = Depends(get_db),
         solo_bunker=bool(d.get("solo_bunker")), factor_via=pf._num(d.get("factor"), 10) or 1.0,
         entrada=fechas["entrada"], salida=fechas["salida"], fondeo_entrada=fechas["fondeo_entrada"], fondeo_salida=fechas["fondeo_salida"],
         inicio=fechas["inicio"], aplicar_beneficio=d.get("aplicar_beneficio") is not False,
+    )
+
+
+@router.post("/proforma-final/lds")
+async def proforma_final_lds(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Amarre y desamarre de Lanchas del Sur (con recargo por dia y hora) y escala si lleva SHORE GANGWAY."""
+    d = await request.json()
+    d = d if isinstance(d, dict) else {}
+    return lds_calc.calcular(
+        db, eslora=pf._num(d.get("eslora"), 1000), amarre=pf._datetime(d.get("amarre")), desamarre=pf._datetime(d.get("desamarre")),
+        lanchas_amarre=int(pf._num(d.get("lanchas_amarre"), 4)), lanchas_desamarre=int(pf._num(d.get("lanchas_desamarre"), 4)),
+        escala=bool(d.get("escala")), escala_dias=int(pf._num(d.get("escala_dias"), 365)),
     )
 
 

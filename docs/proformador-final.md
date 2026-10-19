@@ -302,3 +302,16 @@ Solo afecta a **Uso de muelle** (vías navegables va por toneladas; el fondeo no
 - En el Excel queda la nota «beneficio de fin de semana: X días no cobrados» y la foto en el estado (`sin_beneficio`, `perdonados`).
 - Ejemplo: amarra sáb 17/10 21:30, opera lun 19/10 08:30, zarpa mar 20/10 10:00 → se perdonan 1,33 días (0,33 del sábado + 1,00 del domingo).
 - Asumido (a confirmar): la misma regla de las 21:00 vale cuando el amarre es domingo o feriado.
+
+## Paso 6 — Amarre y desamarre (LDS) (construido)
+
+Código: `app/lds.py` (`calcular`, `costo_servicio`, `escala_costo`), endpoint `POST /administracion/proforma-final/lds`, estado `lds_amarre`, `lds_desamarre` y `escala`.
+
+- Cada maniobra = **servicio + lancha(s)** con el recargo del día y la hora (hábil 07–19 0 %, hábil 19–07 50 %, sábado 00–07 50 %, sábado 07–13 0 %, sábado desde 13 100 %, domingo y feriado 100 %).
+  Día no laborable = hábil. Feriados del Calendario.
+- **Lanchas:** una, o dos si la eslora supera 150 m; se puede escribir otra cantidad a mano (vacío = automático).
+- **Fecha de la maniobra:** el amarre usa el **amarre** del paso 3 y el desamarre el **zarpe**; se pueden cambiar en el paso.
+- **Escala (SHORE GANGWAY):** colocación 490 + retiro 490 + alquiler 280 por día. Sale tildada solo si el voucher tiene SHORE GANGWAY; se puede tildar o destildar.
+  **Días de alquiler:** por defecto los días de calendario del amarre al desamarre, ambos inclusive (**a confirmar**); se pueden escribir a mano. Sin recargo horario.
+- Cada concepto: importe modificable a mano, «Volver al calculado» y casilla FOR YOUR ACCOUNT (mooring suele ir así, pero se decide proforma por proforma).
+- **Pendiente:** DRAFT (290 / 435 / 580) y buques argentinos (tarifa DCI 22), no se cargan por ahora.

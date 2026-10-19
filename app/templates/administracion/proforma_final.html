@@ -121,7 +121,17 @@
       <p class="pfn-total">Total que se factura: <b id="mu-total">USD 0,00</b><span id="mu-ajena" class="muted"></span></p>
     </div>
 
-    {% for n, titulo, sub in pasos if n > 5 %}
+    <div data-pane="6" hidden>
+      <h2>6 · Amarre y desamarre</h2>
+      <p class="muted">Lanchas del Sur (tarifario 2026, buques extranjeros). Cada maniobra = servicio + lancha, con recargo según el día y la hora:
+      día hábil 07–19 sin recargo · día hábil 19–07 50 % · sábado 00–07 50 % · sábado 07–13 sin recargo · sábado desde las 13 100 % · domingo y feriado 100 %.
+      Si la eslora supera 150 m lleva dos lanchas. Los feriados salen del <a href="/administracion/calendario">Calendario</a>; el día no laborable cuenta como hábil.
+      La <b>escala</b> solo se cobra si el voucher tiene SHORE GANGWAY (también se puede tildar acá).</p>
+      <div id="ld-box" class="pfn-pract-box"></div>
+      <p class="pfn-total">Total que se factura: <b id="ld-total">USD 0,00</b><span id="ld-ajena" class="muted"></span></p>
+    </div>
+
+    {% for n, titulo, sub in pasos if n > 6 %}
     <div data-pane="{{ n }}" hidden>
       <h2>{{ n }} · {{ titulo }}</h2>
       <p class="muted">{{ sub }}.</p>
@@ -238,6 +248,7 @@ function getState() {
     buque: BUQUE,
     practicaje: PRACT,
     muelle: MUELLE, fondeo: FONDEO, vias: VIAS,
+    lds_amarre: AMLDS, lds_desamarre: DESLDS, escala: { ...ESCALA, on: escalaOn(), on_set: true },
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
       id: sel.value ? Number(sel.value) : null,
@@ -377,6 +388,9 @@ function setState(s) {
   pintarPaso3(false);
   firmaCargada = firmaPract(); firmaPractAnt = "";
   firmaMuCargada = firmaMu(); firmaMuAnt = "";
+  AMLDS = { ...ldVacio(), ...s.lds_amarre }; DESLDS = { ...ldVacio(), ...s.lds_desamarre };
+  ESCALA = { ...escalaVacia(), ...s.escala };
+  firmaLdCargada = firmaLd(); firmaLdAnt = "";
   $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
   $("#dolar-fecha").value = s.dolar.fecha || "";
   const hay = AGENCIAS.some((a) => a.id === s.agencia.id);
@@ -400,6 +414,7 @@ function resetPract() {  // al cambiar de barco los importes de practicaje empie
   PRACT = { in: { usd: 0, manual: false }, out: { usd: 0, manual: false } }; PRACT_CALC = null; firmaCargada = null; firmaPractAnt = "";
   pintarPracticaje();
   resetMuelle();
+  resetLds();
 }
 const firmaPract = () => { const b = BUQUE; return [b.eslora, b.manga, b.puntal, b.calado_entrada, b.calado_salida].join("|"); };
 const usd2 = (n) => "USD " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -530,17 +545,17 @@ function casilla(texto, marcada, alCambiar) {
 }
 
 // importe a facturar (modificable a mano) y "por cuenta del armador"
-function bloqueImporte(obj, calc) {
+function bloqueImporte(obj, calc, totales = actualizarTotalesMu, repintar = pintarMuelle) {
   const frag = document.createDocumentFragment();
   const lab = elx("label", null, "Importe a facturar (USD)");
   const inp = elx("input"); inp.inputMode = "decimal"; inp.value = obj.usd ? fmt(obj.usd) : "";
   const mod = elx("div", "pfn-mod"); mod.hidden = !obj.manual;
-  inp.addEventListener("input", () => { obj.usd = num(inp.value); obj.manual = true; mod.hidden = false; actualizarTotalesMu(); render(); });
+  inp.addEventListener("input", () => { obj.usd = num(inp.value); obj.manual = true; mod.hidden = false; totales(); render(); });
   lab.appendChild(inp);
   const btn = elx("button", null, "Volver al calculado"); btn.type = "button";
-  btn.addEventListener("click", () => { obj.manual = false; obj.usd = calc && calc.total ? calc.total : 0; pintarMuelle(); render(); });
+  btn.addEventListener("click", () => { obj.manual = false; obj.usd = calc && calc.total ? calc.total : 0; repintar(); render(); });
   mod.append("Modificado a mano" + (calc && calc.total ? ` (calculado: ${usd2(calc.total)}). ` : ". "), btn);
-  frag.append(lab, mod, casilla("Va «FOR YOUR ACCOUNT» (por cuenta del armador, no se factura)", obj.cuenta_ajena, (v) => { obj.cuenta_ajena = v; actualizarTotalesMu(); render(); }));
+  frag.append(lab, mod, casilla("Va «FOR YOUR ACCOUNT» (por cuenta del armador, no se factura)", obj.cuenta_ajena, (v) => { obj.cuenta_ajena = v; totales(); render(); }));
   return frag;
 }
 
@@ -608,15 +623,109 @@ function actualizarTotalesMu() {
   $("#mu-ajena").textContent = ajena ? ` · por cuenta del armador (informativo): ${usd2(ajena)}` : "";
 }
 
+// ---- Paso 6: amarre y desamarre (Lanchas del Sur). Calculo en el servidor; la escala solo si el voucher tiene SHORE GANGWAY
+const ldVacio = () => ({ momento: "", lanchas: 0, usd: 0, manual: false, cuenta_ajena: false });
+const escalaVacia = () => ({ on: false, on_set: false, dias: 0, usd: 0, manual: false, cuenta_ajena: false });
+let AMLDS = ldVacio(), DESLDS = ldVacio(), ESCALA = escalaVacia();
+let LD_CALC = null, firmaLdAnt = "", firmaLdCargada = null;
+const tieneGangway = () => (BUQUE.servicios || []).some((x) => /SHORE\s+GANGWAY/i.test(x));
+const escalaOn = () => (ESCALA.on_set ? ESCALA.on : tieneGangway());
+const momAm = () => AMLDS.momento || BUQUE.amarre || "";
+const momDes = () => DESLDS.momento || BUQUE.zarpe || "";
+const firmaLd = () => [BUQUE.eslora, momAm(), momDes(), AMLDS.lanchas, DESLDS.lanchas, escalaOn(), ESCALA.dias].join("|");
+
+function resetLds() {  // al cambiar de barco, el paso 6 empieza de cero
+  AMLDS = ldVacio(); DESLDS = ldVacio(); ESCALA = escalaVacia();
+  LD_CALC = null; firmaLdCargada = null; firmaLdAnt = "";
+  pintarLds();
+}
+
+async function calcularLds() {
+  getState();
+  firmaLdAnt = firmaLd();
+  const body = { eslora: BUQUE.eslora, amarre: momAm(), desamarre: momDes(), lanchas_amarre: AMLDS.lanchas, lanchas_desamarre: DESLDS.lanchas,
+    escala: escalaOn(), escala_dias: ESCALA.dias };
+  const r = await fetch("/administracion/proforma-final/lds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) return;
+  LD_CALC = await r.json();
+  const respetar = firmaLdCargada !== null && firmaLdCargada === firmaLd();  // Excel cargado y sin tocar los datos: se conservan sus importes
+  [[AMLDS, LD_CALC.amarre], [DESLDS, LD_CALC.desamarre], [ESCALA, LD_CALC.escala]].forEach(([obj, c]) => {
+    if (!obj.manual && !(respetar && obj.usd > 0)) obj.usd = c && c.total_usd ? c.total_usd : 0;
+  });
+  pintarLds();
+  render();
+}
+
+const DIA_TXT = { SEMANA: "día hábil", NO_LABORABLE: "día hábil (no laborable)", SABADO: "sábado", DOMINGO: "domingo", FERIADO: "feriado" };
+
+function cardMovimiento(box, titulo, servicio, obj, calc, fechaDefault, alCambiarFecha, falta) {
+  const d = elx("div", "pfn-pract"); d.appendChild(elx("h4", null, titulo)); box.appendChild(d);
+  const g = elx("div", "pfn-fechas");
+  g.append(campoFecha("Fecha y hora de la maniobra", obj.momento || fechaDefault, alCambiarFecha));
+  const l = elx("label", null, "Lanchas (vacío = automático)"); const i = elx("input"); i.inputMode = "numeric";
+  i.placeholder = LD_CALC ? String(LD_CALC.lanchas_auto) : ""; i.value = obj.lanchas ? String(obj.lanchas) : "";
+  i.addEventListener("change", () => { obj.lanchas = Math.min(4, Math.round(num(i.value))); render(); pintarLds(); });
+  l.appendChild(i); g.appendChild(l); d.appendChild(g);
+  if (calc) {
+    const t = elx("table");
+    filaTabla(t, `${DIA_TXT[calc.tipo_dia] || calc.tipo_dia} · ${calc.momento.slice(11, 16)} hs`, calc.recargo_pct ? `recargo ${calc.recargo_pct} %` : "sin recargo");
+    filaTabla(t, "Servicio de " + servicio, usd2(calc.base_usd));
+    filaTabla(t, `Lancha ${usd2(calc.lancha_unit_usd)} × ${calc.lanchas}`, usd2(calc.lancha_unit_usd * calc.lanchas));
+    filaTabla(t, "Calculado", usd2(calc.total_usd), "sub");
+    d.appendChild(t);
+  } else falta(d, "Falta la fecha de la maniobra (paso 3).");
+  d.appendChild(bloqueImporte(obj, calc && { total: calc.total_usd }, actualizarTotalesLd, pintarLds));
+}
+
+function pintarLds() {
+  const box = $("#ld-box"); box.replaceChildren();
+  const c = LD_CALC;
+  const falta = (d, txt) => d.appendChild(elx("p", "falta", txt));
+  if (!BUQUE.eslora) {
+    const d = elx("div", "pfn-pract"); falta(d, "Falta la eslora (paso 3): con ella se sabe si lleva una o dos lanchas."); box.appendChild(d);
+  }
+  cardMovimiento(box, "AMARRE (MOORING)", "amarre", AMLDS, c && c.amarre, BUQUE.amarre || "", (v) => { AMLDS.momento = v === (BUQUE.amarre || "") ? "" : v; render(); pintarLds(); }, falta);
+  cardMovimiento(box, "DESAMARRE (UNMOORING)", "desamarre", DESLDS, c && c.desamarre, BUQUE.zarpe || "", (v) => { DESLDS.momento = v === (BUQUE.zarpe || "") ? "" : v; render(); pintarLds(); }, falta);
+
+  const d = elx("div", "pfn-pract"); d.appendChild(elx("h4", null, "ESCALA (SHORE GANGWAY)")); box.appendChild(d);
+  d.appendChild(casilla(tieneGangway() ? "Lleva escala (el voucher tiene SHORE GANGWAY)" : "Lleva escala (el voucher no tiene SHORE GANGWAY)", escalaOn(),
+    (v) => { ESCALA.on = v; ESCALA.on_set = true; render(); pintarLds(); }));
+  if (escalaOn()) {
+    const l = elx("label", null, "Días de alquiler" + (c && c.escala ? ` (vacío = ${c.escala.dias_auto}: del día del amarre al del desamarre)` : ""));
+    const i = elx("input"); i.inputMode = "numeric"; i.value = ESCALA.dias ? String(ESCALA.dias) : "";
+    i.addEventListener("change", () => { ESCALA.dias = Math.min(365, Math.round(num(i.value))); render(); pintarLds(); });
+    l.appendChild(i); d.appendChild(l);
+    const e = c && c.escala;
+    if (e && e.total_usd) {
+      const t = elx("table");
+      filaTabla(t, "Colocación", usd2(e.colocacion)); filaTabla(t, "Retiro", usd2(e.retiro));
+      filaTabla(t, `Alquiler diario ${usd2(e.alquiler_diario)} × ${e.dias} día(s)`, usd2(e.alquiler));
+      filaTabla(t, "Calculado", usd2(e.total_usd), "sub"); d.appendChild(t);
+    } else falta(d, "Faltan las fechas del amarre y el desamarre (paso 3) o los días de alquiler.");
+    d.appendChild(bloqueImporte(ESCALA, e && { total: e.total_usd }, actualizarTotalesLd, pintarLds));
+  } else d.appendChild(elx("p", "muted", "Sin escala: no se cobra colocación, retiro ni alquiler."));
+  actualizarTotalesLd();
+}
+
+function actualizarTotalesLd() {
+  const lista = [AMLDS, DESLDS, escalaOn() ? ESCALA : null].filter(Boolean);
+  const fact = lista.filter((x) => !x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
+  const ajena = lista.filter((x) => x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
+  $("#ld-total").textContent = usd2(fact);
+  $("#ld-ajena").textContent = ajena ? ` · por cuenta del armador (informativo): ${usd2(ajena)}` : "";
+}
+
 function render() {
   $$("[data-pane]").forEach((p) => (p.hidden = Number(p.dataset.pane) !== step));
   const s = getState();
   if (step === 4 && firmaPract() !== firmaPractAnt) calcularPracticaje();
   if (step === 5 && firmaMu() !== firmaMuAnt) calcularMuelle();
+  if (step === 6 && firmaLd() !== firmaLdAnt) calcularLds();
   const done = { 1: s.dolar.valor > 0 && !!s.buque.nombre, 2: !!s.agencia.id,
     3: !!(s.buque.amarre && s.buque.inicio && s.buque.fin && s.buque.zarpe && s.buque.trn > 0),
     4: s.practicaje.in.usd > 0 && s.practicaje.out.usd > 0,
-    5: s.muelle.usd > 0 && s.vias.usd > 0 };
+    5: s.muelle.usd > 0 && s.vias.usd > 0,
+    6: s.lds_amarre.usd > 0 && s.lds_desamarre.usd > 0 };
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
     b.classList.toggle("on", n === step);

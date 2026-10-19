@@ -157,6 +157,7 @@ def clean_state(raw) -> dict:
         return out
 
     mu, fo, vi = sub("muelle"), sub("fondeo"), sub("vias")
+    la, ld, es = sub("lds_amarre"), sub("lds_desamarre"), sub("escala")
 
     return {
         "v": VERSION,
@@ -168,6 +169,11 @@ def clean_state(raw) -> dict:
                       "sin_beneficio": bool(mu.get("sin_beneficio")), "perdonados": _num(mu.get("perdonados"), 100)}),
         "fondeo": concepto(fo, {"on": bool(fo.get("on")), "entrada": _datetime(fo.get("entrada")), "salida": _datetime(fo.get("salida"))}),
         "vias": concepto(vi, {"solo_bunker": bool(vi.get("solo_bunker")), "factor": _num(vi.get("factor"), 10) or 1.0}),
+        # LDS: momento vacio = el amarre / el zarpe del paso 3; lanchas 0 = automatico (dos si la eslora supera 150 m)
+        "lds_amarre": concepto(la, {"momento": _datetime(la.get("momento")), "lanchas": int(_num(la.get("lanchas"), 4))}),
+        "lds_desamarre": concepto(ld, {"momento": _datetime(ld.get("momento")), "lanchas": int(_num(ld.get("lanchas"), 4))}),
+        # escala (SHORE GANGWAY): on_set indica que alguien tildo o destildo la casilla (si no, manda lo que dice el voucher)
+        "escala": concepto(es, {"on": bool(es.get("on")), "on_set": bool(es.get("on_set")), "dias": int(_num(es.get("dias"), 365))}),
         "dolar": {
             "valor": _num(dolar.get("valor"), 1_000_000),
             "fecha": _fecha(dolar.get("fecha")),
@@ -225,6 +231,9 @@ def build_excel(state: dict) -> bytes:
          + (f" · beneficio de fin de semana: {str(s['muelle']['perdonados']).replace('.', ',')} días no cobrados" if s["muelle"]["perdonados"] and not s["muelle"]["sin_beneficio"] else "")),
         ("Uso de fondeadero (USD)", s["fondeo"]["usd"] or "" if s["fondeo"]["on"] else "—", _nota_concepto(s["fondeo"], s["fondeo"]["entrada"], s["fondeo"]["salida"]) if s["fondeo"]["on"] else "sin fondeo"),
         ("Vías navegables (USD)", s["vias"]["usd"] or "", _nota_concepto(s["vias"]) + (" · solo bunker: 20 % del TRN × " + str(s["vias"]["factor"]) if s["vias"]["solo_bunker"] else "")),
+        ("Amarre LDS (USD)", s["lds_amarre"]["usd"] or "", _nota_concepto(s["lds_amarre"], s["lds_amarre"]["momento"] or b["amarre"])),
+        ("Desamarre LDS (USD)", s["lds_desamarre"]["usd"] or "", _nota_concepto(s["lds_desamarre"], s["lds_desamarre"]["momento"] or b["zarpe"])),
+        ("Escala LDS (USD)", s["escala"]["usd"] or "" if s["escala"]["on"] else "—", _nota_concepto(s["escala"]) if s["escala"]["on"] else "sin shore gangway"),
         ("Dólar (divisa BNA)", s["dolar"]["valor"] or "", "Cotización del " + (s["dolar"]["fecha"] or "—")
          + (" · traído del BNA" if s["dolar"]["origen"] == "BNA" else " · cargado a mano")),
         ("Agencia a facturar", s["agencia"]["nombre"], ""),
@@ -254,7 +263,7 @@ def build_excel(state: dict) -> bytes:
     ws.cell(r, 1, "Cargas sociales Head Tally (%)").font = Font(bold=True)
     ws.cell(r, 2, s["agencia"]["tally_pct"])
     r += 2
-    ws.cell(r, 1, "Los pasos 3 a 10 se suman a esta planilla a medida que se arman en el sistema.").alignment = Alignment(wrap_text=True)
+    ws.cell(r, 1, "Los pasos 7 a 10 se suman a esta planilla a medida que se arman en el sistema.").alignment = Alignment(wrap_text=True)
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
     ws.column_dimensions["A"].width = 30
     ws.column_dimensions["B"].width = 28

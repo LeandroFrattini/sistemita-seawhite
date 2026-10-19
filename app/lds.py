@@ -15,6 +15,9 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from sqlalchemy.orm import Session
+
+from .calendario import conjuntos
 from .proforma_final import tipo_dia
 
 # (habil, extra 50 %, extra 100 %)
@@ -44,13 +47,14 @@ def _columna(pct: int) -> int:
     return {0: 0, 50: 1, 100: 2}[pct]
 
 
-def costo_servicio(servicio: str, momento: datetime, eslora: float, feriados: set[str]) -> dict:
-    """Costo de un amarre o un desamarre: servicio + lancha(s), con el recargo que corresponda."""
+def costo_servicio(servicio: str, momento: datetime, eslora: float, feriados: set[str], lanchas: int = 0) -> dict:
+    """Costo de un amarre o un desamarre: servicio + lancha(s), con el recargo que corresponda.
+    `lanchas` en 0 = automatico (una, o dos si la eslora supera 150 m); si no, la cantidad indicada."""
     if servicio not in ("amarre", "desamarre"):
         raise ValueError("servicio debe ser 'amarre' o 'desamarre'")
     pct = recargo_pct(momento, feriados)
     col = _columna(pct)
-    lanchas = 2 if eslora > ESLORA_DOS_LANCHAS else 1
+    lanchas = lanchas if lanchas > 0 else (2 if eslora > ESLORA_DOS_LANCHAS else 1)
     base = TARIFA[servicio][col]
     lancha_unit = TARIFA["lancha"][col]
     return {
@@ -59,3 +63,35 @@ def costo_servicio(servicio: str, momento: datetime, eslora: float, feriados: se
         "base_usd": base, "lancha_unit_usd": lancha_unit, "lanchas": lanchas,
         "total_usd": base + lancha_unit * lanchas,
     }
+
+
+def _dt(raw: str) -> datetime | None:
+    try:
+        return datetime.strptime(raw, "%Y-%m-%dT%H:%M")
+    except (TypeError, ValueError):
+        return None
+
+
+def escala_costo(dias: int) -> dict:
+    """Escala (pasarela de tierra): colocacion + retiro + alquiler por dia. No lleva recargo horario en el tarifario."""
+    alquiler = ESCALA["alquiler_diario"] * dias
+    return {"colocacion": ESCALA["colocacion"], "retiro": ESCALA["retiro"], "alquiler_diario": ESCALA["alquiler_diario"],
+            "dias": dias, "alquiler": alquiler, "total_usd": ESCALA["colocacion"] + ESCALA["retiro"] + alquiler}
+
+
+def calcular(db: Session, *, eslora: float, amarre: str, desamarre: str, lanchas_amarre: int = 0, lanchas_desamarre: int = 0,
+             escala: bool = False, escala_dias: int = 0) -> dict:
+    """Amarre, desamarre y (si se pide) escala. Sin fecha valida el servicio queda en None (no se inventa un importe).
+    Dias de la escala: los indicados o, si no, los dias de calendario entre el amarre y el desamarre (ambos inclusive)."""
+    feriados, _ = conjuntos(db)
+    out = {"lanchas_auto": 2 if eslora > ESLORA_DOS_LANCHAS else 1, "amarre": None, "desamarre": None, "escala": None}
+    for clave, raw, lanchas in (("amarre", amarre, lanchas_amarre), ("desamarre", desamarre, lanchas_desamarre)):
+        m = _dt(raw)
+        if m:
+            out[clave] = costo_servicio(clave, m, eslora, feriados, lanchas)
+    if escala:
+        a, d = _dt(amarre), _dt(desamarre)
+        auto = (d.date() - a.date()).days + 1 if a and d and d >= a else 0
+        dias = escala_dias if escala_dias > 0 else auto
+        out["escala"] = {**escala_costo(dias), "dias_auto": auto} if dias else {"dias_auto": auto, "total_usd": None}
+    return out
