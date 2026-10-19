@@ -53,11 +53,13 @@
     <p class="muted" style="margin:8px 0 0">Va a tener que elegir su propia contraseña la primera vez que entre.</p>
   </form>
 
+  {% if aviso_usuario %}<p class="flash-inline" role="alert">{{ aviso_usuario }}</p>{% endif %}
+  {% if usuario_cambiado %}<p class="flash-ok" role="status">✓ Listo: el usuario ahora es <b>{{ usuario_cambiado }}</b>. Tiene que entrar con ese usuario (la contraseña sigue igual).</p>{% endif %}
   <div class="client-list">
   {% for u in users %}
     <form id="usr-{{ u.id }}" class="card client-row {{ 'inactive' if not u.is_active }}" method="post" action="/admin/users/{{ u.id }}">
       <div class="row">
-        <label>Usuario<input value="{{ u.username }}" disabled></label>
+        <label>Usuario<input name="username" value="{{ u.username }}" required minlength="2" maxlength="60" pattern="[A-Za-z0-9._\-]+" title="Letras, números, punto, guion o guion bajo, sin espacios" autocomplete="off"></label>
         <label>Nombre<input name="full_name" value="{{ u.full_name }}"></label>
         <label>Resetear contraseña<input name="password" placeholder="(vacío = no tocar)"></label>
         <label class="check">Admin<input type="checkbox" name="is_admin" {{ 'checked' if u.is_admin }}></label>

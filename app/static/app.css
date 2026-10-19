@@ -720,6 +720,7 @@ table.grid td { border-color: #e3eaf3; }
 .mfa-code-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0 16px; }
 .mfa-code-grid code { padding: 9px 12px; border-radius: 8px; background: #f7fafd; border: 1px solid var(--line); font-size: 15px; letter-spacing: .08em; text-align: center; user-select: all; }
 .flash-inline { max-width: 520px; padding: 10px 14px; border-radius: 10px; background: #fffaf1; border: 1px solid #f0d3a6; color: var(--warn); font-size: 13px; }
+.flash-ok { max-width: 520px; padding: 10px 14px; border-radius: 10px; background: #ecfdf5; border: 1px solid #9fdcbc; color: #065f46; font-size: 13px; }
 
 /* Nuestros barcos: graficos de torta (donut en SVG) */
 .pies { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 4px 0 26px; }

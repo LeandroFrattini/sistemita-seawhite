@@ -1,4 +1,5 @@
 import logging
+import re
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -8,7 +9,7 @@ from sqlalchemy import select
 
 from ..auth import admin_required, hash_password
 from ..database import get_db
-from ..models import EventTemplate, ReportLog, Terminal, User
+from ..models import EventTemplate, OperatedVessel, ReportLog, Terminal, User, Voucher
 from ..service import CC_KEY, DEFAULT_CC, SIGNATURE_KEY, all_terminals, get_setting, set_setting, split_emails
 
 FLAMMABLE_LIST_KEY = "flammable_list_emails"
@@ -19,10 +20,16 @@ router = APIRouter(prefix="/admin")
 
 ADMIN_TABS = {"usuarios", "terminales", "wordings", "mails", "clientes", "registros"}
 
+USUARIO_VALIDO = re.compile(r"^[A-Za-z0-9._-]{2,60}$")
+AVISOS_USUARIO = {
+    "usuario_invalido": "El usuario tiene que tener entre 2 y 60 caracteres: letras, números, punto, guion o guion bajo (sin espacios).",
+    "usuario_existente": "Ya existe otro usuario con ese nombre. Elegí uno distinto.",
+}
+
 
 @router.get("", response_class=HTMLResponse)
 def admin_home(
-    request: Request, tab: str = "usuarios",
+    request: Request, tab: str = "usuarios", err: str = "", cambiado: str = "",
     db: Session = Depends(get_db), user: User = Depends(admin_required),
 ):
     tab = tab if tab in ADMIN_TABS else "usuarios"
@@ -36,6 +43,8 @@ def admin_home(
             "user": user,
             "tab": tab,
             "users": users,
+            "aviso_usuario": AVISOS_USUARIO.get(err, ""),
+            "usuario_cambiado": cambiado[:60],
             "terminals": all_terminals(db),
             "logs": logs,
             "events": list(events),
@@ -143,6 +152,7 @@ def update_user(
     user_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(admin_required),
+    username: str = Form(""),
     full_name: str = Form(""),
     password: str = Form(""),
     is_admin: str = Form(""),
@@ -151,7 +161,19 @@ def update_user(
     is_active: str = Form(""),
 ):
     u = db.get(User, user_id)
+    renombrado = ""
     if u:
+        nuevo = username.strip()
+        if nuevo and nuevo != u.username:  # cambio de usuario: la contraseña y la sesion siguen igual
+            if not USUARIO_VALIDO.match(nuevo):
+                return RedirectResponse(f"/admin?tab=usuarios&err=usuario_invalido#usr-{user_id}", status_code=302)
+            if any(x.username.lower() == nuevo.lower() for x in db.query(User).filter(User.id != u.id)):
+                return RedirectResponse(f"/admin?tab=usuarios&err=usuario_existente#usr-{user_id}", status_code=302)
+            viejo, u.username, renombrado = u.username, nuevo, nuevo
+            # lo que se asigna a una persona por su usuario (el voucher que tiene que completar) la sigue
+            db.query(OperatedVessel).filter(OperatedVessel.completado_por == viejo).update({"completado_por": nuevo})
+            db.query(Voucher).filter(Voucher.bloqueo_user == viejo).update({"bloqueo_user": nuevo})
+            logging.getLogger("seguridad").warning("usuario renombrado %s -> %s por admin=%s", viejo, nuevo, admin.username)
         u.full_name = full_name.strip()
         u.is_admin = is_admin == "on"
         u.is_pda_admin = is_pda_admin == "on"
@@ -163,7 +185,7 @@ def update_user(
             u.password_hash = hash_password(password.strip())
             u.must_change_password = True
         db.commit()
-    return RedirectResponse(f"/admin?tab=usuarios#usr-{user_id}", status_code=302)
+    return RedirectResponse(f"/admin?tab=usuarios{'&cambiado=' + renombrado if renombrado else ''}#usr-{user_id}", status_code=302)
 
 
 @router.post("/users/{user_id}/reset-2fa")
