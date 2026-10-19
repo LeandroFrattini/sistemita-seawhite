@@ -123,7 +123,7 @@ def ventanas_serenos(amarre: str, zarpe: str) -> list[dict]:
             h1 = int(v[:2])
             ini, fin = base + timedelta(hours=h1), base + timedelta(hours=h1 + 6)
             if a < fin and b > ini:
-                out.append({"fecha": dia.isoformat(), "ventana": v, "cat": "", "cant": 1, "precio": 0})
+                out.append({"fecha": dia.isoformat(), "ventana": v, "cat": "", "cant": 1, "precio": 0, "nombre": ""})
         dia += timedelta(days=1)
     return out
 
@@ -188,7 +188,7 @@ def calcular_serenos(db: Session, *, categoria: str, viatico: str, viatico_preci
         subtotal += total
         cantidad += cant
         filas.append({"fecha": f.isoformat(), "ventana": t["ventana"], "cat": t.get("cat") if t.get("cat") in CATEGORIAS_SERENOS else "", "cat_efectiva": cat,
-                      "cant": cant, "tipo_dia": tipo, "tier": tier, "precio_tabla": _r2(base.get(("SERENO", cat, tier), 0.0)) if cat else 0.0,
+                      "cant": cant, "nombre": " ".join(str(t.get("nombre") or "").split())[:40].upper(), "tipo_dia": tipo, "tier": tier, "precio_tabla": _r2(base.get(("SERENO", cat, tier), 0.0)) if cat else 0.0,
                       "precio": _r2(unit), "manual": manual > 0, "total": _r2(total)})
     v = viatico if viatico in VIATICOS else ""
     v_tabla = base.get(("VIATICO", v, "TURNO"), 0.0) if v else 0.0
@@ -242,7 +242,8 @@ def clean_serenos(raw) -> dict:
     for t in (raw.get("turnos") if isinstance(raw.get("turnos"), list) else [])[:200]:
         if isinstance(t, dict) and _fecha(t.get("fecha")) and str(t.get("ventana")) in VENTANAS_SERENOS:
             turnos.append({"fecha": _fecha(t["fecha"]), "ventana": str(t["ventana"]), "cat": t.get("cat") if t.get("cat") in CATEGORIAS_SERENOS else "",
-                           "cant": max(1, int(_num(t.get("cant"), 100))), "precio": _num(t.get("precio"), 1e12)})
+                           "cant": max(1, int(_num(t.get("cant"), 100))), "precio": _num(t.get("precio"), 1e12),
+                           "nombre": " ".join(str(t.get("nombre") or "").split())[:40].upper()})
     return {"categoria": raw.get("categoria") if raw.get("categoria") in CATEGORIAS_SERENOS else "",
             "viatico": raw.get("viatico") if raw.get("viatico") in (*VIATICOS, "NINGUNO") else "", "viatico_precio": _num(raw.get("viatico_precio"), 1e12),
             "armado": bool(raw.get("armado")), "turnos": turnos, "cantidad": int(_num(raw.get("cantidad"), 10000)),

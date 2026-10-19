@@ -19,7 +19,7 @@ from ..docgen import voucher as vch
 from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, TarifaPersonal, User
 from .. import practicaje as pract
 from .. import lds as lds_calc
-from .. import migraciones, personal
+from .. import chequeo, migraciones, personal
 from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
@@ -146,6 +146,7 @@ def _barcos_a_proformar(db: Session, limite: int = 300) -> list[dict]:
             "agencia_id": cli.id if cli is not None else None,
             "amarre": o.amarre or "", "inicio": o.inicio_operacion or "", "fin": o.fin_operacion or "", "zarpe": o.zarpe or "",
             "cantidad": (o.cantidad_operada or o.quantity or "").strip(),
+            "carga": (o.grade or "").strip().upper(), "shipper": (o.shipper or "").strip().upper(),
             **_particulares(historial.get((o.imo or "").strip()), escalas.get((o.imo or "").strip())),
             **_del_voucher(o),
             "completo": bool(o.amarre and o.inicio_operacion and o.fin_operacion and o.zarpe and o.cantidad_operada),
@@ -168,6 +169,7 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
         "user": user, "agencias": agencias, "barcos": _barcos_a_proformar(db), "pasos": pf.PASOS,
         "hoy": date.today().isoformat(),
         "aduana_usd": get_param(db, "aduana_habilitacion_usd", pf.ADUANA_USD),
+        "law_pct": ("%g" % get_param(db, "law_25413_pct", chequeo.LAW_PCT)).replace(".", ","),
         # tramos de calado del practicaje (en pies) para mostrarlos tambien en metros
         "tramos_calado": [{"hasta": t.hasta_pies, "coef": t.valor_usd}
                           for t in db.scalars(select(ProformaPilotageTramo).order_by(ProformaPilotageTramo.orden))],
@@ -215,6 +217,13 @@ def _ref_fecha(d: dict) -> date | None:
         return None
 
 
+@router.post("/proforma-final/chequeo")
+async def proforma_final_chequeo(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Chequeo general: la proforma consolidada (renglones en dolares y pesos, LAW NR 25413, lo que va por cuenta del armador)."""
+    state = pf.clean_state(await request.json())
+    return chequeo.armar(db, state)
+
+
 @router.post("/proforma-final/migraciones")
 async def proforma_final_migraciones(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     """Migraciones IN/OUT, taxis y free pratique (segun el TRN): importe de cada concepto tildado y totales."""
@@ -247,11 +256,11 @@ async def proforma_final_serenos(request: Request, db: Session = Depends(get_db)
 
 
 @router.post("/proforma-final/excel")
-async def proforma_final_excel(request: Request, user: User = Depends(administracion_required)):
+async def proforma_final_excel(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     state = pf.clean_state(await request.json())
     nombre = f"Proforma final - {state['agencia']['nombre'] or 'sin agencia'} - {date.today().strftime('%d.%m.%Y')}.xlsx"
     return Response(
-        content=pf.build_excel(state),
+        content=pf.build_excel(state, chequeo.armar(db, state), db),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"X-Filename": nombre.encode("ascii", "ignore").decode() or "Proforma final.xlsx"},
     )

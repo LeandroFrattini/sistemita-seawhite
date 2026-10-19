@@ -31,8 +31,8 @@
   <aside class="card pfn-resumen" aria-label="Resumen de la proforma">
     <h3>Resumen</h3>
     <div id="rs-filas"></div>
-    <div class="rs-total"><span>Total parcial a facturar</span><b id="rs-total">USD 0,00</b></div>
-    <div class="rs-nota" id="rs-nota">Pasos 1 a 10. El chequeo general se suma en el próximo paso. Lo que va en pesos se pasa a dólares con el dólar del paso 1.</div>
+    <div class="rs-total"><span>Subtotal de los pasos 1 a 10</span><b id="rs-total">USD 0,00</b></div>
+    <div class="rs-nota" id="rs-nota">Sin el fee ni LAW NR 25413 ni los otros conceptos: el total final a facturar está en el paso 11. Lo que va en pesos se pasa a dólares con el dólar del paso 1.</div>
   </aside>
 
   <section class="card pfn-body" id="pfn-body">
@@ -88,6 +88,8 @@
         <label>Final de operación<input type="datetime-local" id="b-fin"></label>
         <label>Zarpe<input type="datetime-local" id="b-zarpe"></label>
         <label>Cantidad operada<input id="b-cantidad" maxlength="40" placeholder="ej. 24800"></label>
+        <label>Carga (mercadería)<input id="b-carga" maxlength="60" placeholder="ej. CEBADA / MALTA"></label>
+        <label>Shipper<input id="b-shipper" maxlength="60" placeholder="ej. QUILMES"></label>
       </div>
 
       <h3 class="pfn-sub">Datos del buque</h3>
@@ -221,7 +223,21 @@
       <p class="pfn-total">Migraciones: <b id="mg-usd">USD 0,00</b> · Free pratique y taxis: <b id="mg-ars">$ 0,00</b> <span class="muted" id="mg-eq"></span></p>
     </div>
 
-    {% for n, titulo, sub in pasos if n > 10 %}
+    <div data-pane="11" hidden>
+      <h2>11 · Chequeo general</h2>
+      <p class="muted">Revisá toda la proforma antes de bajar el Excel. Cada renglón tiene su botón <b>Corregir</b>, que te lleva al paso donde se cambia.</p>
+      <details class="pfn-info"><summary>Cómo se calcula</summary>
+        <p>El <b>fee</b> sale de lo que tildaste en el paso 2. <b>LAW NR 25413</b> es el {{ law_pct }} % de la suma de los renglones que se facturan, <b>sin el fee</b> y sin lo que va por cuenta del armador.
+        SENASA, Maritime Center y Miscellaneous tienen un monto fijo (se cambia en <a href="/administracion/formulas">Administración → Fórmulas</a>) y también se pueden escribir a mano.
+        Los renglones en pesos se pasan a dólares con el dólar del paso 1.</p>
+      </details>
+      <div id="ck-pend"></div>
+      <div id="ck-otros"></div>
+      <div id="ck-tabla"></div>
+      <p class="pfn-total">Total a facturar: <b id="ck-usd">USD 0,00</b> <span class="muted" id="ck-ars"></span></p>
+    </div>
+
+    {% for n, titulo, sub in pasos if n > 11 %}
     <div data-pane="{{ n }}" hidden>
       <h2>{{ n }} · {{ titulo }}</h2>
       <p class="muted">{{ sub }}.</p>
@@ -231,7 +247,7 @@
 
     <div class="pfn-nav">
       <button type="button" class="btn" id="pfn-prev">← Anterior</button>
-      <span class="pfn-nav-total">Total parcial <b id="nav-total">USD 0,00</b></span>
+      <span class="pfn-nav-total">Subtotal <b id="nav-total">USD 0,00</b></span>
       <button type="button" class="btn primary" id="pfn-next">Siguiente →</button>
     </div>
   </section>
@@ -271,6 +287,7 @@
 .pfn-trn input, .pfn-trn select { width: 100%; min-width: 0; }
 .pfn-trn .num { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pfn-trn .quitar { border: 0; background: none; cursor: pointer; font-size: 16px; color: #b91c1c; padding: 4px; }
+.pfn-trn .nombre-sereno { grid-column: 1 / -1; font-size: 12.5px; box-sizing: border-box; width: 100%; }
 .pfn-trn.feriado { background: #fef2f2; border-color: #f3c0c0; }
 .pfn-agregar { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 10px 0; padding: 10px 12px; background: #f4f8fd; border: 1px dashed var(--line); border-radius: 12px; }
 .pfn-agregar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
@@ -279,7 +296,7 @@
 .pfn-tabla td.num, .pfn-tabla th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pfn-tabla td:last-child { white-space: nowrap; }
 .pfn-tabla tr.sub td { font-weight: 700; border-top: 2px solid var(--line-soft); }
-@media (max-width: 760px) {
+@media (max-width: 1180px) {  /* con poco ancho las columnas no entran: cada turno pasa a ser una tarjeta */
   .pfn-trn, .pfn-trn.se { grid-template-columns: 1fr 1fr; }
   .pfn-trn.cab { display: none; }
   .pfn-trn .quitar { justify-self: end; grid-column: 2; }
@@ -302,6 +319,26 @@
   .pfn-mig > :nth-child(5) { grid-column: 3; grid-row: 3; }
   .pfn-mig.cab { display: none; }
 }
+.ck-otros { border: 1px solid var(--line-soft); border-radius: 12px; padding: 12px 14px; margin: 10px 0; background: #fff; }
+.ck-otros h4 { margin: 0 0 8px; font-size: 14px; color: var(--navy, #12355f); }
+.ck-fila { display: grid; grid-template-columns: 24px minmax(0, 1fr) 150px; gap: 10px; align-items: center; padding: 5px 0; font-size: 13.5px; }
+.ck-fila input[type=checkbox] { width: 20px !important; height: 20px; min-width: 0 !important; margin: 0; }
+.ck-fila input[inputmode] { width: 100%; min-width: 0; text-align: right; font-weight: 600; }
+.ck-fila small { display: block; color: var(--muted); font-size: 11.5px; }
+.ck-pend { border: 1px solid #f5d27a; background: #fffbeb; color: #78350f; border-radius: 12px; padding: 10px 14px; margin: 10px 0; font-size: 13.5px; }
+.ck-pend button { border: 0; background: none; color: var(--blue-dark, #154a86); text-decoration: underline; cursor: pointer; font: inherit; padding: 0; }
+.ck-tabla { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 10px 0; }
+.ck-tabla th { text-align: left; font-size: 12px; color: var(--muted); padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.ck-tabla td { padding: 6px 8px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+.ck-tabla td.num, .ck-tabla th.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ck-tabla td.n { width: 28px; color: var(--muted); }
+.ck-tabla tr.total td { font-weight: 700; border-top: 2px solid var(--line); }
+.ck-tabla tr.ajena td { color: var(--muted); }
+.ck-tabla .corregir { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+.ck-agregar { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.ck-agregar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.ck-agregar input, .ck-agregar select { width: auto; min-width: 0; }
+@media (max-width: 640px) { .ck-fila { grid-template-columns: 24px minmax(0, 1fr); } .ck-fila > :nth-child(3) { grid-column: 2; } .ck-tabla .col-paso { display: none; } }
 .pfn-info { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
 .pfn-info summary { cursor: pointer; color: var(--blue-dark, #154a86); font-weight: 600; width: fit-content; }
 .pfn-info p { margin: 6px 0 0; }
@@ -389,7 +426,7 @@
 <script>
 const AGENCIAS = {{ agencias|tojson }};
 const BARCOS = {{ barcos|tojson }};
-const buqueVacio = () => ({ operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "", trn: 0, trb: 0, eslora: 0, manga: 0, puntal: 0, bandera: "",
+const buqueVacio = () => ({ operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "", carga: "", shipper: "", trn: 0, trb: 0, eslora: 0, manga: 0, puntal: 0, bandera: "",
   calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [] });
 let BUQUE = buqueVacio();
 let PRACT = { in: { usd: 0, manual: false, cuenta_ajena: false }, out: { usd: 0, manual: false, cuenta_ajena: false } };  // importe de cada movimiento (calculado o modificado a mano)
@@ -417,19 +454,22 @@ const sel = $("#ag-sel");
 
 function msg(t, ok = true) { const m = $("#pfn-msg"); m.textContent = t; m.style.color = ok ? "" : "#b91c1c"; }
 
-function getState() {
-  const manual = $("#barco-sel").value === "manual";
-  if (manual) BUQUE = { ...BUQUE, operated_id: null, nombre: $("#barco-nombre").value.trim() };
-  // lo que se ve en el paso 3 es lo que manda (se puede corregir lo traido de Operaciones)
-  BUQUE = { ...BUQUE, amarre: $("#b-amarre").value, inicio: $("#b-inicio").value, fin: $("#b-fin").value, zarpe: $("#b-zarpe").value,
-    cantidad: $("#b-cantidad").value.trim(), trn: num($("#b-trn").value), trb: num($("#b-trb").value), eslora: num($("#b-eslora").value),
-    manga: num($("#b-manga").value), puntal: num($("#b-puntal").value), bandera: $("#b-bandera").value.trim() };
+// sincronizar = false: arma el estado sin releer lo que se ve en el paso 3 (para repintar sin pisar datos mientras se carga un barco)
+function getState(sincronizar = true) {
+  if (sincronizar) {
+    const manual = $("#barco-sel").value === "manual";
+    if (manual) BUQUE = { ...BUQUE, operated_id: null, nombre: $("#barco-nombre").value.trim() };
+    // lo que se ve en el paso 3 es lo que manda (se puede corregir lo traido de Operaciones)
+    BUQUE = { ...BUQUE, amarre: $("#b-amarre").value, inicio: $("#b-inicio").value, fin: $("#b-fin").value, zarpe: $("#b-zarpe").value,
+      cantidad: $("#b-cantidad").value.trim(), carga: $("#b-carga").value.trim(), shipper: $("#b-shipper").value.trim(), trn: num($("#b-trn").value), trb: num($("#b-trb").value), eslora: num($("#b-eslora").value),
+      manga: num($("#b-manga").value), puntal: num($("#b-puntal").value), bandera: $("#b-bandera").value.trim() };
+  }
   return {
     v: 5,
     buque: BUQUE,
     practicaje: PRACT,
     muelle: MUELLE, fondeo: FONDEO, vias: VIAS,
-    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_draft: DRAFT, aduana: { ...ADUANA, usd: totalAduana() }, tally: TALLY, serenos: SERENOS, migraciones: MIG, escala: { ...ESCALA, on: escalaOn(), on_set: true },
+    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_draft: DRAFT, aduana: { ...ADUANA, usd: totalAduana() }, tally: TALLY, serenos: SERENOS, migraciones: MIG, chequeo: CHEQ, escala: { ...ESCALA, on: escalaOn(), on_set: true },
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
       id: sel.value ? Number(sel.value) : null,
@@ -546,7 +586,7 @@ function elegirBarco(valor) {
   if (valor === "manual") { BUQUE = buqueVacio(); resetPract(); renderBuque(); pintarPaso3(false); render(); return; }
   const o = BARCOS.find((x) => String(x.id) === String(valor));
   if (!o) { BUQUE = buqueVacio(); resetPract(); renderBuque(); pintarPaso3(false); render(); return; }
-  BUQUE = { operated_id: o.id, nombre: o.nombre, imo: o.imo, sitio: o.sitio, amarre: o.amarre, inicio: o.inicio, fin: o.fin, zarpe: o.zarpe, cantidad: o.cantidad,
+  BUQUE = { operated_id: o.id, nombre: o.nombre, imo: o.imo, sitio: o.sitio, amarre: o.amarre, inicio: o.inicio, fin: o.fin, zarpe: o.zarpe, cantidad: o.cantidad, carga: o.carga || "", shipper: o.shipper || "",
     trn: o.trn || 0, trb: o.trb || 0, eslora: o.eslora || 0, manga: o.manga || 0, puntal: o.puntal || 0, bandera: o.bandera || "",
     calado_entrada: o.calado_entrada || 0, calado_salida: o.calado_salida || 0, servicios: o.servicios || [], turnos: o.turnos || [], mig_voucher: o.mig_voucher || {} };
   resetPract();
@@ -566,7 +606,7 @@ const turnoTxt = (t) => `${t.fecha.slice(8, 10)}/${t.fecha.slice(5, 7)} ${t.turn
 function pintarPaso3(hayBarco, o) {
   const b = BUQUE;
   $("#b-amarre").value = b.amarre || ""; $("#b-inicio").value = b.inicio || ""; $("#b-fin").value = b.fin || ""; $("#b-zarpe").value = b.zarpe || "";
-  $("#b-cantidad").value = b.cantidad || "";
+  $("#b-cantidad").value = b.cantidad || ""; $("#b-carga").value = b.carga || ""; $("#b-shipper").value = b.shipper || "";
   const campo = (id, v) => { $(id).value = v ? fmt(v) : ""; };
   campo("#b-trn", b.trn); campo("#b-trb", b.trb); campo("#b-eslora", b.eslora); campo("#b-manga", b.manga); campo("#b-puntal", b.puntal);
   $("#b-bandera").value = b.bandera || "";
@@ -614,6 +654,7 @@ function setState(s) {
   TALLY = { ...tallyVacio(), ...s.tally, precios: { ...tallyVacio().precios, ...(s.tally && s.tally.precios) } }; TA_CALC = null; firmaTaAnt = ""; pintarTally();
   SERENOS = { ...serenosVacio(), ...s.serenos }; SE_CALC = null; firmaSeAnt = ""; pintarSerenos();
   MIG = { ...migVacio(), ...s.migraciones }; MG_CALC = null; firmaMgAnt = ""; pintarMig();
+  CHEQ = { ...cheqVacio(), ...s.chequeo, pie: { ...cheqVacio().pie, ...(s.chequeo && s.chequeo.pie) } }; CK_CALC = null; firmaCkAnt = ""; pintarCheq();
   firmaLdCargada = firmaLd(); firmaLdAnt = "";
   $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
   $("#dolar-fecha").value = s.dolar.fecha || "";
@@ -643,6 +684,7 @@ function resetPract() {  // al cambiar de barco los importes de practicaje empie
   resetTally();
   resetSerenos();
   resetMig();
+  resetCheq();
 }
 const firmaPract = () => { const b = BUQUE; return [b.eslora, b.manga, b.puntal, b.calado_entrada, b.calado_salida].join("|"); };
 const usd2 = (n) => "USD " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1125,7 +1167,7 @@ $("#ta-cat").addEventListener("change", (ev) => { TALLY.categoria = ev.target.va
 // ----- Serenos
 const serenosVacio = () => ({ categoria: "", viatico: "", viatico_precio: 0, armado: false, turnos: [], cantidad: 0, subtotal_ars: 0, cargas_ars: 0, viaticos_ars: 0, total_ars: 0 });
 let SERENOS = serenosVacio(), SE_CALC = null, firmaSeAnt = "";
-const firmaSe = () => JSON.stringify([SERENOS.categoria, SERENOS.viatico, SERENOS.viatico_precio, SERENOS.armado, SERENOS.turnos, $("#ag-ser").value, $("#dolar-valor").value,
+const firmaSe = () => JSON.stringify([SERENOS.categoria, SERENOS.viatico, SERENOS.viatico_precio, SERENOS.armado, SERENOS.turnos.map((t) => [t.fecha, t.ventana, t.cat, t.cant, t.precio]), $("#ag-ser").value, $("#dolar-valor").value,
   refFecha(), SERENOS.armado ? "" : [BUQUE.amarre, BUQUE.zarpe]]);
 function resetSerenos() { SERENOS = serenosVacio(); SE_CALC = null; firmaSeAnt = ""; pintarSerenos(); }
 
@@ -1173,6 +1215,9 @@ function pintarSerenos() {
       const x = elx("button", "quitar", "✕"); x.type = "button"; x.title = "Quitar este turno"; x.setAttribute("aria-label", "Quitar el turno");
       x.addEventListener("click", () => { lista.splice(i, 1); render(); pintarSerenos(); });
       row.append(celdaFecha(t.fecha, f && f.tipo_dia), elx("span", null, VENT_TXT[t.ventana]), sel, cant, pr, elx("span", "num", f ? ars(f.total) : "—"), x);
+      const nom = elx("input", "nombre-sereno"); nom.value = t.nombre || ""; nom.maxLength = 40; nom.placeholder = "Nombre del sereno (opcional; sale en la hoja SERENOS)";
+      nom.setAttribute("aria-label", "Nombre del sereno"); nom.addEventListener("input", () => { t.nombre = nom.value.toUpperCase(); });
+      row.appendChild(nom);
       box.appendChild(row);
     });
   }
@@ -1278,8 +1323,107 @@ function pintarMig() {
   $("#mg-eq").textContent = c && c.ars_en_usd != null && MIG.ars ? `(= ${usd2(c.ars_en_usd)} con el dólar del paso 1)` : "";
 }
 
+// ---- Paso 11: chequeo general (la proforma consolidada la arma el servidor: app/chequeo.py)
+const cheqVacio = () => ({ armado: false, senasa: { on: false, precio: 0 }, maritime: { on: true, precio: 0 }, misc: { on: false, precio: 0 }, law: { on: true, precio: 0 },
+  extras: [], pie: { tugboats: true, osro: true } });
+let CHEQ = cheqVacio(), CK_CALC = null, firmaCkAnt = "";
+const FIJOS_TXT = { senasa: "Compulsory SENASA inspection", maritime: "Maritime Center", misc: "Miscellaneous" };
+
+function armarCheq() {  // el SENASA sale tildado si el voucher lo trae; Maritime Center tildado; Miscellaneous y los extras, a pedido
+  CHEQ.senasa.on = (BUQUE.servicios || []).some((x) => x.toUpperCase().startsWith("EXPENSES FOR COMPULSORY SENASA")); CHEQ.armado = true;
+}
+function resetCheq() { CHEQ = cheqVacio(); armarCheq(); CK_CALC = null; firmaCkAnt = ""; pintarCheq(); }
+const firmaCk = () => JSON.stringify(getState(false));
+
+async function calcularCheq() {
+  const pedido = nuevoPedido("cheq");
+  const s = getState(false); firmaCkAnt = firmaCk();
+  const r = await fetch("/administracion/proforma-final/chequeo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) });
+  if (!r.ok) return;
+  const dato = await r.json();
+  if (pedido !== SEQ.cheq) return;  // llego una respuesta vieja: ya hay un pedido mas nuevo
+  CK_CALC = dato; pintarCheq(); render();
+}
+
+function pintarCheq() {
+  const s = getState(false), c = CK_CALC;
+  // pasos con algo pendiente
+  const pend = $("#ck-pend"); pend.replaceChildren();
+  const faltan = faltantes(s), con = [];
+  for (let n = 1; n <= 10; n++) if (faltan[n].length) con.push(n);
+  if (con.length) {
+    const box = elx("div", "ck-pend"); box.appendChild(elx("b", null, "Antes de bajar el Excel falta completar:"));
+    const ul = elx("ul"); con.forEach((n) => { const li = elx("li"); const b = elx("button", null, "Paso " + n + " · " + $(`.pfn-step[data-step="${n}"] b`).textContent); b.type = "button"; b.addEventListener("click", () => ir(n)); li.append(b, " — " + faltan[n][0]); ul.appendChild(li); });
+    box.appendChild(ul); pend.appendChild(box);
+  }
+  // conceptos que se ven solo aca
+  const ot = $("#ck-otros"); ot.replaceChildren();
+  const caja = elx("div", "ck-otros"); caja.appendChild(elx("h4", null, "Otros conceptos"));
+  const fijo = (clave) => {
+    const it = CHEQ[clave], f = elx("div", "ck-fila");
+    const cb = elx("input"); cb.type = "checkbox"; cb.checked = it.on; cb.setAttribute("aria-label", "Va: " + FIJOS_TXT[clave]);
+    cb.addEventListener("change", () => { it.on = cb.checked; render(); pintarCheq(); });
+    const nom = elx("span", null, FIJOS_TXT[clave]); nom.appendChild(elx("small", null, "monto fijo en dólares" + (c ? " (tabla: " + fm2(c.fijos[clave]) + ")" : "")));
+    const inp = elx("input"); inp.inputMode = "decimal"; inp.value = it.precio ? fm2(it.precio) : (c ? fm2(c.fijos[clave]) : ""); inp.disabled = !it.on; inp.setAttribute("aria-label", "Importe en USD: " + FIJOS_TXT[clave]);
+    inp.addEventListener("change", () => { const v = num(inp.value); it.precio = c && Math.abs(v - c.fijos[clave]) < 0.005 ? 0 : v; render(); });
+    f.append(cb, nom, inp); return f;
+  };
+  ["senasa", "maritime", "misc"].forEach((k) => caja.appendChild(fijo(k)));
+  const law = CHEQ.law, fl = elx("div", "ck-fila");
+  const lcb = elx("input"); lcb.type = "checkbox"; lcb.checked = law.on; lcb.setAttribute("aria-label", "Va: LAW NR 25413");
+  lcb.addEventListener("change", () => { law.on = lcb.checked; render(); pintarCheq(); });
+  const ln = elx("span", null, "LAW NR 25413"); ln.appendChild(elx("small", null, c ? `${fm2(c.law.pct)} % de ${usd2(c.law.base_usd)} (la suma sin el fee y sin lo que va por cuenta del armador)` : "1,2 % del total sin el fee"));
+  const li = elx("input"); li.inputMode = "decimal"; li.value = law.precio ? fm2(law.precio) : (c ? fm2(c.law.auto_usd) : ""); li.disabled = !law.on; li.setAttribute("aria-label", "Importe en USD: LAW NR 25413");
+  li.addEventListener("change", () => { const v = num(li.value); law.precio = c && Math.abs(v - c.law.auto_usd) < 0.005 ? 0 : v; render(); });
+  fl.append(lcb, ln, li); caja.appendChild(fl);
+  // renglones libres
+  CHEQ.extras.forEach((e, i) => {
+    const f = elx("div", "ck-fila"); const x = elx("button", "quitar", "✕"); x.type = "button"; x.title = "Quitar este renglón"; x.setAttribute("aria-label", "Quitar el renglón " + e.texto);
+    x.addEventListener("click", () => { CHEQ.extras.splice(i, 1); render(); pintarCheq(); });
+    const nom = elx("span", null, e.texto); nom.appendChild(elx("small", null, (e.moneda === "ARS" ? "en pesos" : "en dólares") + (e.cuenta_ajena ? " · FOR YOUR ACCOUNT" : "")));
+    f.append(x, nom, elx("span", "num", e.moneda === "ARS" ? ars(e.monto) : usd2(e.monto))); caja.appendChild(f);
+  });
+  const ag = elx("div", "ck-agregar");
+  const lt = elx("label", null, "Otro renglón"); const ti = elx("input"); ti.maxLength = 120; ti.placeholder = "ej. GASTOS VARIOS"; lt.appendChild(ti);
+  const lm = elx("label", null, "Moneda"); const ms = elx("select"); ms.append(new Option("Dólares", "USD"), new Option("Pesos", "ARS")); lm.appendChild(ms);
+  const lo = elx("label", null, "Monto"); const mi = elx("input"); mi.inputMode = "decimal"; lo.appendChild(mi);
+  const lf = elx("label", "pfn-chk"); const fc = elx("input"); fc.type = "checkbox"; lf.append(fc, " FOR YOUR ACCOUNT");
+  const b = elx("button", "btn", "+ Agregar"); b.type = "button";
+  b.addEventListener("click", () => {
+    if (!ti.value.trim() || !(num(mi.value) > 0)) { msg("Escribí el concepto y un monto mayor a cero.", false); return; }
+    CHEQ.extras.push({ texto: ti.value.trim().toUpperCase(), moneda: ms.value, monto: num(mi.value), cuenta_ajena: fc.checked }); render(); pintarCheq();
+  });
+  ag.append(lt, lm, lo, lf, b); caja.appendChild(ag);
+  // lo que figura al pie sin importe
+  const pie = elx("div", "ck-agregar");
+  [["tugboats", "TUGBOATS IN/OUT"], ["osro", "COMPULSORY OSRO EXPENSES"]].forEach(([k, t]) => pie.appendChild(casilla("Al pie, por cuenta del armador: " + t, CHEQ.pie[k], (v) => { CHEQ.pie[k] = v; render(); })));
+  caja.appendChild(pie); ot.appendChild(caja);
+  // la proforma consolidada
+  const tb = $("#ck-tabla"); tb.replaceChildren();
+  if (!c) { tb.appendChild(elx("p", "muted", "Armando la proforma…")); return; }
+  if (c.sin_dolar) tb.appendChild(elx("p", "falta", "Falta el dólar (paso 1): los renglones en pesos no se pueden pasar a dólares."));
+  const t = elx("table", "ck-tabla");
+  const th = elx("tr"); [["", "n"], ["Concepto", ""], ["USD", "num"], ["Pesos (ARS)", "num"], ["", "col-paso"]].forEach(([x, cl]) => th.appendChild(elx("th", cl, x))); t.appendChild(th);
+  c.lineas.forEach((l) => {
+    const tr = elx("tr"); tr.appendChild(elx("td", "n", String(l.n))); tr.appendChild(elx("td", null, l.texto));
+    tr.appendChild(elx("td", "num", l.usd != null ? usd2(l.usd) : "—")); tr.appendChild(elx("td", "num", ars(l.ars)));
+    const td = elx("td", "col-paso"); if (l.paso !== 11) { const bb = elx("button", "corregir", "Corregir"); bb.type = "button"; bb.title = "Ir al paso " + l.paso; bb.addEventListener("click", () => ir(l.paso)); td.appendChild(bb); }
+    tr.appendChild(td); t.appendChild(tr);
+  });
+  const tot = elx("tr", "total"); tot.append(elx("td"), elx("td", null, "TOTAL"), elx("td", "num", c.total_usd != null ? usd2(c.total_usd) : "—"), elx("td", "num", ars(c.total_ars)), elx("td", "col-paso")); t.appendChild(tot);
+  tb.appendChild(t);
+  if (c.ajenas.length || c.pie.length) {
+    const a = elx("table", "ck-tabla"); const h = elx("tr"); h.appendChild(elx("th", null, "FOR YOUR ACCOUNT (no se factura)")); h.appendChild(elx("th", "num", "USD")); a.appendChild(h);
+    c.ajenas.forEach((l) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, l.texto + "  · sin impuestos"), elx("td", "num", l.usd != null ? usd2(l.usd) : "—")); a.appendChild(tr); });
+    c.pie.forEach((t2) => { const tr = elx("tr", "ajena"); tr.append(elx("td", null, t2), elx("td")); a.appendChild(tr); });
+    tb.appendChild(a);
+  }
+  $("#ck-usd").textContent = c.total_usd != null ? usd2(c.total_usd) : "—";
+  $("#ck-ars").textContent = "· " + ars(c.total_ars);
+}
+
 // ---- Estado de cada paso: que falta, aviso del paso actual y resumen
-const PASOS_LISTOS = 10;          // pasos ya armados; del 8 en adelante figuran como "Próximamente"
+const PASOS_LISTOS = 11;          // pasos ya armados; del 8 en adelante figuran como "Próximamente"
 const VISITADOS = new Set([1]);  // pasos por los que ya se paso (solo ahi se marca "falta completar")
 
 function faltantes(s) {
@@ -1311,7 +1455,9 @@ function faltantes(s) {
   if (s.serenos.turnos.length && !s.serenos.categoria && s.serenos.turnos.some((t) => !t.cat)) f[9].push("Elegí la categoría de los serenos (normal, insalubre o peligroso).");
   if (s.serenos.turnos.length && !s.serenos.viatico) f[9].push("Elegí los viáticos (White, Galván o sin viáticos).");
   f[10] = s.migraciones.items.some((i) => i.on && i.key === "free_pratique") && !(b.trn > 0) ? ["Falta el TRN (paso 3) para calcular el free pratique."] : [];
-  for (let n = 11; n <= TOTAL; n++) f[n] = [];
+  const pendientes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((n) => f[n].length);
+  f[11] = pendientes.length ? ["Faltan completar los pasos: " + pendientes.join(", ") + "."] : [];
+  for (let n = 12; n <= TOTAL; n++) f[n] = [];
   return f;
 }
 
@@ -1364,7 +1510,7 @@ function pintarResumen(s) {
   fila("Tally (head tally)", aUsd(s.tally.total_ars), false);
   fila("Serenos", aUsd(s.serenos.total_ars), false);
   $("#rs-total").textContent = usd2(fact); $("#nav-total").textContent = usd2(fact);
-  $("#rs-nota").textContent = (ajena ? `Por cuenta del armador (no se suma): ${usd2(ajena)}. ` : "") + "Pasos 1 a 10. El chequeo general se suma en el próximo paso.";
+  $("#rs-nota").textContent = (ajena ? `Por cuenta del armador (no se suma): ${usd2(ajena)}. ` : "") + "Sin el fee ni LAW NR 25413 ni los otros conceptos: el total final a facturar está en el paso 11.";
 }
 
 function render() {
@@ -1377,10 +1523,11 @@ function render() {
   if (step === 8 && firmaTa() !== firmaTaAnt) calcularTally();
   if (step === 9 && firmaSe() !== firmaSeAnt) calcularSerenos();
   if (step === 10 && firmaMg() !== firmaMgAnt) calcularMig();
+  if (step === 11 && firmaCk() !== firmaCkAnt) calcularCheq();
   const faltan = faltantes(s);
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
-    const pronto = n > PASOS_LISTOS, completo = !pronto && faltan[n].length === 0 && (n !== 7 || s.aduana.usd > 0) && (n !== 8 || s.tally.total_ars > 0) && (n !== 9 || s.serenos.total_ars > 0) && (n !== 10 || s.migraciones.usd + s.migraciones.ars > 0);
+    const pronto = n > PASOS_LISTOS, completo = !pronto && faltan[n].length === 0 && (n !== 7 || s.aduana.usd > 0) && (n !== 8 || s.tally.total_ars > 0) && (n !== 9 || s.serenos.total_ars > 0) && (n !== 10 || s.migraciones.usd + s.migraciones.ars > 0) && (n !== 11 || !!CK_CALC);
     const aviso = !pronto && !completo && faltan[n].length > 0 && VISITADOS.has(n) && n !== step;
     b.classList.toggle("on", n === step);
     b.classList.toggle("done", completo);
@@ -1417,7 +1564,7 @@ document.addEventListener("input", render);
   const ag = AGENCIAS.find((x) => /oceanway/i.test(x.nombre)) || AGENCIAS[0];
   BARCOS.unshift({
     id: "prueba", prueba: true, nombre: "MV BARCO DE PRUEBA", imo: "", sitio: "TBB 9 (ejemplo)", agencia: ag ? ag.nombre : "", agencia_id: ag ? ag.id : null,
-    amarre: "2026-09-25T14:12", inicio: "2026-09-25T16:00", fin: "2026-09-26T11:00", zarpe: "2026-09-26T13:50", cantidad: "10027,9",
+    amarre: "2026-09-25T14:12", inicio: "2026-09-25T16:00", fin: "2026-09-26T11:00", zarpe: "2026-09-26T13:50", cantidad: "10027,9", carga: "CEBADA / MALTA", shipper: "QUILMES",
     trn: 11677, trb: 15000, eslora: 150, manga: 23, puntal: 14, bandera: "Panamá", calado_entrada: 30.84, calado_salida: 36.75,
     trn_historial: false, calado_historial: false, hay_voucher: true, completo: true,
     servicios: ["PORT DUES", "CHANNEL TOLL", "TUGBOATS FOR BERTHING / UNBERTHING", "PILOT SERVICE IN / OUT", "MOORING / UNMOORING (LDS)", "COMPULSORY WATCHMAN SERVICES",

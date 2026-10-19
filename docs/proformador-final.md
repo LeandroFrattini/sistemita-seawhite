@@ -411,3 +411,25 @@ Código: `app/migraciones.py`, endpoint `POST /administracion/proforma-final/mig
 Acceso: quien tenga el permiso de Administración (o sea admin). Los textos de la proforma final apuntan ahí.
 
 **Barco de prueba:** en el paso 1 hay una opción «★ BARCO DE PRUEBA» con datos de ejemplo completos (horarios, medidas, calados, voucher, turnos y lo usado en migraciones). No se guarda nada en el sistema.
+
+## Paso 11 (Chequeo general) y Excel final con el formato de las proformas (ronda 13)
+
+**Paso 11** — `app/chequeo.py`, endpoint `POST /administracion/proforma-final/chequeo`, estado `chequeo`. Arma la proforma consolidada, en **pesos y en USD** (dólar único del paso 1), con botón «Corregir» en cada renglón (lleva al paso donde se cambia):
+- **SENASA, Maritime Center y Miscellaneous**: monto fijo (parámetros `senasa_usd` = 40, `maritime_center_usd` = 80, `miscelaneos_usd` = 250, editables en Administración → Fórmulas; **SENASA: PORT ALBERNI cobró 45 y SHI DAI 40, a confirmar**). Se tildan / se escribe el monto. El SENASA sale tildado si el voucher lo trae; Maritime Center tildado; Miscellaneous apagado.
+- **Fee**: los renglones tildados en el paso 2, cada uno con su texto; no entra en la base de LAW.
+- **LAW NR 25413** = `law_25413_pct` (1,2 %) de la suma de los renglones que se facturan, **sin el fee** y sin lo que va FOR YOUR ACCOUNT. Importe editable a mano; se puede destildar.
+- Renglones libres (concepto, moneda, monto, FOR YOUR ACCOUNT) y las líneas del pie sin importe (TUGBOATS IN/OUT, COMPULSORY OSRO EXPENSES).
+- Orden de los renglones como en las proformas: lo de LDS (si se factura), port dues, anchor, channel toll, pilot, tally, serenos, migraciones, free pratique, habilitaciones, taxis, SENASA, Maritime Center, Miscellaneous, libres, fee y LAW.
+- Muestra los pasos que quedaron incompletos, con un enlace a cada uno.
+- Taxis: se dejan editables a mano (el precio por defecto es 222.000; las chicas lo cambian porque lo calculan distinto).
+
+**Excel final** — `app/docgen/proforma_xlsx.py` + `templates/proforma_final.xlsx` (la proforma de PORT ALBERNI sin datos: membrete, estilos, anchos e imágenes; sin ruta de carpeta, datos de correo ni de quién la guardó). Reemplaza al resumen en una hoja:
+- **Hoja de la agencia** (se llama como la agencia): TRN, carga y shipper, entrada y salida (día y hora), DIAS (suma por día, como «=0.33+1+0.33»), CAMBIO (un solo dólar); título «MV …» bajo el membrete; renglones numerados con **pesos (D) y USD (E)** con fórmulas (`=E*$H$3` o `=D/$H$3`) **y valores guardados** (se ven en Vista protegida y en el celular); LAW como `=SUM(...)*1,2/100`; TOTAL; **FOR YOUR ACCOUNT** con su importe en pesos y USD («* sin impuestos» en port dues/channel toll/anchor, «LDS» en lo de LDS); imagen del pie debajo de todo.
+- **SERENOS**: grilla de turnos × días (en pesos, rojo el fin de semana y los feriados, las columnas crecen si la estadía pasa de 4 días), nombre de quien cubrió cada turno (campo opcional en el paso 9), SUBT, % de cargas, CONV., TOTAL, **CAMBIO y TOTAL USD**, y el detalle por día («12 A 18: NOMBRE»).
+- **TALLY**: «WAGES AT» por escalón (cantidad × valor), cargas sociales, total en pesos, **CAMBIO y TOTAL USD**, y a la derecha los turnos con fecha, horario y escalón (rojo el 150 % y el feriado).
+- Hojas ocultas: `_estado` (para volver a cargar la proforma) y `_resumen` (la foto de lo cargado en cada paso, con sus notas).
+- Paso 3: campos nuevos **Carga** y **Shipper** (se traen del line-up: `grade` y `shipper`).
+- Verificado abriendo los archivos con Excel (hojas e imágenes), con una estadía de 6 días y 20 renglones.
+- El Excel viejo (resumen en una hoja) sigue existiendo solo para uso interno sin base de datos (pruebas).
+
+**Pantalla:** las filas de Tally y Serenos pasan a tarjetas cuando hay poco ancho (≤ 1180 px) para que no se pasen del borde; el resumen de la izquierda se llama «Subtotal de los pasos 1 a 10» (el total final está en el paso 11).

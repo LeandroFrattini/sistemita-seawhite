@@ -115,6 +115,8 @@ def clean_buque(raw) -> dict:
         "fin": _datetime(raw.get("fin")),
         "zarpe": _datetime(raw.get("zarpe")),
         "cantidad": _texto(raw.get("cantidad"), 40),
+        "carga": _texto(raw.get("carga"), 60),      # mercaderia (ej. CEBADA/ MALTA) y shipper: salen en la cabecera de la proforma
+        "shipper": _texto(raw.get("shipper"), 60),
         # TRN y medidas: de ellos salen varios calculos de los pasos siguientes (practicaje usa eslora, manga, puntal y calados)
         "trn": _num(raw.get("trn"), 1_000_000),
         "trb": _num(raw.get("trb"), 1_000_000),
@@ -192,7 +194,7 @@ def clean_state(raw) -> dict:
     la, ld, es, dr = sub("lds_amarre"), sub("lds_desamarre"), sub("escala"), sub("lds_draft")
     ad = sub("aduana")
     items = _aduana_items(ad.get("items"))
-    from . import migraciones, personal  # import tardio: usan tipo_dia / _num de este modulo
+    from . import chequeo, migraciones, personal  # import tardio: usan tipo_dia / _num de este modulo
 
     return {
         "v": VERSION,
@@ -215,6 +217,7 @@ def clean_state(raw) -> dict:
         "aduana": concepto(ad, {"items": items}) | {"usd": aduana_total(items)},
         # Tally y Serenos van en pesos: el estado guarda los renglones y los totales que se vieron en pantalla
         "migraciones": migraciones.clean(raw.get("migraciones")),
+        "chequeo": chequeo.clean(raw.get("chequeo")),
         "tally": personal.clean_tally(raw.get("tally")),
         "serenos": personal.clean_serenos(raw.get("serenos")),
         "dolar": {
@@ -248,6 +251,37 @@ def _nota_concepto(c: dict, entrada: str = "", salida: str = "") -> str:
 
 def _metros(pies: float) -> str:
     return f"{pies / 3.28084:.2f} m" if pies else "—"
+
+
+def _hoja_chequeo(ws, r: int, ch: dict) -> int:
+    """Chequeo general: renglones numerados en dolares y pesos, lo que va por cuenta del armador y los totales."""
+    azul = PatternFill("solid", fgColor="1F67B0")
+    for c, t in enumerate(("CHEQUEO GENERAL", "USD", "ARS"), start=1):
+        x = ws.cell(r, c, t)
+        x.font = Font(bold=True, color="FFFFFF")
+        x.fill = azul
+    r += 1
+    for l in ch["lineas"]:
+        ws.cell(r, 1, f"{l['n']}  {l['texto']}")
+        ws.cell(r, 2, l["usd"] if l["usd"] is not None else "")
+        ws.cell(r, 3, l["ars"])
+        r += 1
+    ws.cell(r, 1, "TOTAL").font = Font(bold=True)
+    ws.cell(r, 2, ch["total_usd"] if ch["total_usd"] is not None else "").font = Font(bold=True)
+    ws.cell(r, 3, ch["total_ars"]).font = Font(bold=True)
+    r += 2
+    if ch["ajenas"] or ch["pie"]:
+        ws.cell(r, 1, "FOR YOUR ACCOUNT").font = Font(bold=True)
+        r += 1
+        for l in ch["ajenas"]:
+            ws.cell(r, 1, l["texto"])
+            ws.cell(r, 2, l["usd"] if l["usd"] is not None else "")
+            ws.cell(r, 3, "* sin impuestos")
+            r += 1
+        for t in ch["pie"]:
+            ws.cell(r, 1, t)
+            r += 1
+    return r
 
 
 def _nota_practicaje(m: dict) -> str:
@@ -304,19 +338,10 @@ def _nota_aduana(a: dict) -> str:
     return txt + (" · FOR YOUR ACCOUNT (no se factura)" if a["cuenta_ajena"] else "")
 
 
-def build_excel(state: dict) -> bytes:
-    """Excel de la proforma: hoja visible con lo cargado + hoja oculta con el estado completo."""
-    s = clean_state(state)
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Proforma"
-    azul = PatternFill("solid", fgColor="1F67B0")
-    ws["A1"] = "PROFORMA FINAL"
-    ws["A1"].font = Font(bold=True, size=14, color="FFFFFF")
-    ws["A1"].fill = azul
-    ws.merge_cells("A1:C1")
+def _filas_pasos(s: dict) -> list[tuple]:
+    """Lo cargado en cada paso, con su nota (calculado, modificado a mano, en boya, FOR YOUR ACCOUNT...): la foto de la proforma."""
     b = s["buque"]
-    filas = [
+    return [
         ("Buque", b["nombre"], (b["sitio"] + (" · IMO " + b["imo"] if b["imo"] else "")).strip(" ·")),
         ("Amarre", b["amarre"].replace("T", " "), ""),
         ("Inicio de operación", b["inicio"].replace("T", " "), ""),
@@ -348,6 +373,20 @@ def build_excel(state: dict) -> bytes:
          + (" · traído del BNA" if s["dolar"]["origen"] == "BNA" else " · cargado a mano")),
         ("Agencia a facturar", s["agencia"]["nombre"], ""),
     ]
+
+
+def _build_excel_resumen(state: dict, chequeo: dict | None = None) -> bytes:
+    """Resumen en una sola hoja (sin el formato de las proformas): lo cargado en cada paso + hoja oculta con el estado. Es lo que sale sin base de datos."""
+    s = clean_state(state)
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Proforma"
+    azul = PatternFill("solid", fgColor="1F67B0")
+    ws["A1"] = "PROFORMA FINAL"
+    ws["A1"].font = Font(bold=True, size=14, color="FFFFFF")
+    ws["A1"].fill = azul
+    ws.merge_cells("A1:C1")
+    filas = _filas_pasos(s)
     r = 3
     for a, b, c in filas:
         ws.cell(r, 1, a).font = Font(bold=True)
@@ -373,8 +412,8 @@ def build_excel(state: dict) -> bytes:
     ws.cell(r, 1, "Cargas sociales Head Tally (%)").font = Font(bold=True)
     ws.cell(r, 2, s["agencia"]["tally_pct"])
     r += 2
-    ws.cell(r, 1, "Los pasos 8 a 10 se suman a esta planilla a medida que se arman en el sistema.").alignment = Alignment(wrap_text=True)
-    ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
+    if chequeo:
+        r = _hoja_chequeo(ws, r, chequeo)
     ws.column_dimensions["A"].width = 30
     ws.column_dimensions["B"].width = 28
     ws.column_dimensions["C"].width = 52
@@ -389,6 +428,53 @@ def build_excel(state: dict) -> bytes:
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
+
+
+def _filas_resumen(s: dict) -> list[list]:
+    """Hoja oculta `_resumen` del Excel final: la foto de cada paso con sus notas, como texto."""
+    out = [["RESUMEN DE LA PROFORMA (foto de lo cargado en cada paso)"]]
+    out += [[a, b, c] for a, b, c in _filas_pasos(s)]
+    out += [["Fee aplicado", f["monto_usd"], f["texto"]] for f in s["agencia"]["fees"] if f["on"]] or [["Fee aplicado", "—", ""]]
+    out += [["Total fee (USD)", total_fee(s), ""], ["Cargas sociales Serenos (%)", s["agencia"]["serenos_pct"], "Se suman al costo: sobre 100 con 165 % da 265"],
+            ["Cargas sociales Head Tally (%)", s["agencia"]["tally_pct"], ""]]
+    return out
+
+
+def _filas_estado(s: dict) -> list[list]:
+    texto = json.dumps(s, ensure_ascii=False, separators=(",", ":"))
+    return [[f"{MARCA} v{VERSION}"]] + [[texto[i:i + _CHUNK]] for i in range(0, len(texto), _CHUNK)]
+
+
+def _build_excel_final(state: dict, chequeo: dict | None, db) -> bytes:
+    """El Excel final con el formato de las proformas (hoja de la agencia, SERENOS y TALLY), en pesos y en USD."""
+    from . import chequeo as chq, muelle, personal
+    from .calendario import conjuntos
+    from .docgen import proforma_xlsx
+
+    s = clean_state(state)
+    ch = chequeo or chq.armar(db, s)
+    b, dolar = s["buque"], s["dolar"]["valor"]
+    feriados, _ = conjuntos(db)
+    ref = date.fromisoformat(b["amarre"][:10]) if b["amarre"] else None
+    tl, sr = s["tally"], s["serenos"]
+    tally = personal.calcular_tally(db, categoria=tl["categoria"], turnos=tl["turnos"], precios=tl["precios"], pct=s["agencia"]["tally_pct"], dolar=dolar, ref=ref)
+    serenos = personal.calcular_serenos(db, categoria=sr["categoria"], viatico=sr["viatico"], viatico_precio=sr["viatico_precio"], turnos=sr["turnos"] if sr["armado"] else None,
+                                        amarre=b["amarre"], zarpe=b["zarpe"], pct=s["agencia"]["serenos_pct"], dolar=dolar, ref=ref)
+    nombres = {(t["fecha"], t["ventana"]): t["nombre"] for t in sr["turnos"] if t.get("nombre")}
+    for f in serenos["filas"]:
+        f["nombre"] = nombres.get((f["fecha"], f["ventana"]), "")
+    entrada, salida = s["muelle"]["entrada"] or b["amarre"], s["muelle"]["salida"] or b["zarpe"]
+    libres = muelle.bloques_beneficio(db, entrada, b["inicio"]) if not s["muelle"]["sin_beneficio"] else frozenset()
+    d = muelle.dias(entrada, salida, libres)
+    dias = {"total": d["total"], "detalle": [x["subtotal"] for x in d["detalle"] if x["subtotal"] > 0]}
+    return proforma_xlsx.generar(s, ch, tally, serenos, dias, feriados, _filas_resumen(s), _filas_estado(s))
+
+
+def build_excel(state: dict, chequeo: dict | None = None, db=None) -> bytes:
+    """Con base de datos: el Excel final con el formato de las proformas. Sin ella: el resumen simple (ver _build_excel_resumen)."""
+    if db is None:
+        return _build_excel_resumen(state, chequeo)
+    return _build_excel_final(state, chequeo, db)
 
 
 def read_excel(data: bytes) -> dict:
