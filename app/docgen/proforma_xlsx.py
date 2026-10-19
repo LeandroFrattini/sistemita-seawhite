@@ -33,6 +33,14 @@ E_PIE_TITULO = {"A": 14, "B": 53, "C": 58}                  # FOR YOUR ACCOUNT
 FONDO = 24                                                   # celda blanca (tapa las lineas de la cuadricula)
 
 
+_INVALIDOS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff\ud800-\udfff]")
+
+
+def limpio(t) -> str:
+    """Texto apto para el XML de un Excel (sin caracteres de control)."""
+    return _INVALIDOS.sub("", str(t))
+
+
 def letra(n: int) -> str:
     s = ""
     while n:
@@ -75,7 +83,7 @@ class Hoja(Xlsx):
             is_ = etree.SubElement(c, M + "is")
             t = etree.SubElement(is_, M + "t")
             t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-            t.text = valor
+            t.text = limpio(valor)
 
     def altura(self, n: int, ht: float) -> None:
         row = self._row(n)
@@ -215,7 +223,7 @@ class Libro:
                     c.set("t", "inlineStr")
                     t = etree.SubElement(etree.SubElement(c, M + "is"), M + "t")
                     t.set("{http://www.w3.org/XML/1998/namespace}space", "preserve")
-                    t.text = str(v)
+                    t.text = limpio(v)
         self.parts[ruta] = etree.tostring(ws, **SALIDA)
         self.order.append(ruta)
         ct = etree.fromstring(self.parts["[Content_Types].xml"])

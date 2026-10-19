@@ -235,6 +235,11 @@
       <div id="ck-otros"></div>
       <div id="ck-tabla"></div>
       <p class="pfn-total">Total a facturar: <b id="ck-usd">USD 0,00</b> <span class="muted" id="ck-ars"></span></p>
+      <div class="ck-bajar">
+        <button type="button" class="btn primary" id="ck-bajar">⬇ Descargar Excel de la proforma</button>
+        <span class="muted">El sistema no guarda las proformas: guardá el archivo. Si hace falta rehacerla, se vuelve a cargar con «Cargar proforma anterior».</span>
+      </div>
+      <p class="ck-msg" id="ck-msg" role="status"></p>
     </div>
 
     {% for n, titulo, sub in pasos if n > 11 %}
@@ -319,6 +324,9 @@
   .pfn-mig > :nth-child(5) { grid-column: 3; grid-row: 3; }
   .pfn-mig.cab { display: none; }
 }
+.ck-bajar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0 4px; padding: 14px 16px; border: 1px solid #9cc3ec; background: #eef6ff; border-radius: 12px; }
+.ck-bajar .btn { font-size: 15px; padding: 11px 20px; }
+.ck-msg { margin: 6px 0 0; font-size: 13.5px; font-weight: 600; }
 .ck-otros { border: 1px solid var(--line-soft); border-radius: 12px; padding: 12px 14px; margin: 10px 0; background: #fff; }
 .ck-otros h4 { margin: 0 0 8px; font-size: 14px; color: var(--navy, #12355f); }
 .ck-fila { display: grid; grid-template-columns: 24px minmax(0, 1fr) 150px; gap: 10px; align-items: center; padding: 5px 0; font-size: 13.5px; }
@@ -452,7 +460,9 @@ const num = (v) => {
 const fmt = (n) => String(Math.round(n * 10000) / 10000).replace(".", ",");
 const sel = $("#ag-sel");
 
-function msg(t, ok = true) { const m = $("#pfn-msg"); m.textContent = t; m.style.color = ok ? "" : "#b91c1c"; }
+function msg(t, ok = true) {
+  [$("#pfn-msg"), $("#ck-msg")].forEach((m) => { if (m) { m.textContent = t; m.style.color = ok ? "" : "#b91c1c"; } });  // arriba y, en el paso 11, junto al boton de descargar
+}
 
 // sincronizar = false: arma el estado sin releer lo que se ve en el paso 3 (para repintar sin pisar datos mientras se carga un barco)
 function getState(sincronizar = true) {
@@ -1540,17 +1550,20 @@ function render() {
   pintarAviso(s, faltan);
   pintarResumen(s);
   $("#pfn-prev").disabled = step === 1;
-  $("#pfn-next").disabled = step === TOTAL;
+  $("#pfn-next").textContent = step === TOTAL ? "⬇ Descargar Excel" : "Siguiente →";
+  $("#pfn-next").disabled = false;
 }
 
 function ir(n) {  // cambia de paso y vuelve arriba, para que se vea el principio del paso nuevo
+  msg("");  // los avisos de un paso no se arrastran al siguiente
   step = Math.max(1, Math.min(TOTAL, n)); render();
   $("#pfn-body").scrollIntoView({ behavior: "smooth", block: "start" });
   const b = $(`.pfn-step[data-step="${step}"]`); if (b) b.scrollIntoView({ inline: "center", block: "nearest" });
 }
 $$(".pfn-step").forEach((b) => b.addEventListener("click", () => ir(Number(b.dataset.step))));
 $("#pfn-prev").addEventListener("click", () => ir(step - 1));
-$("#pfn-next").addEventListener("click", () => ir(step + 1));
+$("#pfn-next").addEventListener("click", () => { if (step === TOTAL) $("#pfn-bajar").click(); else ir(step + 1); });  // en el ultimo paso, este boton descarga
+$("#ck-bajar").addEventListener("click", () => $("#pfn-bajar").click());
 
 // el sistema no guarda las proformas: si hay cambios sin bajar a Excel, el navegador avisa antes de cerrar o recargar
 let SUCIO = false;
@@ -1604,8 +1617,12 @@ $("#ag-add-fee").addEventListener("click", () => {
 $("#pfn-bajar").addEventListener("click", async () => {
   const s = getState();
   if (!s.agencia.id) { msg("Elegí la agencia (paso 2) antes de bajar el Excel.", false); step = 2; render(); return; }
-  const res = await fetch("/administracion/proforma-final/excel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) });
-  if (!res.ok) { msg("No se pudo generar el Excel.", false); return; }
+  msg("Armando el Excel…");
+  let res;
+  try { res = await fetch("/administracion/proforma-final/excel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) }); }
+  catch (e) { msg("No se pudo conectar con el sistema para armar el Excel. Revisá tu conexión y probá de nuevo.", false); return; }
+  const esExcel = (res.headers.get("Content-Type") || "").includes("spreadsheetml");
+  if (!res.ok || !esExcel) { msg(res.redirected || res.status === 401 || res.status === 403 || (res.ok && !esExcel) ? "Se cerró tu sesión. Entrá de nuevo en otra pestaña (los datos de esta pantalla siguen acá) y volvé a descargar." : "No se pudo generar el Excel (error " + res.status + "). Avisale al administrador del sistema.", false); return; }
   const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -1614,7 +1631,9 @@ $("#pfn-bajar").addEventListener("click", async () => {
   URL.revokeObjectURL(a.href);
   SUCIO = false;
   const f = faltantes(getState()), pend = [1, 2, 3, 4, 5, 6].filter((n) => f[n].length);
-  msg("Excel descargado. El sistema no guarda la proforma: guardá ese archivo." + (pend.length ? ` Ojo: quedaron incompletos los pasos ${pend.join(", ")}.` : ""), !pend.length);
+  const simple = res.headers.get("X-Aviso") === "version-simplificada";
+  msg(simple ? "Se descargó una versión SIMPLIFICADA (resumen en una hoja): no se pudo armar el Excel con el formato de las proformas. Avisale al administrador del sistema." :
+    "Excel descargado. El sistema no guarda la proforma: guardá ese archivo." + (pend.length ? ` Ojo: quedaron incompletos los pasos ${pend.join(", ")}.` : ""), !pend.length && !simple);
 });
 
 $("#pfn-subir").addEventListener("change", async (ev) => {

@@ -433,3 +433,10 @@ Acceso: quien tenga el permiso de Administración (o sea admin). Los textos de l
 - El Excel viejo (resumen en una hoja) sigue existiendo solo para uso interno sin base de datos (pruebas).
 
 **Pantalla:** las filas de Tally y Serenos pasan a tarjetas cuando hay poco ancho (≤ 1180 px) para que no se pasen del borde; el resumen de la izquierda se llama «Subtotal de los pasos 1 a 10» (el total final está en el paso 11).
+
+## Descargar la proforma (ajuste de la ronda 14)
+
+- Al final del **paso 11** hay un botón grande **«⬇ Descargar Excel de la proforma»** (y en el último paso el botón del pie pasa de «Siguiente» a «Descargar Excel»). Antes solo estaba el de la barra de arriba y en el último paso «Siguiente» quedaba apagado.
+- Los mensajes de la descarga salen también junto a ese botón y dicen qué pasó (sesión cerrada, error del servidor, versión simplificada).
+- **Red de seguridad:** si el Excel con formato llegara a fallar, se baja el resumen simple con un aviso y el error queda en el registro (`proforma_final`).
+- Los caracteres de control (copiar y pegar, datos importados) se limpian de todos los textos: rompían el XML del Excel.

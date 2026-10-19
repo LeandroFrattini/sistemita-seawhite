@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import date
 
@@ -27,6 +28,7 @@ from ..proformador_calc import get_param
 from ..templating import templates
 
 router = APIRouter(prefix="/administracion")
+log = logging.getLogger("proforma_final")
 
 CARGAS_SERENOS_KEY = "proforma_final_cargas_serenos_general"
 CARGAS_TALLY_KEY = "proforma_final_cargas_tally_general"
@@ -259,11 +261,15 @@ async def proforma_final_serenos(request: Request, db: Session = Depends(get_db)
 async def proforma_final_excel(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     state = pf.clean_state(await request.json())
     nombre = f"Proforma final - {state['agencia']['nombre'] or 'sin agencia'} - {date.today().strftime('%d.%m.%Y')}.xlsx"
-    return Response(
-        content=pf.build_excel(state, chequeo.armar(db, state), db),
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"X-Filename": nombre.encode("ascii", "ignore").decode() or "Proforma final.xlsx"},
-    )
+    headers = {"X-Filename": nombre.encode("ascii", "ignore").decode() or "Proforma final.xlsx"}
+    try:
+        contenido = pf.build_excel(state, chequeo.armar(db, state), db)
+    except Exception:
+        # que nadie se quede sin poder sacar la proforma: se baja el resumen simple y queda el error en el registro
+        log.exception("proforma final: no se pudo armar el Excel con el formato de las proformas (usuario=%s, buque=%s)", user.username, state["buque"]["nombre"])
+        contenido = pf.build_excel(state)
+        headers["X-Aviso"] = "version-simplificada"
+    return Response(content=contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
 
 
 @router.post("/proforma-final/leer")

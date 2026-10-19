@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from datetime import date, datetime
 
 from openpyxl import Workbook, load_workbook
@@ -87,8 +88,11 @@ def _datetime(v) -> str:
         return ""
 
 
+CARACTERES_INVALIDOS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff\ud800-\udfff]")  # no se pueden guardar en un Excel (XML 1.0)
+
+
 def _texto(v, largo: int) -> str:
-    return " ".join(str(v or "").split())[:largo]
+    return " ".join(CARACTERES_INVALIDOS.sub("", str(v or "")).split())[:largo]
 
 
 def _turnos_limpios(raw) -> list[dict]:
