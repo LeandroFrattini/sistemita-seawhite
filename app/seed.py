@@ -184,7 +184,7 @@ PROFORMA_PARAMETROS = [
     ("pilotage_monoboya_service_usd", "Pilotaje Monoboyas (Boya 17) -- service/related fijo", 8140.0),
     ("bunker_channel_toll_usd_tn", "Bunker -- Channel Toll (USD x 20%TRN x coef x 0.7)", 2.05),
     ("bunker_anchor_dues_usd_trn", "Bunker -- Anchor Dues (USD x TRN x dia)", 0.15),
-    ("senasa_usd", "Proforma final -- Compulsory SENASA inspection (USD)", 40.0),
+    ("senasa_usd", "Proforma final -- Compulsory SENASA inspection (USD)", 45.0),
     ("maritime_center_usd", "Proforma final -- Maritime Center expenses (USD)", 80.0),
     ("miscelaneos_usd", "Proforma final -- Miscellaneous expenses (USD)", 250.0),
     ("law_25413_pct", "Proforma final -- LAW NR 25413 (% del total sin el fee)", 1.2),
@@ -516,6 +516,13 @@ def _seed_proformador(db: Session) -> None:
                 orden += 1
 
     sembrar_tarifas_personal(db)
+
+    # una sola vez: el SENASA de la proforma final se cargo con 40 y el monto fijo es 45 (si despues lo cambian a mano, no se toca mas)
+    if not db.get(AppSetting, "senasa_fijo_45"):
+        p = db.scalar(select(ProformaParametro).where(ProformaParametro.clave == "senasa_usd"))
+        if p is not None and p.valor == 40.0:
+            p.valor = 45.0
+        db.add(AppSetting(key="senasa_fijo_45", value="1"))
 
     if not db.scalar(select(ProformaBunkerBoya).limit(1)):
         for i, (boya, etiqueta, osro, boat_trip, boat_hora, ch_anchor, pilotage, sipa) in enumerate(PROFORMA_BUNKER_BOYAS):

@@ -415,7 +415,7 @@ Acceso: quien tenga el permiso de Administración (o sea admin). Los textos de l
 ## Paso 11 (Chequeo general) y Excel final con el formato de las proformas (ronda 13)
 
 **Paso 11** — `app/chequeo.py`, endpoint `POST /administracion/proforma-final/chequeo`, estado `chequeo`. Arma la proforma consolidada, en **pesos y en USD** (dólar único del paso 1), con botón «Corregir» en cada renglón (lleva al paso donde se cambia):
-- **SENASA, Maritime Center y Miscellaneous**: monto fijo (parámetros `senasa_usd` = 40, `maritime_center_usd` = 80, `miscelaneos_usd` = 250, editables en Administración → Fórmulas; **SENASA: PORT ALBERNI cobró 45 y SHI DAI 40, a confirmar**). Se tildan / se escribe el monto. El SENASA sale tildado si el voucher lo trae; Maritime Center tildado; Miscellaneous apagado.
+- **SENASA, Maritime Center y Miscellaneous**: monto fijo (parámetros `senasa_usd` = 45, `maritime_center_usd` = 80, `miscelaneos_usd` = 250, editables en Administración → Fórmulas; **SENASA: queda en 45 (confirmado)**). Se tildan / se escribe el monto. El SENASA sale tildado si el voucher lo trae; Maritime Center tildado; Miscellaneous apagado.
 - **Fee**: los renglones tildados en el paso 2, cada uno con su texto; no entra en la base de LAW.
 - **LAW NR 25413** = `law_25413_pct` (1,2 %) de la suma de los renglones que se facturan, **sin el fee** y sin lo que va FOR YOUR ACCOUNT. Importe editable a mano; se puede destildar.
 - Renglones libres (concepto, moneda, monto, FOR YOUR ACCOUNT) y las líneas del pie sin importe (TUGBOATS IN/OUT, COMPULSORY OSRO EXPENSES).

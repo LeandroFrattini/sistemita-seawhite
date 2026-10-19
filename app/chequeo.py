@@ -16,7 +16,7 @@ from .proformador_calc import get_param
 
 # (clave, texto de la proforma, parametro del monto, valor por defecto en USD)
 FIJOS = [
-    ("senasa", "COMPULSORY SENASA INSPECTION EXPENSES", "senasa_usd", 40.0),
+    ("senasa", "COMPULSORY SENASA INSPECTION EXPENSES", "senasa_usd", 45.0),
     ("maritime", "MARITIME CENTER EXPENSES", "maritime_center_usd", 80.0),
     ("misc", "MISCELLANEOUS EXPENSES", "miscelaneos_usd", 250.0),
 ]
