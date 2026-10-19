@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from datetime import date
 
@@ -172,6 +173,7 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
         "hoy": date.today().isoformat(),
         "aduana_usd": get_param(db, "aduana_habilitacion_usd", pf.ADUANA_USD),
         "law_pct": ("%g" % get_param(db, "law_25413_pct", chequeo.LAW_PCT)).replace(".", ","),
+        "version": (os.environ.get("RENDER_GIT_COMMIT") or "local")[:7],
         # tramos de calado del practicaje (en pies) para mostrarlos tambien en metros
         "tramos_calado": [{"hasta": t.hasta_pies, "coef": t.valor_usd}
                           for t in db.scalars(select(ProformaPilotageTramo).order_by(ProformaPilotageTramo.orden))],

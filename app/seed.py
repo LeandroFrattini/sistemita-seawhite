@@ -188,7 +188,7 @@ PROFORMA_PARAMETROS = [
     ("maritime_center_usd", "Proforma final -- Maritime Center expenses (USD)", 80.0),
     ("miscelaneos_usd", "Proforma final -- Miscellaneous expenses (USD)", 250.0),
     ("law_25413_pct", "Proforma final -- LAW NR 25413 (% del total sin el fee)", 1.2),
-    ("taxi_ars", "Proforma final -- Taxi para migraciones o sanidad, cada uno (ARS)", 222000.0),
+    ("taxi_ars", "Proforma final -- Taxi para migraciones o sanidad, cada uno (ARS)", 160000.0),
     ("aduana_habilitacion_usd", "Proforma final -- Habilitacion de aduana, cada una (USD)", 200.0),
     ("bunker_customs_shift_usd", "Bunker -- Customs, USD por turno de 6hs", 300.0),
     ("bunker_taxis_usd", "Bunker -- Taxis para oficial de migraciones/autoridades (USD fijo)", 200.0),
@@ -516,6 +516,13 @@ def _seed_proformador(db: Session) -> None:
                 orden += 1
 
     sembrar_tarifas_personal(db)
+
+    # una sola vez: los taxis se cargaron con 222.000 y el valor es 160.000 (si despues lo cambian a mano, no se toca mas)
+    if not db.get(AppSetting, "taxi_fijo_160000"):
+        t = db.scalar(select(ProformaParametro).where(ProformaParametro.clave == "taxi_ars"))
+        if t is not None and t.valor == 222000.0:
+            t.valor = 160000.0
+        db.add(AppSetting(key="taxi_fijo_160000", value="1"))
 
     # una sola vez: el SENASA de la proforma final se cargo con 40 y el monto fijo es 45 (si despues lo cambian a mano, no se toca mas)
     if not db.get(AppSetting, "senasa_fijo_45"):

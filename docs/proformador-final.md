@@ -440,3 +440,13 @@ Acceso: quien tenga el permiso de Administración (o sea admin). Los textos de l
 - Los mensajes de la descarga salen también junto a ese botón y dicen qué pasó (sesión cerrada, error del servidor, versión simplificada).
 - **Red de seguridad:** si el Excel con formato llegara a fallar, se baja el resumen simple con un aviso y el error queda en el registro (`proforma_final`).
 - Los caracteres de control (copiar y pegar, datos importados) se limpian de todos los textos: rompían el XML del Excel.
+
+## Ajustes de la ronda 15: «esto sí lo facturamos», taxis y aduanas
+
+- **Cada punto tiene «Esto sí lo facturamos»** (tildado por defecto). Si se destilda, ese renglón **pasa al pie como FOR YOUR ACCOUNT** (con su importe en pesos y USD) y no entra en el total ni en la base de LAW; se vuelve a tildar y vuelve al cuerpo.
+  Está en cada paso (practicaje, muelle, fondeadero, vías, amarre, desamarre, escala, draft, cada habilitación, Tally, Serenos, cada migración, cada taxi y el free pratique) y en el **chequeo general** (columna «Lo facturamos», también en la tabla de FOR YOUR ACCOUNT para devolverlo).
+  Estado `cuenta_ajena` en cada concepto; un Excel viejo con una sola casilla para todas las aduanas pasa a cada habilitación.
+  El fee y LAW no tienen esa casilla (se destildan en el paso 2 y en el chequeo).
+- **Taxis (migraciones y sanidad): 160.000** cada uno (parámetro `taxi_ars`; lo ya cargado con 222.000 se corrige una sola vez). Las chicas lo cambian a mano cuando lo calculan distinto.
+- **Aduanas (paso 7):** se abre **una tarjeta por cada habilitación que se tildó en el voucher**, con «cuántas fueron» (botones − y +, o escribiendo), precio de cada una y total; se quita con ✕ y se agregan otras con «Agregar otra habilitación». Ejemplo: 6 de carga, 1 de entrada y 2 de permanencia.
+- **Versión visible:** arriba de la proforma final figura «versión xxxxxxx» (el commit que está sirviendo Render) para saber si se está viendo lo último.

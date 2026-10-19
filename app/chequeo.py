@@ -51,7 +51,7 @@ def clean(raw) -> dict:
     out = {"armado": bool(raw.get("armado"))}
     for k in CLAVES_FIJOS:
         it = raw.get(k) if isinstance(raw.get(k), dict) else {}
-        out[k] = {"on": bool(it.get("on")), "precio": _num(it.get("precio"), 1e9)}
+        out[k] = {"on": bool(it.get("on")), "precio": _num(it.get("precio"), 1e9), "cuenta_ajena": bool(it.get("cuenta_ajena"))}
     law = raw.get("law") if isinstance(raw.get("law"), dict) else {}
     out["law"] = {"on": bool(law.get("on", True)) if "on" in law else True, "precio": _num(law.get("precio"), 1e9)}
     extras = []
@@ -99,19 +99,19 @@ def armar(db: Session, s: dict) -> dict:
         add("gangway", "SHORE GANGWAY (LDS)", "USD", s["escala"]["usd"], s["escala"]["cuenta_ajena"], 6)
     if s["lds_draft"]["on"]:
         add("draft", "LAUNCH FOR DRAFT SURVEY (LDS)", "USD", s["lds_draft"]["usd"], s["lds_draft"]["cuenta_ajena"], 6)
-    add("tally", "HEAD TALLY CLERK", "ARS", s["tally"]["total_ars"], False, 8)
-    add("serenos", "WATCHMEN SERVICES", "ARS", s["serenos"]["total_ars"], False, 9)
+    add("tally", "HEAD TALLY CLERK", "ARS", s["tally"]["total_ars"], s["tally"]["cuenta_ajena"], 8)
+    add("serenos", "WATCHMEN SERVICES", "ARS", s["serenos"]["total_ars"], s["serenos"]["cuenta_ajena"], 9)
     calc = migraciones.calcular(db, trn=b["trn"], items=s["migraciones"]["items"], dolar=dolar)
     textos_mig = {"mig_in": "IMMIGRATION TAX EXPENSES IN", "mig_out": "IMMIGRATION TAX EXPENSES OUT", "taxi_in": "TAXI HIRED FOR IMMIGRATION OFFICER IN",
                   "taxi_out": "TAXI HIRED FOR IMMIGRATION OFFICER OUT", "free_pratique": "FREE PRATIQUE DUES", "taxi_sanidad": "TAXI HIRED FOR SANITARY AUTHORITY"}
     for f in calc["filas"]:
-        add(f["key"], textos_mig[f["key"]] + (" AT BUOY 11" if f["boya"] else ""), f["moneda"], f["total"], False, 10)
+        add(f["key"], textos_mig[f["key"]] + (" AT BUOY 11" if f["boya"] else ""), f["moneda"], f["total"], f["cuenta_ajena"], 10)
     for i in s["aduana"]["items"]:
         if i["on"]:
-            add("aduana_" + i["key"], "CUSTOM HOUSE OVERTIME " + (i["texto"] or "OTHER"), "USD", i["cant"] * i["precio"], s["aduana"]["cuenta_ajena"], 7)
+            add("aduana_" + i["key"], "CUSTOM HOUSE OVERTIME " + (i["texto"] or "OTHER"), "USD", i["cant"] * i["precio"], i["cuenta_ajena"], 7)
     for clave, texto, param, defecto in FIJOS:
         if ch[clave]["on"]:
-            add(clave, texto, "USD", ch[clave]["precio"] or get_param(db, param, defecto), False, 11)
+            add(clave, texto, "USD", ch[clave]["precio"] or get_param(db, param, defecto), ch[clave]["cuenta_ajena"], 11)
     for k, e in enumerate(ch["extras"]):
         add(f"extra_{k}", e["texto"], e["moneda"], e["monto"], e["cuenta_ajena"], 11)
     fees = []

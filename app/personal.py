@@ -232,6 +232,7 @@ def clean_tally(raw) -> dict:
         if isinstance(r, dict) and r.get("nivel") in NIVELES_TALLY:
             resumen.append({"nivel": r["nivel"], "cantidad": int(_num(r.get("cantidad"), 1000)), "precio": _num(r.get("precio"), 1e12)})
     return {"categoria": raw.get("categoria") if raw.get("categoria") in CATEGORIAS_TALLY else "", "armado": bool(raw.get("armado")), "turnos": turnos,
+            "cuenta_ajena": bool(raw.get("cuenta_ajena")),
             "precios": {k: _num(pr.get(k), 1e12) for k in NIVELES_TALLY}, "resumen": resumen,
             "subtotal_ars": _num(raw.get("subtotal_ars"), 1e13), "cargas_ars": _num(raw.get("cargas_ars"), 1e13), "total_ars": _num(raw.get("total_ars"), 1e13)}
 
@@ -246,6 +247,6 @@ def clean_serenos(raw) -> dict:
                            "nombre": " ".join(str(t.get("nombre") or "").split())[:40].upper()})
     return {"categoria": raw.get("categoria") if raw.get("categoria") in CATEGORIAS_SERENOS else "",
             "viatico": raw.get("viatico") if raw.get("viatico") in (*VIATICOS, "NINGUNO") else "", "viatico_precio": _num(raw.get("viatico_precio"), 1e12),
-            "armado": bool(raw.get("armado")), "turnos": turnos, "cantidad": int(_num(raw.get("cantidad"), 10000)),
+            "armado": bool(raw.get("armado")), "turnos": turnos, "cantidad": int(_num(raw.get("cantidad"), 10000)), "cuenta_ajena": bool(raw.get("cuenta_ajena")),
             "subtotal_ars": _num(raw.get("subtotal_ars"), 1e13), "cargas_ars": _num(raw.get("cargas_ars"), 1e13),
             "viaticos_ars": _num(raw.get("viaticos_ars"), 1e13), "total_ars": _num(raw.get("total_ars"), 1e13)}

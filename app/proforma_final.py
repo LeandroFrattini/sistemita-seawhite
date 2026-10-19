@@ -136,8 +136,9 @@ def clean_buque(raw) -> dict:
     }
 
 
-def _aduana_items(raw) -> list[dict]:
-    """Siempre las seis habilitaciones del voucher, en orden, mas la libre (el estado puede venir de un Excel ajeno o viejo)."""
+def _aduana_items(raw, grupo_ajeno: bool = False) -> list[dict]:
+    """Siempre las habilitaciones del voucher, en orden, mas la libre (el estado puede venir de un Excel ajeno o viejo).
+    Cada una puede ir por cuenta del armador; un Excel viejo traia una sola casilla para todas (grupo_ajeno)."""
     por_clave = {}
     for it in (raw if isinstance(raw, list) else [])[:20]:
         if isinstance(it, dict) and it.get("key") in [k for k, _ in ADUANA_CLAVES] + [ADUANA_EXTRA]:
@@ -152,12 +153,14 @@ def _aduana_items(raw) -> list[dict]:
             "on": bool(it.get("on")),
             "cant": int(_num(it.get("cant"), 1000)),
             "precio": precio if "precio" in it else ADUANA_USD,
+            "cuenta_ajena": bool(it.get("cuenta_ajena")) or grupo_ajeno,
         })
     return out
 
 
 def aduana_total(items: list[dict]) -> float:
-    return round(sum(i["cant"] * i["precio"] for i in items if i["on"]), 2)
+    """Lo que se factura (lo que va por cuenta del armador no suma)."""
+    return round(sum(i["cant"] * i["precio"] for i in items if i["on"] and not i["cuenta_ajena"]), 2)
 
 
 def clean_state(raw) -> dict:
@@ -197,7 +200,7 @@ def clean_state(raw) -> dict:
     mu, fo, vi = sub("muelle"), sub("fondeo"), sub("vias")
     la, ld, es, dr = sub("lds_amarre"), sub("lds_desamarre"), sub("escala"), sub("lds_draft")
     ad = sub("aduana")
-    items = _aduana_items(ad.get("items"))
+    items = _aduana_items(ad.get("items"), bool(ad.get("cuenta_ajena")))
     from . import chequeo, migraciones, personal  # import tardio: usan tipo_dia / _num de este modulo
 
     return {
@@ -218,7 +221,7 @@ def clean_state(raw) -> dict:
         # lancha de draft (opcional): momento vacio = el fin de operacion del paso 3
         "lds_draft": concepto(dr, {"on": bool(dr.get("on")), "momento": _datetime(dr.get("momento"))}),
         # habilitaciones de aduana: cada renglon = cantidad x precio; el importe es la suma de los tildados (o el valor a mano)
-        "aduana": concepto(ad, {"items": items}) | {"usd": aduana_total(items)},
+        "aduana": concepto(ad, {"items": items}) | {"usd": aduana_total(items), "cuenta_ajena": False},
         # Tally y Serenos van en pesos: el estado guarda los renglones y los totales que se vieron en pantalla
         "migraciones": migraciones.clean(raw.get("migraciones")),
         "chequeo": chequeo.clean(raw.get("chequeo")),
@@ -338,8 +341,7 @@ def _nota_aduana(a: dict) -> str:
     on = [i for i in a["items"] if i["on"]]
     if not on:
         return "sin habilitaciones"
-    txt = " · ".join(f"{(i['texto'] or 'OTRO').upper()} {i['cant']} × {str(i['precio']).rstrip('0').rstrip('.')}" for i in on)
-    return txt + (" · FOR YOUR ACCOUNT (no se factura)" if a["cuenta_ajena"] else "")
+    return " · ".join(f"{(i['texto'] or 'OTRO').upper()} {i['cant']} × {str(i['precio']).rstrip('0').rstrip('.')}" + (" (FOR YOUR ACCOUNT)" if i["cuenta_ajena"] else "") for i in on)
 
 
 def _filas_pasos(s: dict) -> list[tuple]:
