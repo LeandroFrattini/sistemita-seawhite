@@ -183,6 +183,7 @@ PROFORMA_PARAMETROS = [
     ("pilotage_monoboya_service_usd", "Pilotaje Monoboyas (Boya 17) -- service/related fijo", 8140.0),
     ("bunker_channel_toll_usd_tn", "Bunker -- Channel Toll (USD x 20%TRN x coef x 0.7)", 2.05),
     ("bunker_anchor_dues_usd_trn", "Bunker -- Anchor Dues (USD x TRN x dia)", 0.15),
+    ("aduana_habilitacion_usd", "Proforma final -- Habilitacion de aduana, cada una (USD)", 200.0),
     ("bunker_customs_shift_usd", "Bunker -- Customs, USD por turno de 6hs", 300.0),
     ("bunker_taxis_usd", "Bunker -- Taxis para oficial de migraciones/autoridades (USD fijo)", 200.0),
     ("bunker_migrations_usd", "Bunker -- Migrations IN/OUT, cada uno (USD fijo)", 1875.0),

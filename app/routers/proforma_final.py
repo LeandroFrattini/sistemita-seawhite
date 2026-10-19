@@ -22,6 +22,7 @@ from .. import lds as lds_calc
 from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
+from ..proformador_calc import get_param
 from ..templating import templates
 
 router = APIRouter(prefix="/administracion")
@@ -164,6 +165,7 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
     return templates.TemplateResponse(request, "administracion/proforma_final.html", {
         "user": user, "agencias": agencias, "barcos": _barcos_a_proformar(db), "pasos": pf.PASOS,
         "hoy": date.today().isoformat(),
+        "aduana_usd": get_param(db, "aduana_habilitacion_usd", pf.ADUANA_USD),
     })
 
 

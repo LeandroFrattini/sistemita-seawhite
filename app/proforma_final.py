@@ -56,6 +56,13 @@ def con_cargas(costo: float, pct: float) -> float:
     return costo * (1 + pct / 100)
 
 
+# Habilitaciones de aduana (customs overtime): las del voucher mas una libre. Cada una = cantidad x precio (USD 200 por defecto, editable).
+ADUANA_CLAVES = [("entrance", "FOR ENTRANCE"), ("loading", "FOR LOADING"), ("permanence", "FOR PERMANENCE"),
+                 ("bunkering", "FOR BUNKERING"), ("fresh_water", "FOR FRESH WATER"), ("provisions", "FOR PROVISIONS")]
+ADUANA_EXTRA = "extra"
+ADUANA_USD = 200.0
+
+
 def _num(v, tope: float) -> float:
     try:
         n = float(str(v).replace(",", "."))
@@ -122,6 +129,30 @@ def clean_buque(raw) -> dict:
     }
 
 
+def _aduana_items(raw) -> list[dict]:
+    """Siempre las seis habilitaciones del voucher, en orden, mas la libre (el estado puede venir de un Excel ajeno o viejo)."""
+    por_clave = {}
+    for it in (raw if isinstance(raw, list) else [])[:20]:
+        if isinstance(it, dict) and it.get("key") in [k for k, _ in ADUANA_CLAVES] + [ADUANA_EXTRA]:
+            por_clave.setdefault(it["key"], it)
+    out = []
+    for clave, texto in ADUANA_CLAVES + [(ADUANA_EXTRA, "")]:
+        it = por_clave.get(clave, {})
+        precio = _num(it.get("precio"), 1_000_000)
+        out.append({
+            "key": clave,
+            "texto": _texto(it.get("texto"), 80) if clave == ADUANA_EXTRA else texto,
+            "on": bool(it.get("on")),
+            "cant": int(_num(it.get("cant"), 1000)),
+            "precio": precio if "precio" in it else ADUANA_USD,
+        })
+    return out
+
+
+def aduana_total(items: list[dict]) -> float:
+    return round(sum(i["cant"] * i["precio"] for i in items if i["on"]), 2)
+
+
 def clean_state(raw) -> dict:
     """Se queda solo con los campos conocidos y con valores validos (el estado puede venir de un Excel ajeno)."""
     raw = raw if isinstance(raw, dict) else {}
@@ -158,6 +189,8 @@ def clean_state(raw) -> dict:
 
     mu, fo, vi = sub("muelle"), sub("fondeo"), sub("vias")
     la, ld, es, dr = sub("lds_amarre"), sub("lds_desamarre"), sub("escala"), sub("lds_draft")
+    ad = sub("aduana")
+    items = _aduana_items(ad.get("items"))
 
     return {
         "v": VERSION,
@@ -176,6 +209,8 @@ def clean_state(raw) -> dict:
         "escala": concepto(es, {"on": bool(es.get("on")), "on_set": bool(es.get("on_set")), "dias": int(_num(es.get("dias"), 365))}),
         # lancha de draft (opcional): momento vacio = el fin de operacion del paso 3
         "lds_draft": concepto(dr, {"on": bool(dr.get("on")), "momento": _datetime(dr.get("momento"))}),
+        # habilitaciones de aduana: cada renglon = cantidad x precio; el importe es la suma de los tildados (o el valor a mano)
+        "aduana": concepto(ad, {"items": items}) | {"usd": aduana_total(items)},
         "dolar": {
             "valor": _num(dolar.get("valor"), 1_000_000),
             "fecha": _fecha(dolar.get("fecha")),
@@ -203,6 +238,14 @@ def _nota_concepto(c: dict, entrada: str = "", salida: str = "") -> str:
     if c["cuenta_ajena"]:
         partes.append("FOR YOUR ACCOUNT (no se factura)")
     return " · ".join(partes)
+
+
+def _nota_aduana(a: dict) -> str:
+    on = [i for i in a["items"] if i["on"]]
+    if not on:
+        return "sin habilitaciones"
+    txt = " · ".join(f"{(i['texto'] or 'OTRO').upper()} {i['cant']} × {str(i['precio']).rstrip('0').rstrip('.')}" for i in on)
+    return txt + (" · FOR YOUR ACCOUNT (no se factura)" if a["cuenta_ajena"] else "")
 
 
 def build_excel(state: dict) -> bytes:
@@ -238,6 +281,7 @@ def build_excel(state: dict) -> bytes:
         ("Escala LDS (USD)", s["escala"]["usd"] or "" if s["escala"]["on"] else "—", _nota_concepto(s["escala"]) if s["escala"]["on"] else "sin shore gangway"),
         ("Lancha de draft LDS (USD)", s["lds_draft"]["usd"] or "" if s["lds_draft"]["on"] else "—",
          _nota_concepto(s["lds_draft"], s["lds_draft"]["momento"] or b["fin"]) if s["lds_draft"]["on"] else "sin uso de lancha de draft"),
+        ("Habilitaciones de aduana (USD)", s["aduana"]["usd"] or "" if any(i["on"] for i in s["aduana"]["items"]) else "—", _nota_aduana(s["aduana"])),
         ("Dólar (divisa BNA)", s["dolar"]["valor"] or "", "Cotización del " + (s["dolar"]["fecha"] or "—")
          + (" · traído del BNA" if s["dolar"]["origen"] == "BNA" else " · cargado a mano")),
         ("Agencia a facturar", s["agencia"]["nombre"], ""),
@@ -267,7 +311,7 @@ def build_excel(state: dict) -> bytes:
     ws.cell(r, 1, "Cargas sociales Head Tally (%)").font = Font(bold=True)
     ws.cell(r, 2, s["agencia"]["tally_pct"])
     r += 2
-    ws.cell(r, 1, "Los pasos 7 a 10 se suman a esta planilla a medida que se arman en el sistema.").alignment = Alignment(wrap_text=True)
+    ws.cell(r, 1, "Los pasos 8 a 10 se suman a esta planilla a medida que se arman en el sistema.").alignment = Alignment(wrap_text=True)
     ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
     ws.column_dimensions["A"].width = 30
     ws.column_dimensions["B"].width = 28

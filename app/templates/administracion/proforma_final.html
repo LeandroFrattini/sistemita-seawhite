@@ -131,7 +131,17 @@
       <p class="pfn-total">Total que se factura: <b id="ld-total">USD 0,00</b><span id="ld-ajena" class="muted"></span></p>
     </div>
 
-    {% for n, titulo, sub in pasos if n > 6 %}
+    <div data-pane="7" hidden>
+      <h2>7 · Habilitaciones de aduana</h2>
+      <p class="muted">Las habilitaciones de aduana (customs overtime) que figuran en el voucher. Cada una vale USD {{ '%g'|format(aduana_usd) }}
+      (se cambia en <a href="/proformador/config/formulas">Proformador → Fórmulas</a>): se indica <b>cuántas</b> son y el sistema multiplica solo.
+      El precio de cada renglón también se puede modificar. Abajo queda un renglón libre para otro concepto.</p>
+      <div id="ad-box"></div>
+      <p class="pfn-total">Total habilitaciones: <b id="ad-total">USD 0,00</b><span id="ad-ajena" class="muted"></span></p>
+      <label class="pfn-chk"><input type="checkbox" id="ad-ajena-chk"> Van «FOR YOUR ACCOUNT» (por cuenta del armador, no se facturan)</label>
+    </div>
+
+    {% for n, titulo, sub in pasos if n > 7 %}
     <div data-pane="{{ n }}" hidden>
       <h2>{{ n }} · {{ titulo }}</h2>
       <p class="muted">{{ sub }}.</p>
@@ -180,6 +190,22 @@
 .pfn-pract td { padding: 3px 0; }
 .pfn-pract td:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pfn-pract tr.sub td { border-top: 1px solid var(--line-soft); font-weight: 700; }
+.pfn-adu { display: grid; grid-template-columns: 24px minmax(0, 1fr) 90px 110px 120px; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: 10px; margin-bottom: 6px; background: #fff; }
+.pfn-adu.on { background: #eef6ff; border-color: #9cc3ec; }
+.pfn-adu.cab { border: 0; background: none; padding: 0 10px; font-size: 11.5px; color: var(--muted); margin-bottom: 2px; }
+.pfn-adu input[type=checkbox] { width: 20px !important; height: 20px; min-width: 0 !important; margin: 0; }
+.pfn-adu input[type=text], .pfn-adu input[inputmode] { width: 100%; min-width: 0; }
+.pfn-adu .tot { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pfn-adu .nom { font-weight: 600; }
+@media (max-width: 640px) {
+  .pfn-adu { grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr); }
+  .pfn-adu > :nth-child(1) { grid-column: 1; grid-row: 1; }
+  .pfn-adu > :nth-child(2) { grid-column: 2 / -1; grid-row: 1; }
+  .pfn-adu > :nth-child(3) { grid-column: 2; grid-row: 2; }
+  .pfn-adu > :nth-child(4) { grid-column: 3; grid-row: 2; }
+  .pfn-adu > :nth-child(5) { grid-column: 2 / -1; grid-row: 3; text-align: left; }
+  .pfn-adu.cab { display: none; }
+}
 .pfn-pract tr.pfn-benef td { background: #ecfdf5; color: #065f46; }
 .pfn-pract label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
 .pfn-pract input { width: 100%; min-width: 0; font-weight: 700; }
@@ -248,7 +274,7 @@ function getState() {
     buque: BUQUE,
     practicaje: PRACT,
     muelle: MUELLE, fondeo: FONDEO, vias: VIAS,
-    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_draft: DRAFT, escala: { ...ESCALA, on: escalaOn(), on_set: true },
+    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_draft: DRAFT, aduana: { ...ADUANA, usd: totalAduana() }, escala: { ...ESCALA, on: escalaOn(), on_set: true },
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
       id: sel.value ? Number(sel.value) : null,
@@ -390,6 +416,8 @@ function setState(s) {
   firmaMuCargada = firmaMu(); firmaMuAnt = "";
   AMLDS = { ...ldVacio(), ...s.lds_amarre }; DESLDS = { ...ldVacio(), ...s.lds_desamarre };
   ESCALA = { ...escalaVacia(), ...s.escala }; DRAFT = { ...draftVacio(), ...s.lds_draft };
+  ADUANA = { cuenta_ajena: !!(s.aduana && s.aduana.cuenta_ajena), items: s.aduana && s.aduana.items ? s.aduana.items.map((i) => ({ ...i })) : aduanaInicial().items };
+  pintarAduana();
   firmaLdCargada = firmaLd(); firmaLdAnt = "";
   $("#dolar-valor").value = s.dolar.valor ? fmt(s.dolar.valor) : "";
   $("#dolar-fecha").value = s.dolar.fecha || "";
@@ -415,6 +443,7 @@ function resetPract() {  // al cambiar de barco los importes de practicaje empie
   pintarPracticaje();
   resetMuelle();
   resetLds();
+  resetAduana();
 }
 const firmaPract = () => { const b = BUQUE; return [b.eslora, b.manga, b.puntal, b.calado_entrada, b.calado_salida].join("|"); };
 const usd2 = (n) => "USD " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -732,6 +761,48 @@ function actualizarTotalesLd() {
   $("#ld-ajena").textContent = ajena ? ` · por cuenta del armador (informativo): ${usd2(ajena)}` : "";
 }
 
+// ---- Paso 7: habilitaciones de aduana (customs overtime del voucher + un renglon libre). Cada una = cantidad x precio
+const ADUANA_USD = {{ aduana_usd }};
+const ADU_BASE = [["entrance", "FOR ENTRANCE"], ["loading", "FOR LOADING"], ["permanence", "FOR PERMANENCE"], ["bunkering", "FOR BUNKERING"],
+  ["fresh_water", "FOR FRESH WATER"], ["provisions", "FOR PROVISIONS"]];
+// tildadas segun el voucher: "CUSTOM OVERTIME FOR ENTRANCE", etc.
+const enVoucher = (k) => (BUQUE.servicios || []).some((x) => x.toUpperCase().startsWith("CUSTOM OVERTIME " + k));
+const aduanaInicial = () => ({ cuenta_ajena: false, items: [...ADU_BASE.map(([key, texto]) => ({ key, texto, on: enVoucher(texto), cant: enVoucher(texto) ? 1 : 0, precio: ADUANA_USD })),
+  { key: "extra", texto: "", on: false, cant: 0, precio: ADUANA_USD }] });
+let ADUANA = aduanaInicial();
+const totalAduana = () => Math.round(ADUANA.items.filter((i) => i.on).reduce((a, i) => a + i.cant * i.precio, 0) * 100) / 100;
+
+function resetAduana() { ADUANA = aduanaInicial(); pintarAduana(); }
+
+function pintarAduana() {
+  const box = $("#ad-box"); box.replaceChildren();
+  const cab = elx("div", "pfn-adu cab"); ["", "Habilitación", "Cantidad", "Precio (USD)", "Total"].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
+  ADUANA.items.forEach((it) => {
+    const row = elx("div", "pfn-adu" + (it.on ? " on" : ""));
+    const cb = elx("input"); cb.type = "checkbox"; cb.checked = it.on; cb.setAttribute("aria-label", "Aplica: " + (it.texto || "otro concepto"));
+    let nom;
+    if (it.key === "extra") { nom = elx("input"); nom.type = "text"; nom.maxLength = 80; nom.placeholder = "Otro concepto (escribilo acá)"; nom.value = it.texto; nom.addEventListener("input", () => { it.texto = nom.value; render(); }); }
+    else nom = elx("span", "nom", it.texto);
+    const cant = elx("input"); cant.inputMode = "numeric"; cant.value = it.cant ? String(it.cant) : ""; cant.placeholder = "0"; cant.setAttribute("aria-label", "Cantidad de " + (it.texto || "otro concepto"));
+    const precio = elx("input"); precio.inputMode = "decimal"; precio.value = fmt(it.precio); precio.setAttribute("aria-label", "Precio de " + (it.texto || "otro concepto"));
+    const tot = elx("span", "tot", it.on ? usd2(it.cant * it.precio) : "—");
+    const refrescar = () => { row.classList.toggle("on", it.on); tot.textContent = it.on ? usd2(it.cant * it.precio) : "—"; actualizarTotalesAd(); render(); };
+    cb.addEventListener("change", () => { it.on = cb.checked; if (it.on && !it.cant) { it.cant = 1; cant.value = "1"; } refrescar(); });
+    cant.addEventListener("input", () => { it.cant = Math.min(1000, Math.round(num(cant.value))); if (it.cant > 0 && !it.on) { it.on = true; cb.checked = true; } refrescar(); });
+    precio.addEventListener("input", () => { it.precio = num(precio.value); refrescar(); });
+    row.append(cb, nom, cant, precio, tot); box.appendChild(row);
+  });
+  $("#ad-ajena-chk").checked = ADUANA.cuenta_ajena;
+  actualizarTotalesAd();
+}
+
+function actualizarTotalesAd() {
+  const t = totalAduana();
+  $("#ad-total").textContent = usd2(ADUANA.cuenta_ajena ? 0 : t);
+  $("#ad-ajena").textContent = ADUANA.cuenta_ajena && t ? ` · por cuenta del armador (informativo): ${usd2(t)}` : "";
+}
+$("#ad-ajena-chk").addEventListener("change", (ev) => { ADUANA.cuenta_ajena = ev.target.checked; actualizarTotalesAd(); render(); });
+
 function render() {
   $$("[data-pane]").forEach((p) => (p.hidden = Number(p.dataset.pane) !== step));
   const s = getState();
@@ -742,7 +813,8 @@ function render() {
     3: !!(s.buque.amarre && s.buque.inicio && s.buque.fin && s.buque.zarpe && s.buque.trn > 0),
     4: s.practicaje.in.usd > 0 && s.practicaje.out.usd > 0,
     5: s.muelle.usd > 0 && s.vias.usd > 0,
-    6: s.lds_amarre.usd > 0 && s.lds_desamarre.usd > 0 };
+    6: s.lds_amarre.usd > 0 && s.lds_desamarre.usd > 0,
+    7: s.aduana.usd > 0 };
   $$(".pfn-step").forEach((b) => {
     const n = Number(b.dataset.step);
     b.classList.toggle("on", n === step);

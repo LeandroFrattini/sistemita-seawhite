@@ -319,3 +319,13 @@ Código: `app/lds.py` (`calcular`, `costo_servicio`, `escala_costo`), endpoint `
   la fecha del desamarre es la del **zarpe** (correcto).
 - **Uso lancha de draft** (concepto opcional, se agrega a mano con una casilla): **USD 290 hábil · 435 hábil en overtime · 580 domingo** (con el mismo criterio de día y hora que el amarre:
   feriado y sábado desde las 13 también 580). Fecha por defecto: el fin de operación (se puede cambiar). Estado `lds_draft`; sale en el Excel como «Lancha de draft LDS».
+
+## Paso 7 — Habilitaciones de aduana (construido)
+
+Estado `aduana` (`items` + `cuenta_ajena`); `app/proforma_final.py` (`ADUANA_CLAVES`, `_aduana_items`, `aduana_total`). Precio por defecto en `ProformaParametro` `aduana_habilitacion_usd` = **USD 200** (editable en Proformador → Fórmulas).
+
+- Siete renglones: **FOR ENTRANCE · FOR LOADING · FOR PERMANENCE · FOR BUNKERING · FOR FRESH WATER · FOR PROVISIONS** y **uno libre** (se escribe el concepto).
+- Cada renglón: tilde, **cantidad** y **precio** (200 por defecto, modificable); el total del renglón y el total del paso se calculan solos (cantidad × precio). Si se escribe una cantidad, el renglón se tilda solo.
+- Salen tildados (cantidad 1) los que el voucher trae como «CUSTOM OVERTIME FOR …»; se pueden tildar o destildar y cambiar la cantidad.
+- Una casilla para todo el paso: **FOR YOUR ACCOUNT** (por cuenta del armador, no se factura).
+- **PENDIENTE (duda abierta):** el voucher hoy tiene CLEARANCE y STORE LIST ENDORSED (y no FRESH WATER ni PROVISIONS). Si hay que cambiar esos dos renglones del voucher, se toca `CUSTOM_SUBS` en `app/docgen/voucher.py`.
