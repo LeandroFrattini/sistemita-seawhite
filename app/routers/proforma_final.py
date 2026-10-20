@@ -397,7 +397,7 @@ def serenos_page(request: Request, db: Session = Depends(get_db), user: User = D
     })
 
 
-def _datos_sereno(db: Session, nombre: str, cuil: str, propio_id: int | None):
+def _datos_sereno(db: Session, nombre: str, cuil: str, propio_id: int | None, cuil_actual: str = ""):
     """Valida nombre y CUIL; devuelve (nombre, cuil, error)."""
     nombre = serenos_padron.limpiar_nombre(nombre)
     if not nombre:
@@ -405,7 +405,7 @@ def _datos_sereno(db: Session, nombre: str, cuil: str, propio_id: int | None):
     c = serenos_padron.normalizar_cuil(cuil)
     if not c:
         return None, None, "cuil"
-    if not serenos_padron.cuil_valido(c.replace("-", "")):
+    if c != cuil_actual and not serenos_padron.cuil_valido(c.replace("-", "")):  # un CUIL ya cargado que no se toca no se vuelve a exigir
         return None, None, "cuil_digito"  # el digito verificador no cierra: casi seguro un error de tipeo
     otro = db.scalar(select(Sereno).where(Sereno.cuil == c))
     if otro is not None and otro.id != propio_id:
@@ -463,7 +463,7 @@ def sereno_guardar(sereno_id: int, nombre: str = Form(""), cuil: str = Form(""),
     s = db.get(Sereno, sereno_id)
     if s is None:
         return RedirectResponse("/administracion/serenos?error=no_existe", status_code=303)
-    n, c, err = _datos_sereno(db, nombre, cuil, s.id)
+    n, c, err = _datos_sereno(db, nombre, cuil, s.id, s.cuil)
     if err:
         return RedirectResponse(f"/administracion/serenos?error={err}_{s.id}", status_code=303)
     s.nombre, s.cuil = n, c
@@ -511,14 +511,14 @@ def encargados_page(request: Request, mes: str = "", db: Session = Depends(get_d
     })
 
 
-def _datos_encargado(db: Session, nombre: str, cuil: str, propio_id: int | None):
+def _datos_encargado(db: Session, nombre: str, cuil: str, propio_id: int | None, cuil_actual: str = ""):
     nombre = enc.limpiar_nombre(nombre)
     if not nombre:
         return None, None, "nombre"
     c = serenos_padron.normalizar_cuil(cuil)
     if not c:
         return None, None, "cuil"
-    if not serenos_padron.cuil_valido(c.replace("-", "")):
+    if c != cuil_actual and not serenos_padron.cuil_valido(c.replace("-", "")):  # un CUIL ya cargado que no se toca no se vuelve a exigir
         return None, None, "cuil_digito"
     otro = db.scalar(select(Encargado).where(Encargado.cuil == c))
     if otro is not None and otro.id != propio_id:
@@ -542,7 +542,7 @@ def encargado_guardar(encargado_id: int, nombre: str = Form(""), cuil: str = For
     e = db.get(Encargado, encargado_id)
     if e is None:
         return RedirectResponse("/administracion/encargados?error=no_existe", status_code=303)
-    n, c, err = _datos_encargado(db, nombre, cuil, e.id)
+    n, c, err = _datos_encargado(db, nombre, cuil, e.id, e.cuil)
     if err:
         return RedirectResponse(f"/administracion/encargados?error={err}_{e.id}", status_code=303)
     e.nombre, e.cuil = n, c
