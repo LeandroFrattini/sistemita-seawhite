@@ -40,14 +40,17 @@ def _movimiento(db: Session, uf: float, calado_pies: float, dos_practicos: bool)
     }
 
 
-def calcular(db: Session, eslora: float, manga: float, puntal: float, calado_entrada: float, calado_salida: float) -> dict:
-    """Practicaje de entrada y de salida con el desglose, o lo que falta cargar."""
+def calcular(db: Session, eslora: float, manga: float, puntal: float, calado_entrada: float, calado_salida: float,
+             dos_manual: bool = False) -> dict:
+    """Practicaje de entrada y de salida con el desglose, o lo que falta cargar.
+    Lleva dos practicos si la manga supera 39,9 m o si se pidio a mano (dos_manual)."""
     uf = (eslora * manga * puntal / 800) if (eslora and manga and puntal) else 0.0
-    dos = manga > MANGA_DOS_PRACTICOS
+    dos = manga > MANGA_DOS_PRACTICOS or bool(dos_manual)
     faltan = [n for n, v in (("eslora", eslora), ("manga", manga), ("puntal", puntal)) if not v]
     return {
         "uf": round(uf, 4), "dos_practicos": dos, "faltan": faltan,
-        "remark": "BASIS OUR TARIFF WITH SERVICE PROVIDER" + (" (TWO PILOTS -- BEAM OVER 40M)" if dos else ""),
+        "dos_por_manga": manga > MANGA_DOS_PRACTICOS,
+        "remark": "BASIS OUR TARIFF WITH SERVICE PROVIDER" + ((" (TWO PILOTS -- BEAM OVER 40M)" if manga > MANGA_DOS_PRACTICOS else " (TWO PILOTS)") if dos else ""),
         "in": _movimiento(db, uf, calado_entrada, dos),
         "out": _movimiento(db, uf, calado_salida, dos),
     }

@@ -129,6 +129,37 @@ def nuevo_wizard(request: Request, user: User = Depends(current_user)):
     })
 
 
+@router.get("/proformador/practicos", response_class=HTMLResponse)
+def proformador_practicos(request: Request, user: User = Depends(current_user)):
+    return templates.TemplateResponse(request, "proformador/practicos.html", {"user": user})
+
+
+@router.post("/proformador/practicos/calcular")
+async def calcular_practicos(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Costo de practicaje (entrada y salida) solo, sin armar una proforma: misma formula y tablas que el resto del sistema."""
+    from .. import practicaje
+
+    def num(v, tope):
+        try:
+            x = float(str(v).replace(",", "."))
+        except (TypeError, ValueError):
+            return 0.0
+        return x if 0 < x <= tope else 0.0
+
+    d = await request.json()
+    d = d if isinstance(d, dict) else {}
+    en_pies = d.get("unidad") == "pies"
+    a_pies = (lambda v: v) if en_pies else (lambda v: round(v * practicaje.PIES_POR_METRO, 4))
+    ent, sal = a_pies(num(d.get("calado_entrada"), 100)), a_pies(num(d.get("calado_salida"), 100))
+    r = practicaje.calcular(db, num(d.get("eslora"), 1000), num(d.get("manga"), 200), num(d.get("puntal"), 200), ent, sal,
+                            dos_manual=d.get("dos_practicos") is True)
+    # calado cargado pero sin tramo en la tabla de Formulas: se avisa en vez de mostrar cero
+    r["sin_tramo"] = [n for n, v in (("entrada", ent), ("salida", sal)) if v and r["uf"] and not r["in" if n == "entrada" else "out"]]
+    r["calado_pies"] = {"entrada": ent, "salida": sal}
+    r["total"] = round(sum((r[k]["total"] for k in ("in", "out") if r[k]), 0.0), 2)
+    return r
+
+
 @router.get("/proformador/pilotage/probar")
 def probar_pilotage(uf: float = 0, calado: float = 0, user: User = Depends(current_user), db: Session = Depends(get_db)):
     """Calculadora suelta para probar la formula de pilotaje contra el

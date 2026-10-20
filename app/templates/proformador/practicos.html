@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block nav_proformador %}active{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Proformador de Prácticos</h1>
+    <span class="muted">Solo el costo de practicaje de entrada y de salida. Usa las mismas fórmulas y tablas que el Proformador (se editan en Fórmulas).</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/proformador">← Proformador</a>
+    <a class="btn" href="/proformador/config/formulas">Fórmulas</a>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Buque</h3>
+  <div class="row">
+    <label>Eslora (m)<input type="text" inputmode="decimal" id="pr-eslora" placeholder="ej. 190"></label>
+    <label>Manga (m)<input type="text" inputmode="decimal" id="pr-manga" placeholder="ej. 32,2"></label>
+    <label>Puntal (m)<input type="text" inputmode="decimal" id="pr-puntal" placeholder="ej. 18"></label>
+    <label>FC (calculado)<input type="text" id="pr-fc" disabled></label>
+  </div>
+  <div class="pf-toggles" style="margin-top:12px">
+    <label class="pf-toggle"><input type="checkbox" id="pr-dos"> Dos prácticos</label>
+  </div>
+  <p class="muted" id="pr-dos-nota" style="margin:6px 0 0">Con manga de más de 40 m lleva dos prácticos solo. Con menos, tildalo si ese movimiento los pide.</p>
+</div>
+
+<div class="card">
+  <h3>Calados</h3>
+  <div class="row">
+    <label>Unidad
+      <select id="pr-unidad"><option value="metros">Metros</option><option value="pies">Pies</option></select>
+    </label>
+    <label>Calado de entrada<input type="text" inputmode="decimal" id="pr-cal-in" placeholder="ej. 10,5"></label>
+    <label>Calado de salida<input type="text" inputmode="decimal" id="pr-cal-out" placeholder="ej. 11"></label>
+  </div>
+  <p class="muted" id="pr-equiv" style="margin:8px 0 0"></p>
+  <p class="muted" style="margin:4px 0 0">Si solo necesitás la entrada o solo la salida, dejá el otro calado vacío.</p>
+</div>
+
+<div class="card" id="pr-resultado" aria-live="polite">
+  <p class="muted" id="pr-estado">Cargá eslora, manga, puntal y al menos un calado.</p>
+  <div id="pr-detalle"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const $ = (id) => document.getElementById(id);
+const num = (v) => { const n = parseFloat(String(v || "").replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : 0; };
+const usd = (n) => "USD " + n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const f2 = (n) => n.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const PIES = 3.28084;
+let seq = 0, timer = null, manualDos = false;  // manualDos: lo que tildo la persona (la manga de mas de 40 m lo fuerza aparte)
+
+function fila(t, a, b, fuerte) {
+  const tr = document.createElement("tr");
+  const x = document.createElement("td"); x.textContent = a;
+  const y = document.createElement("td"); y.textContent = b; y.style.textAlign = "right";
+  if (fuerte) { x.style.fontWeight = y.style.fontWeight = "700"; }
+  tr.append(x, y); t.appendChild(tr);
+}
+
+function bloque(titulo, m, caladoPies, dos) {
+  const card = document.createElement("div");
+  card.style.cssText = "flex:1 1 320px;border:1px solid var(--line);border-radius:10px;padding:14px;background:#f7fafd";
+  const h = document.createElement("div");
+  h.style.cssText = "font-weight:700;letter-spacing:.3px;color:var(--blue-dark)"; h.textContent = titulo; card.appendChild(h);
+  const big = document.createElement("div");
+  big.style.cssText = "font-size:26px;font-weight:800;margin:4px 0 10px"; big.textContent = usd(m.total); card.appendChild(big);
+  const t = document.createElement("table"); t.className = "list";
+  fila(t, "Calado", f2(caladoPies) + " pies (" + f2(caladoPies / PIES) + " m) · coeficiente " + f2(m.factor * 100) + " %");
+  fila(t, "Maniobra", usd(m.maniobra));
+  fila(t, "Navegación + recorrido", usd(m.navegacion));
+  fila(t, "Descuento", "− " + f2(m.descuento_pct) + " %");
+  fila(t, dos ? "Tarifa de gobierno (×2, dos prácticos)" : "Tarifa de gobierno", usd(m.gobierno));
+  fila(t, "Service", usd(m.service));
+  card.appendChild(t);
+  return card;
+}
+
+function pintar(r) {
+  const det = $("pr-detalle"); det.replaceChildren();
+  const est = $("pr-estado");
+  const dos = r.dos_practicos;
+  $("pr-dos").checked = dos; $("pr-dos").disabled = !!r.dos_por_manga;  // por manga queda tildado y fijo; si no, vuelve a lo que eligio la persona
+  $("pr-dos-nota").textContent = r.dos_por_manga ? "Manga de más de 40 m: lleva dos prácticos (no se puede destildar)."
+    : "Con manga de más de 40 m lleva dos prácticos solo. Con menos, tildalo si ese movimiento los pide.";
+  if (r.faltan.length) { est.textContent = "Falta cargar: " + r.faltan.join(", ") + "."; return; }
+  if (!r.in && !r.out) {
+    est.textContent = r.sin_tramo.length ? "Ese calado no tiene tramo cargado en Fórmulas (" + r.sin_tramo.join(" y ") + ")." : "Cargá al menos un calado.";
+    return;
+  }
+  est.textContent = "";
+  const avisos = [];
+  if (r.sin_tramo.length) avisos.push("El calado de " + r.sin_tramo.join(" y ") + " no tiene tramo cargado en Fórmulas: no se calculó.");
+  const caja = document.createElement("div"); caja.style.cssText = "display:flex;gap:14px;flex-wrap:wrap";
+  if (r.in) caja.appendChild(bloque("PILOTAGE IN — " + (dos ? "dos prácticos" : "un práctico"), r.in, r.calado_pies.entrada, dos));
+  if (r.out) caja.appendChild(bloque("PILOTAGE OUT — " + (dos ? "dos prácticos" : "un práctico"), r.out, r.calado_pies.salida, dos));
+  det.appendChild(caja);
+  if (r.in && r.out) {
+    const tot = document.createElement("p"); tot.style.cssText = "font-size:17px;margin:14px 0 0";
+    tot.append("Total practicaje (entrada + salida): "); const b = document.createElement("b"); b.textContent = usd(r.total); tot.appendChild(b);
+    det.appendChild(tot);
+  }
+  avisos.forEach((a) => { const p = document.createElement("p"); p.className = "muted"; p.textContent = a; det.appendChild(p); });
+}
+
+async function calcular() {
+  const miSeq = ++seq;
+  const unidad = $("pr-unidad").value;
+  const e = num($("pr-eslora").value), m = num($("pr-manga").value), p = num($("pr-puntal").value);
+  $("pr-fc").value = e && m && p ? String(Math.round(e * m * p / 800)) : "";
+  const ci = num($("pr-cal-in").value), co = num($("pr-cal-out").value);
+  $("pr-equiv").textContent = [ci && ["entrada", ci], co && ["salida", co]].filter(Boolean)
+    .map(([n, v]) => "Calado de " + n + ": " + (unidad === "metros" ? f2(v * PIES) + " pies" : f2(v / PIES) + " m")).join(" · ");
+  try {
+    const resp = await fetch("/proformador/practicos/calcular", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ eslora: e, manga: m, puntal: p, calado_entrada: ci, calado_salida: co, unidad, dos_practicos: manualDos }),
+    });
+    if (miSeq !== seq) return;  // ya hay una consulta mas nueva
+    if (!resp.ok) throw new Error(resp.status);
+    pintar(await resp.json());
+  } catch (err) {
+    if (miSeq !== seq) return;
+    $("pr-estado").textContent = "No se pudo calcular. Revisá la conexión y probá de nuevo.";
+    $("pr-detalle").replaceChildren();
+  }
+}
+
+const agendar = () => { clearTimeout(timer); timer = setTimeout(calcular, 200); };
+["pr-eslora", "pr-manga", "pr-puntal", "pr-cal-in", "pr-cal-out"].forEach((id) => $(id).addEventListener("input", agendar));
+$("pr-unidad").addEventListener("change", calcular);
+$("pr-dos").addEventListener("change", () => { manualDos = $("pr-dos").checked; calcular(); });
+</script>
+{% endblock %}

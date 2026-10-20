@@ -467,3 +467,7 @@ Cada punto lleva **dos tildes** (no un desplegable), que no pueden estar los dos
 Un bloque de 8 horas en el que el barco ya está cobrado en el **muelle** **no se vuelve a cobrar como fondeadero** (sería un costo duplicado): se cobra siempre el de muelle y el fondeadero cobra desde el primer bloque que no esté en el muelle.
 Ejemplo: zarpa del muelle a las 16:30 y llega al fondeadero a las 21:00 → el bloque 16–24 de ese día es del muelle y el fondeadero cobra desde las 00:00. Vale también si el fondeo es antes de amarrar (el bloque en que amarra es del muelle).
 La tabla de días del fondeadero marca en verde los bloques que ya cobra el muelle y muestra «Días de fondeo en total» y «Días que ya se cobran en el muelle (no se duplican)». Código: `app/muelle.py::calcular` (`solapado`, `dias_brutos`).
+
+## Proformador de Prácticos (en el Proformador inicial)
+
+Cuarto botón del hub del Proformador (`/proformador/practicos`): calcula solo el costo de practicaje, sin armar una proforma. Se cargan eslora, manga y puntal, el calado de entrada y/o de salida (en metros o en pies; los metros se pasan a pies con 3,28084 y 4 decimales, igual que la proforma final) y el tilde «Dos prácticos». Con manga de más de 39,9 m lleva dos prácticos solo y el tilde queda fijo. Usa `practicaje.calcular` (misma fórmula y mismas tablas que el resto; se editan en Fórmulas) y muestra para cada movimiento el desglose (maniobra, navegación, descuento, gobierno, service) y el total entrada + salida.
