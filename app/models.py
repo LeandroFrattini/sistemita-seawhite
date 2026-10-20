@@ -1009,3 +1009,17 @@ class SerenoPago(Base):
     usuario: Mapped[str] = mapped_column(String(60), default="")
     registrado: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+
+class EncargadoSuperoTope(Base):
+    """Marca a mano: este encargado ya supero el tope de aportes en ese mes (por ejemplo cuando el sistema arranca con el mes empezado).
+    Mientras este marcada, sus turnos de ese mes van sin O.S., jubilacion ni ley (solo el aporte sindical)."""
+
+    __tablename__ = "encargados_supero_tope"
+    __table_args__ = (UniqueConstraint("encargado_id", "mes", name="uq_supero_encargado_mes"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    encargado_id: Mapped[int] = mapped_column(Integer, index=True)
+    mes: Mapped[str] = mapped_column(String(7), index=True)      # YYYY-MM
+    usuario: Mapped[str] = mapped_column(String(60), default="")
+    fecha: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+

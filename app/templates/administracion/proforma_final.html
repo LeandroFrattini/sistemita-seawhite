@@ -238,17 +238,20 @@
       <div id="ck-otros"></div>
       <div id="ck-tabla"></div>
       <p class="pfn-total">Total a facturar: <b id="ck-usd">USD 0,00</b> <span class="muted" id="ck-ars"></span></p>
-      <div class="ck-bajar">
-        <button type="button" class="btn primary" id="ck-bajar">⬇ Descargar Excel de la proforma</button>
-        <span class="muted">El sistema no guarda las proformas: guardá el archivo. Si hace falta rehacerla, se vuelve a cargar con «Cargar proforma anterior».</span>
-      </div>
-      <div class="ck-bajar">
-        <button type="button" class="btn" id="ck-bajar-se">⬇ Descargar Excel de serenos</button>
-        <span class="muted">Los recibos de cada sereno (uno por tramo de 6 horas), con el resultado y el CUIL. Se arma con lo cargado en el paso 9.</span>
-      </div>
-      <div class="ck-bajar">
-        <button type="button" class="btn" id="ck-bajar-en">⬇ Descargar Excel de encargados</button>
-        <span class="muted">La declaración del Head Tally con el encargado de cada turno y sus descuentos (con el tope mensual de aportes). Se arma con lo cargado en el paso 8.</span>
+      <div class="ck-descargas">
+        <h3>Para terminar, bajá los 3 archivos</h3>
+        <div class="ck-desc-fila">
+          <button type="button" class="btn primary" id="ck-bajar">⬇ Proforma final</button>
+          <span class="muted">El sistema no guarda las proformas: guardá el archivo. Para rehacerla, «Cargar proforma anterior».</span>
+        </div>
+        <div class="ck-desc-fila">
+          <button type="button" class="btn" id="ck-bajar-se">⬇ Liquidación de serenos</button>
+          <span class="muted">Un recibo por sereno y tramo, con el resultado y el CUIL (paso 9).</span>
+        </div>
+        <div class="ck-desc-fila">
+          <button type="button" class="btn" id="ck-bajar-en">⬇ Liquidación de encargados</button>
+          <span class="muted">La declaración del Head Tally con el tope de aportes del mes (paso 8).</span>
+        </div>
       </div>
       <p class="ck-msg" id="ck-msg" role="status"></p>
     </div>
@@ -337,6 +340,13 @@
   .pfn-mig > :nth-child(5) { grid-column: 3; grid-row: 3; }
   .pfn-mig.cab { display: none; }
 }
+.ck-descargas { margin: 14px 0 4px; padding: 14px 16px; border: 1px solid #9cc3ec; background: #eef6ff; border-radius: 12px; }
+.ck-descargas h3 { margin: 0 0 10px; font-size: 14px; color: var(--navy, #12355f); }
+.ck-desc-fila { display: grid; grid-template-columns: 260px 1fr; gap: 6px 14px; align-items: center; padding: 8px 0; border-top: 1px solid #d3e4f7; }
+.ck-desc-fila:first-of-type { border-top: 0; }
+.ck-desc-fila .btn { font-size: 15px; padding: 11px 16px; width: 100%; text-align: center; }
+.ck-desc-fila .muted { font-size: 12.5px; }
+@media (max-width: 760px) { .ck-desc-fila { grid-template-columns: 1fr; } }
 .ck-bajar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 12px 0 4px; padding: 14px 16px; border: 1px solid #9cc3ec; background: #eef6ff; border-radius: 12px; }
 .ck-bajar .btn { font-size: 15px; padding: 11px 20px; }
 .ck-msg { margin: 6px 0 0; font-size: 13.5px; font-weight: 600; }

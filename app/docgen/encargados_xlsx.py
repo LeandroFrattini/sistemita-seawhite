@@ -142,6 +142,8 @@ def generar(*, buque: str, operacion: str, carga: str, sitio: str, calc: dict, c
     for m, tope in calc["topes"].items():
         if any(f["fecha"][:7] == m and f["estado"] != "completo" for f in filas):
             avisos.append(f"Tope de sueldo bruto de {MESES[int(m[5:7]) - 1]} {m[:4]}: $ {tope:,.2f}. Alcanzado el tope del mes, O.S., Jubilación y Ley no se descuentan (el aporte sindical sí).".replace(",", "X").replace(".", ",").replace("X", "."))
+    for nombre, m in calc.get("manuales", []):
+        avisos.append(f"{nombre}: se marcó a mano que superó el tope de {MESES[int(m[5:7]) - 1]} {m[:4]}. O.S., Jubilación y Ley no se descuentan (el aporte sindical sí).")
     r += 2
     for a in avisos:
         ws[f"B{r}"] = a

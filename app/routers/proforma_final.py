@@ -503,8 +503,10 @@ def _monto(txt) -> float | None:
 @router.get("/encargados", response_class=HTMLResponse)
 def encargados_page(request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     mes = enc.mes_valido(mes) or date.today().strftime("%Y-%m")
+    y, m = int(mes[:4]), int(mes[5:7])
+    ant, sig = (f"{y - 1}-12" if m == 1 else f"{y}-{m - 1:02d}"), (f"{y + 1}-01" if m == 12 else f"{y}-{m + 1:02d}")
     return templates.TemplateResponse(request, "administracion/encargados.html", {
-        "user": user, "mes": mes, "estado": enc.estado_mes(db, mes), "historial": enc.historial_topes(db),
+        "user": user, "mes": mes, "mes_ant": ant, "mes_sig": sig, "estado": enc.estado_mes(db, mes), "historial": enc.historial_topes(db),
         "ok": request.query_params.get("ok", ""), "error": request.query_params.get("error", ""),
     })
 
@@ -535,6 +537,15 @@ def encargado_guardar(encargado_id: int, nombre: str = Form(""), cuil: str = For
     e.nombre, e.cuil = n, c
     db.commit()
     return RedirectResponse("/administracion/encargados?ok=guardado", status_code=303)
+
+
+@router.post("/encargados/{encargado_id}/supero")
+def encargado_supero(encargado_id: int, mes: str = Form(""), activo: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    m = enc.mes_valido(mes)
+    if db.get(Encargado, encargado_id) is None or not m:
+        return RedirectResponse("/administracion/encargados?error=no_existe", status_code=303)
+    enc.marcar_supero(db, encargado_id, m, bool(activo), user.username)
+    return RedirectResponse(f"/administracion/encargados?mes={m}", status_code=303)
 
 
 @router.post("/encargados/tope")

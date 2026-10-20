@@ -13,7 +13,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .models import AppSetting, Encargado, EncargadoTope, EncargadoTurno
+from .models import AppSetting, Encargado, EncargadoSuperoTope, EncargadoTope, EncargadoTurno
 from .serenos_padron import cuil_valido
 
 PADRON_INICIAL = [("Bruno Aceituno", "20-38320705-7"), ("Fernando Navarrete", "20-24546704-5")]
@@ -79,6 +79,20 @@ def mes_valido(txt) -> str:
     return t if len(t) == 7 else ""
 
 
+def marcados(db: Session, mes: str) -> set[int]:
+    """Los encargados que se marcaron a mano como «supero el tope» en ese mes."""
+    return {i for (i,) in db.execute(select(EncargadoSuperoTope.encargado_id).where(EncargadoSuperoTope.mes == mes))}
+
+
+def marcar_supero(db: Session, encargado_id: int, mes: str, activo: bool, usuario: str) -> None:
+    fila = db.scalar(select(EncargadoSuperoTope).where(EncargadoSuperoTope.encargado_id == encargado_id, EncargadoSuperoTope.mes == mes))
+    if activo and fila is None:
+        db.add(EncargadoSuperoTope(encargado_id=encargado_id, mes=mes, usuario=usuario[:60]))
+    elif not activo and fila is not None:
+        db.delete(fila)
+    db.commit()
+
+
 def _orden(fecha: str, turno: str) -> tuple[str, int]:
     return fecha, TURNOS.index(turno) if turno in TURNOS else 9
 
@@ -121,13 +135,6 @@ def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str
         raise ValueError(" ".join(faltan))
     if not categoria:
         raise ValueError("Falta elegir la categoría de la carga del Tally (paso 8).")
-    meses = sorted({f["fecha"][:7] for f in filas})
-    topes = {}
-    for m in meses:
-        t = tope_de(db, m)
-        if t is None:
-            raise ValueError(f"Falta cargar el tope de sueldo bruto de {m[5:7]}/{m[:4]} (Administración → Encargados).")
-        topes[m] = t.monto
     actuales = []
     for i, f in enumerate(filas):
         d = descomponer(base, categoria, f["precio"])
@@ -137,17 +144,28 @@ def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str
     por_clave: dict[tuple, list[dict]] = {}
     for t in actuales:
         por_clave.setdefault((t["encargado_id"] if t["encargado_id"] is not None else t["nombre"].lower(), t["fecha"][:7]), []).append(t)
+    topes, manuales = {}, []
     for (clave, mes), lista in por_clave.items():
+        if isinstance(clave, int) and clave in marcados(db, mes):  # marcado a mano como «supero el tope»: sin aportes en todo el mes
+            tope_mes = 0.0
+            manuales.append((lista[0]["nombre"], mes))
+        else:
+            if mes not in topes:
+                t = tope_de(db, mes)
+                if t is None:
+                    raise ValueError(f"Falta cargar el tope de sueldo bruto de {mes[5:7]}/{mes[:4]} (Administración → Encargados), o marcar «Superó el tope» al encargado.")
+                topes[mes] = t.monto
+            tope_mes = topes[mes]
         q = select(EncargadoTurno).where(EncargadoTurno.fecha.like(mes + "%"), EncargadoTurno.barco_clave != barco_clave)
         q = q.where(EncargadoTurno.encargado_id == clave) if isinstance(clave, int) else q.where(EncargadoTurno.nombre == lista[0]["nombre"])
         for r in db.scalars(q):
             lista.append({"fecha": r.fecha, "turno": r.turno, "bruto": r.bruto, "orden": -1, "actual": False})
-        _aplicar_tope(lista, topes[mes], marg)
+        _aplicar_tope(lista, tope_mes, marg)
     for t in actuales:
         t["sind"] = t["bruto"] * PCT_SIND
         t["neto"] = t["bruto"] - t["os"] - t["jubil"] - t["ley"] - t["sind"]
     actuales.sort(key=lambda t: (_orden(t["fecha"], t["turno"]), t["nombre"]))
-    return {"filas": actuales, "topes": topes, "margen": marg, "categoria": categoria}
+    return {"filas": actuales, "topes": topes, "manuales": manuales, "margen": marg, "categoria": categoria}
 
 
 def registrar(db: Session, *, barco_clave: str, buque: str, filas: list[dict], usuario: str) -> None:
@@ -163,6 +181,7 @@ def registrar(db: Session, *, barco_clave: str, buque: str, filas: list[dict], u
 def estado_mes(db: Session, mes: str) -> dict:
     """Para la pantalla de Administracion: por encargado de la lista, el bruto del mes contra el tope, lo que se le descontó de aportes y cuánto falta."""
     tope, marg = tope_de(db, mes), margen(db)
+    marcas = marcados(db, mes)
     por: dict[str, list[dict]] = {e.nombre: [] for e in db.scalars(select(Encargado).order_by(Encargado.nombre))}
     cuils = {e.nombre: e.cuil for e in db.scalars(select(Encargado))}
     ids = {e.nombre: e.id for e in db.scalars(select(Encargado))}
@@ -170,12 +189,15 @@ def estado_mes(db: Session, mes: str) -> dict:
         por.setdefault(r.nombre, []).append({"fecha": r.fecha, "turno": r.turno, "bruto": r.bruto, "orden": 0, "buque": r.buque})
     out = []
     for nombre, lista in sorted(por.items()):
-        if tope is not None:
+        manual = ids.get(nombre) in marcas
+        if manual:
+            _aplicar_tope(lista, 0.0, marg)
+        elif tope is not None:
             _aplicar_tope(lista, tope.monto, marg)
         bruto = sum(t["bruto"] for t in lista)
         falta = (tope.monto - bruto) if tope is not None else None
         out.append({"id": ids.get(nombre), "nombre": nombre, "cuil": cuils.get(nombre, ""), "turnos": len(lista), "barcos": len({t["buque"] for t in lista}), "bruto": bruto,
-                    "aportes": sum(t.get("aportes", 0.0) for t in lista) if tope is not None else None,
-                    "falta": falta, "alcanzado": tope is not None and bool(lista) and falta <= marg,
+                    "aportes": sum(t.get("aportes", 0.0) for t in lista) if (tope is not None or manual) else None,
+                    "manual": manual, "falta": falta, "alcanzado": manual or (tope is not None and bool(lista) and falta <= marg),
                     "pct": (min(bruto / tope.monto, 1.0) if tope is not None and tope.monto else 0.0)})
     return {"mes": mes, "tope": tope, "margen": marg, "encargados": out}

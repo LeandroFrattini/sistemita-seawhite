@@ -12,7 +12,11 @@
     <span class="muted">Tope de sueldo bruto del mes y cómo va cada uno</span>
   </div>
   <div class="actions">
-    <form method="get" class="en-mes"><input type="month" name="mes" value="{{ mes }}" aria-label="Mes" onchange="this.form.submit()"></form>
+    <nav class="en-mes" aria-label="Mes">
+      <a href="?mes={{ mes_ant }}" aria-label="Mes anterior">‹</a>
+      <b>{{ mes|mesnom|capitalize }}</b>
+      <a href="?mes={{ mes_sig }}" aria-label="Mes siguiente">›</a>
+    </nav>
     <a class="btn" href="/administracion">← Administración</a>
   </div>
 </div>
@@ -48,8 +52,21 @@
   {% for e in estado.encargados %}
   <div class="card en-card">
     <div class="en-card-top">
-      <div><b class="en-nombre">{{ e.nombre }}</b><div class="muted en-cuil">CUIL {{ e.cuil }}</div></div>
-      {% if estado.tope is none %}<span class="en-chip en-gris">Sin tope cargado</span>
+      <div>
+        <div class="en-nombre-fila">
+          <b class="en-nombre">{{ e.nombre }}</b>
+          {% if e.id %}
+          <form method="post" action="/administracion/encargados/{{ e.id }}/supero" class="en-supero">
+            <input type="hidden" name="mes" value="{{ mes }}">
+            <label title="Marcalo si este mes ya pasó el tope: sus turnos van sin O.S., Jubilación ni Ley"><input type="checkbox" name="activo" value="1" {{ 'checked' if e.manual }} onchange="this.form.submit()"> Superó el tope</label>
+            <noscript><button type="submit" class="mini">Guardar</button></noscript>
+          </form>
+          {% endif %}
+        </div>
+        <div class="muted en-cuil">CUIL {{ e.cuil }}</div>
+      </div>
+      {% if e.manual %}<span class="en-chip en-ambar">Tope superado · a mano</span>
+      {% elif estado.tope is none %}<span class="en-chip en-gris">Sin tope cargado</span>
       {% elif not e.turnos %}<span class="en-chip en-gris">Sin turnos este mes</span>
       {% elif e.alcanzado %}<span class="en-chip en-ambar">Tope alcanzado</span>
       {% else %}<span class="en-chip en-verde">Con aportes</span>{% endif %}
@@ -82,6 +99,7 @@
     <li>Los aportes (<b>O.S. 3 %, Jubilación 11 % y Ley 3 %</b>) se descuentan turno por turno mientras al encargado le falten <b>más de {{ estado.margen|ars(0) }}</b> para el tope del mes.</li>
     <li>Cuando le faltan {{ estado.margen|ars(0) }} o menos, los turnos siguientes van sin esos aportes (se puede pasar del tope). El aporte sindical 3 % se descuenta siempre.</li>
     <li>Cada mes arranca de cero. El margen se cambia en Administración → Fórmulas.</li>
+    <li>«Superó el tope» sirve para marcar a mano que un encargado ya pasó el tope este mes (por ejemplo, cuando el sistema arranca con el mes empezado): sus turnos del mes van sin esos aportes, sin necesidad de cargar el tope.</li>
   </ul>
 </details>
 
@@ -99,7 +117,16 @@
 
 <style>
 .en-et { display: block; font-size: 11.5px; letter-spacing: .3px; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
-.en-mes { margin: 0; }
+.en-mes { display: inline-flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 3px 4px; margin: 0; }
+.en-mes b { min-width: 130px; text-align: center; font-size: 14px; color: var(--navy, #12355f); }
+.en-mes a { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; font-size: 20px; line-height: 1; color: var(--blue-dark); text-decoration: none; }
+.en-mes a:hover { background: #eef4fb; }
+.en-nombre-fila { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.en-card .en-supero { margin: 0; flex: none; width: auto; }
+.en-card .en-supero input[type=checkbox] { width: 15px; min-width: 0; flex: none; }
+.en-card .en-supero label { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; width: auto; white-space: nowrap; font-size: 12.5px; color: var(--muted); cursor: pointer; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; margin: 0; }
+.en-card .en-supero label:has(input:checked) { background: #fff3da; border-color: #f0c673; color: #9a5b00; font-weight: 600; }
+.en-supero input { accent-color: #d98a00; width: 15px; height: 15px; margin: 0; cursor: pointer; }
 .en-tope { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: center; justify-content: space-between; padding: 18px 20px; }
 .en-tope-dato { display: flex; flex-direction: column; gap: 2px; }
 .en-monto { font-size: 30px; line-height: 1.15; color: var(--blue-dark); font-variant-numeric: tabular-nums; }

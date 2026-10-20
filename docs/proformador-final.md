@@ -498,3 +498,6 @@ Botón «Descargar Excel de serenos» en el paso 11. Arma el libro «SERENOS» d
 ## Resumen de cada sereno
 
 Administración → Serenos → «Resumen» de cada sereno: los barcos que atendió (con mes y días en que trabajó), jornales, bruto, descuentos, viáticos y neto, con los totales, por mes o de todos los meses, y botón para bajarlo en Excel. Sale de lo que se anota al bajar el Excel de serenos de cada barco (se reemplaza por barco al volver a bajarlo; el barco de prueba no anota). Cada renglón se puede quitar del resumen.
+
+- **«Superó el tope» a mano**: casilla al lado del nombre de cada encargado en Administración → Encargados, por mes. Marcada, todos sus turnos de ese mes van sin O.S., jubilación ni ley (solo el aporte sindical), sin necesidad de cargar el tope; sirve cuando el sistema arranca con el mes empezado. En el Excel de encargados queda una nota («se marcó a mano que superó el tope»). Desmarcada, vuelve al cálculo automático con el tope del mes.
+- **Paso 11**: tres botones: «Proforma final», «Liquidación de serenos» y «Liquidación de encargados».
