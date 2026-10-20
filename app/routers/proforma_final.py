@@ -18,10 +18,10 @@ from ..auth import administracion_required, verify_password
 from ..database import get_db
 from ..docgen.fechas import parse_number
 from ..docgen import voucher as vch
-from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, TarifaPersonal, User
+from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, Sereno, TarifaPersonal, User
 from .. import practicaje as pract
 from .. import lds as lds_calc
-from .. import chequeo, migraciones, personal
+from .. import chequeo, migraciones, personal, serenos_padron
 from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
@@ -175,6 +175,7 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
         "law_pct": ("%g" % get_param(db, "law_25413_pct", chequeo.LAW_PCT)).replace(".", ","),
         "version": (os.environ.get("RENDER_GIT_COMMIT") or "local")[:7],
         # tramos de calado del practicaje (en pies) para mostrarlos tambien en metros
+        "serenos_padron": [s.nombre for s in db.scalars(select(Sereno).order_by(Sereno.nombre))],
         "tramos_calado": [{"hasta": t.hasta_pies, "coef": t.valor_usd}
                           for t in db.scalars(select(ProformaPilotageTramo).order_by(ProformaPilotageTramo.orden))],
     })
@@ -352,6 +353,65 @@ def _numero_ar(txt: str) -> float | None:
     except ValueError:
         return None
     return round(n, 2) if 0 <= n <= 1e10 else None
+
+
+# -------------------------------------------------------------- serenos ----
+@router.get("/serenos", response_class=HTMLResponse)
+def serenos_page(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    return templates.TemplateResponse(request, "administracion/serenos.html", {
+        "user": user, "serenos": db.scalars(select(Sereno).order_by(Sereno.nombre)).all(),
+        "ok": request.query_params.get("ok", ""), "error": request.query_params.get("error", ""),
+        "nombre_en_error": request.query_params.get("n", ""), "cuil_en_error": request.query_params.get("c", ""),
+    })
+
+
+def _datos_sereno(db: Session, nombre: str, cuil: str, propio_id: int | None):
+    """Valida nombre y CUIL; devuelve (nombre, cuil, error)."""
+    nombre = serenos_padron.limpiar_nombre(nombre)
+    if not nombre:
+        return None, None, "nombre"
+    c = serenos_padron.normalizar_cuil(cuil)
+    if not c:
+        return None, None, "cuil"
+    if not serenos_padron.cuil_valido(c.replace("-", "")):
+        return None, None, "cuil_digito"  # el digito verificador no cierra: casi seguro un error de tipeo
+    otro = db.scalar(select(Sereno).where(Sereno.cuil == c))
+    if otro is not None and otro.id != propio_id:
+        return None, None, "repetido"
+    return nombre, c, None
+
+
+@router.post("/serenos/nuevo")
+def sereno_nuevo(nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    n, c, err = _datos_sereno(db, nombre, cuil, None)
+    if err:
+        from urllib.parse import quote
+        return RedirectResponse(f"/administracion/serenos?error={err}&n={quote(nombre[:60])}&c={quote(cuil[:20])}", status_code=303)
+    db.add(Sereno(nombre=n, cuil=c))
+    db.commit()
+    return RedirectResponse("/administracion/serenos?ok=agregado", status_code=303)
+
+
+@router.post("/serenos/{sereno_id}/guardar")
+def sereno_guardar(sereno_id: int, nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    s = db.get(Sereno, sereno_id)
+    if s is None:
+        return RedirectResponse("/administracion/serenos?error=no_existe", status_code=303)
+    n, c, err = _datos_sereno(db, nombre, cuil, s.id)
+    if err:
+        return RedirectResponse(f"/administracion/serenos?error={err}_{s.id}", status_code=303)
+    s.nombre, s.cuil = n, c
+    db.commit()
+    return RedirectResponse("/administracion/serenos?ok=guardado", status_code=303)
+
+
+@router.post("/serenos/{sereno_id}/eliminar")
+def sereno_eliminar(sereno_id: int, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    s = db.get(Sereno, sereno_id)
+    if s is not None:
+        db.delete(s)
+        db.commit()
+    return RedirectResponse("/administracion/serenos?ok=eliminado", status_code=303)
 
 
 @router.get("/tarifas-personal", response_class=HTMLResponse)

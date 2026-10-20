@@ -9,6 +9,7 @@ from .auth import hash_password
 from .config import settings
 from .database import Base, SessionLocal, engine
 from .personal import sembrar as sembrar_tarifas_personal
+from .serenos_padron import sembrar as sembrar_serenos
 from .models import (
     AppSetting,
     Client,
@@ -516,6 +517,7 @@ def _seed_proformador(db: Session) -> None:
                 orden += 1
 
     sembrar_tarifas_personal(db)
+    sembrar_serenos(db)
 
     # una sola vez: los taxis se cargaron con 222.000 y el valor es 160.000 (si despues lo cambian a mano, no se toca mas)
     if not db.get(AppSetting, "taxi_fijo_160000"):

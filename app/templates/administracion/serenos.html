@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block nav_administracion %}active{% endblock %}
+{% block content %}
+{% set errores = {
+  'nombre': 'Escribí el apellido y nombre.',
+  'cuil': 'El CUIL tiene que tener 11 números (por ejemplo 20-12345678-9).',
+  'cuil_digito': 'Ese CUIL no es válido (el último número no coincide): revisá que esté bien escrito.',
+  'repetido': 'Ya hay un sereno con ese CUIL.'} %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Serenos</h1>
+    <span class="muted">Apellido, nombre y CUIL de cada sereno. Se eligen desde el paso de Serenos de la proforma final.</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/administracion">← Administración</a>
+  </div>
+</div>
+
+{% if ok == 'agregado' %}<p class="flash-ok" role="status">✓ Sereno agregado.</p>
+{% elif ok == 'guardado' %}<p class="flash-ok" role="status">✓ Cambios guardados.</p>
+{% elif ok == 'eliminado' %}<p class="flash-ok" role="status">✓ Sereno eliminado de la lista.</p>{% endif %}
+{% if error in errores %}<p class="flash-inline" role="alert">{{ errores[error] }}</p>{% elif error == 'no_existe' %}<p class="flash-inline" role="alert">Ese sereno ya no está en la lista.</p>{% endif %}
+
+<div class="card">
+  <h3>Agregar un sereno</h3>
+  <form method="post" action="/administracion/serenos/nuevo" class="sr-fila">
+    <label>Apellido y nombre<input name="nombre" maxlength="40" required value="{{ nombre_en_error }}" placeholder="ej. PEREZ JUAN" autocomplete="off"></label>
+    <label>CUIL<input name="cuil" inputmode="numeric" maxlength="13" required value="{{ cuil_en_error }}" placeholder="ej. 20-12345678-9" autocomplete="off"></label>
+    <button type="submit" class="primary">+ Agregar</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Lista ({{ serenos|length }})</h3>
+  {% if not serenos %}<p class="muted">Todavía no hay serenos cargados. Agregá el primero arriba.</p>{% endif %}
+  {% for s in serenos %}
+  <div class="sr-item">
+    <form method="post" action="/administracion/serenos/{{ s.id }}/guardar" class="sr-fila">
+      <label><span class="sr-et">Apellido y nombre</span><input name="nombre" maxlength="40" required value="{{ s.nombre }}" aria-label="Apellido y nombre" autocomplete="off"></label>
+      <label><span class="sr-et">CUIL</span><input name="cuil" inputmode="numeric" maxlength="13" required value="{{ s.cuil }}" aria-label="CUIL de {{ s.nombre }}" autocomplete="off"></label>
+      <button type="submit">Guardar</button>
+    </form>
+    <form method="post" action="/administracion/serenos/{{ s.id }}/eliminar" onsubmit="return confirm('¿Sacar a {{ s.nombre|e }} de la lista? Las proformas ya armadas no cambian.')">
+      <button type="submit" class="danger" aria-label="Eliminar a {{ s.nombre }}">Eliminar</button>
+    </form>
+    {% set e = error.rsplit('_', 1) %}
+    {% if e|length == 2 and e[1] == s.id|string and e[0] in errores %}<p class="flash-inline sr-err" role="alert">{{ errores[e[0]] }}</p>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<style>
+.sr-fila { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.sr-fila label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.sr-fila input { min-width: 240px; font-size: 14px; }
+.sr-item { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.sr-item:last-child { border-bottom: 0; }
+.sr-item .sr-et { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.sr-err { flex-basis: 100%; margin: 4px 0 0; }
+@media (max-width: 640px) { .sr-fila input { min-width: 0; width: 100%; } .sr-fila label { flex: 1 1 100%; } }
+</style>
+{% endblock %}

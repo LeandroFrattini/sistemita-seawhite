@@ -936,3 +936,13 @@ class DocCall(Base):
     firma: Mapped[str] = mapped_column(Text, default="")  # firma del capitan: PNG en base64
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+
+class Sereno(Base):
+    """Padron de serenos (nombre y CUIL, sin tarifa): se elige en el paso de Serenos de la proforma final."""
+
+    __tablename__ = "serenos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(40))              # APELLIDO NOMBRE, en mayusculas
+    cuil: Mapped[str] = mapped_column(String(13), unique=True)   # 20-12345678-9

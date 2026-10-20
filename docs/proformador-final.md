@@ -471,3 +471,7 @@ La tabla de días del fondeadero marca en verde los bloques que ya cobra el muel
 ## Proformador de Prácticos (en el Proformador inicial)
 
 Cuarto botón del hub del Proformador (`/proformador/practicos`): calcula solo el costo de practicaje, sin armar una proforma. Se cargan eslora, manga y puntal, el calado de entrada y/o de salida (en metros o en pies; los metros se pasan a pies con 3,28084 y 4 decimales, igual que la proforma final) y el tilde «Dos prácticos». Con manga de más de 39,9 m lleva dos prácticos solo y el tilde queda fijo. Usa `practicaje.calcular` (misma fórmula y mismas tablas que el resto; se editan en Fórmulas) y muestra para cada movimiento el desglose (maniobra, navegación, descuento, gobierno, service) y el total entrada + salida.
+
+## Padrón de serenos (Administración → Serenos)
+
+Lista de serenos con apellido y nombre y CUIL, sin tarifa (los precios siguen en «Tarifas de Tally y Serenos»). Se cargaron los 16 de la lista de Administración (una sola vez; lo que se borre después no vuelve). Se agrega, edita y elimina desde `/administracion/serenos`; el CUIL se normaliza a `XX-XXXXXXXX-X`, no se repite y se rechaza si el dígito verificador no cierra. En el paso 9 de la proforma final, cada turno tiene un desplegable con esos nombres (más «Otro» para escribir uno que no esté, y «sin nombre»); el nombre elegido sale en la hoja SERENOS. Las proformas guardan solo el texto del nombre, así que editar o borrar a alguien de la lista no cambia las ya armadas. Falta el equivalente para Encargado / Head Tally.

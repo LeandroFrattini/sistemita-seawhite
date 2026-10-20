@@ -295,7 +295,9 @@
 .pfn-trn input, .pfn-trn select { width: 100%; min-width: 0; }
 .pfn-trn .num { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 .pfn-trn .quitar { border: 0; background: none; cursor: pointer; font-size: 16px; color: #b91c1c; padding: 4px; }
-.pfn-trn .nombre-sereno { grid-column: 1 / -1; font-size: 12.5px; box-sizing: border-box; width: 100%; }
+.pfn-trn .nombre-sereno { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; box-sizing: border-box; width: 100%; }
+.pfn-trn .nombre-sereno select, .pfn-trn .nombre-sereno input { font-size: 12.5px; flex: 1 1 220px; min-width: 0; }
+.pfn-trn .nombre-sereno [hidden] { display: none; }
 .pfn-trn.feriado { background: #fef2f2; border-color: #f3c0c0; }
 .pfn-agregar { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 10px 0; padding: 10px 12px; background: #f4f8fd; border: 1px dashed var(--line); border-radius: 12px; }
 .pfn-agregar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
@@ -455,6 +457,7 @@
 
 <script>
 const AGENCIAS = {{ agencias|tojson }};
+const PADRON_SERENOS = {{ serenos_padron|tojson }};  // nombres cargados en Administracion -> Serenos
 const BARCOS = {{ barcos|tojson }};
 const buqueVacio = () => ({ operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "", carga: "", shipper: "", trn: 0, trb: 0, eslora: 0, manga: 0, puntal: 0, bandera: "",
   calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [] });
@@ -1157,6 +1160,29 @@ const diaCorto = (iso) => new Date(iso + "T12:00:00").toLocaleDateString("es-AR"
 const refFecha = () => (BUQUE.amarre || "").slice(0, 10) || ((TALLY.turnos[0] || SERENOS.turnos[0] || {}).fecha || "");
 const ordenTurno = ["01-07", "07-13", "13-19", "19-01"], ordenVent = ["00-06", "06-12", "12-18", "18-24"];
 
+// Quien hizo el turno: se elige de la lista de Administracion -> Serenos (o se escribe si no esta). Sale en la hoja SERENOS.
+function selectorSereno(t) {
+  const caja = elx("div", "nombre-sereno");
+  const nom = elx("input"); nom.maxLength = 40; nom.setAttribute("aria-label", "Nombre del sereno");
+  nom.addEventListener("input", () => { t.nombre = nom.value.toUpperCase(); });
+  if (!PADRON_SERENOS.length) {  // sin lista cargada: se escribe a mano, como siempre
+    nom.value = t.nombre || ""; nom.placeholder = "Nombre del sereno (opcional; sale en la hoja SERENOS)"; caja.appendChild(nom); return caja;
+  }
+  const sel = elx("select"); sel.setAttribute("aria-label", "Sereno de este turno");
+  sel.add(new Option("Sereno: sin nombre", ""));
+  PADRON_SERENOS.forEach((n) => sel.add(new Option(n, n)));
+  sel.add(new Option("Otro (escribir el nombre)", "__otro"));
+  const enLista = !t.nombre || PADRON_SERENOS.includes(t.nombre);
+  sel.value = enLista ? (t.nombre || "") : "__otro";
+  nom.value = enLista ? "" : t.nombre; nom.placeholder = "Escribí el apellido y nombre"; nom.hidden = enLista;
+  sel.addEventListener("change", () => {
+    if (sel.value === "__otro") { nom.hidden = false; t.nombre = nom.value.toUpperCase(); nom.focus(); }
+    else { nom.hidden = true; nom.value = ""; t.nombre = sel.value; }
+  });
+  caja.append(sel, nom);
+  return caja;
+}
+
 function celdaFecha(fecha, tipo) {
   const c = elx("span"); c.append(fechaDMY(fecha)); c.appendChild(elx("small", null, diaCorto(fecha) + (tipo ? " · " + DIA_TXT[tipo] : ""))); return c;
 }
@@ -1302,9 +1328,7 @@ function pintarSerenos() {
       const x = elx("button", "quitar", "✕"); x.type = "button"; x.title = "Quitar este turno"; x.setAttribute("aria-label", "Quitar el turno");
       x.addEventListener("click", () => { lista.splice(i, 1); render(); pintarSerenos(); });
       row.append(celdaFecha(t.fecha, f && f.tipo_dia), elx("span", null, VENT_TXT[t.ventana]), sel, cant, pr, elx("span", "num", f ? ars(f.total) : "—"), x);
-      const nom = elx("input", "nombre-sereno"); nom.value = t.nombre || ""; nom.maxLength = 40; nom.placeholder = "Nombre del sereno (opcional; sale en la hoja SERENOS)";
-      nom.setAttribute("aria-label", "Nombre del sereno"); nom.addEventListener("input", () => { t.nombre = nom.value.toUpperCase(); });
-      row.appendChild(nom);
+      row.appendChild(selectorSereno(t));
       box.appendChild(row);
     });
   }
