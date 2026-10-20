@@ -27,8 +27,8 @@
 {% elif error == 'tope_monto' %}<p class="flash-inline" role="alert">Escribí el tope en pesos (por ejemplo 250.000,00).</p>{% endif %}
 
 <div class="card">
-  <h3>Tope de aportes de {{ mes|mesnom }}</h3>
-  <p class="muted" style="margin-top:0">Los aportes de <b>O.S. 3 %, Jubilación 11 % y Ley 3 %</b> ({{ pct }} % del bruto) se descuentan a cada encargado hasta que lo descontado en el mes llega a este tope; desde ahí el turno va sin esos descuentos (el turno que cruza el tope descuenta solo lo que falta para completarlo). El <b>aporte sindical 3 %</b> se descuenta siempre. El tope cambia mes a mes.</p>
+  <h3>Tope de sueldo bruto de {{ mes|mesnom }}</h3>
+  <p class="muted" style="margin-top:0">Los aportes de <b>O.S. 3 %, Jubilación 11 % y Ley 3 %</b> ({{ pct }} % en total) se calculan sobre el <b>sueldo bruto</b> de cada encargado hasta que lo que cobró de bruto en el mes llega a este tope; desde ahí los turnos van sin esos descuentos (el turno que cruza el tope paga aportes solo sobre la parte del bruto que entra). El <b>aporte sindical 3 %</b> se descuenta siempre. El tope cambia mes a mes.</p>
   <form method="get" class="en-fila" style="margin-bottom:10px">
     <label>Mes<input type="month" name="mes" value="{{ mes }}" onchange="this.form.submit()"></label>
     <noscript><button type="submit">Ver</button></noscript>
@@ -59,12 +59,12 @@
   <h3>Cómo va {{ mes|mesnom }}</h3>
   {% if estado.encargados %}
   <table class="list">
-    <thead><tr><th>Encargado</th><th style="text-align:right">Turnos</th><th style="text-align:right">Bruto</th><th style="text-align:right">Aportes descontados</th><th>Tope</th></tr></thead>
+    <thead><tr><th>Encargado</th><th style="text-align:right">Turnos</th><th style="text-align:right">Bruto del mes</th><th style="text-align:right">Aportes descontados</th><th>Tope</th></tr></thead>
     <tbody>
     {% for e in estado.encargados %}
       <tr><td>{{ e.nombre }}</td><td style="text-align:right">{{ e.turnos }}</td><td style="text-align:right">{{ e.bruto|ars }}</td>
         <td style="text-align:right">{{ e.aportes|ars if e.aportes is not none else '—' }}</td>
-        <td>{% if e.aportes is none %}sin tope cargado{% elif e.alcanzado %}<b>alcanzado</b>: ya no se descuentan aportes{% else %}todavía no se alcanzó{% endif %}</td></tr>
+        <td>{% if e.aportes is none %}sin tope cargado{% elif e.alcanzado %}<b>alcanzado</b>: ya no se descuentan aportes{% else %}todavía no se alcanzó (faltan {{ (estado.tope.monto - e.bruto)|ars }}){% endif %}</td></tr>
     {% endfor %}
     </tbody>
   </table>

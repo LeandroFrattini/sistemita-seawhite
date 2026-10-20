@@ -1,8 +1,8 @@
 """Encargados (Head Tally): padron, descomposicion del precio del turno y aportes con tope mensual.
 
 Cada turno del Tally se paga al encargado como un jornal: el precio del paso 8 es el BRUTO. De ese bruto se descuenta O.S. 3 %, jubilacion 11 %, ley 3 %
-y aporte sindical 3 %. Los tres primeros (O.S., jubilacion y ley) se dejan de descontar cuando lo que se descuento en el mes llega al TOPE de aportes
-de ese mes (lo carga Administracion, mes a mes); el aporte sindical se descuenta siempre. El encargado que figura en cada turno NO sale en la proforma
+y aporte sindical 3 %. Los tres primeros (O.S., jubilacion y ley) se calculan sobre el sueldo BRUTO del mes hasta un TOPE (lo carga Administracion, mes a
+mes): cuando el bruto acumulado del encargado en el mes llega a ese tope, los turnos siguientes van sin esos descuentos; el aporte sindical se descuenta siempre. El encargado que figura en cada turno NO sale en la proforma
 final: solo en el Excel de encargados.
 """
 from __future__ import annotations
@@ -82,21 +82,22 @@ def _orden(fecha: str, turno: str) -> tuple[str, int]:
 
 
 def _aplicar_tope(turnos: list[dict], tope: float) -> None:
-    """Recorre los turnos de UN encargado en UN mes, en orden, y calcula lo que se descuenta de aportes en cada uno hasta llegar al tope.
-    Agrega a cada turno: os, jubil, ley, aportes, estado ('completo', 'parcial' o 'tope'). Un turno que cruza el tope descuenta solo hasta completarlo."""
-    restante = tope
+    """Recorre los turnos de UN encargado en UN mes, en orden. El tope es sobre el SUELDO BRUTO acumulado del mes: los aportes (O.S., jubilacion y ley) se
+    calculan sobre el bruto mientras no se llegue al tope; el turno que lo cruza paga aportes solo sobre la parte del bruto que entra, y los siguientes ninguno.
+    Agrega a cada turno: base (el bruto sobre el que se calculan los aportes), os, jubil, ley, aportes y estado ('completo', 'parcial' o 'tope')."""
+    acumulado = 0.0
     for t in sorted(turnos, key=lambda x: (_orden(x["fecha"], x["turno"]), x.get("orden", 0))):
-        pot = t["bruto"] * PCT_APORTES
-        if restante <= 0.005:
-            aplicado, estado = 0.0, "tope"
-        elif pot <= restante + 1e-9:
-            aplicado, estado = pot, "completo"
+        base = min(t["bruto"], max(tope - acumulado, 0.0))
+        if base <= 0.005:
+            base, estado = 0.0, "tope"
+        elif base >= t["bruto"] - 1e-9:
+            base, estado = t["bruto"], "completo"
         else:
-            aplicado, estado = restante, "parcial"
-        prop = (aplicado / pot) if pot else 0.0
-        t["os"], t["jubil"], t["ley"] = t["bruto"] * PCT_OS * prop, t["bruto"] * PCT_JUBIL * prop, t["bruto"] * PCT_LEY * prop
-        t["aportes"], t["estado"] = aplicado, estado
-        restante = max(restante - aplicado, 0.0)
+            estado = "parcial"
+        t["base"] = base
+        t["os"], t["jubil"], t["ley"] = base * PCT_OS, base * PCT_JUBIL, base * PCT_LEY
+        t["aportes"], t["estado"] = t["os"] + t["jubil"] + t["ley"], estado
+        acumulado += t["bruto"]
 
 
 def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str, base: dict, padron: list[tuple[int, str]]) -> dict:
@@ -120,7 +121,7 @@ def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str
     for m in meses:
         t = tope_de(db, m)
         if t is None:
-            raise ValueError(f"Falta cargar el tope de aportes de {m[5:7]}/{m[:4]} (Administración → Encargados).")
+            raise ValueError(f"Falta cargar el tope de sueldo bruto de {m[5:7]}/{m[:4]} (Administración → Encargados).")
         topes[m] = t.monto
     actuales = []
     for i, f in enumerate(filas):
@@ -154,7 +155,7 @@ def registrar(db: Session, *, barco_clave: str, buque: str, filas: list[dict], u
 
 
 def estado_mes(db: Session, mes: str) -> dict:
-    """Para la pantalla de Administracion: por encargado, lo que se le descontó de aportes en el mes contra el tope."""
+    """Para la pantalla de Administracion: por encargado, el bruto del mes contra el tope y lo que se le descontó de aportes."""
     tope = tope_de(db, mes)
     por: dict[str, list[dict]] = {}
     for r in db.scalars(select(EncargadoTurno).where(EncargadoTurno.fecha.like(mes + "%"))):

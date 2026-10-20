@@ -2,7 +2,7 @@
 
 Una hoja con el nombre del barco: encabezado (barco, operacion, tipo de carga, puerto, sitio, fecha) y, por dia, los turnos con su encargado:
 jornal basico, insalubridad, 1era produccion, bruto y las retenciones (O.S. 3 %, jubilacion 11 %, sindical 3 %, ley 3 %) hasta el neto. Los aportes
-de O.S., jubilacion y ley se dejan de descontar cuando se llega al tope del mes (el sindical se descuenta siempre). Al final: totales y viaticos.
+de O.S., jubilacion y ley se calculan sobre el bruto hasta el tope del mes (el sindical se descuenta siempre). Al final: totales y viaticos.
 Con formulas (como el original) y con su valor guardado para Vista protegida.
 """
 from __future__ import annotations
@@ -141,7 +141,7 @@ def generar(*, buque: str, operacion: str, carga: str, sitio: str, calc: dict, c
     avisos = []
     for m, tope in calc["topes"].items():
         if any(f["fecha"][:7] == m and f["estado"] != "completo" for f in filas):
-            avisos.append(f"Tope de aportes de {MESES[int(m[5:7]) - 1]} {m[:4]}: $ {tope:,.2f}. Alcanzado el tope, O.S., Jubilación y Ley no se descuentan (el aporte sindical sí).".replace(",", "X").replace(".", ",").replace("X", "."))
+            avisos.append(f"Tope de sueldo bruto de {MESES[int(m[5:7]) - 1]} {m[:4]}: $ {tope:,.2f}. Pasado ese monto en el mes, O.S., Jubilación y Ley no se descuentan (el aporte sindical sí).".replace(",", "X").replace(".", ",").replace("X", "."))
     r += 2
     for a in avisos:
         ws[f"B{r}"] = a
