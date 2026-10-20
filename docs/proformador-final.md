@@ -507,3 +507,7 @@ Administración → Serenos → «Resumen» de cada sereno: los barcos que atend
 ## Doble seguridad en Serenos y Encargados
 
 Para entrar a Administración → **Serenos** y **Encargados** (listas, resúmenes, topes y todas sus acciones) hay que tener permiso de Administración **y volver a poner la contraseña** (`/administracion/acceso-datos`). La contraseña habilita 20 minutos (cookie firmada, HttpOnly, atada al usuario y a su contraseña actual; se borra al salir). Cinco contraseñas mal seguidas bloquean 15 minutos. Después de vencida, la pantalla vuelve a pedirla y recuerda adónde se iba. El resto de Administración (proforma final, agencias, tarifas, fórmulas, calendario) no la pide. Los botones «Liquidación de serenos» y «Liquidación de encargados» del paso 11 no pasan por esta llave (son parte de armar la proforma).
+
+## Mail a Aduana (salida aduanera)
+
+En Nuestros barcos → Operados (agencias), cada barco con zarpada cargada tiene el botón **✉ Aduana** (con ⚠ si falta el destino): baja un `.eml` que Outlook abre como borrador. Asunto: `MV <BARCO> - SALIDA ADUANERA // SEA WHITE`. Para: mechegaray@, esuss@, alejarroyo@ e icostanzi@arca.gob.ar (`app/aduana.py`). El cuerpo lleva solo los cinco datos: Buque, Muelle (el terminal; el último si pasó por varios), Día y Hora de salida (`02/10/2026 – 21:01 hs`), Condición (CARGADO si cargó, EN LASTRE si descargó) y Destino. Lo que falte queda vacío para completarlo en el borrador.

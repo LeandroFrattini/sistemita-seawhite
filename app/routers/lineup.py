@@ -7,7 +7,14 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from urllib.parse import quote
+
+from fastapi.responses import Response
+
+from .. import aduana
 from ..auth import current_user
+from ..eml import build_eml, safe_filename
+from ..reports import _text_to_html
 from ..charts import build_donut, describir_fuera, filtrar_por_tipo
 from ..database import get_db
 from datetime import date, datetime, timedelta
@@ -272,6 +279,21 @@ def add_our_vessel(
         ensure_vessel_file(db, call, user)
     db.commit()
     return RedirectResponse("/nuestros-barcos", status_code=302)
+
+
+@router.get("/operados/{op_id}/aduana.eml")
+def mail_aduana_eml(op_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Mail a Aduana con la salida del barco (asunto «MV X - SALIDA ADUANERA // SEA WHITE» y los datos del barco), como borrador de Outlook (.eml)."""
+    o = db.get(OperatedVessel, op_id)
+    if o is None:
+        return RedirectResponse("/nuestros-barcos", status_code=303)
+    m = aduana.armar(o)
+    html = f'<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.35;">{_text_to_html(m["texto"])}</div>'
+    eml = build_eml(subject=m["asunto"], to_emails=aduana.DESTINATARIOS, html_body=html, text_body=m["texto"])
+    filename = safe_filename(f"SALIDA ADUANERA - {aduana.sin_mv(o.vessel_name)}") + ".eml"
+    ascii_name = filename.encode("ascii", "ignore").decode("ascii").strip() or "SALIDA ADUANERA.eml"
+    return Response(content=eml, media_type="message/rfc822",
+                    headers={"Content-Disposition": f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(filename)}"})
 
 
 @router.post("/operados/{op_id}/mes")

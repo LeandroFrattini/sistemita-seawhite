@@ -140,6 +140,7 @@
       </td>
       <td class="nowrap">
         {% if not es_estiba and o.datos_completos(false) %}<a class="mini" href="/vouchers/nuevo?operated_id={{ o.id }}" title="Voucher de este barco">Voucher</a>{% endif %}
+        {% if not es_estiba and o.zarpe %}<a class="mini" href="/operados/{{ o.id }}/aduana.eml" title="{{ 'Mail a Aduana con la salida del barco (se abre en Outlook como borrador)' if o.destination else 'Mail a Aduana con la salida del barco: falta el destino, completalo en el borrador' }}">✉ Aduana{{ '' if o.destination else ' ⚠' }}</a>{% endif %}
         <button type="button" class="mini btn-completar"
           data-id="{{ o.id }}" data-vessel="{{ o.vessel_name|upper }}" data-estiba="{{ '1' if es_estiba else '' }}"
           data-amarre="{{ o.amarre }}" data-inicio="{{ o.inicio_operacion }}" data-fin="{{ o.fin_operacion }}"
