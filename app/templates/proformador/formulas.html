@@ -1,15 +1,17 @@
 {% extends "base.html" %}
-{% block nav_administracion %}active{% endblock %}
+{% block nav_administracion %}{{ "active" if desde_admin }}{% endblock %}
+{% block nav_proformador %}{{ "active" if not desde_admin }}{% endblock %}
 {% block main_class %}wide{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
     <h1 style="margin:0">Fórmulas</h1>
-    <span class="muted">Las usan el proformador y la proforma final. Para guardar los cambios se pide tu contraseña.
-    Los precios de Tally y Serenos se cambian en <a href="/administracion/tarifas-personal">Tarifas de Tally y Serenos</a>.</span>
+    <span class="muted">Las usan el proformador y la proforma final (son las mismas en los dos lugares).
+    {% if puede_editar %}Para guardar los cambios se pide tu contraseña.{% else %}Solo lectura: pedile a un Administrador de PDA que actualice estos valores.{% endif %}
+    {% if desde_admin %}Los precios de Tally y Serenos se cambian en <a href="/administracion/tarifas-personal">Tarifas de Tally y Serenos</a>.{% endif %}</span>
   </div>
   <div class="actions">
-    <a class="btn" href="/administracion">← Administración</a>
+    {% if desde_admin %}<a class="btn" href="/administracion">← Administración</a>{% else %}<a class="btn" href="/proformador">← Proformador</a>{% endif %}
     {% if puede_editar %}<button type="button" class="primary btn-guardar-formulas">Guardar cambios</button>{% endif %}
   </div>
 </div>
@@ -21,7 +23,7 @@
 <p class="flash-ok" role="status">✓ Fórmulas guardadas.</p>
 {% endif %}
 
-<form method="post" action="/administracion/formulas/guardar" id="formulas-form">
+<form method="post" action="{{ base }}/guardar" id="formulas-form">
 <input type="hidden" name="confirm_password" id="confirm_password">
 
 <div class="card">

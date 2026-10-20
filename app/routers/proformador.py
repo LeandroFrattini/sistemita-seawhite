@@ -963,19 +963,20 @@ def exportar_xlsx(proforma_id: int, db: Session = Depends(get_db), user: User = 
     )
 
 
-# --- FORMULAS: solo en Administracion (ahi las ve y las edita quien tiene ese permiso; guardar pide la contraseña) ----- #
+# --- FORMULAS: se ven y se editan desde Administracion y desde el Proformador de Operaciones (misma tabla, mismos datos) ----- #
+# Guardar siempre pide la contraseña de quien edita. En Administracion edita quien tiene ese permiso; en Operaciones, admin o Administrador de PDA
+# (el resto las ve en solo lectura).
 
-@router.get("/proformador/config/formulas")
-def formulas_ruta_vieja():
-    """Las formulas se mudaron a Administracion."""
-    return RedirectResponse(url="/administracion/formulas", status_code=301)
+BASE_FORMULAS_ADMIN = "/administracion/formulas"
+BASE_FORMULAS_OPS = "/proformador/config/formulas"
 
 
-@router.get("/administracion/formulas", response_class=HTMLResponse)
-def ver_formulas(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def _pagina_formulas(request: Request, db: Session, user: User, base: str, puede_editar: bool):
     return templates.TemplateResponse(request, "proformador/formulas.html", {
         "user": user,
-        "puede_editar": True,
+        "puede_editar": puede_editar,
+        "base": base,
+        "desde_admin": base == BASE_FORMULAS_ADMIN,
         "error": request.query_params.get("error"),
         "ok": request.query_params.get("ok"),
         "parametros": db.scalars(select(ProformaParametro).order_by(ProformaParametro.orden)).all(),
@@ -991,13 +992,32 @@ def ver_formulas(request: Request, db: Session = Depends(get_db), user: User = D
     })
 
 
+@router.get("/administracion/formulas", response_class=HTMLResponse)
+def ver_formulas(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    return _pagina_formulas(request, db, user, BASE_FORMULAS_ADMIN, True)
+
+
+@router.get("/proformador/config/formulas", response_class=HTMLResponse)
+def ver_formulas_operaciones(request: Request, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    return _pagina_formulas(request, db, user, BASE_FORMULAS_OPS, bool(user.is_admin or user.is_pda_admin))
+
+
 @router.post("/administracion/formulas/guardar")
 async def guardar_formulas(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    return await _guardar_formulas(request, db, user, BASE_FORMULAS_ADMIN)
+
+
+@router.post("/proformador/config/formulas/guardar")
+async def guardar_formulas_operaciones(request: Request, db: Session = Depends(get_db), user: User = Depends(pda_admin_required)):
+    return await _guardar_formulas(request, db, user, BASE_FORMULAS_OPS)
+
+
+async def _guardar_formulas(request: Request, db: Session, user: User, base: str):
     form = await request.form()
 
     password = form.get("confirm_password", "")
     if not password or not verify_password(password, user.password_hash):
-        return RedirectResponse(url="/administracion/formulas?error=password", status_code=302)
+        return RedirectResponse(url=base + "?error=password", status_code=302)
 
     for p in db.scalars(select(ProformaParametro)):
         v = form.get(f"param_{p.id}")
@@ -1091,4 +1111,4 @@ async def guardar_formulas(request: Request, db: Session = Depends(get_db), user
                 pass
 
     db.commit()
-    return RedirectResponse(url="/administracion/formulas?ok=1", status_code=302)
+    return RedirectResponse(url=base + "?ok=1", status_code=302)
