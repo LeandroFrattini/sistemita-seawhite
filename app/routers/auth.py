@@ -160,6 +160,7 @@ def logout():
     resp = RedirectResponse("/login", status_code=302)
     resp.delete_cookie(COOKIE_NAME)
     resp.delete_cookie(PENDING_COOKIE_NAME)
+    resp.delete_cookie("lineup_datos")
     return resp
 
 

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block nav_administracion %}active{% endblock %}
+{% block content %}
+<div class="acc-datos">
+  <div class="card">
+    <div class="acc-candado" aria-hidden="true">🔒</div>
+    <h1>Datos reservados</h1>
+    <p class="muted">Acá se ven importes y datos personales. Confirmá tu contraseña para entrar.</p>
+    {% if error %}<p class="flash-inline" role="alert" style="margin:12px 0 0">{{ error }}</p>{% endif %}
+    <form method="post" action="/administracion/acceso-datos">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label><span class="acc-et">Tu contraseña</span>
+        <input type="password" name="password" autofocus required autocomplete="current-password"></label>
+      <div class="acc-botones">
+        <button type="submit" class="primary">Entrar</button>
+        <a class="btn" href="/administracion">Cancelar</a>
+      </div>
+    </form>
+    <p class="muted acc-pie">Queda habilitado durante 20 minutos.</p>
+  </div>
+</div>
+<style>
+.acc-datos { max-width: 420px; margin: 40px auto; }
+.acc-datos .card { padding: 28px; text-align: center; }
+.acc-datos h1 { margin: 6px 0 4px; font-size: 22px; }
+.acc-candado { font-size: 34px; }
+.acc-datos form { margin-top: 18px; text-align: left; }
+.acc-datos label { display: flex; flex-direction: column; gap: 4px; }
+.acc-et { font-size: 12px; text-transform: uppercase; letter-spacing: .3px; color: var(--muted); font-weight: 600; }
+.acc-datos input[type=password] { width: 100%; font-size: 16px; }
+.acc-botones { display: flex; gap: 10px; margin-top: 16px; }
+.acc-botones .primary { flex: 1; }
+.acc-pie { margin: 14px 0 0; font-size: 12.5px; }
+</style>
+{% endblock %}

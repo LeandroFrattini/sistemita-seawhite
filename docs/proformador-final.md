@@ -503,3 +503,7 @@ Administración → Serenos → «Resumen» de cada sereno: los barcos que atend
 - **Paso 11**: tres botones: «Proforma final», «Liquidación de serenos» y «Liquidación de encargados».
 
 - **Lanchas del Sur (paso 6)**: el **amarre** lleva servicio + lancha (dos lanchas si la eslora supera 150 m: servicio + 2 × 1070 en día hábil); el **desamarre NO lleva lanchas**: es solo el servicio de desamarre, con su recargo por día y hora.
+
+## Doble seguridad en Serenos y Encargados
+
+Para entrar a Administración → **Serenos** y **Encargados** (listas, resúmenes, topes y todas sus acciones) hay que tener permiso de Administración **y volver a poner la contraseña** (`/administracion/acceso-datos`). La contraseña habilita 20 minutos (cookie firmada, HttpOnly, atada al usuario y a su contraseña actual; se borra al salir). Cinco contraseñas mal seguidas bloquean 15 minutos. Después de vencida, la pantalla vuelve a pedirla y recuerda adónde se iba. El resto de Administración (proforma final, agencias, tarifas, fórmulas, calendario) no la pide. Los botones «Liquidación de serenos» y «Liquidación de encargados» del paso 11 no pasan por esta llave (son parte de armar la proforma).

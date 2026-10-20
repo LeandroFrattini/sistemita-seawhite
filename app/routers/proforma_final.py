@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from .. import proforma_final as pf
 from ..calendario import TIPOS as TIPOS_CALENDARIO
-from ..auth import administracion_required, verify_password
+from ..auth import GATE_COOKIE, GATE_MAX_AGE, administracion_required, datos_reservados_required, make_gate_cookie, verify_password
 from ..database import get_db
 from ..docgen.fechas import parse_number
 from ..docgen import voucher as vch
@@ -27,6 +27,7 @@ from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
 from ..proformador_calc import get_param
+from ..security import is_https
 from ..templating import templates
 
 router = APIRouter(prefix="/administracion")
@@ -387,9 +388,43 @@ def _numero_ar(txt: str) -> float | None:
     return round(n, 2) if 0 <= n <= 1e10 else None
 
 
+# ------------------------------------------- acceso a las pantallas con importes ----
+def _destino_seguro(txt: str) -> str:
+    """Adonde se vuelve despues de poner la contraseña: solo pantallas de Administracion de este mismo sitio."""
+    t = str(txt or "")
+    return t if t.startswith("/administracion/") and not t.startswith("//") and "\\" not in t and "\n" not in t and "\r" not in t else "/administracion"
+
+
+@router.get("/acceso-datos", response_class=HTMLResponse)
+def acceso_datos_form(request: Request, next: str = "", user: User = Depends(administracion_required)):
+    return templates.TemplateResponse(request, "administracion/acceso_datos.html", {"user": user, "next": _destino_seguro(next), "error": ""})
+
+
+@router.post("/acceso-datos")
+def acceso_datos_enviar(request: Request, password: str = Form(""), next: str = Form(""), user: User = Depends(administracion_required)):
+    from ..security import client_ip, ip_limiter, lock_minutes, user_limiter
+
+    destino = _destino_seguro(next)
+    ukey, ikey = f"gate:{user.username.lower()}", f"gate-ip:{client_ip(request)}"
+    espera = max(user_limiter.remaining_lock(ukey), ip_limiter.remaining_lock(ikey))
+    if espera:
+        msg = f"Demasiados intentos fallidos. Probá de nuevo en {lock_minutes(espera)} min."
+        return templates.TemplateResponse(request, "administracion/acceso_datos.html", {"user": user, "next": destino, "error": msg}, status_code=429)
+    if not password or not verify_password(password, user.password_hash):
+        user_limiter.fail(ukey)
+        ip_limiter.fail(ikey)
+        log.warning("acceso a datos reservados: contraseña incorrecta usuario=%s ip=%s", user.username, client_ip(request))
+        return templates.TemplateResponse(request, "administracion/acceso_datos.html", {"user": user, "next": destino, "error": "La contraseña no es correcta."}, status_code=401)
+    user_limiter.reset(ukey)
+    log.info("acceso a datos reservados ok usuario=%s", user.username)
+    resp = RedirectResponse(destino, status_code=303)
+    resp.set_cookie(GATE_COOKIE, make_gate_cookie(user), httponly=True, samesite="lax", secure=is_https(request), max_age=GATE_MAX_AGE)
+    return resp
+
+
 # -------------------------------------------------------------- serenos ----
 @router.get("/serenos", response_class=HTMLResponse)
-def serenos_page(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def serenos_page(request: Request, db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     return templates.TemplateResponse(request, "administracion/serenos.html", {
         "user": user, "serenos": db.scalars(select(Sereno).order_by(Sereno.nombre)).all(),
         "ok": request.query_params.get("ok", ""), "error": request.query_params.get("error", ""),
@@ -414,7 +449,7 @@ def _datos_sereno(db: Session, nombre: str, cuil: str, propio_id: int | None, cu
 
 
 @router.get("/serenos/{sereno_id}", response_class=HTMLResponse)
-def sereno_resumen_page(sereno_id: int, request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def sereno_resumen_page(sereno_id: int, request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     s = db.get(Sereno, sereno_id)
     if s is None:
         return RedirectResponse("/administracion/serenos?error=no_existe", status_code=303)
@@ -427,7 +462,7 @@ def sereno_resumen_page(sereno_id: int, request: Request, mes: str = "", db: Ses
 
 
 @router.get("/serenos/{sereno_id}/excel")
-def sereno_resumen_excel(sereno_id: int, mes: str = "", db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def sereno_resumen_excel(sereno_id: int, mes: str = "", db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     s = db.get(Sereno, sereno_id)
     if s is None:
         return RedirectResponse("/administracion/serenos?error=no_existe", status_code=303)
@@ -440,7 +475,7 @@ def sereno_resumen_excel(sereno_id: int, mes: str = "", db: Session = Depends(ge
 
 
 @router.post("/serenos/{sereno_id}/quitar-barco")
-def sereno_quitar_barco(sereno_id: int, clave: str = Form(""), mes: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def sereno_quitar_barco(sereno_id: int, clave: str = Form(""), mes: str = Form(""), db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     s = db.get(Sereno, sereno_id)
     if s is not None and clave:
         serenos_pagos.quitar(db, s, clave)
@@ -448,7 +483,7 @@ def sereno_quitar_barco(sereno_id: int, clave: str = Form(""), mes: str = Form("
 
 
 @router.post("/serenos/nuevo")
-def sereno_nuevo(nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def sereno_nuevo(nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     n, c, err = _datos_sereno(db, nombre, cuil, None)
     if err:
         from urllib.parse import quote
@@ -459,7 +494,7 @@ def sereno_nuevo(nombre: str = Form(""), cuil: str = Form(""), db: Session = Dep
 
 
 @router.post("/serenos/{sereno_id}/guardar")
-def sereno_guardar(sereno_id: int, nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def sereno_guardar(sereno_id: int, nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     s = db.get(Sereno, sereno_id)
     if s is None:
         return RedirectResponse("/administracion/serenos?error=no_existe", status_code=303)
@@ -472,7 +507,7 @@ def sereno_guardar(sereno_id: int, nombre: str = Form(""), cuil: str = Form(""),
 
 
 @router.post("/serenos/{sereno_id}/eliminar")
-def sereno_eliminar(sereno_id: int, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def sereno_eliminar(sereno_id: int, db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     s = db.get(Sereno, sereno_id)
     if s is not None:
         db.delete(s)
@@ -501,7 +536,7 @@ def _monto(txt) -> float | None:
 
 
 @router.get("/encargados", response_class=HTMLResponse)
-def encargados_page(request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def encargados_page(request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     mes = enc.mes_valido(mes) or date.today().strftime("%Y-%m")
     y, m = int(mes[:4]), int(mes[5:7])
     ant, sig = (f"{y - 1}-12" if m == 1 else f"{y}-{m - 1:02d}"), (f"{y + 1}-01" if m == 12 else f"{y}-{m + 1:02d}")
@@ -527,7 +562,7 @@ def _datos_encargado(db: Session, nombre: str, cuil: str, propio_id: int | None,
 
 
 @router.post("/encargados/{encargado_id}/guardar")
-def encargado_guardar(encargado_id: int, nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def encargado_guardar(encargado_id: int, nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     e = db.get(Encargado, encargado_id)
     if e is None:
         return RedirectResponse("/administracion/encargados?error=no_existe", status_code=303)
@@ -540,7 +575,7 @@ def encargado_guardar(encargado_id: int, nombre: str = Form(""), cuil: str = For
 
 
 @router.post("/encargados/{encargado_id}/supero")
-def encargado_supero(encargado_id: int, mes: str = Form(""), activo: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def encargado_supero(encargado_id: int, mes: str = Form(""), activo: str = Form(""), db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     m = enc.mes_valido(mes)
     if db.get(Encargado, encargado_id) is None or not m:
         return RedirectResponse("/administracion/encargados?error=no_existe", status_code=303)
@@ -549,7 +584,7 @@ def encargado_supero(encargado_id: int, mes: str = Form(""), activo: str = Form(
 
 
 @router.post("/encargados/tope")
-def encargado_tope(mes: str = Form(""), monto: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def encargado_tope(mes: str = Form(""), monto: str = Form(""), db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
     m = enc.mes_valido(mes)
     if not m:
         return RedirectResponse("/administracion/encargados?error=tope_mes", status_code=303)

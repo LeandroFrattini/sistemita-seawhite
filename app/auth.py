@@ -1,4 +1,5 @@
 import hashlib
+from urllib.parse import quote
 
 from fastapi import Depends, HTTPException, Request, status
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -15,6 +16,10 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _serializer = URLSafeTimedSerializer(settings.secret_key, salt="lineup-session")
 # cookie intermedia entre "clave correcta" y "codigo del segundo factor"
 _pending_serializer = URLSafeTimedSerializer(settings.secret_key, salt="lineup-2fa-pending")
+# segunda llave para las pantallas con importes y datos personales (Serenos y Encargados): hay que volver a poner la contraseña
+_gate_serializer = URLSafeTimedSerializer(settings.secret_key, salt="lineup-datos-reservados")
+GATE_COOKIE = "lineup_datos"
+GATE_MAX_AGE = 20 * 60
 COOKIE_NAME = "lineup_session"
 PENDING_COOKIE_NAME = "lineup_2fa_pending"
 # 30 dias, y el vencimiento se controla en el servidor (no solo en el
@@ -133,6 +138,22 @@ def pda_admin_required(user: User = Depends(current_user)) -> User:
     return user
 
 
+def make_gate_cookie(user: User) -> str:
+    return _gate_serializer.dumps({"uid": user.id, "pv": password_stamp(user)})
+
+
+def gate_ok(request: Request, user: User) -> bool:
+    """Si este usuario puso su contraseña hace poco (y es la misma cookie de su sesion: no sirve para otro usuario ni si cambio la clave)."""
+    raw = request.cookies.get(GATE_COOKIE)
+    if not raw:
+        return False
+    try:
+        data = _gate_serializer.loads(raw, max_age=GATE_MAX_AGE)
+    except (BadSignature, SignatureExpired):
+        return False
+    return data.get("uid") == user.id and data.get("pv") == password_stamp(user)
+
+
 def administracion_required(user: User = Depends(current_user)) -> User:
     """Permiso especifico para entrar a la seccion Administracion -- se
     activa por perfil (checkbox en Admin -> Usuarios), no por is_admin."""
@@ -161,3 +182,15 @@ class _redirect_login(HTTPException):
             status_code=status.HTTP_307_TEMPORARY_REDIRECT,
             headers={"Location": "/login"},
         )
+
+
+def datos_reservados_required(request: Request, user: User = Depends(administracion_required)) -> User:
+    """Permiso de Administracion y, ademas, la contraseña puesta hace menos de 20 minutos (doble seguridad en Serenos y Encargados)."""
+    if not gate_ok(request, user):
+        if request.method == "GET":
+            destino = request.url.path + (("?" + request.url.query) if request.url.query else "")
+        else:  # un envio de formulario no se puede repetir solo: se vuelve a la pantalla de la seccion
+            destino = "/administracion/encargados" if request.url.path.startswith("/administracion/encargados") else "/administracion/serenos"
+        raise HTTPException(status_code=status.HTTP_303_SEE_OTHER, headers={"Location": "/administracion/acceso-datos?next=" + quote(destino, safe="")})
+    return user
+
