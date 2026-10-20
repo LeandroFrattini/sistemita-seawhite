@@ -48,3 +48,28 @@ templates.env.globals["mfa_enabled"] = lambda: settings.mfa_enabled
 templates.env.filters["localdt"] = localdt
 templates.env.filters["etadisp"] = display_eta
 templates.env.filters["fmtzarpe"] = fmt_zarpe
+
+
+def ars(value, decimales: int = 2) -> str:
+    """1234567.891 -> '$ 1.234.567,89' (formato argentino)."""
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return ""
+    s = f"{n:,.{decimales}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return "$ " + s
+
+
+_MESES = ("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre")
+
+
+def mes_nombre(value: str) -> str:
+    """'2026-10' -> 'octubre 2026'."""
+    try:
+        return f"{_MESES[int(value[5:7]) - 1]} {value[:4]}"
+    except (ValueError, IndexError, TypeError):
+        return str(value or "")
+
+
+templates.env.filters["ars"] = ars
+templates.env.filters["mesnom"] = mes_nombre

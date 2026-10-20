@@ -18,10 +18,11 @@ from ..auth import administracion_required, verify_password
 from ..database import get_db
 from ..docgen.fechas import parse_number
 from ..docgen import voucher as vch
-from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, Sereno, TarifaPersonal, User
+from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, Sereno, TarifaPersonal, User, Encargado, EncargadoTope
 from .. import practicaje as pract
 from .. import lds as lds_calc
-from .. import chequeo, migraciones, personal, serenos_padron
+from .. import chequeo, encargados as enc, migraciones, personal, serenos_padron, serenos_pagos
+from ..docgen import resumen_sereno_xlsx
 from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
@@ -176,6 +177,7 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
         "version": (os.environ.get("RENDER_GIT_COMMIT") or "local")[:7],
         # tramos de calado del practicaje (en pies) para mostrarlos tambien en metros
         "serenos_padron": [s.nombre for s in db.scalars(select(Sereno).order_by(Sereno.nombre))],
+        "encargados_padron": [e.nombre for e in db.scalars(select(Encargado).order_by(Encargado.nombre))],
         "tramos_calado": [{"hasta": t.hasta_pies, "coef": t.valor_usd}
                           for t in db.scalars(select(ProformaPilotageTramo).order_by(ProformaPilotageTramo.orden))],
     })
@@ -280,7 +282,7 @@ async def proforma_final_excel_serenos(request: Request, db: Session = Depends(g
     """Excel aparte con los recibos de los serenos (se arma con lo cargado en el paso 9). Si falta algo, dice que es."""
     state = await request.json()
     try:
-        contenido, nombre = pf.build_excel_serenos(state, db)
+        contenido, nombre = pf.build_excel_serenos(state, db, user.username)
     except ValueError as e:
         return JSONResponse({"ok": False, "error": str(e)}, status_code=422)
     except Exception:
@@ -288,6 +290,21 @@ async def proforma_final_excel_serenos(request: Request, db: Session = Depends(g
         return JSONResponse({"ok": False, "error": "No se pudo armar el Excel de serenos. Avisale al administrador del sistema."}, status_code=500)
     return Response(content=contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"X-Filename": nombre.encode("ascii", "ignore").decode() or "SERENOS.xlsx"})
+
+
+@router.post("/proforma-final/excel-encargados")
+async def proforma_final_excel_encargados(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Excel aparte de encargados (declaracion jurada del Head Tally), con el tope mensual de aportes. Si falta algo, dice que es."""
+    state = await request.json()
+    try:
+        contenido, nombre = pf.build_excel_encargados(state, db, user.username)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=422)
+    except Exception:
+        log.exception("proforma final: no se pudo armar el Excel de encargados (usuario=%s)", user.username)
+        return JSONResponse({"ok": False, "error": "No se pudo armar el Excel de encargados. Avisale al administrador del sistema."}, status_code=500)
+    return Response(content=contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"X-Filename": nombre.encode("ascii", "ignore").decode() or "ENCARGADOS.xlsx"})
 
 
 @router.post("/proforma-final/leer")
@@ -396,6 +413,40 @@ def _datos_sereno(db: Session, nombre: str, cuil: str, propio_id: int | None):
     return nombre, c, None
 
 
+@router.get("/serenos/{sereno_id}", response_class=HTMLResponse)
+def sereno_resumen_page(sereno_id: int, request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    s = db.get(Sereno, sereno_id)
+    if s is None:
+        return RedirectResponse("/administracion/serenos?error=no_existe", status_code=303)
+    meses = serenos_pagos.meses_con_pagos(db, s)
+    todos = mes == "todos"
+    elegido = "" if todos else (mes if mes in meses else (meses[0] if meses else ""))
+    return templates.TemplateResponse(request, "administracion/sereno_resumen.html", {
+        "user": user, "s": s, "meses": meses, "mes": elegido, "todos": todos or not meses, "r": serenos_pagos.resumen(db, s, elegido),
+    })
+
+
+@router.get("/serenos/{sereno_id}/excel")
+def sereno_resumen_excel(sereno_id: int, mes: str = "", db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    s = db.get(Sereno, sereno_id)
+    if s is None:
+        return RedirectResponse("/administracion/serenos?error=no_existe", status_code=303)
+    m = enc.mes_valido(mes)
+    r = serenos_pagos.resumen(db, s, m)
+    datos = resumen_sereno_xlsx.generar(nombre=s.nombre, cuil=s.cuil, mes=m, filas=r["filas"], hoy=date.today())
+    nombre = re.sub(r"[^A-Za-z0-9 ._-]", "", f"RESUMEN {s.nombre} {m or 'todos los meses'}").strip() + ".xlsx"
+    return Response(content=datos, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{nombre}"'})
+
+
+@router.post("/serenos/{sereno_id}/quitar-barco")
+def sereno_quitar_barco(sereno_id: int, clave: str = Form(""), mes: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    s = db.get(Sereno, sereno_id)
+    if s is not None and clave:
+        serenos_pagos.quitar(db, s, clave)
+    return RedirectResponse(f"/administracion/serenos/{sereno_id}?mes={mes or 'todos'}", status_code=303)
+
+
 @router.post("/serenos/nuevo")
 def sereno_nuevo(nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     n, c, err = _datos_sereno(db, nombre, cuil, None)
@@ -427,6 +478,101 @@ def sereno_eliminar(sereno_id: int, db: Session = Depends(get_db), user: User = 
         db.delete(s)
         db.commit()
     return RedirectResponse("/administracion/serenos?ok=eliminado", status_code=303)
+
+
+# ----------------------------------------------------------- encargados ----
+def _monto(txt) -> float | None:
+    """'1.234.567,89', '1234567,89' o '1234567.89' -> 1234567.89; None si no es un monto positivo."""
+    t = re.sub(r"[\s$]", "", str(txt or ""))
+    if not t:
+        return None
+    if "," in t and "." in t:
+        dec = "," if t.rfind(",") > t.rfind(".") else "."
+        t = t.replace("." if dec == "," else ",", "").replace(dec, ".")
+    elif "," in t:
+        t = t.replace(",", ".")
+    elif re.fullmatch(r"\d{1,3}(\.\d{3})+", t):
+        t = t.replace(".", "")
+    try:
+        v = float(t)
+    except ValueError:
+        return None
+    return round(v, 2) if 0 < v < 1e12 else None
+
+
+@router.get("/encargados", response_class=HTMLResponse)
+def encargados_page(request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    mes = enc.mes_valido(mes) or date.today().strftime("%Y-%m")
+    return templates.TemplateResponse(request, "administracion/encargados.html", {
+        "user": user, "encargados": db.scalars(select(Encargado).order_by(Encargado.nombre)).all(), "mes": mes,
+        "estado": enc.estado_mes(db, mes), "historial": enc.historial_topes(db), "pct": round(enc.PCT_APORTES * 100),
+        "ok": request.query_params.get("ok", ""), "error": request.query_params.get("error", ""),
+        "nombre_en_error": request.query_params.get("n", ""), "cuil_en_error": request.query_params.get("c", ""),
+    })
+
+
+def _datos_encargado(db: Session, nombre: str, cuil: str, propio_id: int | None):
+    nombre = enc.limpiar_nombre(nombre)
+    if not nombre:
+        return None, None, "nombre"
+    c = serenos_padron.normalizar_cuil(cuil)
+    if not c:
+        return None, None, "cuil"
+    if not serenos_padron.cuil_valido(c.replace("-", "")):
+        return None, None, "cuil_digito"
+    otro = db.scalar(select(Encargado).where(Encargado.cuil == c))
+    if otro is not None and otro.id != propio_id:
+        return None, None, "repetido"
+    return nombre, c, None
+
+
+@router.post("/encargados/nuevo")
+def encargado_nuevo(nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    n, c, err = _datos_encargado(db, nombre, cuil, None)
+    if err:
+        from urllib.parse import quote
+        return RedirectResponse(f"/administracion/encargados?error={err}&n={quote(nombre[:60])}&c={quote(cuil[:20])}", status_code=303)
+    db.add(Encargado(nombre=n, cuil=c))
+    db.commit()
+    return RedirectResponse("/administracion/encargados?ok=agregado", status_code=303)
+
+
+@router.post("/encargados/{encargado_id}/guardar")
+def encargado_guardar(encargado_id: int, nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    e = db.get(Encargado, encargado_id)
+    if e is None:
+        return RedirectResponse("/administracion/encargados?error=no_existe", status_code=303)
+    n, c, err = _datos_encargado(db, nombre, cuil, e.id)
+    if err:
+        return RedirectResponse(f"/administracion/encargados?error={err}_{e.id}", status_code=303)
+    e.nombre, e.cuil = n, c
+    db.commit()
+    return RedirectResponse("/administracion/encargados?ok=guardado", status_code=303)
+
+
+@router.post("/encargados/{encargado_id}/eliminar")
+def encargado_eliminar(encargado_id: int, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    e = db.get(Encargado, encargado_id)
+    if e is not None:
+        db.delete(e)
+        db.commit()
+    return RedirectResponse("/administracion/encargados?ok=eliminado", status_code=303)
+
+
+@router.post("/encargados/tope")
+def encargado_tope(mes: str = Form(""), monto: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    m = enc.mes_valido(mes)
+    if not m:
+        return RedirectResponse("/administracion/encargados?error=tope_mes", status_code=303)
+    v = _monto(monto)
+    if v is None:
+        return RedirectResponse(f"/administracion/encargados?mes={m}&error=tope_monto", status_code=303)
+    actual = enc.tope_de(db, m)
+    if actual is not None and abs(actual.monto - v) < 0.005:
+        return RedirectResponse(f"/administracion/encargados?mes={m}&ok=tope_igual", status_code=303)
+    db.add(EncargadoTope(mes=m, monto=v, usuario=user.username))
+    db.commit()
+    return RedirectResponse(f"/administracion/encargados?mes={m}&ok=tope", status_code=303)
 
 
 @router.get("/tarifas-personal", response_class=HTMLResponse)

@@ -480,9 +480,22 @@ def _build_excel_final(state: dict, chequeo: dict | None, db) -> bytes:
     return proforma_xlsx.generar(s, ch, tally, serenos, dias, feriados, _filas_resumen(s), _filas_estado(s))
 
 
-def build_excel_serenos(state: dict, db) -> tuple[bytes, str]:
-    """El Excel de SERENOS (recibos a cada sereno + RESULTADO + CUIL + WATCHMAN) con lo cargado en el paso 9. ValueError si falta algo."""
-    from . import personal
+def barco_clave(b: dict) -> str:
+    """Identifica al barco para anotar lo pagado (el barco de Operaciones, o su nombre y dia de amarre si se escribio a mano)."""
+    if b.get("operated_id"):
+        return f"op{b['operated_id']}"
+    return f"{(b.get('nombre') or '').upper()}|{(b.get('amarre') or '')[:10]}"[:160]
+
+
+def es_barco_de_prueba(b: dict) -> bool:
+    """El barco de prueba del paso 1 no deja nada anotado (son datos de ejemplo)."""
+    return "BARCO DE PRUEBA" in (b.get("nombre") or "").upper()
+
+
+def build_excel_serenos(state: dict, db, usuario: str = "") -> tuple[bytes, str]:
+    """El Excel de SERENOS (recibos a cada sereno + RESULTADO + CUIL + WATCHMAN) con lo cargado en el paso 9. ValueError si falta algo.
+    Anota lo cobrado por cada sereno en este barco (para su resumen), salvo en el barco de prueba."""
+    from . import personal, serenos_pagos
     from .calendario import conjuntos
     from .docgen import proforma_xlsx, serenos_xlsx
     from sqlalchemy import select
@@ -504,10 +517,49 @@ def build_excel_serenos(state: dict, db) -> tuple[bytes, str]:
     feriados, _ = conjuntos(db)
     padron = [(x.nombre, x.cuil) for x in db.scalars(select(Sereno).order_by(Sereno.nombre))]
     titulo = proforma_xlsx.titulo_buque(b["nombre"])
-    datos = serenos_xlsx.generar(buque=titulo, sitio=b["sitio"], serenos=serenos, base=base, padron=padron, pct=s["agencia"]["serenos_pct"], dolar=dolar or 0.0,
-                                 feriados=feriados, hoy=date.today())
+    datos, recibos = serenos_xlsx.generar(buque=titulo, sitio=b["sitio"], serenos=serenos, base=base, padron=padron, pct=s["agencia"]["serenos_pct"], dolar=dolar or 0.0,
+                                          feriados=feriados, hoy=date.today())
+    if not es_barco_de_prueba(b):
+        serenos_pagos.registrar(db, barco_clave=barco_clave(b), buque=titulo, recibos=recibos, usuario=usuario)
     limpio = re.sub(r"[^A-Za-z0-9 ._-]", "", titulo).strip() or "buque"
     return datos, f"SERENOS - {limpio} - {date.today().strftime('%d.%m.%Y')}.xlsx"
+
+
+def build_excel_encargados(state: dict, db, usuario: str = "") -> tuple[bytes, str]:
+    """El Excel de ENCARGADOS (declaracion jurada del Head Tally) con lo cargado en el paso 8. ValueError si falta algo.
+    Anota los turnos de este barco para llevar el tope mensual de aportes, salvo en el barco de prueba."""
+    from sqlalchemy import select
+
+    from . import encargados as enc, personal
+    from .docgen import encargados_xlsx, proforma_xlsx
+    from .models import Encargado
+    from .proformador_calc import get_param
+
+    s = clean_state(state)
+    b, dolar, tl = s["buque"], s["dolar"]["valor"], s["tally"]
+    if tl["omitido"]:
+        raise ValueError("El Head Tally está marcado como que no figura en la proforma (paso 8): no hay encargados para armar.")
+    ref = date.fromisoformat(b["amarre"][:10]) if b["amarre"] else None
+    t = personal.calcular_tally(db, categoria=tl["categoria"], turnos=tl["turnos"], precios=tl["precios"], pct=0, dolar=dolar, ref=ref)
+    nombres = {(x["fecha"], x["turno"]): x["nombre"] for x in tl["turnos"]}
+    filas = [{**f, "nombre": nombres.get((f["fecha"], f["turno"]), "")} for f in t["filas"]]
+    ref_tabla = ref or next((personal._d(f["fecha"]) for f in filas), None)  # la misma fecha con la que se calcularon los turnos
+    base, _ = personal.tabla(db, ref_tabla)
+    lista = list(db.scalars(select(Encargado).order_by(Encargado.nombre)))
+    cuil_de = {e.nombre: e.cuil for e in lista}
+    for f in filas:
+        if f["nombre"] and f["nombre"] not in cuil_de:
+            raise ValueError(f"{f['nombre']} ya no está en la lista de encargados (Administración → Encargados): elegí otro encargado en el paso 8.")
+    calc = enc.calcular(db, barco_clave=barco_clave(b), filas=filas, categoria=t["categoria"], base=base, padron=[(e.id, e.nombre) for e in lista])
+    titulo = proforma_xlsx.titulo_buque(b["nombre"])
+    operacion = "DESCARGA" if any(str(f.get("act") or "").upper().startswith(("DISCH", "DESC")) for f in filas) else "CARGA"
+    plano = re.sub(r"^(MV|M/V|M\.V\.)\s+", "", titulo)  # en la declaracion el barco va sin el MV, como en el libro
+    datos = encargados_xlsx.generar(buque=plano, operacion=operacion, carga=(b["carga"] or "").upper(), sitio=(b["sitio"] or "").upper(), calc=calc, cuil_de=cuil_de,
+                                    viatico_dia=get_param(db, "viatico_encargado_ars", 22933.49), hoy=date.today())
+    if not es_barco_de_prueba(b):
+        enc.registrar(db, barco_clave=barco_clave(b), buque=titulo, filas=calc["filas"], usuario=usuario)
+    limpio = re.sub(r"[^A-Za-z0-9 ._-]", "", titulo).strip() or "buque"
+    return datos, f"ENCARGADOS - {limpio} - {date.today().strftime('%d.%m.%Y')}.xlsx"
 
 
 def build_excel(state: dict, chequeo: dict | None = None, db=None) -> bytes:

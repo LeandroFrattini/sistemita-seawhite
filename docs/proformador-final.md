@@ -487,3 +487,14 @@ Botón «Descargar Excel de serenos» en el paso 11. Arma el libro «SERENOS» d
 - **Control**: si lo que suman los recibos (sueldos y jornales) no coincide con el paso 9, no se genera el archivo. Antes de armarlo exige sereno y categoría en cada turno y el viático.
 - En cada turno va **un solo sereno** (se sacó la cantidad de serenos del paso 9).
 - Los serenos de la solapa CUIL del libro original que faltaban (BENTANCOURT RAUL y TREUQUE MIGUEL) se agregaron a la lista.
+
+## Encargados (Head Tally): Excel de encargados y tope mensual de aportes
+
+- **Lista** en Administración → Encargados (nombre y CUIL; se cargaron Bruno Aceituno y Fernando Navarrete). En el paso 8 se elige el encargado de cada turno: **no figura en la proforma final** (ni en el cuerpo ni en las hojas), solo en el Excel de encargados.
+- **Excel de encargados** (botón del paso 11, `app/docgen/encargados_xlsx.py`): la declaración jurada del libro de Administración, una hoja con el nombre del barco, por día y turno el encargado con jornal básico, insalubridad, 1era producción, bruto, retenciones (O.S. 3 %, jubilación 11 %, sindical 3 %, ley 3 %) y neto; totales y viáticos. El bruto de cada turno es el precio del paso 8; se reparte en básico / insalubridad / producción con la tarifa vigente (producción = 25 % del básico; insalubridad = diferencia entre la categoría y aceite: cereal 30 %, bolsones 50 %, fertilizantes 80 %). Los viáticos son un monto por día trabajado (parámetro «viatico_encargado_ars» en Fórmulas, 22.933,49).
+- **Tope de aportes**: en Administración → Encargados se carga, mes a mes, el monto. Los aportes de O.S., jubilación y ley (17 % del bruto) se descuentan hasta que lo descontado en el mes llega al tope; desde ahí el turno va sin esos descuentos (el turno que cruza el tope descuenta solo lo que falta). El aporte sindical se descuenta siempre. Cada cambio del tope queda anotado con quién y cuándo (historial). Sin tope cargado para el mes, no se arma el Excel.
+- **Acumulado entre barcos**: al bajar el Excel de un barco se anotan sus turnos (por encargado, fecha, turno y bruto); el tope se aplica en orden cronológico sobre todos los turnos del mes. Volver a bajar el mismo barco reemplaza lo anotado. El barco de prueba no anota nada. La pantalla de Encargados muestra cómo va el mes (aportes descontados, tope alcanzado o no).
+
+## Resumen de cada sereno
+
+Administración → Serenos → «Resumen» de cada sereno: los barcos que atendió (con mes y días en que trabajó), jornales, bruto, descuentos, viáticos y neto, con los totales, por mes o de todos los meses, y botón para bajarlo en Excel. Sale de lo que se anota al bajar el Excel de serenos de cada barco (se reemplaza por barco al volver a bajarlo; el barco de prueba no anota). Cada renglón se puede quitar del resumen.

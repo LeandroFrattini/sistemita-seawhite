@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block nav_administracion %}active{% endblock %}
+{% block main_class %}wide{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">{{ s.nombre }}</h1>
+    <span class="muted">CUIL {{ s.cuil }} · barcos que atendió, sus jornales y lo que cobró en cada uno</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/administracion/serenos">← Serenos</a>
+    {% if r.filas %}<a class="btn primary" href="/administracion/serenos/{{ s.id }}/excel?mes={{ mes }}">⬇ Descargar Excel</a>{% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <form method="get" class="sr-sel">
+    <label>Período
+      <select name="mes" onchange="this.form.submit()">
+        <option value="todos" {{ 'selected' if todos }}>Todos los meses</option>
+        {% for m in meses %}<option value="{{ m }}" {{ 'selected' if (not todos and m == mes) }}>{{ m|mesnom|capitalize }}</option>{% endfor %}
+      </select>
+    </label>
+    <noscript><button type="submit">Ver</button></noscript>
+  </form>
+
+  {% if r.filas %}
+  <table class="list" style="margin-top:12px">
+    <thead>
+      <tr><th>Barco</th><th>Mes</th><th>Trabajó</th><th style="text-align:right">Jornales</th><th style="text-align:right">Bruto</th><th style="text-align:right">Descuentos</th><th style="text-align:right">Viáticos</th><th style="text-align:right">Neto</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for f in r.filas %}
+      <tr>
+        <td><b>{{ f.buque }}</b></td>
+        <td>{{ f.mes|mesnom|capitalize }}</td>
+        <td>{{ f.desde[8:10] }}/{{ f.desde[5:7] }}{% if f.hasta != f.desde %} al {{ f.hasta[8:10] }}/{{ f.hasta[5:7] }}{% endif %}</td>
+        <td style="text-align:right">{{ f.jornales }}</td>
+        <td style="text-align:right">{{ f.bruto|ars }}</td>
+        <td style="text-align:right">{{ f.descuentos|ars }}</td>
+        <td style="text-align:right">{{ f.viaticos|ars }}</td>
+        <td style="text-align:right"><b>{{ f.neto|ars }}</b></td>
+        <td>
+          <form method="post" action="/administracion/serenos/{{ s.id }}/quitar-barco" onsubmit="return confirm('¿Sacar {{ f.buque|e }} del resumen de {{ s.nombre|e }}? Se vuelve a anotar si se baja de nuevo el Excel de serenos de ese barco.')">
+            <input type="hidden" name="clave" value="{{ f.barco_clave }}"><input type="hidden" name="mes" value="{{ mes or 'todos' }}">
+            <button type="submit" class="mini danger" aria-label="Quitar {{ f.buque }} del resumen">Quitar</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr style="font-weight:700;border-top:2px solid var(--line)">
+        <td colspan="3">TOTAL ({{ r.totales.barcos }} barco{{ 's' if r.totales.barcos != 1 }})</td>
+        <td style="text-align:right">{{ r.totales.jornales }}</td>
+        <td style="text-align:right">{{ r.totales.bruto|ars }}</td>
+        <td style="text-align:right">{{ r.totales.descuentos|ars }}</td>
+        <td style="text-align:right">{{ r.totales.viaticos|ars }}</td>
+        <td style="text-align:right">{{ r.totales.neto|ars }}</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+  <p class="muted" style="margin:10px 0 0"><b>Bruto:</b> lo que gana por los jornales. <b>Neto:</b> lo que cobra (bruto menos jubilación, contribución solidaria y obra social, más los viáticos). Sale de los Excel de serenos que se bajaron de cada barco.</p>
+  {% else %}
+  <p class="muted" style="margin:12px 0 0">Todavía no hay barcos anotados para {{ s.nombre }}{% if mes %} en {{ mes|mesnom }}{% endif %}. Aparecen solos cuando se baja el Excel de serenos de un barco en el que trabajó (paso 11 de la proforma final).</p>
+  {% endif %}
+</div>
+
+<style>
+.sr-sel { display: flex; gap: 12px; align-items: flex-end; }
+.sr-sel label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 760px) { .card table.list { display: block; overflow-x: auto; } }
+</style>
+{% endblock %}

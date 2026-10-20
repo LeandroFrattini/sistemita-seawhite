@@ -10,6 +10,7 @@ from .config import settings
 from .database import Base, SessionLocal, engine
 from .personal import sembrar as sembrar_tarifas_personal
 from .serenos_padron import sembrar as sembrar_serenos
+from .encargados import sembrar_padron as sembrar_encargados
 from .models import (
     AppSetting,
     Client,
@@ -190,6 +191,7 @@ PROFORMA_PARAMETROS = [
     ("miscelaneos_usd", "Proforma final -- Miscellaneous expenses (USD)", 250.0),
     ("law_25413_pct", "Proforma final -- LAW NR 25413 (% del total sin el fee)", 1.2),
     ("taxi_ars", "Proforma final -- Taxi para migraciones o sanidad, cada uno (ARS)", 160000.0),
+    ("viatico_encargado_ars", "Proforma final -- Viatico del encargado (Head Tally), por dia trabajado (ARS)", 22933.49),
     ("aduana_habilitacion_usd", "Proforma final -- Habilitacion de aduana, cada una (USD)", 200.0),
     ("bunker_customs_shift_usd", "Bunker -- Customs, USD por turno de 6hs", 300.0),
     ("bunker_taxis_usd", "Bunker -- Taxis para oficial de migraciones/autoridades (USD fijo)", 200.0),
@@ -518,6 +520,7 @@ def _seed_proformador(db: Session) -> None:
 
     sembrar_tarifas_personal(db)
     sembrar_serenos(db)
+    sembrar_encargados(db)
 
     # una sola vez: los taxis se cargaron con 222.000 y el valor es 160.000 (si despues lo cambian a mano, no se toca mas)
     if not db.get(AppSetting, "taxi_fijo_160000"):

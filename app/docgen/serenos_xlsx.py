@@ -113,7 +113,8 @@ def armar_recibos(serenos: dict, base: dict) -> list[dict]:
         clave = (hoja, f["ventana"], f["nombre"], f["fecha"][:7])
         r = grupos.get(clave)
         if r is None:
-            r = grupos[clave] = {"hoja": hoja, "ventana": f["ventana"], "nombre": f["nombre"], "mes": date(int(f["fecha"][:4]), int(f["fecha"][5:7]), 1), "cuenta": {}, "extra": {}}
+            r = grupos[clave] = {"hoja": hoja, "ventana": f["ventana"], "nombre": f["nombre"], "mes": date(int(f["fecha"][:4]), int(f["fecha"][5:7]), 1), "cuenta": {}, "extra": {}, "fechas": set()}
+        r["fechas"].add(f["fecha"])
         k = _clave_dia(f)
         lineas = LINEAS[hoja][f["ventana"]]
         idx = next((i for i, (_, claves, cat) in enumerate(lineas) if k in claves and cat == f["cat_efectiva"]), None)
@@ -472,7 +473,7 @@ def _con_valores(datos: bytes, cache: dict, titulos: list[str]) -> bytes:
     return salida.getvalue()
 
 
-def generar(*, buque: str, sitio: str, serenos: dict, base: dict, padron: list[tuple[str, str]], pct: float, dolar: float, feriados: set[str], hoy: date) -> bytes:
+def generar(*, buque: str, sitio: str, serenos: dict, base: dict, padron: list[tuple[str, str]], pct: float, dolar: float, feriados: set[str], hoy: date) -> tuple[bytes, list[dict]]:
     """El libro SERENOS completo. `serenos` es lo que calcula personal.calcular_serenos (con el nombre de cada turno); `base`, las tarifas vigentes."""
     if not serenos["filas"]:
         raise ValueError("No hay turnos de serenos cargados en el paso 9.")
@@ -494,4 +495,4 @@ def generar(*, buque: str, sitio: str, serenos: dict, base: dict, padron: list[t
     wb.calculation.fullCalcOnLoad = True
     buf = io.BytesIO()
     wb.save(buf)
-    return _con_valores(buf.getvalue(), cache, [ws.title for ws in wb.worksheets])
+    return _con_valores(buf.getvalue(), cache, [ws.title for ws in wb.worksheets]), recibos

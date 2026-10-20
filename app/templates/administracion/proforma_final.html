@@ -246,6 +246,10 @@
         <button type="button" class="btn" id="ck-bajar-se">⬇ Descargar Excel de serenos</button>
         <span class="muted">Los recibos de cada sereno (uno por tramo de 6 horas), con el resultado y el CUIL. Se arma con lo cargado en el paso 9.</span>
       </div>
+      <div class="ck-bajar">
+        <button type="button" class="btn" id="ck-bajar-en">⬇ Descargar Excel de encargados</button>
+        <span class="muted">La declaración del Head Tally con el encargado de cada turno y sus descuentos (con el tope mensual de aportes). Se arma con lo cargado en el paso 8.</span>
+      </div>
       <p class="ck-msg" id="ck-msg" role="status"></p>
     </div>
 
@@ -462,6 +466,7 @@
 <script>
 const AGENCIAS = {{ agencias|tojson }};
 const PADRON_SERENOS = {{ serenos_padron|tojson }};  // nombres cargados en Administracion -> Serenos
+const PADRON_ENCARGADOS = {{ encargados_padron|tojson }};  // nombres cargados en Administracion -> Encargados
 const BARCOS = {{ barcos|tojson }};
 const buqueVacio = () => ({ operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "", carga: "", shipper: "", trn: 0, trb: 0, eslora: 0, manga: 0, puntal: 0, bandera: "",
   calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [] });
@@ -1187,6 +1192,19 @@ function selectorSereno(t) {
   return caja;
 }
 
+// Encargado de un turno de Head Tally: se elige de la lista de Administracion -> Encargados. NO sale en la proforma: solo en el Excel de encargados.
+function selectorEncargado(t) {
+  const caja = elx("div", "nombre-sereno");
+  const sel = elx("select"); sel.setAttribute("aria-label", "Encargado de este turno");
+  sel.add(new Option(PADRON_ENCARGADOS.length ? "Encargado: sin elegir" : "No hay encargados cargados (Administración → Encargados)", ""));
+  PADRON_ENCARGADOS.forEach((n) => sel.add(new Option(n, n)));
+  if (t.nombre && !PADRON_ENCARGADOS.includes(t.nombre)) sel.add(new Option(t.nombre + " (ya no está en la lista)", t.nombre));
+  sel.value = t.nombre || "";
+  sel.addEventListener("change", () => { t.nombre = sel.value; });
+  caja.appendChild(sel);
+  return caja;
+}
+
 function celdaFecha(fecha, tipo) {
   const c = elx("span"); c.append(fechaDMY(fecha)); c.appendChild(elx("small", null, diaCorto(fecha) + (tipo ? " · " + DIA_TXT[tipo] : ""))); return c;
 }
@@ -1197,7 +1215,7 @@ let TALLY = tallyVacio(), TA_CALC = null, firmaTaAnt = "";
 const firmaTa = () => JSON.stringify([TALLY.categoria, TALLY.turnos.map((t) => [t.fecha, t.turno, t.nivel]), TALLY.precios, $("#ag-tal").value, $("#dolar-valor").value, refFecha()]);
 
 function armarTally() {  // los turnos que se tildaron en el voucher del Head Tally
-  TALLY.turnos = (BUQUE.turnos || []).map((t) => ({ fecha: t.fecha, turno: t.turno, act: t.act || "", nivel: "" })); TALLY.armado = true;
+  TALLY.turnos = (BUQUE.turnos || []).map((t) => ({ fecha: t.fecha, turno: t.turno, act: t.act || "", nivel: "", nombre: "" })); TALLY.armado = true;
 }
 function resetTally() { TALLY = tallyVacio(); armarTally(); TA_CALC = null; firmaTaAnt = ""; pintarTally(); }
 
@@ -1234,6 +1252,7 @@ function pintarTally() {
       const x = elx("button", "quitar", "✕"); x.type = "button"; x.title = "Quitar este turno"; x.setAttribute("aria-label", "Quitar el turno");
       x.addEventListener("click", () => { lista.splice(i, 1); render(); pintarTally(); });
       row.append(celdaFecha(t.fecha, f && f.tipo_dia), elx("span", null, TURNOS_TXT[t.turno]), act, sel, elx("span", "num", f ? ars(f.precio) : "—"), x);
+      row.appendChild(selectorEncargado(t));
       box.appendChild(row);
     });
   }
@@ -1245,7 +1264,7 @@ function pintarTally() {
   b.addEventListener("click", () => {
     if (!fi.value) { msg("Elegí la fecha del turno que querés agregar.", false); return; }
     if (lista.some((t) => t.fecha === fi.value && t.turno === ts.value)) { msg("Ese turno ya está en la lista.", false); return; }
-    lista.push({ fecha: fi.value, turno: ts.value, act: "", nivel: "" });
+    lista.push({ fecha: fi.value, turno: ts.value, act: "", nivel: "", nombre: "" });
     lista.sort((p, q) => (p.fecha + ordenTurno.indexOf(p.turno)).localeCompare(q.fecha + ordenTurno.indexOf(q.turno)));
     TALLY.armado = true; render(); pintarTally();
   });
@@ -1771,27 +1790,29 @@ $("#pfn-bajar").addEventListener("click", async () => {
     "Excel descargado. El sistema no guarda la proforma: guardá ese archivo." + (pend.length ? ` Ojo: quedaron incompletos los pasos ${pend.join(", ")}.` : ""), !pend.length && !simple);
 });
 
-// Excel de serenos (recibos): aparte de la proforma final
-$("#ck-bajar-se").addEventListener("click", async () => {
+// Excels aparte de la proforma final: recibos de serenos y declaracion de encargados
+async function bajarAparte(url, aviso, listo, porDefecto) {
   const s = getState();
-  msg("Armando el Excel de serenos…");
+  msg(aviso);
   let res;
-  try { res = await fetch("/administracion/proforma-final/excel-serenos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) }); }
+  try { res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) }); }
   catch (e) { msg("No se pudo conectar con el sistema. Revisá tu conexión y probá de nuevo.", false); return; }
   const esExcel = (res.headers.get("Content-Type") || "").includes("spreadsheetml");
   if (!res.ok || !esExcel) {
-    if (res.status === 422 || res.status === 500) { const d = await res.json().catch(() => ({})); msg(d.error || "No se pudo armar el Excel de serenos.", false); return; }
-    msg(res.redirected || res.status === 401 || res.status === 403 || (res.ok && !esExcel) ? "Se cerró tu sesión. Entrá de nuevo en otra pestaña (los datos de esta pantalla siguen acá) y volvé a descargar." : "No se pudo generar el Excel de serenos (error " + res.status + ").", false);
+    if (res.status === 422 || res.status === 500) { const d = await res.json().catch(() => ({})); msg(d.error || "No se pudo armar el Excel.", false); return; }
+    msg(res.redirected || res.status === 401 || res.status === 403 || (res.ok && !esExcel) ? "Se cerró tu sesión. Entrá de nuevo en otra pestaña (los datos de esta pantalla siguen acá) y volvé a descargar." : "No se pudo generar el Excel (error " + res.status + ").", false);
     return;
   }
   const blob = await res.blob();
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = res.headers.get("X-Filename") || "SERENOS.xlsx";
+  a.download = res.headers.get("X-Filename") || porDefecto;
   a.click();
   URL.revokeObjectURL(a.href);
-  msg("Excel de serenos descargado.");
-});
+  msg(listo);
+}
+$("#ck-bajar-en").addEventListener("click", () => bajarAparte("/administracion/proforma-final/excel-encargados", "Armando el Excel de encargados…", "Excel de encargados descargado.", "ENCARGADOS.xlsx"));
+$("#ck-bajar-se").addEventListener("click", () => bajarAparte("/administracion/proforma-final/excel-serenos", "Armando el Excel de serenos…", "Excel de serenos descargado.", "SERENOS.xlsx"));
 
 $("#pfn-subir").addEventListener("change", async (ev) => {
   const f = ev.target.files[0];

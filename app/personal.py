@@ -225,7 +225,8 @@ def clean_tally(raw) -> dict:
     for t in (raw.get("turnos") if isinstance(raw.get("turnos"), list) else [])[:120]:
         if isinstance(t, dict) and _fecha(t.get("fecha")) and str(t.get("turno")) in TURNOS_TALLY:
             turnos.append({"fecha": _fecha(t["fecha"]), "turno": str(t["turno"]), "act": " ".join(str(t.get("act") or "").split())[:30].upper(),
-                           "nivel": t.get("nivel") if t.get("nivel") in NIVELES_TALLY else ""})
+                           "nivel": t.get("nivel") if t.get("nivel") in NIVELES_TALLY else "",
+                           "nombre": " ".join(str(t.get("nombre") or "").split())[:40]})  # el encargado: solo sale en el Excel de encargados
     pr = raw.get("precios") if isinstance(raw.get("precios"), dict) else {}
     resumen = []
     for r in (raw.get("resumen") if isinstance(raw.get("resumen"), list) else [])[:4]:

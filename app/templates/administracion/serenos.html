@@ -40,6 +40,7 @@
       <label><span class="sr-et">CUIL</span><input name="cuil" inputmode="numeric" maxlength="13" required value="{{ s.cuil }}" aria-label="CUIL de {{ s.nombre }}" autocomplete="off"></label>
       <button type="submit">Guardar</button>
     </form>
+    <a class="btn" href="/administracion/serenos/{{ s.id }}" aria-label="Resumen de {{ s.nombre }}">Resumen</a>
     <form method="post" action="/administracion/serenos/{{ s.id }}/eliminar" onsubmit="return confirm('¿Sacar a {{ s.nombre|e }} de la lista? Las proformas ya armadas no cambian.')">
       <button type="submit" class="danger" aria-label="Eliminar a {{ s.nombre }}">Eliminar</button>
     </form>

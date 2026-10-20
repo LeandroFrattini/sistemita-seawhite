@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block nav_administracion %}active{% endblock %}
+{% block content %}
+{% set errores = {
+  'nombre': 'Escribí el nombre y apellido.',
+  'cuil': 'El CUIL tiene que tener 11 números (por ejemplo 20-12345678-9).',
+  'cuil_digito': 'Ese CUIL no es válido (el último número no coincide): revisá que esté bien escrito.',
+  'repetido': 'Ya hay un encargado con ese CUIL.'} %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Encargados</h1>
+    <span class="muted">Los encargados del Head Tally y el tope mensual de aportes. El encargado de cada turno se elige en el paso 8 de la proforma final y sale solo en el Excel de encargados (no figura en la proforma).</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/administracion">← Administración</a>
+  </div>
+</div>
+
+{% if ok == 'agregado' %}<p class="flash-ok" role="status">✓ Encargado agregado.</p>
+{% elif ok == 'guardado' %}<p class="flash-ok" role="status">✓ Cambios guardados.</p>
+{% elif ok == 'eliminado' %}<p class="flash-ok" role="status">✓ Encargado eliminado de la lista.</p>
+{% elif ok == 'tope' %}<p class="flash-ok" role="status">✓ Tope de {{ mes|mesnom }} guardado.</p>
+{% elif ok == 'tope_igual' %}<p class="flash-inline" role="status">Ese tope ya estaba cargado: no hubo cambios.</p>{% endif %}
+{% if error in errores %}<p class="flash-inline" role="alert">{{ errores[error] }}</p>
+{% elif error == 'no_existe' %}<p class="flash-inline" role="alert">Ese encargado ya no está en la lista.</p>
+{% elif error == 'tope_mes' %}<p class="flash-inline" role="alert">Elegí el mes del tope.</p>
+{% elif error == 'tope_monto' %}<p class="flash-inline" role="alert">Escribí el tope en pesos (por ejemplo 250.000,00).</p>{% endif %}
+
+<div class="card">
+  <h3>Tope de aportes de {{ mes|mesnom }}</h3>
+  <p class="muted" style="margin-top:0">Los aportes de <b>O.S. 3 %, Jubilación 11 % y Ley 3 %</b> ({{ pct }} % del bruto) se descuentan a cada encargado hasta que lo descontado en el mes llega a este tope; desde ahí el turno va sin esos descuentos (el turno que cruza el tope descuenta solo lo que falta para completarlo). El <b>aporte sindical 3 %</b> se descuenta siempre. El tope cambia mes a mes.</p>
+  <form method="get" class="en-fila" style="margin-bottom:10px">
+    <label>Mes<input type="month" name="mes" value="{{ mes }}" onchange="this.form.submit()"></label>
+    <noscript><button type="submit">Ver</button></noscript>
+  </form>
+  {% if estado.tope %}
+    <p style="margin:0 0 10px">Tope cargado: <b>{{ estado.tope.monto|ars }}</b> · lo cargó <b>{{ estado.tope.usuario or '—' }}</b> el {{ estado.tope.fecha|localdt }}</p>
+  {% else %}
+    <p class="flash-inline" style="margin:0 0 10px">Todavía no hay tope cargado para este mes: hasta que lo cargues no se puede armar el Excel de encargados de barcos de ese mes.</p>
+  {% endif %}
+  <form method="post" action="/administracion/encargados/tope" class="en-fila">
+    <input type="hidden" name="mes" value="{{ mes }}">
+    <label>Nuevo tope de {{ mes|mesnom }} (en pesos)<input name="monto" inputmode="decimal" required placeholder="ej. 250.000,00" value="{{ ('%.2f'|format(estado.tope.monto)).replace('.', ',') if estado.tope else '' }}" autocomplete="off"></label>
+    <button type="submit" class="primary">Guardar tope</button>
+  </form>
+  {% if historial %}
+  <details style="margin-top:12px"><summary>Quién y cuándo cambió el tope ({{ historial|length }})</summary>
+    <table class="list" style="margin-top:8px">
+      <thead><tr><th>Mes</th><th style="text-align:right">Tope</th><th>Lo cargó</th><th>Fecha</th></tr></thead>
+      <tbody>
+      {% for h in historial %}<tr><td>{{ h.mes|mesnom }}</td><td style="text-align:right">{{ h.monto|ars }}</td><td>{{ h.usuario or '—' }}</td><td>{{ h.fecha|localdt }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </details>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Cómo va {{ mes|mesnom }}</h3>
+  {% if estado.encargados %}
+  <table class="list">
+    <thead><tr><th>Encargado</th><th style="text-align:right">Turnos</th><th style="text-align:right">Bruto</th><th style="text-align:right">Aportes descontados</th><th>Tope</th></tr></thead>
+    <tbody>
+    {% for e in estado.encargados %}
+      <tr><td>{{ e.nombre }}</td><td style="text-align:right">{{ e.turnos }}</td><td style="text-align:right">{{ e.bruto|ars }}</td>
+        <td style="text-align:right">{{ e.aportes|ars if e.aportes is not none else '—' }}</td>
+        <td>{% if e.aportes is none %}sin tope cargado{% elif e.alcanzado %}<b>alcanzado</b>: ya no se descuentan aportes{% else %}todavía no se alcanzó{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted" style="margin:8px 0 0">Sale de los Excel de encargados que se bajaron de cada barco (cada barco se anota una sola vez; si se vuelve a bajar, reemplaza lo anterior).</p>
+  {% else %}
+  <p class="muted" style="margin:0">Todavía no se bajó el Excel de encargados de ningún barco de este mes.</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Agregar un encargado</h3>
+  <form method="post" action="/administracion/encargados/nuevo" class="en-fila">
+    <label>Nombre y apellido<input name="nombre" maxlength="40" required value="{{ nombre_en_error }}" placeholder="ej. Juan Perez" autocomplete="off"></label>
+    <label>CUIL<input name="cuil" inputmode="numeric" maxlength="13" required value="{{ cuil_en_error }}" placeholder="ej. 20-12345678-9" autocomplete="off"></label>
+    <button type="submit" class="primary">+ Agregar</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Lista ({{ encargados|length }})</h3>
+  {% if not encargados %}<p class="muted">Todavía no hay encargados cargados. Agregá el primero arriba.</p>{% endif %}
+  {% for s in encargados %}
+  <div class="en-item">
+    <form method="post" action="/administracion/encargados/{{ s.id }}/guardar" class="en-fila">
+      <label><span class="en-et">Nombre y apellido</span><input name="nombre" maxlength="40" required value="{{ s.nombre }}" aria-label="Nombre y apellido" autocomplete="off"></label>
+      <label><span class="en-et">CUIL</span><input name="cuil" inputmode="numeric" maxlength="13" required value="{{ s.cuil }}" aria-label="CUIL de {{ s.nombre }}" autocomplete="off"></label>
+      <button type="submit">Guardar</button>
+    </form>
+    <form method="post" action="/administracion/encargados/{{ s.id }}/eliminar" onsubmit="return confirm('¿Sacar a {{ s.nombre|e }} de la lista? Los Excel ya armados no cambian.')">
+      <button type="submit" class="danger" aria-label="Eliminar a {{ s.nombre }}">Eliminar</button>
+    </form>
+    {% set e = error.rsplit('_', 1) %}
+    {% if e|length == 2 and e[1] == s.id|string and e[0] in errores %}<p class="flash-inline en-err" role="alert">{{ errores[e[0]] }}</p>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<style>
+.en-fila { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.en-fila label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.en-fila input { min-width: 240px; font-size: 14px; }
+.en-item { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.en-item:last-child { border-bottom: 0; }
+.en-item .en-et { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.en-err { flex-basis: 100%; margin: 4px 0 0; }
+@media (max-width: 640px) { .en-fila input { min-width: 0; width: 100%; } .en-fila label { flex: 1 1 100%; } }
+</style>
+{% endblock %}

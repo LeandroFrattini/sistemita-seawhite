@@ -946,3 +946,66 @@ class Sereno(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(40))              # APELLIDO NOMBRE, en mayusculas
     cuil: Mapped[str] = mapped_column(String(13), unique=True)   # 20-12345678-9
+
+
+class Encargado(Base):
+    """Padron de encargados (Head Tally): nombre y CUIL. Se elige en el paso de Tally; solo figura en el Excel de encargados."""
+
+    __tablename__ = "encargados"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    nombre: Mapped[str] = mapped_column(String(40))
+    cuil: Mapped[str] = mapped_column(String(13), unique=True)
+
+
+class EncargadoTope(Base):
+    """Tope mensual de aportes (O.S., jubilacion y ley) de los encargados. Cada cambio es un renglon nuevo (queda quien y cuando); rige el ultimo de cada mes."""
+
+    __tablename__ = "encargados_tope"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    mes: Mapped[str] = mapped_column(String(7), index=True)      # YYYY-MM
+    monto: Mapped[float] = mapped_column(Float)                  # ARS
+    usuario: Mapped[str] = mapped_column(String(60), default="")
+    fecha: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class EncargadoTurno(Base):
+    """Turnos cobrados por cada encargado en cada barco (bruto de cada turno), para ir llevando el tope mensual de aportes.
+    Se reemplaza por barco cada vez que se baja el Excel de encargados de ese barco."""
+
+    __tablename__ = "encargados_turnos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    barco_clave: Mapped[str] = mapped_column(String(160), index=True)
+    buque: Mapped[str] = mapped_column(String(120), default="")
+    encargado_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    nombre: Mapped[str] = mapped_column(String(40), index=True)
+    fecha: Mapped[str] = mapped_column(String(10), index=True)   # YYYY-MM-DD (dia en que empieza el turno)
+    turno: Mapped[str] = mapped_column(String(5))                # 01-07 | 07-13 | 13-19 | 19-01
+    bruto: Mapped[float] = mapped_column(Float)
+    usuario: Mapped[str] = mapped_column(String(60), default="")
+    registrado: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class SerenoPago(Base):
+    """Lo que cobro cada sereno en cada barco y mes (de los recibos del Excel de serenos), para armar su resumen. Se reemplaza por barco al volver a bajar el Excel."""
+
+    __tablename__ = "serenos_pagos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    barco_clave: Mapped[str] = mapped_column(String(160), index=True)
+    buque: Mapped[str] = mapped_column(String(120), default="")
+    sereno_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    nombre: Mapped[str] = mapped_column(String(40), index=True)
+    mes: Mapped[str] = mapped_column(String(7), index=True)      # YYYY-MM
+    desde: Mapped[str] = mapped_column(String(10), default="")   # primer y ultimo dia que trabajo en ese barco ese mes
+    hasta: Mapped[str] = mapped_column(String(10), default="")
+    jornales: Mapped[int] = mapped_column(Integer, default=0)
+    bruto: Mapped[float] = mapped_column(Float, default=0)
+    descuentos: Mapped[float] = mapped_column(Float, default=0)
+    viaticos: Mapped[float] = mapped_column(Float, default=0)
+    neto: Mapped[float] = mapped_column(Float, default=0)
+    usuario: Mapped[str] = mapped_column(String(60), default="")
+    registrado: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
