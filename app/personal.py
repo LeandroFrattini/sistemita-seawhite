@@ -181,7 +181,7 @@ def calcular_serenos(db: Session, *, categoria: str, viatico: str, viatico_preci
             continue
         cat = t.get("cat") if t.get("cat") in CATEGORIAS_SERENOS else cat_global
         tipo, tier = tier_sereno(f, t["ventana"], feriados, no_lab)
-        cant = max(1, int(t.get("cant") or 1))
+        cant = 1  # en cada turno va un solo sereno (nunca dos)
         manual = float(t.get("precio") or 0)
         unit = manual if manual > 0 else (base.get(("SERENO", cat, tier), 0.0) if cat else 0.0)
         total = unit * cant
@@ -243,7 +243,7 @@ def clean_serenos(raw) -> dict:
     for t in (raw.get("turnos") if isinstance(raw.get("turnos"), list) else [])[:200]:
         if isinstance(t, dict) and _fecha(t.get("fecha")) and str(t.get("ventana")) in VENTANAS_SERENOS:
             turnos.append({"fecha": _fecha(t["fecha"]), "ventana": str(t["ventana"]), "cat": t.get("cat") if t.get("cat") in CATEGORIAS_SERENOS else "",
-                           "cant": max(1, int(_num(t.get("cant"), 100))), "precio": _num(t.get("precio"), 1e12),
+                           "cant": 1, "precio": _num(t.get("precio"), 1e12),
                            "nombre": " ".join(str(t.get("nombre") or "").split())[:40].upper()})
     return {"categoria": raw.get("categoria") if raw.get("categoria") in CATEGORIAS_SERENOS else "",
             "viatico": raw.get("viatico") if raw.get("viatico") in (*VIATICOS, "NINGUNO") else "", "viatico_precio": _num(raw.get("viatico_precio"), 1e12),

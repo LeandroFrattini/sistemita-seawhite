@@ -475,3 +475,15 @@ Cuarto botón del hub del Proformador (`/proformador/practicos`): calcula solo e
 ## Padrón de serenos (Administración → Serenos)
 
 Lista de serenos con apellido y nombre y CUIL, sin tarifa (los precios siguen en «Tarifas de Tally y Serenos»). Se cargaron los 16 de la lista de Administración (una sola vez; lo que se borre después no vuelve). Se agrega, edita y elimina desde `/administracion/serenos`; el CUIL se normaliza a `XX-XXXXXXXX-X`, no se repite y se rechaza si el dígito verificador no cierra. En el paso 9 de la proforma final, cada turno tiene un desplegable con esos nombres (más «Otro» para escribir uno que no esté, y «sin nombre»); el nombre elegido sale en la hoja SERENOS. Las proformas guardan solo el texto del nombre, así que editar o borrar a alguien de la lista no cambia las ya armadas. Falta el equivalente para Encargado / Head Tally.
+
+## Excel de SERENOS (recibos), aparte de la proforma final
+
+Botón «Descargar Excel de serenos» en el paso 11. Arma el libro «SERENOS» de Administración con lo cargado en el paso 9 (`app/docgen/serenos_xlsx.py`, endpoint `POST /administracion/proforma-final/excel-serenos`):
+
+- **Solapas de recibos** (una por categoría, solo las que tienen recibos): ACEITEROS (normal), CEREALEROS (insalubre) y PELEGROSIDAD (peligroso). Si el barco tiene turnos insalubres, los normales van en CEREALEROS, que trae los renglones «s/insalubr».
+- **Un recibo por sereno, tramo de 6 horas, solapa y mes.** Los jornales se agrupan por tipo de día (hábil, sábado, domingo/feriado/no laborable) con las mismas reglas y tarifas del paso 9. Importe = jornales × precio; se descuenta jubilación 14 % (redondeada), contribución solidaria 2 % (sin redondear, como el libro original) y obra social 3 % (redondeada); se suma el viático por jornal (White o Galván, el del paso 9, sin descuentos). Un turno con el precio cambiado a mano sale en un renglón aparte marcado con *.
+- **RESULTADO**: un renglón por recibo (mes, buque, tramo, sereno, CUIL, total neto, viáticos y días), el total y el total de cada sereno. **CUIL**: la lista de Administración → Serenos. **WATCHMAN**: la misma grilla de la hoja SERENOS de la proforma final (turnos × días, subtotal, cargas sociales, viáticos, total y total en USD).
+- Todo con fórmulas y con su valor guardado (Vista protegida). La fecha del recibo es la del día de la descarga.
+- **Control**: si lo que suman los recibos (sueldos y jornales) no coincide con el paso 9, no se genera el archivo. Antes de armarlo exige sereno y categoría en cada turno y el viático.
+- En cada turno va **un solo sereno** (se sacó la cantidad de serenos del paso 9).
+- Los serenos de la solapa CUIL del libro original que faltaban (BENTANCOURT RAUL y TREUQUE MIGUEL) se agregaron a la lista.

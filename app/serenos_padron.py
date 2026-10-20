@@ -27,7 +27,10 @@ PADRON_INICIAL = [
     ("SARDEN RUBEN", "20-16813935-8"),
     ("TRINIDAD MARTIN", "20-26172020-6"),
 ]
+# Dos mas que figuraban en la solapa CUIL del libro de serenos y no en la primera lista (se cargan una sola vez)
+PADRON_V2 = [("BENTANCOURT RAUL", "20-10228584-1"), ("TREUQUE MIGUEL", "20-26571818-4")]
 MARCADOR = "serenos_padron_inicial"
+MARCADOR_V2 = "serenos_padron_v2"
 
 
 def limpiar_nombre(txt) -> str:
@@ -54,10 +57,12 @@ def normalizar_cuil(txt) -> str | None:
 
 def sembrar(db: Session) -> None:
     """Carga la lista inicial una sola vez (si despues borran a alguien no vuelve a aparecer)."""
-    if db.get(AppSetting, MARCADOR):
-        return
     existentes = {c for (c,) in db.execute(select(Sereno.cuil))}
-    for nombre, cuil in PADRON_INICIAL:
-        if cuil not in existentes:
-            db.add(Sereno(nombre=nombre, cuil=cuil))
-    db.add(AppSetting(key=MARCADOR, value="1"))
+    for marcador, lista in ((MARCADOR, PADRON_INICIAL), (MARCADOR_V2, PADRON_V2)):
+        if db.get(AppSetting, marcador):
+            continue
+        for nombre, cuil in lista:
+            if cuil not in existentes:
+                db.add(Sereno(nombre=nombre, cuil=cuil))
+                existentes.add(cuil)
+        db.add(AppSetting(key=marcador, value="1"))

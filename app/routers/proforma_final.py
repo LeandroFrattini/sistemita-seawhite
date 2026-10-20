@@ -275,6 +275,21 @@ async def proforma_final_excel(request: Request, db: Session = Depends(get_db), 
     return Response(content=contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
 
 
+@router.post("/proforma-final/excel-serenos")
+async def proforma_final_excel_serenos(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Excel aparte con los recibos de los serenos (se arma con lo cargado en el paso 9). Si falta algo, dice que es."""
+    state = await request.json()
+    try:
+        contenido, nombre = pf.build_excel_serenos(state, db)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=422)
+    except Exception:
+        log.exception("proforma final: no se pudo armar el Excel de serenos (usuario=%s)", user.username)
+        return JSONResponse({"ok": False, "error": "No se pudo armar el Excel de serenos. Avisale al administrador del sistema."}, status_code=500)
+    return Response(content=contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"X-Filename": nombre.encode("ascii", "ignore").decode() or "SERENOS.xlsx"})
+
+
 @router.post("/proforma-final/leer")
 async def proforma_final_leer(archivo: UploadFile, user: User = Depends(administracion_required)):
     try:

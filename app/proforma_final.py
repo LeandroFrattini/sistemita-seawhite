@@ -480,6 +480,36 @@ def _build_excel_final(state: dict, chequeo: dict | None, db) -> bytes:
     return proforma_xlsx.generar(s, ch, tally, serenos, dias, feriados, _filas_resumen(s), _filas_estado(s))
 
 
+def build_excel_serenos(state: dict, db) -> tuple[bytes, str]:
+    """El Excel de SERENOS (recibos a cada sereno + RESULTADO + CUIL + WATCHMAN) con lo cargado en el paso 9. ValueError si falta algo."""
+    from . import personal
+    from .calendario import conjuntos
+    from .docgen import proforma_xlsx, serenos_xlsx
+    from sqlalchemy import select
+
+    from .models import Sereno
+
+    s = clean_state(state)
+    b, dolar, sr = s["buque"], s["dolar"]["valor"], s["serenos"]
+    if sr["omitido"]:
+        raise ValueError("Los serenos están marcados como que no figuran en la proforma (paso 9): no hay recibos para armar.")
+    ref = date.fromisoformat(b["amarre"][:10]) if b["amarre"] else None
+    serenos = personal.calcular_serenos(db, categoria=sr["categoria"], viatico=sr["viatico"], viatico_precio=sr["viatico_precio"], turnos=sr["turnos"] if sr["armado"] else None,
+                                        amarre=b["amarre"], zarpe=b["zarpe"], pct=s["agencia"]["serenos_pct"], dolar=dolar, ref=ref)
+    nombres = {(t["fecha"], t["ventana"]): t["nombre"] for t in sr["turnos"] if t.get("nombre")}
+    for f in serenos["filas"]:
+        f["nombre"] = nombres.get((f["fecha"], f["ventana"]), "")
+    ref_tabla = ref or personal._d(b["amarre"]) or next((personal._d(f["fecha"]) for f in serenos["filas"]), None)  # la misma fecha con la que se calcularon los turnos
+    base, _ = personal.tabla(db, ref_tabla)
+    feriados, _ = conjuntos(db)
+    padron = [(x.nombre, x.cuil) for x in db.scalars(select(Sereno).order_by(Sereno.nombre))]
+    titulo = proforma_xlsx.titulo_buque(b["nombre"])
+    datos = serenos_xlsx.generar(buque=titulo, sitio=b["sitio"], serenos=serenos, base=base, padron=padron, pct=s["agencia"]["serenos_pct"], dolar=dolar or 0.0,
+                                 feriados=feriados, hoy=date.today())
+    limpio = re.sub(r"[^A-Za-z0-9 ._-]", "", titulo).strip() or "buque"
+    return datos, f"SERENOS - {limpio} - {date.today().strftime('%d.%m.%Y')}.xlsx"
+
+
 def build_excel(state: dict, chequeo: dict | None = None, db=None) -> bytes:
     """Con base de datos: el Excel final con el formato de las proformas. Sin ella: el resumen simple (ver _build_excel_resumen)."""
     if db is None:

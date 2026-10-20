@@ -242,6 +242,10 @@
         <button type="button" class="btn primary" id="ck-bajar">⬇ Descargar Excel de la proforma</button>
         <span class="muted">El sistema no guarda las proformas: guardá el archivo. Si hace falta rehacerla, se vuelve a cargar con «Cargar proforma anterior».</span>
       </div>
+      <div class="ck-bajar">
+        <button type="button" class="btn" id="ck-bajar-se">⬇ Descargar Excel de serenos</button>
+        <span class="muted">Los recibos de cada sereno (uno por tramo de 6 horas), con el resultado y el CUIL. Se arma con lo cargado en el paso 9.</span>
+      </div>
       <p class="ck-msg" id="ck-msg" role="status"></p>
     </div>
 
@@ -289,7 +293,7 @@
 .pfn-tabla th { color: var(--muted); font-weight: 600; font-size: 12px; }
 .pfn-tabla tr.on td { background: #dbe9f8; font-weight: 700; }
 .pfn-trn { display: grid; grid-template-columns: minmax(110px, 1fr) 100px minmax(70px, .6fr) minmax(130px, 1.3fr) minmax(105px, .9fr) 30px; gap: 8px; align-items: center; padding: 6px 10px; border: 1px solid var(--line-soft); border-radius: 10px; margin-bottom: 5px; background: #fff; font-size: 13.5px; }
-.pfn-trn.se { grid-template-columns: minmax(105px, 1fr) 100px minmax(115px, 1.1fr) 56px minmax(105px, .9fr) minmax(105px, .9fr) 30px; }
+.pfn-trn.se { grid-template-columns: minmax(105px, 1fr) 100px minmax(115px, 1.1fr) minmax(105px, .9fr) minmax(105px, .9fr) 30px; }
 .pfn-trn.cab { border: 0; background: none; padding: 0 10px; font-size: 11.5px; color: var(--muted); margin-bottom: 0; }
 .pfn-trn small { display: block; color: var(--muted); font-size: 11.5px; }
 .pfn-trn input, .pfn-trn select { width: 100%; min-width: 0; }
@@ -1307,12 +1311,13 @@ function pintarSerenos() {
   $("#se-cat").value = SERENOS.categoria; $("#se-viat").value = SERENOS.viatico;
   const box = $("#se-box"); box.replaceChildren();
   const c = SE_CALC, lista = SERENOS.turnos;
+  lista.forEach((t) => { t.cant = 1; });  // un sereno por turno
   const ok = !!(c && c.filas && c.filas.length === lista.length);
   if (!lista.length) {
     box.appendChild(elx("p", SERENOS.armado || (BUQUE.amarre && BUQUE.zarpe) ? "muted" : "falta", SERENOS.armado ? "No hay turnos de serenos. Agregá los que hagan falta acá abajo." :
       (BUQUE.amarre && BUQUE.zarpe ? "Armando los turnos desde el amarre hasta el zarpe…" : "Faltan el amarre y el zarpe (paso 3) para armar los turnos. También podés agregarlos a mano acá abajo.")));
   } else {
-    const cab = elx("div", "pfn-trn se cab"); ["Fecha", "Turno", "Categoría", "Serenos", "Precio por turno", "Total", ""].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
+    const cab = elx("div", "pfn-trn se cab"); ["Fecha", "Turno", "Categoría", "Precio por turno", "Total", ""].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
     lista.forEach((t, i) => {
       const f = ok ? c.filas[i] : null;
       const row = elx("div", "pfn-trn se" + (f && f.tier === "DOMINGO" && f.tipo_dia !== "DOMINGO" ? " feriado" : ""));
@@ -1320,14 +1325,12 @@ function pintarSerenos() {
       sel.appendChild(new Option(SERENOS.categoria ? "Como arriba: " + CAT_TXT[SERENOS.categoria] : "Como arriba", ""));
       Object.entries(CAT_TXT).forEach(([k, v]) => sel.appendChild(new Option(v, k)));
       sel.value = t.cat; sel.addEventListener("change", () => { t.cat = sel.value; render(); });
-      const cant = elx("input"); cant.inputMode = "numeric"; cant.value = String(t.cant); cant.setAttribute("aria-label", "Cantidad de serenos");
-      cant.addEventListener("change", () => { t.cant = Math.max(1, Math.min(100, Math.round(num(cant.value)) || 1)); render(); });
       const pr = elx("input"); pr.inputMode = "decimal"; pr.value = f ? fm2(f.precio) : ""; pr.setAttribute("aria-label", "Precio por turno");
       pr.title = f && f.manual ? "Modificado a mano (tabla: " + ars(f.precio_tabla) + ")" : (f ? TIER_TXT[f.tier] : "");
       pr.addEventListener("change", () => { const v = num(pr.value); t.precio = f && Math.abs(v - f.precio_tabla) < 0.005 ? 0 : v; render(); });
       const x = elx("button", "quitar", "✕"); x.type = "button"; x.title = "Quitar este turno"; x.setAttribute("aria-label", "Quitar el turno");
       x.addEventListener("click", () => { lista.splice(i, 1); render(); pintarSerenos(); });
-      row.append(celdaFecha(t.fecha, f && f.tipo_dia), elx("span", null, VENT_TXT[t.ventana]), sel, cant, pr, elx("span", "num", f ? ars(f.total) : "—"), x);
+      row.append(celdaFecha(t.fecha, f && f.tipo_dia), elx("span", null, VENT_TXT[t.ventana]), sel, pr, elx("span", "num", f ? ars(f.total) : "—"), x);
       row.appendChild(selectorSereno(t));
       box.appendChild(row);
     });
@@ -1338,17 +1341,15 @@ function pintarSerenos() {
   const lt = elx("label", null, "Turno"); const ts = elx("select"); ordenVent.forEach((k) => ts.appendChild(new Option(VENT_TXT[k], k))); lt.appendChild(ts);
   const lc = elx("label", null, "Categoría"); const cs = elx("select");
   cs.appendChild(new Option("Igual que arriba", "")); Object.entries(CAT_TXT).forEach(([k, v]) => cs.appendChild(new Option(v, k))); lc.appendChild(cs);
-  const ln = elx("label", null, "Cantidad de serenos"); const ni = elx("input"); ni.inputMode = "numeric"; ni.value = "1"; ln.appendChild(ni);
   const b = elx("button", "btn", "+ Agregar"); b.type = "button";
   b.addEventListener("click", () => {
     if (!fi.value) { msg("Elegí la fecha del turno que querés agregar.", false); return; }
-    const cant = Math.max(1, Math.min(100, Math.round(num(ni.value)) || 1));
-    const ya = lista.find((t) => t.fecha === fi.value && t.ventana === ts.value && t.cat === cs.value && !t.precio);
-    if (ya) ya.cant = Math.min(100, ya.cant + cant); else lista.push({ fecha: fi.value, ventana: ts.value, cat: cs.value, cant, precio: 0 });
+    if (lista.some((t) => t.fecha === fi.value && t.ventana === ts.value)) { msg("Ese turno ya está en la lista: en cada turno va un solo sereno.", false); return; }
+    lista.push({ fecha: fi.value, ventana: ts.value, cat: cs.value, cant: 1, precio: 0, nombre: "" });
     lista.sort((p, q) => (p.fecha + ordenVent.indexOf(p.ventana)).localeCompare(q.fecha + ordenVent.indexOf(q.ventana)));
     SERENOS.armado = true; render(); pintarSerenos();
   });
-  ag.append(lf, lt, lc, ln, b);
+  ag.append(lf, lt, lc, b);
   if (BUQUE.amarre && BUQUE.zarpe) {
     const rb = elx("button", "btn", "↺ Rearmar desde el amarre y el zarpe"); rb.type = "button";
     rb.addEventListener("click", () => { if (!lista.length || confirm("Se reemplaza la lista por los turnos del amarre al zarpe y se pierden los cambios hechos acá. ¿Seguir?")) { SERENOS.turnos = []; calcularSerenos(true); } });
@@ -1768,6 +1769,28 @@ $("#pfn-bajar").addEventListener("click", async () => {
   const simple = res.headers.get("X-Aviso") === "version-simplificada";
   msg(simple ? "Se descargó una versión SIMPLIFICADA (resumen en una hoja): no se pudo armar el Excel con el formato de las proformas. Avisale al administrador del sistema." :
     "Excel descargado. El sistema no guarda la proforma: guardá ese archivo." + (pend.length ? ` Ojo: quedaron incompletos los pasos ${pend.join(", ")}.` : ""), !pend.length && !simple);
+});
+
+// Excel de serenos (recibos): aparte de la proforma final
+$("#ck-bajar-se").addEventListener("click", async () => {
+  const s = getState();
+  msg("Armando el Excel de serenos…");
+  let res;
+  try { res = await fetch("/administracion/proforma-final/excel-serenos", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) }); }
+  catch (e) { msg("No se pudo conectar con el sistema. Revisá tu conexión y probá de nuevo.", false); return; }
+  const esExcel = (res.headers.get("Content-Type") || "").includes("spreadsheetml");
+  if (!res.ok || !esExcel) {
+    if (res.status === 422 || res.status === 500) { const d = await res.json().catch(() => ({})); msg(d.error || "No se pudo armar el Excel de serenos.", false); return; }
+    msg(res.redirected || res.status === 401 || res.status === 403 || (res.ok && !esExcel) ? "Se cerró tu sesión. Entrá de nuevo en otra pestaña (los datos de esta pantalla siguen acá) y volvé a descargar." : "No se pudo generar el Excel de serenos (error " + res.status + ").", false);
+    return;
+  }
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = res.headers.get("X-Filename") || "SERENOS.xlsx";
+  a.click();
+  URL.revokeObjectURL(a.href);
+  msg("Excel de serenos descargado.");
 });
 
 $("#pfn-subir").addEventListener("change", async (ev) => {
