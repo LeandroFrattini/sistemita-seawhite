@@ -9,16 +9,15 @@
 <div class="page-head">
   <div>
     <h1 style="margin:0">Encargados</h1>
-    <span class="muted">Los encargados del Head Tally y el tope mensual de aportes. El encargado de cada turno se elige en el paso 8 de la proforma final y sale solo en el Excel de encargados (no figura en la proforma).</span>
+    <span class="muted">Tope de sueldo bruto del mes y cómo va cada uno</span>
   </div>
   <div class="actions">
+    <form method="get" class="en-mes"><input type="month" name="mes" value="{{ mes }}" aria-label="Mes" onchange="this.form.submit()"></form>
     <a class="btn" href="/administracion">← Administración</a>
   </div>
 </div>
 
-{% if ok == 'agregado' %}<p class="flash-ok" role="status">✓ Encargado agregado.</p>
-{% elif ok == 'guardado' %}<p class="flash-ok" role="status">✓ Cambios guardados.</p>
-{% elif ok == 'eliminado' %}<p class="flash-ok" role="status">✓ Encargado eliminado de la lista.</p>
+{% if ok == 'guardado' %}<p class="flash-ok" role="status">✓ Cambios guardados.</p>
 {% elif ok == 'tope' %}<p class="flash-ok" role="status">✓ Tope de {{ mes|mesnom }} guardado.</p>
 {% elif ok == 'tope_igual' %}<p class="flash-inline" role="status">Ese tope ya estaba cargado: no hubo cambios.</p>{% endif %}
 {% if error in errores %}<p class="flash-inline" role="alert">{{ errores[error] }}</p>
@@ -26,90 +25,108 @@
 {% elif error == 'tope_mes' %}<p class="flash-inline" role="alert">Elegí el mes del tope.</p>
 {% elif error == 'tope_monto' %}<p class="flash-inline" role="alert">Escribí el tope en pesos (por ejemplo 250.000,00).</p>{% endif %}
 
-<div class="card">
-  <h3>Tope de sueldo bruto de {{ mes|mesnom }}</h3>
-  <p class="muted" style="margin-top:0">Los aportes de <b>O.S. 3 %, Jubilación 11 % y Ley 3 %</b> ({{ pct }} % en total) se calculan sobre el <b>sueldo bruto</b> de cada encargado hasta que lo que cobró de bruto en el mes llega a este tope; desde ahí los turnos van sin esos descuentos (el turno que cruza el tope paga aportes solo sobre la parte del bruto que entra). El <b>aporte sindical 3 %</b> se descuenta siempre. El tope cambia mes a mes.</p>
-  <form method="get" class="en-fila" style="margin-bottom:10px">
-    <label>Mes<input type="month" name="mes" value="{{ mes }}" onchange="this.form.submit()"></label>
-    <noscript><button type="submit">Ver</button></noscript>
-  </form>
-  {% if estado.tope %}
-    <p style="margin:0 0 10px">Tope cargado: <b>{{ estado.tope.monto|ars }}</b> · lo cargó <b>{{ estado.tope.usuario or '—' }}</b> el {{ estado.tope.fecha|localdt }}</p>
-  {% else %}
-    <p class="flash-inline" style="margin:0 0 10px">Todavía no hay tope cargado para este mes: hasta que lo cargues no se puede armar el Excel de encargados de barcos de ese mes.</p>
-  {% endif %}
-  <form method="post" action="/administracion/encargados/tope" class="en-fila">
+<div class="card en-tope">
+  <div class="en-tope-dato">
+    <span class="en-et">Tope de {{ mes|mesnom }}</span>
+    {% if estado.tope %}
+      <b class="en-monto">{{ estado.tope.monto|ars }}</b>
+      <span class="muted">lo cargó {{ estado.tope.usuario or '—' }} · {{ estado.tope.fecha|localdt }}</span>
+    {% else %}
+      <b class="en-monto en-vacio">Sin cargar</b>
+      <span class="muted">Hace falta para armar el Excel de encargados de este mes</span>
+    {% endif %}
+  </div>
+  <form method="post" action="/administracion/encargados/tope" class="en-form-tope">
     <input type="hidden" name="mes" value="{{ mes }}">
-    <label>Nuevo tope de {{ mes|mesnom }} (en pesos)<input name="monto" inputmode="decimal" required placeholder="ej. 250.000,00" value="{{ ('%.2f'|format(estado.tope.monto)).replace('.', ',') if estado.tope else '' }}" autocomplete="off"></label>
-    <button type="submit" class="primary">Guardar tope</button>
-  </form>
-  {% if historial %}
-  <details style="margin-top:12px"><summary>Quién y cuándo cambió el tope ({{ historial|length }})</summary>
-    <table class="list" style="margin-top:8px">
-      <thead><tr><th>Mes</th><th style="text-align:right">Tope</th><th>Lo cargó</th><th>Fecha</th></tr></thead>
-      <tbody>
-      {% for h in historial %}<tr><td>{{ h.mes|mesnom }}</td><td style="text-align:right">{{ h.monto|ars }}</td><td>{{ h.usuario or '—' }}</td><td>{{ h.fecha|localdt }}</td></tr>{% endfor %}
-      </tbody>
-    </table>
-  </details>
-  {% endif %}
-</div>
-
-<div class="card">
-  <h3>Cómo va {{ mes|mesnom }}</h3>
-  {% if estado.encargados %}
-  <table class="list">
-    <thead><tr><th>Encargado</th><th style="text-align:right">Turnos</th><th style="text-align:right">Bruto del mes</th><th style="text-align:right">Aportes descontados</th><th>Tope</th></tr></thead>
-    <tbody>
-    {% for e in estado.encargados %}
-      <tr><td>{{ e.nombre }}</td><td style="text-align:right">{{ e.turnos }}</td><td style="text-align:right">{{ e.bruto|ars }}</td>
-        <td style="text-align:right">{{ e.aportes|ars if e.aportes is not none else '—' }}</td>
-        <td>{% if e.aportes is none %}sin tope cargado{% elif e.alcanzado %}<b>alcanzado</b>: ya no se descuentan aportes{% else %}todavía no se alcanzó (faltan {{ (estado.tope.monto - e.bruto)|ars }}){% endif %}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  <p class="muted" style="margin:8px 0 0">Sale de los Excel de encargados que se bajaron de cada barco (cada barco se anota una sola vez; si se vuelve a bajar, reemplaza lo anterior).</p>
-  {% else %}
-  <p class="muted" style="margin:0">Todavía no se bajó el Excel de encargados de ningún barco de este mes.</p>
-  {% endif %}
-</div>
-
-<div class="card">
-  <h3>Agregar un encargado</h3>
-  <form method="post" action="/administracion/encargados/nuevo" class="en-fila">
-    <label>Nombre y apellido<input name="nombre" maxlength="40" required value="{{ nombre_en_error }}" placeholder="ej. Juan Perez" autocomplete="off"></label>
-    <label>CUIL<input name="cuil" inputmode="numeric" maxlength="13" required value="{{ cuil_en_error }}" placeholder="ej. 20-12345678-9" autocomplete="off"></label>
-    <button type="submit" class="primary">+ Agregar</button>
+    <label><span class="en-et">{{ 'Cambiar el tope' if estado.tope else 'Cargar el tope' }}</span>
+      <input name="monto" inputmode="decimal" required placeholder="$ 0,00" value="{{ ('%.2f'|format(estado.tope.monto)).replace('.', ',') if estado.tope else '' }}" autocomplete="off"></label>
+    <button type="submit" class="primary">Guardar</button>
   </form>
 </div>
 
-<div class="card">
-  <h3>Lista ({{ encargados|length }})</h3>
-  {% if not encargados %}<p class="muted">Todavía no hay encargados cargados. Agregá el primero arriba.</p>{% endif %}
-  {% for s in encargados %}
-  <div class="en-item">
-    <form method="post" action="/administracion/encargados/{{ s.id }}/guardar" class="en-fila">
-      <label><span class="en-et">Nombre y apellido</span><input name="nombre" maxlength="40" required value="{{ s.nombre }}" aria-label="Nombre y apellido" autocomplete="off"></label>
-      <label><span class="en-et">CUIL</span><input name="cuil" inputmode="numeric" maxlength="13" required value="{{ s.cuil }}" aria-label="CUIL de {{ s.nombre }}" autocomplete="off"></label>
-      <button type="submit">Guardar</button>
-    </form>
-    <form method="post" action="/administracion/encargados/{{ s.id }}/eliminar" onsubmit="return confirm('¿Sacar a {{ s.nombre|e }} de la lista? Los Excel ya armados no cambian.')">
-      <button type="submit" class="danger" aria-label="Eliminar a {{ s.nombre }}">Eliminar</button>
-    </form>
-    {% set e = error.rsplit('_', 1) %}
-    {% if e|length == 2 and e[1] == s.id|string and e[0] in errores %}<p class="flash-inline en-err" role="alert">{{ errores[e[0]] }}</p>{% endif %}
+<div class="en-cards">
+  {% for e in estado.encargados %}
+  <div class="card en-card">
+    <div class="en-card-top">
+      <div><b class="en-nombre">{{ e.nombre }}</b><div class="muted en-cuil">CUIL {{ e.cuil }}</div></div>
+      {% if estado.tope is none %}<span class="en-chip en-gris">Sin tope cargado</span>
+      {% elif not e.turnos %}<span class="en-chip en-gris">Sin turnos este mes</span>
+      {% elif e.alcanzado %}<span class="en-chip en-ambar">Tope alcanzado</span>
+      {% else %}<span class="en-chip en-verde">Con aportes</span>{% endif %}
+    </div>
+    <div class="en-barra" role="img" aria-label="Bruto del mes frente al tope"><i style="width: {{ (e.pct * 100)|round|int }}%"></i></div>
+    <div class="en-nums">
+      <div><span class="en-et">Bruto del mes</span><b>{{ e.bruto|ars }}</b></div>
+      <div><span class="en-et">Aportes descontados</span><b>{{ e.aportes|ars if e.aportes is not none else '—' }}</b></div>
+      <div><span class="en-et">{{ 'Pasó el tope por' if e.falta is not none and e.falta < 0 else 'Falta para el tope' }}</span><b>{{ (e.falta|abs)|ars if e.falta is not none else '—' }}</b></div>
+    </div>
+    <div class="muted en-pie">{{ e.turnos }} turno{{ 's' if e.turnos != 1 }}{% if e.barcos %} en {{ e.barcos }} barco{{ 's' if e.barcos != 1 }}{% endif %}{% if e.alcanzado %} · solo aporte sindical{% endif %}</div>
+    {% if e.id %}
+    <details class="en-editar"><summary>Editar datos</summary>
+      <form method="post" action="/administracion/encargados/{{ e.id }}/guardar" class="en-fila">
+        <label><span class="en-et">Nombre y apellido</span><input name="nombre" maxlength="40" required value="{{ e.nombre }}" autocomplete="off"></label>
+        <label><span class="en-et">CUIL</span><input name="cuil" inputmode="numeric" maxlength="13" required value="{{ e.cuil }}" autocomplete="off"></label>
+        <button type="submit">Guardar</button>
+      </form>
+      {% set er = error.rsplit('_', 1) %}
+      {% if er|length == 2 and er[1] == e.id|string and er[0] in errores %}<p class="flash-inline" role="alert" style="margin:8px 0 0">{{ errores[er[0]] }}</p>{% endif %}
+    </details>
+    {% endif %}
   </div>
   {% endfor %}
 </div>
 
+<details class="card en-info">
+  <summary>Cómo funciona el tope</summary>
+  <ul>
+    <li>Los aportes (<b>O.S. 3 %, Jubilación 11 % y Ley 3 %</b>) se descuentan turno por turno mientras al encargado le falten <b>más de {{ estado.margen|ars(0) }}</b> para el tope del mes.</li>
+    <li>Cuando le faltan {{ estado.margen|ars(0) }} o menos, los turnos siguientes van sin esos aportes (se puede pasar del tope). El aporte sindical 3 % se descuenta siempre.</li>
+    <li>Cada mes arranca de cero. El margen se cambia en Administración → Fórmulas.</li>
+  </ul>
+</details>
+
+{% if historial %}
+<details class="card en-info">
+  <summary>Quién y cuándo cambió el tope</summary>
+  <table class="list" style="margin-top:8px">
+    <thead><tr><th>Mes</th><th style="text-align:right">Tope</th><th>Lo cargó</th><th>Fecha</th></tr></thead>
+    <tbody>
+    {% for h in historial %}<tr><td>{{ h.mes|mesnom|capitalize }}</td><td style="text-align:right">{{ h.monto|ars }}</td><td>{{ h.usuario or '—' }}</td><td>{{ h.fecha|localdt }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</details>
+{% endif %}
+
 <style>
-.en-fila { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-.en-fila label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
-.en-fila input { min-width: 240px; font-size: 14px; }
-.en-item { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); }
-.en-item:last-child { border-bottom: 0; }
-.en-item .en-et { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.en-err { flex-basis: 100%; margin: 4px 0 0; }
-@media (max-width: 640px) { .en-fila input { min-width: 0; width: 100%; } .en-fila label { flex: 1 1 100%; } }
+.en-et { display: block; font-size: 11.5px; letter-spacing: .3px; text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
+.en-mes { margin: 0; }
+.en-tope { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: center; justify-content: space-between; padding: 18px 20px; }
+.en-tope-dato { display: flex; flex-direction: column; gap: 2px; }
+.en-monto { font-size: 30px; line-height: 1.15; color: var(--blue-dark); font-variant-numeric: tabular-nums; }
+.en-vacio { color: #b45309; }
+.en-form-tope { display: flex; gap: 10px; align-items: flex-end; margin: 0; }
+.en-form-tope input { width: 190px; font-size: 16px; font-weight: 600; }
+.en-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; margin-bottom: 14px; }
+.en-card { margin: 0; padding: 18px 20px; }
+.en-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 14px; }
+.en-nombre { font-size: 18px; color: var(--navy, #12355f); }
+.en-cuil { font-size: 12.5px; margin-top: 2px; }
+.en-chip { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.en-verde { background: #e8f7ee; color: #0b6b3a; }
+.en-ambar { background: #fff3da; color: #9a5b00; }
+.en-gris { background: #eef1f5; color: #5b6777; }
+.en-barra { height: 10px; border-radius: 999px; background: #e7edf5; overflow: hidden; margin-bottom: 14px; }
+.en-barra i { display: block; height: 100%; background: var(--blue); border-radius: 999px; }
+.en-nums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.en-nums b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.en-pie { margin-top: 12px; font-size: 12.5px; }
+.en-editar { margin-top: 10px; }
+.en-editar summary, .en-info summary { cursor: pointer; font-size: 13px; color: var(--blue-dark); font-weight: 600; }
+.en-fila { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-top: 10px; }
+.en-fila label { flex: 1 1 180px; }
+.en-fila input { width: 100%; }
+.en-info { padding: 12px 18px; }
+.en-info ul { margin: 10px 0 2px; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+@media (max-width: 640px) { .en-nums { grid-template-columns: 1fr 1fr; } .en-form-tope { width: 100%; } .en-form-tope label { flex: 1; } .en-form-tope input { width: 100%; } }
 </style>
 {% endblock %}

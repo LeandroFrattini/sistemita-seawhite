@@ -1,8 +1,9 @@
 """Encargados (Head Tally): padron, descomposicion del precio del turno y aportes con tope mensual.
 
 Cada turno del Tally se paga al encargado como un jornal: el precio del paso 8 es el BRUTO. De ese bruto se descuenta O.S. 3 %, jubilacion 11 %, ley 3 %
-y aporte sindical 3 %. Los tres primeros (O.S., jubilacion y ley) se calculan sobre el sueldo BRUTO del mes hasta un TOPE (lo carga Administracion, mes a
-mes): cuando el bruto acumulado del encargado en el mes llega a ese tope, los turnos siguientes van sin esos descuentos; el aporte sindical se descuenta siempre. El encargado que figura en cada turno NO sale en la proforma
+y aporte sindical 3 %. Los tres primeros (O.S., jubilacion y ley) se descuentan turno por turno mientras al encargado le falten MAS de un margen (100.000 por defecto) para el
+TOPE de sueldo bruto del mes (lo carga Administracion, mes a mes); cuando le faltan 100.000 o menos, los turnos siguientes van sin esos descuentos y se puede
+pasar del tope. El aporte sindical se descuenta siempre. Cada mes se empieza de cero. El encargado que figura en cada turno NO sale en la proforma
 final: solo en el Excel de encargados.
 """
 from __future__ import annotations
@@ -21,6 +22,7 @@ MARCADOR = "encargados_padron_inicial"
 PCT_OS, PCT_JUBIL, PCT_SIND, PCT_LEY = 0.03, 0.11, 0.03, 0.03
 PCT_APORTES = PCT_OS + PCT_JUBIL + PCT_LEY            # lo que tiene tope
 TURNOS = ("01-07", "07-13", "13-19", "19-01")
+MARGEN_DEFECTO = 100000.0                              # con menos de esto de diferencia al tope, ya no se descuentan aportes
 PCT_PRODUCCION = 0.25                                  # «1era produccion»: 25 % del basico (la tarifa de aceite no tiene insalubridad)
 
 
@@ -81,19 +83,22 @@ def _orden(fecha: str, turno: str) -> tuple[str, int]:
     return fecha, TURNOS.index(turno) if turno in TURNOS else 9
 
 
-def _aplicar_tope(turnos: list[dict], tope: float) -> None:
-    """Recorre los turnos de UN encargado en UN mes, en orden. El tope es sobre el SUELDO BRUTO acumulado del mes: los aportes (O.S., jubilacion y ley) se
-    calculan sobre el bruto mientras no se llegue al tope; el turno que lo cruza paga aportes solo sobre la parte del bruto que entra, y los siguientes ninguno.
-    Agrega a cada turno: base (el bruto sobre el que se calculan los aportes), os, jubil, ley, aportes y estado ('completo', 'parcial' o 'tope')."""
+def margen(db: Session) -> float:
+    from .proformador_calc import get_param
+
+    return get_param(db, "encargados_margen_ars", MARGEN_DEFECTO)
+
+
+def _aplicar_tope(turnos: list[dict], tope: float, margen: float = MARGEN_DEFECTO) -> None:
+    """Recorre los turnos de UN encargado en UN mes, en orden. El tope es sobre el SUELDO BRUTO acumulado del mes. Cada turno se toma ENTERO: mientras falten
+    mas de `margen` para el tope, paga aportes (O.S., jubilacion y ley) sobre todo su bruto (aunque con ese turno se pase del tope); cuando faltan `margen` o
+    menos, ya no paga ninguno. Agrega a cada turno: base (el bruto sobre el que se calculan los aportes), os, jubil, ley, aportes y estado ('completo' o 'tope')."""
     acumulado = 0.0
     for t in sorted(turnos, key=lambda x: (_orden(x["fecha"], x["turno"]), x.get("orden", 0))):
-        base = min(t["bruto"], max(tope - acumulado, 0.0))
-        if base <= 0.005:
-            base, estado = 0.0, "tope"
-        elif base >= t["bruto"] - 1e-9:
+        if tope - acumulado > margen + 1e-9:
             base, estado = t["bruto"], "completo"
         else:
-            estado = "parcial"
+            base, estado = 0.0, "tope"
         t["base"] = base
         t["os"], t["jubil"], t["ley"] = base * PCT_OS, base * PCT_JUBIL, base * PCT_LEY
         t["aportes"], t["estado"] = t["os"] + t["jubil"] + t["ley"], estado
@@ -127,6 +132,7 @@ def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str
     for i, f in enumerate(filas):
         d = descomponer(base, categoria, f["precio"])
         actuales.append({**f, **d, "orden": i, "actual": True, "encargado_id": ids.get(f["nombre"].lower())})
+    marg = margen(db)
     # lo que ya cobraron esos encargados en esos meses en otros barcos
     por_clave: dict[tuple, list[dict]] = {}
     for t in actuales:
@@ -136,12 +142,12 @@ def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str
         q = q.where(EncargadoTurno.encargado_id == clave) if isinstance(clave, int) else q.where(EncargadoTurno.nombre == lista[0]["nombre"])
         for r in db.scalars(q):
             lista.append({"fecha": r.fecha, "turno": r.turno, "bruto": r.bruto, "orden": -1, "actual": False})
-        _aplicar_tope(lista, topes[mes])
+        _aplicar_tope(lista, topes[mes], marg)
     for t in actuales:
         t["sind"] = t["bruto"] * PCT_SIND
         t["neto"] = t["bruto"] - t["os"] - t["jubil"] - t["ley"] - t["sind"]
     actuales.sort(key=lambda t: (_orden(t["fecha"], t["turno"]), t["nombre"]))
-    return {"filas": actuales, "topes": topes, "categoria": categoria}
+    return {"filas": actuales, "topes": topes, "margen": marg, "categoria": categoria}
 
 
 def registrar(db: Session, *, barco_clave: str, buque: str, filas: list[dict], usuario: str) -> None:
@@ -155,16 +161,21 @@ def registrar(db: Session, *, barco_clave: str, buque: str, filas: list[dict], u
 
 
 def estado_mes(db: Session, mes: str) -> dict:
-    """Para la pantalla de Administracion: por encargado, el bruto del mes contra el tope y lo que se le descontó de aportes."""
-    tope = tope_de(db, mes)
-    por: dict[str, list[dict]] = {}
+    """Para la pantalla de Administracion: por encargado de la lista, el bruto del mes contra el tope, lo que se le descontó de aportes y cuánto falta."""
+    tope, marg = tope_de(db, mes), margen(db)
+    por: dict[str, list[dict]] = {e.nombre: [] for e in db.scalars(select(Encargado).order_by(Encargado.nombre))}
+    cuils = {e.nombre: e.cuil for e in db.scalars(select(Encargado))}
+    ids = {e.nombre: e.id for e in db.scalars(select(Encargado))}
     for r in db.scalars(select(EncargadoTurno).where(EncargadoTurno.fecha.like(mes + "%"))):
         por.setdefault(r.nombre, []).append({"fecha": r.fecha, "turno": r.turno, "bruto": r.bruto, "orden": 0, "buque": r.buque})
     out = []
     for nombre, lista in sorted(por.items()):
         if tope is not None:
-            _aplicar_tope(lista, tope.monto)
-        out.append({"nombre": nombre, "turnos": len(lista), "bruto": sum(t["bruto"] for t in lista),
+            _aplicar_tope(lista, tope.monto, marg)
+        bruto = sum(t["bruto"] for t in lista)
+        falta = (tope.monto - bruto) if tope is not None else None
+        out.append({"id": ids.get(nombre), "nombre": nombre, "cuil": cuils.get(nombre, ""), "turnos": len(lista), "barcos": len({t["buque"] for t in lista}), "bruto": bruto,
                     "aportes": sum(t.get("aportes", 0.0) for t in lista) if tope is not None else None,
-                    "alcanzado": tope is not None and any(t.get("estado") != "completo" for t in lista)})
-    return {"mes": mes, "tope": tope, "encargados": out}
+                    "falta": falta, "alcanzado": tope is not None and bool(lista) and falta <= marg,
+                    "pct": (min(bruto / tope.monto, 1.0) if tope is not None and tope.monto else 0.0)})
+    return {"mes": mes, "tope": tope, "margen": marg, "encargados": out}

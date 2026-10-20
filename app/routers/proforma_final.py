@@ -504,10 +504,8 @@ def _monto(txt) -> float | None:
 def encargados_page(request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     mes = enc.mes_valido(mes) or date.today().strftime("%Y-%m")
     return templates.TemplateResponse(request, "administracion/encargados.html", {
-        "user": user, "encargados": db.scalars(select(Encargado).order_by(Encargado.nombre)).all(), "mes": mes,
-        "estado": enc.estado_mes(db, mes), "historial": enc.historial_topes(db), "pct": round(enc.PCT_APORTES * 100),
+        "user": user, "mes": mes, "estado": enc.estado_mes(db, mes), "historial": enc.historial_topes(db),
         "ok": request.query_params.get("ok", ""), "error": request.query_params.get("error", ""),
-        "nombre_en_error": request.query_params.get("n", ""), "cuil_en_error": request.query_params.get("c", ""),
     })
 
 
@@ -526,17 +524,6 @@ def _datos_encargado(db: Session, nombre: str, cuil: str, propio_id: int | None,
     return nombre, c, None
 
 
-@router.post("/encargados/nuevo")
-def encargado_nuevo(nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
-    n, c, err = _datos_encargado(db, nombre, cuil, None)
-    if err:
-        from urllib.parse import quote
-        return RedirectResponse(f"/administracion/encargados?error={err}&n={quote(nombre[:60])}&c={quote(cuil[:20])}", status_code=303)
-    db.add(Encargado(nombre=n, cuil=c))
-    db.commit()
-    return RedirectResponse("/administracion/encargados?ok=agregado", status_code=303)
-
-
 @router.post("/encargados/{encargado_id}/guardar")
 def encargado_guardar(encargado_id: int, nombre: str = Form(""), cuil: str = Form(""), db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     e = db.get(Encargado, encargado_id)
@@ -548,15 +535,6 @@ def encargado_guardar(encargado_id: int, nombre: str = Form(""), cuil: str = For
     e.nombre, e.cuil = n, c
     db.commit()
     return RedirectResponse("/administracion/encargados?ok=guardado", status_code=303)
-
-
-@router.post("/encargados/{encargado_id}/eliminar")
-def encargado_eliminar(encargado_id: int, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
-    e = db.get(Encargado, encargado_id)
-    if e is not None:
-        db.delete(e)
-        db.commit()
-    return RedirectResponse("/administracion/encargados?ok=eliminado", status_code=303)
 
 
 @router.post("/encargados/tope")
