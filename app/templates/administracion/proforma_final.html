@@ -143,10 +143,10 @@
 
     <div data-pane="6" hidden>
       <h2>6 · Amarre y desamarre</h2>
-      <p class="muted">Lanchas del Sur: cada maniobra es servicio + lancha, con recargo según el día y la hora. La escala solo se cobra si el voucher tiene SHORE GANGWAY (también se puede tildar acá).</p>
+      <p class="muted">Lanchas del Sur: el amarre es servicio + lancha(s) y el desamarre es solo el servicio (sin lanchas), con recargo según el día y la hora. La escala solo se cobra si el voucher tiene SHORE GANGWAY (también se puede tildar acá).</p>
       <details class="pfn-info"><summary>Cómo se calcula</summary>
         <p>Tarifario 2026, buques extranjeros. Recargo: día hábil 07–19 sin recargo · día hábil 19–07 50 % · sábado 00–07 50 % · sábado 07–13 sin recargo · sábado desde las 13 100 % · domingo y feriado 100 %.
-        Si la eslora supera 150 m lleva dos lanchas. Los feriados salen del <a href="/administracion/calendario">Calendario</a>; el día no laborable cuenta como hábil.</p>
+        Si la eslora supera 150 m el amarre lleva dos lanchas; el desamarre no lleva lanchas. Los feriados salen del <a href="/administracion/calendario">Calendario</a>; el día no laborable cuenta como hábil.</p>
       </details>
       <div id="ld-box" class="pfn-pract-box"></div>
       <p class="pfn-total">Total que se factura: <b id="ld-total">USD 0,00</b><span id="ld-ajena" class="muted"></span></p>
@@ -1033,15 +1033,18 @@ function cardMovimiento(box, titulo, servicio, obj, calc, fechaDefault, alCambia
   const d = elx("div", "pfn-pract"); d.appendChild(elx("h4", null, titulo)); box.appendChild(d);
   const g = elx("div", "pfn-fechas");
   g.append(campoFecha("Fecha y hora de la maniobra", obj.momento || fechaDefault, alCambiarFecha));
-  const l = elx("label", null, "Lanchas (vacío = automático)"); const i = elx("input"); i.inputMode = "numeric";
-  i.placeholder = LD_CALC ? String(LD_CALC.lanchas_auto) : ""; i.value = obj.lanchas ? String(obj.lanchas) : "";
-  i.addEventListener("change", () => { obj.lanchas = Math.min(4, Math.round(num(i.value))); render(); pintarLds(); });
-  l.appendChild(i); g.appendChild(l); d.appendChild(g);
+  if (servicio === "amarre") {  // el desamarre no usa lanchas
+    const l = elx("label", null, "Lanchas (vacío = automático)"); const i = elx("input"); i.inputMode = "numeric";
+    i.placeholder = LD_CALC ? String(LD_CALC.lanchas_auto) : ""; i.value = obj.lanchas ? String(obj.lanchas) : "";
+    i.addEventListener("change", () => { obj.lanchas = Math.min(4, Math.round(num(i.value))); render(); pintarLds(); });
+    l.appendChild(i); g.appendChild(l);
+  }
+  d.appendChild(g);
   if (calc) {
     const t = elx("table");
     filaTabla(t, `${DIA_TXT[calc.tipo_dia] || calc.tipo_dia} · ${calc.momento.slice(11, 16)} hs`, calc.recargo_pct ? `recargo ${calc.recargo_pct} %` : "sin recargo");
     filaTabla(t, "Servicio de " + servicio, usd2(calc.base_usd));
-    filaTabla(t, `Lancha ${usd2(calc.lancha_unit_usd)} × ${calc.lanchas}`, usd2(calc.lancha_unit_usd * calc.lanchas));
+    if (calc.lanchas) filaTabla(t, `Lancha ${usd2(calc.lancha_unit_usd)} × ${calc.lanchas}`, usd2(calc.lancha_unit_usd * calc.lanchas));
     filaTabla(t, "Calculado", usd2(calc.total_usd), "sub");
     d.appendChild(t);
   } else falta(d, "Falta la fecha de la maniobra (paso 3).");

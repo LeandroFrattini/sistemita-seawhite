@@ -501,3 +501,5 @@ Administración → Serenos → «Resumen» de cada sereno: los barcos que atend
 
 - **«Superó el tope» a mano**: casilla al lado del nombre de cada encargado en Administración → Encargados, por mes. Marcada, todos sus turnos de ese mes van sin O.S., jubilación ni ley (solo el aporte sindical), sin necesidad de cargar el tope; sirve cuando el sistema arranca con el mes empezado. En el Excel de encargados queda una nota («se marcó a mano que superó el tope»). Desmarcada, vuelve al cálculo automático con el tope del mes.
 - **Paso 11**: tres botones: «Proforma final», «Liquidación de serenos» y «Liquidación de encargados».
+
+- **Lanchas del Sur (paso 6)**: el **amarre** lleva servicio + lancha (dos lanchas si la eslora supera 150 m: servicio + 2 × 1070 en día hábil); el **desamarre NO lleva lanchas**: es solo el servicio de desamarre, con su recargo por día y hora.

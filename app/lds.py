@@ -1,7 +1,7 @@
 """Lanchas del Sur (LDS): amarre y desamarre. Tarifario 2026, buques extranjeros (USD).
 
 Reglas confirmadas por el usuario:
-- Al costo de AMARRE se le suma SIEMPRE la lancha (y dos lanchas si la eslora supera 150 m); igual para el DESAMARRE.
+- Al costo de AMARRE se le suma SIEMPRE la lancha (y dos lanchas si la eslora supera 150 m). El DESAMARRE NO lleva lanchas: es solo el servicio de desamarre.
 - Recargo segun dia y hora (los feriados salen del Calendario):
     dia habil 07:00-19:00: sin recargo   | dia habil 19:00-07:00: 50 %
     sabado 07:00-13:00: sin recargo      | sabado 13:00-24:00: 100 %
@@ -50,13 +50,16 @@ def _columna(pct: int) -> int:
 
 
 def costo_servicio(servicio: str, momento: datetime, eslora: float, feriados: set[str], lanchas: int = 0) -> dict:
-    """Costo de un amarre o un desamarre: servicio + lancha(s), con el recargo que corresponda.
-    `lanchas` en 0 = automatico (una, o dos si la eslora supera 150 m); si no, la cantidad indicada."""
+    """Costo de un amarre (servicio + lancha(s)) o de un desamarre (solo el servicio, sin lanchas), con el recargo que corresponda.
+    Amarre: `lanchas` en 0 = automatico (una, o dos si la eslora supera 150 m); si no, la cantidad indicada."""
     if servicio not in ("amarre", "desamarre"):
         raise ValueError("servicio debe ser 'amarre' o 'desamarre'")
     pct = recargo_pct(momento, feriados)
     col = _columna(pct)
-    lanchas = lanchas if lanchas > 0 else (2 if eslora > ESLORA_DOS_LANCHAS else 1)
+    if servicio == "desamarre":
+        lanchas = 0  # el desamarre no usa lanchas
+    else:
+        lanchas = lanchas if lanchas > 0 else (2 if eslora > ESLORA_DOS_LANCHAS else 1)
     base = TARIFA[servicio][col]
     lancha_unit = TARIFA["lancha"][col]
     return {
