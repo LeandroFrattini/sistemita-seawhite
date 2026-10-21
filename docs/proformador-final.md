@@ -511,3 +511,5 @@ Para entrar a Administración → **Serenos** y **Encargados** (listas, resúmen
 ## Mail a Aduana (salida aduanera)
 
 En Nuestros barcos → Operados (agencias), cada barco con zarpada cargada tiene el botón **✉ Aduana** (con ⚠ si falta el destino): baja un `.eml` que Outlook abre como borrador. Asunto: `MV <BARCO> - SALIDA ADUANERA // SEA WHITE`. Para: mechegaray@, esuss@, alejarroyo@ e icostanzi@arca.gob.ar (`app/aduana.py`). El cuerpo lleva solo los cinco datos: Buque, Muelle (el terminal; el último si pasó por varios), Día y Hora de salida (`02/10/2026 – 21:01 hs`), Condición (CARGADO si cargó, EN LASTRE si descargó) y Destino. Lo que falte queda vacío para completarlo en el borrador.
+
+- **RESULTADO, columna DIAS**: siempre 1 por renglón (un tramo de un sereno), por facturación, aunque haya trabajado ese tramo en dos o más días. Los jornales, los viáticos y los importes siguen sumando todos los días; el resumen de cada sereno sigue contando los jornales reales.

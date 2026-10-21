@@ -20,6 +20,7 @@ from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.pagebreak import Break
+from openpyxl.worksheet.properties import PageSetupProperties
 
 LOGO = Path(__file__).resolve().parent / "templates" / "logo_recibos.png"
 VENTANAS = ("00-06", "06-12", "12-18", "18-24")
@@ -298,13 +299,13 @@ def _resultado(wb: Workbook, cache: dict, recibos: list[dict], buque: str, padro
         h.f(f"E{fila}", f'IFERROR(VLOOKUP(D{fila},CUIL!$B$5:$C$300,2,FALSE),"SIN CUIL")', cuil_de.get(r["nombre"], "SIN CUIL"), ARIAL12)
         h.f(f"F{fila}", f"{hoja}!{c['neto']}", r["neto"], ARIAL12, NUM2)
         h.f(f"G{fila}", f"{hoja}!{c['viat']}", r["viat"], ARIAL12, NUM2)
-        h.f(f"H{fila}", f"{hoja}!{c['jornales']}", r["jornales"], ARIAL12, "0")
+        h.v(f"H{fila}", 1, ARIAL12, "0")  # DIAS: siempre 1 por tramo (por facturacion), aunque haya trabajado ese tramo en dos dias; los jornales y los viaticos siguen sumando todos
     ult = 1 + len(orden)
     t = ult + 1
     h.v(f"D{t}", "TOTAL", ARIAL12_B, h="right")
     h.f(f"F{t}", f"SUM(F2:F{ult})", sum(r["neto"] for r in orden), ARIAL12_B, NUM2, borde=Border(top=FINA))
     h.f(f"G{t}", f"SUM(G2:G{ult})", sum(r["viat"] for r in orden), ARIAL12_B, NUM2, borde=Border(top=FINA))
-    h.f(f"H{t}", f"SUM(H2:H{ult})", sum(r["jornales"] for r in orden), ARIAL12_B, "0", borde=Border(top=FINA))
+    h.f(f"H{t}", f"SUM(H2:H{ult})", len(orden), ARIAL12_B, "0", borde=Border(top=FINA))
     # total de cada sereno (suma de todos sus recibos)
     k = t + 3
     h.v(f"D{k}", "TOTAL POR SERENO", ARIAL12_B)
@@ -318,9 +319,11 @@ def _resultado(wb: Workbook, cache: dict, recibos: list[dict], buque: str, padro
         h.f(f"E{fila}", f'IFERROR(VLOOKUP(D{fila},CUIL!$B$5:$C$300,2,FALSE),"SIN CUIL")', cuil_de.get(nom, "SIN CUIL"), ARIAL12)
         h.f(f"F{fila}", f"SUMIF($D$2:$D${ult},D{fila},F$2:F${ult})", sum(r["neto"] for r in mios), ARIAL12, NUM2)
         h.f(f"G{fila}", f"SUMIF($D$2:$D${ult},D{fila},G$2:G${ult})", sum(r["viat"] for r in mios), ARIAL12, NUM2)
-        h.f(f"H{fila}", f"SUMIF($D$2:$D${ult},D{fila},H$2:H${ult})", sum(r["jornales"] for r in mios), ARIAL12, "0")
+        h.f(f"H{fila}", f"SUMIF($D$2:$D${ult},D{fila},H$2:H${ult})", len(mios), ARIAL12, "0")
     ws.page_setup.paperSize = 9
     ws.page_setup.orientation = "landscape"
+    ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)  # que entren todas las columnas en una hoja al imprimir
+    ws.page_setup.fitToWidth, ws.page_setup.fitToHeight = 1, 0
 
 
 def _cuil(wb: Workbook, cache: dict, padron: list[tuple[str, str]]) -> None:
