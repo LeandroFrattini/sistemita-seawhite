@@ -289,7 +289,7 @@ def mail_aduana_eml(op_id: int, db: Session = Depends(get_db), user: User = Depe
         return RedirectResponse("/nuestros-barcos", status_code=303)
     m = aduana.armar(o)
     html = f'<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.35;">{_text_to_html(m["texto"])}</div>'
-    eml = build_eml(subject=m["asunto"], to_emails=aduana.DESTINATARIOS, html_body=html, text_body=m["texto"])
+    eml = build_eml(subject=m["asunto"], to_emails=aduana.DESTINATARIOS, cc_emails=aduana.COPIA, html_body=html, text_body=m["texto"])
     filename = safe_filename(f"SALIDA ADUANERA - {aduana.sin_mv(o.vessel_name)}") + ".eml"
     ascii_name = filename.encode("ascii", "ignore").decode("ascii").strip() or "SALIDA ADUANERA.eml"
     return Response(content=eml, media_type="message/rfc822",

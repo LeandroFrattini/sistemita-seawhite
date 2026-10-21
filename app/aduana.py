@@ -8,6 +8,8 @@ from .models import OperatedVessel
 DATOS = ("Buque", "Muelle", "Día y Hora de salida", "Condición", "Destino")
 # a quienes va el mail de la salida aduanera
 DESTINATARIOS = ["mechegaray@arca.gob.ar", "esuss@arca.gob.ar", "alejarroyo@arca.gob.ar", "icostanzi@arca.gob.ar"]
+# con copia SIEMPRE a Operations de Sea White
+COPIA = ["operations@seawhite.com.ar"]
 
 
 def _ultimo(txt: str) -> str:
