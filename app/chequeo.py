@@ -123,12 +123,15 @@ def armar(db: Session, s: dict) -> dict:
     fees = []
     for f in s["agencia"]["fees"]:
         if f["on"] and f["monto_usd"] > 0:
-            fees.append({"clave": "fee", "texto": f["texto"], "moneda": "USD", "monto": f["monto_usd"], "ajena": False, "paso": 2, "base_law": False})
+            fees.append({"clave": "fee", "texto": f["texto"], "moneda": "USD", "monto": f["monto_usd"], "ajena": False, "paso": 2, "base_law": False,
+                         "dolar_propio": s["agencia"]["dolar_fee"] or 0.0})  # el fee puede pasarse a pesos con otro dolar
 
     def a_usd(l):
         return l["monto"] if l["moneda"] == "USD" else (l["monto"] / dolar if dolar else None)
 
     def a_ars(l):
+        if l.get("dolar_propio"):
+            return l["monto"] * l["dolar_propio"]
         return l["monto"] if l["moneda"] == "ARS" else l["monto"] * dolar
 
     lineas.sort(key=lambda l: _lugar(l["clave"]))  # estable: respeta el orden dentro de cada grupo
@@ -148,7 +151,7 @@ def armar(db: Session, s: dict) -> dict:
     ajenas = [dict(l, usd=_r2(a_usd(l)) if a_usd(l) is not None else None, ars=_r2(a_ars(l))) for l in lineas if l["ajena"]]
     omitidas_out = [dict(l, usd=_r2(a_usd(l)) if a_usd(l) is not None else None, ars=_r2(a_ars(l))) for l in sorted(omitidas, key=lambda x: _lugar(x["clave"]))]
     pie = [t for k, t in PIE_SIN_IMPORTE if ch["pie"].get(k)]
-    return {"lineas": todas, "ajenas": ajenas, "omitidas": omitidas_out, "pie": pie, "dolar": dolar,
+    return {"lineas": todas, "ajenas": ajenas, "omitidas": omitidas_out, "pie": pie, "dolar": dolar, "dolar_fee": s["agencia"]["dolar_fee"] or 0.0,
             "total_usd": _r2(total_usd) if dolar or all(l["moneda"] == "USD" for l in todas) else None, "total_ars": _r2(sum(l["ars"] for l in todas)),
             "law": {"pct": pct, "base_usd": _r2(base_usd), "auto_usd": _r2(law_auto), "usd": _r2(law_monto), "manual": bool(ch["law"]["precio"]) and ch["law"]["on"]},
             "fijos": {k: _r2(get_param(db, p, d)) for k, _t, p, d in FIJOS}, "sin_dolar": not dolar}

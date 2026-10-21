@@ -241,6 +241,7 @@ def clean_state(raw) -> dict:
             "nombre": str(ag.get("nombre") or "").strip()[:120],
             "serenos_pct": _num(serenos, 1000),
             "tally_pct": _num(ag.get("tally_pct"), 1000),
+            "dolar_fee": _num(ag.get("dolar_fee"), 1_000_000),  # el fee se pasa a pesos con este dolar (0 = el mismo dolar del paso 1)
             "fees": fees,
         },
     }
@@ -445,7 +446,8 @@ def _filas_resumen(s: dict) -> list[list]:
     out = [["RESUMEN DE LA PROFORMA (foto de lo cargado en cada paso)"]]
     out += [[a, b, c] for a, b, c in _filas_pasos(s)]
     out += [["Fee aplicado", f["monto_usd"], f["texto"]] for f in s["agencia"]["fees"] if f["on"]] or [["Fee aplicado", "—", ""]]
-    out += [["Total fee (USD)", total_fee(s), ""], ["Cargas sociales Serenos (%)", s["agencia"]["serenos_pct"], "Se suman al costo: sobre 100 con 165 % da 265"],
+    out += [["Total fee (USD)", total_fee(s), ""], ["Dólar del fee", s["agencia"]["dolar_fee"] or "igual al del paso 1", "El fee se pasa a pesos con este dólar"],
+            ["Cargas sociales Serenos (%)", s["agencia"]["serenos_pct"], "Se suman al costo: sobre 100 con 165 % da 265"],
             ["Cargas sociales Head Tally (%)", s["agencia"]["tally_pct"], ""]]
     return out
 

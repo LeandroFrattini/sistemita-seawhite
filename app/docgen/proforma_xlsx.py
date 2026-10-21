@@ -334,6 +334,15 @@ def _principal(h: Hoja, s: dict, ch: dict, dias: dict) -> int:
     h.poner("H3", dolar or None)
     h.poner("I3", None)
     h.unir("H3:I3")
+    # el fee se pasa a pesos con otro dolar: va a la vista, debajo del cambio comun
+    dolar_fee = next((l["dolar_propio"] for l in ch["lineas"] if l["clave"] == "fee" and l.get("dolar_propio")), 0.0)
+    if dolar_fee:
+        h.poner("H4", "CAMBIO FEE", 31)
+        h.poner("I4", None, 31)
+        h.unir("H4:I4")
+        h.poner("H5", dolar_fee, 35)
+        h.poner("I5", None, 59)
+        h.unir("H5:I5")
     h.poner("C3", f"CARGA: {b.get('carga') or ''} SHIPPER: {b.get('shipper') or ''}".rstrip())
     cant = parse_number(b["cantidad"]) if b["cantidad"] else None
     if cant is not None:
@@ -372,7 +381,9 @@ def _principal(h: Hoja, s: dict, ch: dict, dias: dict) -> int:
             h.poner(f"E{r}", usd, E_LINEA["E"], formula=rango("E"))
         elif l["moneda"] == "USD":
             h.poner(f"E{r}", l["monto"], E_LINEA["E"])
-            if dolar:
+            if l.get("dolar_propio"):
+                h.poner(f"D{r}", ars, E_LINEA["D"], formula=f"E{r}*$H$5")
+            elif dolar:
                 h.poner(f"D{r}", ars, E_LINEA["D"], formula=f"E{r}*{ref_dolar}")
         else:
             h.poner(f"D{r}", l["monto"], E_LINEA["D"])

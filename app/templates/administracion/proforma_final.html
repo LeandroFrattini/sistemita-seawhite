@@ -72,6 +72,10 @@
       <button type="button" class="btn mini" id="ag-add-fee">+ Agregar otro renglón de fee</button>
       <p class="pfn-total">Total fee: <b id="ag-total">USD 0</b></p>
       <div class="pfn-grid">
+        <label>Dólar para pasar el fee a pesos<input id="ag-dolar-fee" inputmode="decimal" placeholder="vacío = el dólar del paso 1"></label>
+      </div>
+      <p class="muted">Todo lo demás usa el dólar del paso 1; solo el fee se pasa a pesos con este valor, si es distinto.</p>
+      <div class="pfn-grid">
         <label>Cargas sociales Serenos (%)<input id="ag-ser" inputmode="decimal"></label>
         <label>Cargas sociales Head Tally (%)<input id="ag-tal" inputmode="decimal"></label>
       </div>
@@ -530,6 +534,7 @@ function getState(sincronizar = true) {
       nombre: sel.value ? sel.selectedOptions[0].textContent : "",
       serenos_pct: num($("#ag-ser").value),
       tally_pct: num($("#ag-tal").value),
+      dolar_fee: num($("#ag-dolar-fee").value),
       fees: FEES.map((f) => ({ texto: f.texto, monto_usd: f.monto_usd, on: f.on })),
     },
   };
@@ -719,6 +724,7 @@ function setState(s) {
   sel.value = s.agencia.id ?? "";
   $("#ag-ser").value = s.agencia.serenos_pct ? fmt(s.agencia.serenos_pct) : "";
   $("#ag-tal").value = s.agencia.tally_pct ? fmt(s.agencia.tally_pct) : "";
+  $("#ag-dolar-fee").value = s.agencia.dolar_fee ? fmt(s.agencia.dolar_fee) : "";
   const actual = AGENCIAS.find((a) => a.id === s.agencia.id);
   // los renglones guardados en la proforma mandan (foto de ese momento); si ya no existen en la agencia se muestran como manuales
   FEES = s.agencia.fees.map((f) => ({
@@ -1775,6 +1781,7 @@ sel.addEventListener("change", () => {
   $("#ag-tal").value = a ? fmt(a.tally_pct) : "";
   renderFees(); render();
 });
+$("#ag-dolar-fee").addEventListener("input", () => render());
 $("#ag-add-fee").addEventListener("click", () => {
   if (!sel.value) { msg("Primero elegí la agencia.", false); return; }
   FEES.push({ texto: "", monto_usd: 0, on: true, revisar: false, manual: true });
