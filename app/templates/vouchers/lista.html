@@ -18,7 +18,7 @@
     {% for o in pendientes %}
     <li>
       <span><b>COMPLETAR VOUCHER</b> · BARCO {{ o.vessel_name|upper }} <span class="muted">· {{ o.principal }}{% if o.voucher and o.voucher.estado == 'ENVIADO' %} · falta confirmar los turnos del Head Tally{% endif %}</span></span>
-      <a class="btn mini primary" href="/vouchers/nuevo?operated_id={{ o.id }}">Completar</a>
+      <a class="vl-btn vl-btn-main" href="/vouchers/nuevo?operated_id={{ o.id }}">Completar</a>
     </li>
     {% endfor %}
   </ul>
@@ -42,10 +42,23 @@
         {% else %}<span class="vl-pill vl-bor">Borrador</span> <span class="muted">{{ v.creado_por }}</span>{% endif %}
       </td>
       <td>{% if f.head_tally %}{% if f.turnos_ok %}<span class="vl-pill vl-ok">turnos listos</span>{% else %}<span class="vl-pill vl-bor">faltan turnos</span>{% endif %}{% else %}<span class="muted">—</span>{% endif %}</td>
-      <td class="nowrap">
-        <a class="mini" href="/vouchers/{{ v.id }}">{{ 'Abrir' if v.estado == 'ENVIADO' else 'Completar' }}</a>
-        <a class="mini" href="/vouchers/{{ v.id }}/descargar">⬇ Descargar</a>
-        {% if f.head_tally %}<a class="mini" href="/vouchers/{{ v.id }}/turnos">Turnos</a>{% endif %}
+      <td class="vl-celda-acc">
+        <div class="vl-acciones">
+          <a class="vl-btn {{ 'vl-btn-main' if v.estado != 'ENVIADO' else '' }}" href="/vouchers/{{ v.id }}" title="{{ 'Ver y editar el voucher' if v.estado == 'ENVIADO' else 'Completar el voucher' }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+            {{ 'Abrir' if v.estado == 'ENVIADO' else 'Completar' }}
+          </a>
+          <a class="vl-btn" href="/vouchers/{{ v.id }}/descargar" title="Bajar el voucher en {{ 'Word' if v.formato == 'WORD' else 'Excel' }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>
+            Descargar
+          </a>
+          {% if f.head_tally %}
+          <a class="vl-btn {{ 'vl-btn-aviso' if not f.turnos_ok else '' }}" href="/vouchers/{{ v.id }}/turnos" title="{{ 'Confirmar los turnos del Head Tally' if not f.turnos_ok else 'Ver los turnos del Head Tally' }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+            Turnos
+          </a>
+          {% endif %}
+        </div>
       </td>
     </tr>
     {% endfor %}
@@ -57,6 +70,17 @@
 </section>
 
 <style>
+.vl-celda-acc { text-align: right; white-space: nowrap; }
+.vl-acciones { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.vl-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; font-size: 13px; font-weight: 600; line-height: 1; color: var(--blue-dark, #12467f); background: #fff; border: 1px solid #c3d4e8; border-radius: 9px; text-decoration: none; cursor: pointer; transition: background .12s, border-color .12s, box-shadow .12s, transform .12s; }
+.vl-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.vl-btn:hover { background: #eef4fb; border-color: var(--blue, #1b5fa8); box-shadow: 0 2px 8px rgba(27, 95, 168, .14); transform: translateY(-1px); text-decoration: none; }
+.vl-btn:focus-visible { outline: 2px solid var(--blue, #1b5fa8); outline-offset: 2px; }
+.vl-btn-main { background: var(--blue, #1b5fa8); border-color: var(--blue, #1b5fa8); color: #fff; }
+.vl-btn-main:hover { background: var(--blue-dark, #12467f); border-color: var(--blue-dark, #12467f); }
+.vl-btn-aviso { background: #fff7e6; border-color: #f0c673; color: #9a5b00; }
+.vl-btn-aviso:hover { background: #ffefcc; border-color: #d98a00; }
+table.list tbody tr:hover { background: #f7fafd; }
 .vl-pend { border-color: #f0a830; background: #fffaf0; }
 .vl-pend-lista { list-style: none; margin: 0; padding: 0; }
 .vl-pend-lista li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid #f3e1bf; flex-wrap: wrap; }
@@ -69,6 +93,10 @@
   table.list th:nth-child(3), table.list td:nth-child(3), table.list th:nth-child(5), table.list td:nth-child(5) { display: none; }
   table.list th, table.list td { padding-left: 6px; padding-right: 6px; overflow-wrap: anywhere; }
   table.list td.nowrap { white-space: normal; }
+  table.list th:last-child, .vl-celda-acc { width: 124px; }
+  .vl-celda-acc { white-space: normal; }
+  .vl-acciones { flex-direction: column; align-items: stretch; gap: 5px; }
+  .vl-btn { height: 30px; padding: 0 9px; font-size: 12.5px; white-space: nowrap; }
 }
 </style>
 {% endblock %}
