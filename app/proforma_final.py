@@ -546,6 +546,10 @@ def build_excel_encargados(state: dict, db, usuario: str = "") -> tuple[bytes, s
     nombres = {(x["fecha"], x["turno"]): x["nombre"] for x in tl["turnos"]}
     filas = [{**f, "nombre": nombres.get((f["fecha"], f["turno"]), "")} for f in t["filas"]]
     ref_tabla = ref or next((personal._d(f["fecha"]) for f in filas), None)  # la misma fecha con la que se calcularon los turnos
+    liquidables = [f for f in filas if not enc.es_berthing(f.get("act"))]  # el BERTHING esta en la proforma pero no se liquida al encargado
+    if filas and not liquidables:
+        raise ValueError("Todos los turnos del Head Tally son BERTHING: no hay nada para liquidar a los encargados.")
+    filas = liquidables
     base, _ = personal.tabla(db, ref_tabla)
     lista = list(db.scalars(select(Encargado).order_by(Encargado.nombre)))
     cuil_de = {e.nombre: e.cuil for e in lista}

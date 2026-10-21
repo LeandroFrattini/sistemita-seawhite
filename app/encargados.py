@@ -26,6 +26,11 @@ MARGEN_DEFECTO = 100000.0                              # con menos de esto de di
 PCT_PRODUCCION = 0.25                                  # «1era produccion»: 25 % del basico (la tarifa de aceite no tiene insalubridad)
 
 
+def es_berthing(act) -> bool:
+    """Los turnos de Head Tally que son BERTHING van en la proforma pero no se le liquidan al encargado."""
+    return str(act or "").strip().upper().startswith("BERTHING")
+
+
 def limpiar_nombre(txt) -> str:
     return " ".join(str(txt or "").split())[:40]
 

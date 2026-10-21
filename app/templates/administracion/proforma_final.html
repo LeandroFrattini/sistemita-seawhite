@@ -1214,6 +1214,10 @@ function selectorSereno(t) {
 // Encargado de un turno de Head Tally: se elige de la lista de Administracion -> Encargados. NO sale en la proforma: solo en el Excel de encargados.
 function selectorEncargado(t) {
   const caja = elx("div", "nombre-sereno");
+  if (/^\s*BERTHING/i.test(t.act || "")) {  // el berthing esta en la proforma pero no se liquida al encargado
+    caja.appendChild(elx("p", "muted", "Berthing: este turno va en la proforma pero no se liquida al encargado."));
+    return caja;
+  }
   const sel = elx("select"); sel.setAttribute("aria-label", "Encargado de este turno");
   sel.add(new Option(PADRON_ENCARGADOS.length ? "Encargado: sin elegir" : "No hay encargados cargados (Administración → Encargados)", ""));
   PADRON_ENCARGADOS.forEach((n) => sel.add(new Option(n, n)));
@@ -1264,6 +1268,7 @@ function pintarTally() {
       const f = ok ? c.filas[i] : null;
       const row = elx("div", "pfn-trn" + (f && f.nivel === "F3" ? " feriado" : ""));
       const act = elx("input"); act.value = t.act; act.maxLength = 30; act.setAttribute("aria-label", "Actividad del turno"); act.addEventListener("input", () => { t.act = act.value.toUpperCase(); });
+      act.addEventListener("change", () => pintarTally());  // si pasa a ser (o dejo de ser) BERTHING, cambia lo que se pide del encargado
       const sel = elx("select"); sel.setAttribute("aria-label", "Escalón del turno");
       sel.appendChild(new Option("Auto" + (f ? ": " + NIV_CORTO[f.nivel_auto] : ""), ""));
       Object.entries(NIV_CORTO).forEach(([k, v]) => sel.appendChild(new Option(v, k)));
