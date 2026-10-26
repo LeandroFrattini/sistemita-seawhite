@@ -945,7 +945,7 @@ function pintarMuelle() {
     campoFecha("Salida del muelle (zarpe)", salidaEf(), (v) => { MUELLE.salida = v === (BUQUE.zarpe || "") ? "" : v; render(); pintarMuelle(); }));
   d.appendChild(g1);
   if (c && c.muelle.beneficio.detectado)
-    d.appendChild(casilla("Beneficio: amarró en fin de semana o feriado después de las 21:00 y no operó ese día (no se cobra ese tercio ni los días libres hasta que arranca la operación)",
+    d.appendChild(casilla("Beneficio: amarró entre las 21:00 y las 24:00 (o un domingo o feriado, a cualquier hora) y empezó a operar el día hábil siguiente: no se cobra ese tramo y se cobra desde las 00:00 del día en que opera",
       !MUELLE.sin_beneficio, (v) => { MUELLE.sin_beneficio = !v; render(); pintarMuelle(); }));
   if (c && c.muelle.dias) d.appendChild(tablaDias(c.muelle, trn, c.muelle.tarifa));
   else falta(d, !trn ? "Falta el TRN (paso 3)." : "Falta la entrada y la salida del muelle (el amarre y el zarpe del paso 3).");

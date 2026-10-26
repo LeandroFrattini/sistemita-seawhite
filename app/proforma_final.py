@@ -213,7 +213,7 @@ def clean_state(raw) -> dict:
         "practicaje": {"in": mov("in"), "out": mov("out")},
         # entrada/salida vacias = las del paso 3 (amarre y zarpe); "cuenta_ajena" = figura en FOR YOUR ACCOUNT (no se factura)
         "muelle": concepto(mu, {"entrada": _datetime(mu.get("entrada")), "salida": _datetime(mu.get("salida")),
-                      # beneficio de fin de semana: se destilda con sin_beneficio; "perdonados" es la foto de los dias no cobrados
+                      # beneficio por amarre fuera de dia habil: se destilda con sin_beneficio; "perdonados" es la foto de los dias no cobrados
                       "sin_beneficio": bool(mu.get("sin_beneficio")), "perdonados": _num(mu.get("perdonados"), 100)}),
         "fondeo": concepto(fo, {"on": bool(fo.get("on")), "entrada": _datetime(fo.get("entrada")), "salida": _datetime(fo.get("salida"))}),
         "vias": concepto(vi, {"solo_bunker": bool(vi.get("solo_bunker")), "factor": _num(vi.get("factor"), 10) or 1.0}),
@@ -366,7 +366,7 @@ def _filas_pasos(s: dict) -> list[tuple]:
         ("Practicaje IN (USD)", s["practicaje"]["in"]["usd"] or "", _nota_practicaje(s["practicaje"]["in"])),
         ("Practicaje OUT (USD)", s["practicaje"]["out"]["usd"] or "", _nota_practicaje(s["practicaje"]["out"])),
         ("Uso de muelle (USD)", s["muelle"]["usd"] or "", _nota_concepto(s["muelle"], s["muelle"]["entrada"] or b["amarre"], s["muelle"]["salida"] or b["zarpe"])
-         + (f" · beneficio de fin de semana: {str(s['muelle']['perdonados']).replace('.', ',')} días no cobrados" if s["muelle"]["perdonados"] and not s["muelle"]["sin_beneficio"] else "")),
+         + (f" · beneficio por amarre fuera de día hábil: {str(s['muelle']['perdonados']).replace('.', ',')} días no cobrados" if s["muelle"]["perdonados"] and not s["muelle"]["sin_beneficio"] else "")),
         ("Uso de fondeadero (USD)", s["fondeo"]["usd"] or "" if s["fondeo"]["on"] else "—", _nota_concepto(s["fondeo"], s["fondeo"]["entrada"], s["fondeo"]["salida"]) if s["fondeo"]["on"] else "sin fondeo"),
         ("Vías navegables (USD)", s["vias"]["usd"] or "", _nota_concepto(s["vias"]) + (" · solo bunker: 20 % del TRN × " + str(s["vias"]["factor"]) if s["vias"]["solo_bunker"] else "")),
         ("Amarre LDS (USD)", s["lds_amarre"]["usd"] or "", _nota_concepto(s["lds_amarre"], s["lds_amarre"]["momento"] or b["amarre"])),

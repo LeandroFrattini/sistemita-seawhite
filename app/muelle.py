@@ -13,10 +13,14 @@ esta presente en cualquier parte de un bloque, se cobra el bloque entero. Ejempl
   toneladas se reemplazan por el 20 % del TRN.
 Las tarifas y la tabla de coeficientes son las del proformador inicial (se editan en Proformador -> Formulas).
 
-Beneficio de fin de semana (solo uso de muelle): si el barco amarra un sabado, domingo o feriado DESPUES de las 21:00 y
-no empieza a operar ese mismo dia, no se cobra el ultimo bloque (16 a 24) de ese dia ni los dias siguientes que sean
-sabado, domingo o feriado, hasta el dia en que arranca la operacion. Ese dia (y todo dia habil, aunque el barco este
-amarrado sin operar) se cobra entero. Si amarra antes de las 21:00 no hay beneficio. Los dias no laborables no cuentan.
+Beneficio de amarre fuera de dia habil (regla del Consorcio, solo uso de muelle): si el barco amarra
+- de lunes a sabado ENTRE LAS 21:00 Y LAS 24:00, o
+- un domingo o feriado a CUALQUIER hora,
+y empieza a operar el DIA HABIL SIGUIENTE INMEDIATO (habil = lunes a sabado que no sea feriado), no se cobra ese tramo: del dia
+del amarre no se cobra el bloque 16 a 24 (lunes a sabado) o todo lo que queda del dia (domingo o feriado), tampoco los domingos
+y feriados que haya hasta la operacion, y se cobra desde las 00:00 del dia en que arranca la operacion.
+Si la operacion arranca despues de ese dia habil siguiente, o el mismo dia del amarre, no hay beneficio. Los dias no laborables
+se toman como habiles.
 """
 from __future__ import annotations
 
@@ -30,8 +34,8 @@ from .proformador_calc import coeficiente_channel_toll, get_param
 
 BLOQUES = [(0, 8, 0.33), (8, 16, 0.34), (16, 24, 0.33)]  # (desde hora, hasta hora, peso del bloque en el dia)
 PCT_TRN_SOLO_BUNKER = 0.2
-HORA_LIMITE_BENEFICIO = 21 * 60  # minutos del dia: amarrar DESPUES de las 21:00 (21:01 en adelante)
-DIAS_SIN_COBRO = ("SABADO", "DOMINGO", "FERIADO")
+HORA_LIMITE_BENEFICIO = 21 * 60  # minutos del dia: amarrar entre las 21:00 y las 24:00 (desde las 21:00 en punto)
+DIAS_NO_HABILES = ("DOMINGO", "FERIADO")  # el sabado cuenta como dia habil
 
 
 def _dt(raw: str) -> datetime | None:
@@ -68,18 +72,27 @@ def dias(entrada: str, salida: str, exentos: set | frozenset = frozenset()) -> d
 
 
 def bloques_beneficio(db: Session, entrada: str, inicio: str) -> set:
-    """Bloques (fecha ISO, hora desde) que NO se cobran por el beneficio de fin de semana; vacio si no corresponde."""
+    """Bloques (fecha ISO, hora desde) que NO se cobran por el beneficio de amarre fuera de dia habil; vacio si no corresponde.
+    Ver el docstring del modulo: amarre de lunes a sabado entre las 21 y las 24, o domingo/feriado a cualquier hora, y la operacion
+    arranca el dia habil siguiente inmediato."""
     a, op = _dt(entrada), _dt(inicio)
     if not a or not op or op.date() <= a.date():
         return set()
     feriados, _ = conjuntos(db)
-    if tipo_dia(a.date(), feriados) not in DIAS_SIN_COBRO or a.hour * 60 + a.minute <= HORA_LIMITE_BENEFICIO:
+    dia_entero = tipo_dia(a.date(), feriados) in DIAS_NO_HABILES  # domingo o feriado: todo lo que queda del dia
+    if not dia_entero and a.hour * 60 + a.minute < HORA_LIMITE_BENEFICIO:
         return set()
-    libres = {(a.date().isoformat(), 16)}
-    dia = a.date() + timedelta(days=1)
-    while dia < op.date() and tipo_dia(dia, feriados) in DIAS_SIN_COBRO:
-        libres |= {(dia.isoformat(), h1) for h1, _h2, _p in BLOQUES}
-        dia += timedelta(days=1)
+    sig = a.date() + timedelta(days=1)  # el dia habil siguiente inmediato (saltando domingos y feriados)
+    intermedios = []
+    while tipo_dia(sig, feriados) in DIAS_NO_HABILES:
+        intermedios.append(sig)
+        sig += timedelta(days=1)
+    if op.date() != sig:
+        return set()
+    todos = lambda d: {(d.isoformat(), h1) for h1, _h2, _p in BLOQUES}
+    libres = todos(a.date()) if dia_entero else {(a.date().isoformat(), 16)}
+    for d in intermedios:
+        libres |= todos(d)
     return libres
 
 

@@ -290,18 +290,18 @@ Los nombres de esta lista no coinciden siempre con los de Clientes (ej. "Back to
 - **PENDIENTE — feriados:** de dónde sale la lista (incluye puentes y feriados que cambian cada año).
 - **PENDIENTE — usuario bloqueado:** qué pasa si el usuario que marcó el barco no entra más al sistema (licencia, baja).
 
-## Beneficio de fin de semana en Uso de muelle (confirmado por el usuario)
+## Beneficio por amarre fuera de día hábil en Uso de muelle (regla del Consorcio, confirmada por el usuario)
 
 Solo afecta a **Uso de muelle** (vías navegables va por toneladas; el fondeo no se toca). Se calcula con el amarre y el **inicio de operación**.
 
-- Si el barco amarra un **sábado, domingo o feriado DESPUÉS de las 21:00** (21:01 en adelante; a las 21:00 en punto no) y **no empieza a operar ese mismo día**,
-  no se cobra el tercio 16–24 de ese día ni los días siguientes que sean sábado, domingo o feriado, hasta el día en que arranca la operación.
-- El día en que arranca la operación se cobra **entero desde las 00:00** (según la salida). También se cobra todo día hábil con el barco ya amarrado sin operar.
-- Amarre antes de las 21:00, o un día hábil (aunque después sea fin de semana): se cobra todo. Los **días no laborables no cuentan**; solo feriados del Calendario.
+- Si el barco amarra **de lunes a sábado entre las 21:00 y las 24:00** (desde las 21:00 en punto), o **un domingo o feriado a cualquier hora**, **y empieza a operar el día hábil siguiente inmediato**, no se cobra ese tramo:
+  del día del amarre no se cobra el tercio 16–24 (lunes a sábado) o todo lo que queda del día (domingo o feriado), tampoco los domingos y feriados que haya hasta la operación, y se cobra **desde las 00:00 del día en que arranca la operación**.
+- **Día hábil = lunes a sábado que no sea feriado** (el sábado es hábil; domingo y feriado no). Los días no laborables se toman como hábiles. «Siguiente inmediato» = el primer día hábil después del amarre (saltando domingos y feriados).
+- **No hay beneficio** si opera el mismo día del amarre, si opera después de ese día hábil siguiente (por ejemplo amarra el martes de noche y opera el jueves), si amarra antes de las 21:00 un día hábil, o si no hay inicio de operación.
 - Se aplica de forma **sugerida**: sale tildada la casilla cuando se detecta el caso y se puede destildar (el barco a veces hace otras operaciones).
-- En el Excel queda la nota «beneficio de fin de semana: X días no cobrados» y la foto en el estado (`sin_beneficio`, `perdonados`).
-- Ejemplo: amarra sáb 17/10 21:30, opera lun 19/10 08:30, zarpa mar 20/10 10:00 → se perdonan 1,33 días (0,33 del sábado + 1,00 del domingo).
-- Asumido (a confirmar): la misma regla de las 21:00 vale cuando el amarre es domingo o feriado.
+- En el Excel queda la nota «beneficio por amarre fuera de día hábil: X días no cobrados» y la foto en el estado (`sin_beneficio`, `perdonados`).
+- Ejemplos: amarra sáb 17/10 21:30, opera lun 19/10 08:30 → se perdonan 1,33 días (0,33 del sábado + 1,00 del domingo). Amarra mar 20/10 22:00, opera mié 21/10 → 0,33. Amarra dom 18/10 10:00, opera lun 19/10 → 0,67 (los dos bloques que quedan del domingo). Amarra mar 22:00 y opera el jueves → no hay beneficio.
+- Cambió respecto de la regla anterior: ahora vale también de lunes a viernes de noche y el domingo/feriado a cualquier hora; en cambio ya no hay beneficio si la operación arranca más tarde que el día hábil siguiente (antes se perdonaba igual el tercio y los fines de semana intermedios).
 
 ## Paso 6 — Amarre y desamarre (LDS) (construido)
 
