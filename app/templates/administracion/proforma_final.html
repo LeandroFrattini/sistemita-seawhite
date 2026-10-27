@@ -186,7 +186,6 @@
           </select>
         </label>
       </div>
-      <datalist id="ta-acts"><option value="LDG"><option value="BERTHING"><option value="AT ORDERS"></datalist>
       <div id="ta-box"></div>
       <p class="pfn-total">Total Tally: <b id="ta-total">$ 0,00</b> <span class="muted" id="ta-usd"></span></p>
     </div>
@@ -1237,7 +1236,7 @@ function celdaFecha(fecha, tipo) {
 // ----- Tally
 const tallyVacio = () => ({ cuenta_ajena: false, omitido: false, categoria: "", armado: false, turnos: [], precios: { H: 0, "100": 0, "150": 0, F3: 0 }, resumen: [], subtotal_ars: 0, cargas_ars: 0, total_ars: 0 });
 let TALLY = tallyVacio(), TA_CALC = null, firmaTaAnt = "";
-const firmaTa = () => JSON.stringify([TALLY.categoria, TALLY.turnos.map((t) => [t.fecha, t.turno, t.nivel]), TALLY.precios, $("#ag-tal").value, $("#dolar-valor").value, refFecha()]);
+const firmaTa = () => JSON.stringify([TALLY.categoria, TALLY.turnos.map((t) => [t.fecha, t.turno, t.nivel, /^\s*AT\s+ORDER/i.test(t.act || "")]), TALLY.precios, $("#ag-tal").value, $("#dolar-valor").value, refFecha()]);
 
 function armarTally() {  // los turnos que se tildaron en el voucher del Head Tally
   TALLY.turnos = (BUQUE.turnos || []).map((t) => ({ fecha: t.fecha, turno: t.turno, act: t.act || "", nivel: "", nombre: "" })); TALLY.armado = true;
@@ -1269,8 +1268,10 @@ function pintarTally() {
     lista.forEach((t, i) => {
       const f = ok ? c.filas[i] : null;
       const row = elx("div", "pfn-trn" + (f && f.nivel === "F3" ? " feriado" : ""));
-      const act = elx("input"); act.value = t.act; act.maxLength = 30; act.setAttribute("list", "ta-acts"); act.setAttribute("aria-label", "Actividad del turno"); act.addEventListener("input", () => { t.act = act.value.toUpperCase(); });
-      act.addEventListener("change", () => pintarTally());  // si pasa a ser (o dejo de ser) BERTHING, cambia lo que se pide del encargado
+      const act = elx("select"); act.setAttribute("aria-label", "Actividad del turno");
+      const actividades = ["BERTHING", "LDG", "AT ORDERS"]; if (t.act && !actividades.includes(String(t.act).toUpperCase())) actividades.push(String(t.act).toUpperCase());
+      actividades.forEach((a) => act.add(new Option(a, a))); act.value = String(t.act || "LDG").toUpperCase();
+      act.addEventListener("change", () => { t.act = act.value; render(); pintarTally(); });  // si pasa a ser (o deja de ser) BERTHING o AT ORDERS, cambia el precio y lo que se pide del encargado
       const sel = elx("select"); sel.setAttribute("aria-label", "Escalón del turno");
       sel.appendChild(new Option("Auto" + (f ? ": " + NIV_CORTO[f.nivel_auto] : ""), ""));
       Object.entries(NIV_CORTO).forEach(([k, v]) => sel.appendChild(new Option(v, k)));

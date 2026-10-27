@@ -275,7 +275,7 @@ def generar(formato: str, buque: str, agencia: str, estado: dict, fecha: date) -
 
 
 # ------------------------------------------------------------ head tally --
-ACTIVIDADES_TALLY = ["BERTHING", "LDG"]  # LDG = loading; se puede escribir otra
+ACTIVIDADES_TALLY = ["BERTHING", "LDG", "AT ORDERS"]  # LDG = loading; AT ORDERS = turno especial (monto fijo)
 _ORDEN_TURNO = {"01-07": 0, "07-13": 1, "13-19": 2, "19-01": 3}
 
 

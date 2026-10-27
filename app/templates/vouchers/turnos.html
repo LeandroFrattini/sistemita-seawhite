@@ -24,7 +24,10 @@
       <td class="nowrap">{{ f.fecha[8:10] }}/{{ f.fecha[5:7] }}/{{ f.fecha[:4] }}{% if f.extra %} <span class="tn-pill-extra">extra</span>{% endif %}<small class="tn-dia">{{ f.dia }}</small></td>
       <td>{{ f.dia }}</td>
       <td><b>{{ f.turno[:2] }}:00 – {{ f.turno[3:] }}:00</b></td>
-      <td><input class="tn-act" list="tn-acts" value="{{ f.act }}" maxlength="30" aria-label="Actividad del turno {{ f.turno }}"></td>
+      <td><select class="tn-act" aria-label="Actividad del turno {{ f.turno }}">
+        {% for a in actividades %}<option value="{{ a }}" {{ 'selected' if f.act|upper == a }}>{{ a }}</option>{% endfor %}
+        {% if f.act and f.act|upper not in actividades %}<option value="{{ f.act|upper }}" selected>{{ f.act|upper }}</option>{% endif %}
+      </select></td>
       <td><span class="tn-tipo tn-{{ f.tipo|lower }}">{{ f.tipo_txt }}</span></td>
     </tr>
     {% endfor %}
@@ -41,16 +44,15 @@
       <option value="01-07">01:00 – 07:00</option><option value="07-13">07:00 – 13:00</option>
       <option value="13-19">13:00 – 19:00</option><option value="19-01">19:00 – 01:00</option>
     </select>
-    <input id="tn-x-act" list="tn-acts" value="MOORING" maxlength="30" aria-label="Actividad del turno extra">
+    <select id="tn-x-act" aria-label="Actividad del turno extra">{% for a in actividades %}<option value="{{ a }}" {{ 'selected' if a == 'LDG' }}>{{ a }}</option>{% endfor %}</select>
     <button type="button" class="btn" id="tn-x-agregar">+ Agregar</button>
   </div>
-  <datalist id="tn-acts">{% for a in actividades %}<option value="{{ a }}">{% endfor %}</datalist>
   <div class="tn-pie">
     <span id="tn-msg" class="muted" role="status"></span>
     {% if confirmado %}<a class="btn" href="/vouchers/{{ v.id }}/tally">⬇ Descargar voucher del Head Tally</a>{% endif %}
     <button type="button" class="btn primary" id="tn-guardar">{{ 'Guardar turnos' if confirmado else 'Confirmar turnos' }}</button>
   </div>
-  <p class="muted" style="margin-bottom:0">El Head Tally arranca desde el berthing (amarre). Actividad: «BERTHING» hasta que arranca la carga y «LDG» (carga) después; se puede cambiar o escribir otra. Primero confirmá los turnos y después descargá el voucher.</p>
+  <p class="muted" style="margin-bottom:0">El Head Tally arranca desde el berthing (amarre). Actividad: «BERTHING» hasta que arranca la carga y «LDG» (carga) después; «AT ORDERS» es el turno especial. Se elige de la lista. Primero confirmá los turnos y después descargá el voucher.</p>
 </div>
 
 <style>
@@ -93,12 +95,14 @@ document.getElementById("tn-x-agregar").addEventListener("click", async () => {
   const [aa, mm, dd] = fecha.split("-");
   const tr = document.createElement("tr");
   tr.dataset.fecha = fecha; tr.dataset.turno = turno; tr.className = "tn-extra";
-  tr.innerHTML = `<td><input type="checkbox" class="tn-on" checked></td><td class="nowrap"></td><td></td><td><b></b></td><td><input class="tn-act" list="tn-acts" maxlength="30"></td><td><span class="tn-tipo"></span></td>`;
+  tr.innerHTML = `<td><input type="checkbox" class="tn-on" checked></td><td class="nowrap"></td><td></td><td><b></b></td><td><select class="tn-act"></select></td><td><span class="tn-tipo"></span></td>`;
   tr.children[1].textContent = `${dd}/${mm}/${aa} `;
   const pill = document.createElement("span"); pill.className = "tn-pill-extra"; pill.textContent = "extra"; tr.children[1].appendChild(pill);
   tr.children[2].textContent = d.dia;
   tr.querySelector("b").textContent = turno.slice(0, 2) + ":00 – " + turno.slice(3) + ":00";
-  tr.querySelector(".tn-act").value = document.getElementById("tn-x-act").value.toUpperCase();
+  const selAct = tr.querySelector(".tn-act");
+  [...document.getElementById("tn-x-act").options].forEach((o) => selAct.add(new Option(o.value, o.value)));
+  selAct.value = document.getElementById("tn-x-act").value;
   const t = tr.querySelector(".tn-tipo"); t.textContent = d.tipo_txt; t.classList.add("tn-" + d.tipo.toLowerCase());
   // se ubica en su lugar, ordenado por fecha y turno
   const orden = ["01-07", "07-13", "13-19", "19-01"];
