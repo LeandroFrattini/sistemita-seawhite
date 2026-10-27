@@ -2,7 +2,7 @@
 {% if flammable %}{% block nav_flammable %}active{% endblock %}{% else %}{% block nav_lineup %}active{% endblock %}{% endif %}
 {% block main_class %}wide{% endblock %}
 {% block content %}
-<div class="page-head">
+<div class="page-head lineup-head">
   <div class="lineup-meta">
     <h1 style="margin:0">{{ 'Line-up Flammable' if flammable else 'Line-up Grain' }}</h1>
     <span class="lineup-date-fixed">Fecha: <b>{{ lineup.lineup_date }}</b> <span class="muted">(hoy, automático)</span></span>
@@ -153,8 +153,14 @@
 
 <div id="recalc-result" class="recalc-box" hidden></div>
 <style>
-.tide { width: 340px; max-width: 100%; margin-left: auto; padding: 6px 10px 7px; background: #fff; border: 1px solid var(--line, #d8e2ef); border-radius: 12px; box-shadow: 0 1px 2px rgba(18, 53, 95, .05); }
+.tide { width: 318px; max-width: 100%; margin-left: auto; padding: 6px 10px 7px; background: #fff; border: 1px solid var(--line, #d8e2ef); border-radius: 12px; box-shadow: 0 1px 2px rgba(18, 53, 95, .05); }
 .tide[hidden] { display: none; }
+/* encabezado en cuadricula: titulo y botones a la izquierda, mareas a la derecha ocupando las dos filas (no agranda el encabezado) */
+.lineup-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 20px; row-gap: 12px; align-items: end; }
+.lineup-head .lineup-meta { grid-column: 1; grid-row: 1; }
+.lineup-head .actions { grid-column: 1; grid-row: 2; }
+.lineup-head .tide { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin-left: 0; }
+@media (max-width: 1150px) { .lineup-head { grid-template-columns: minmax(0, 1fr); } .lineup-head .tide { grid-column: 1; grid-row: 3; width: 100%; } }
 .tide-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
 .tide-tit { font-weight: 700; font-size: 13px; color: var(--navy, #12355f); white-space: nowrap; }
 .tide-tit small { font-weight: 400; font-size: 11px; color: var(--muted, #667); }
@@ -162,7 +168,7 @@
 .tide-nav button:disabled { opacity: .3; cursor: default; }
 .tide-dia { flex: 1; text-align: center; font-weight: 600; font-size: 12.5px; color: var(--navy, #12355f); white-space: nowrap; }
 .tide-ev { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; min-height: 24px; }
-.tide-e { display: flex; justify-content: center; align-items: baseline; gap: 4px; padding: 3px 0; border-radius: 8px; font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; }
+.tide-e { display: flex; justify-content: center; align-items: baseline; gap: 3px; padding: 3px 0; border-radius: 8px; font-variant-numeric: tabular-nums; font-size: 11.5px; white-space: nowrap; }
 .tide-e b { font-weight: 700; }
 .tide-e.alta { background: #e6f1ff; color: #0b4a8f; }
 .tide-e.baja { background: #fdf1e3; color: #9a5a0b; }
