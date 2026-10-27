@@ -15,6 +15,7 @@ from .routers import (
     exports,
     imports,
     lineup,
+    mareas,
     mfa,
     operaciones,
     pendientes,
@@ -97,3 +98,4 @@ app.include_router(operaciones.router)
 app.include_router(docgen.router)
 app.include_router(administracion.router)
 app.include_router(proforma_final.router)
+app.include_router(mareas.router)

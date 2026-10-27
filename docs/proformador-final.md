@@ -547,3 +547,12 @@ Antes el sistema no guardaba nada: la proforma vivía en el navegador y en el Ex
 - El **barco de prueba** nunca se guarda en el historial. Las proformas no se pueden borrar desde la pantalla (a propósito, para no perder historial por error).
 - Lo guardado es el estado de la proforma; al re-descargar el Excel se vuelve a armar con las tarifas vigentes a la fecha del barco (las cargas sociales, el dólar y los importes cargados quedan como se guardaron).
 - Código: `app/proformas_hist.py` (guardar / listar / conflictos), modelo `ProformaFinalReg`, rutas en `app/routers/proforma_final.py` (`/proforma-final/guardar`, `/proformas`, `/proformas/{id}/excel`), pantalla `administracion/proformas.html`.
+
+## Tabla de mareas tentativa en el Line-up
+
+En el espacio libre a la derecha del encabezado del **Line-up Grain** (y del Flammable) hay un cuadro «**Mareas · tentativas · Puerto Ing. White**» con las pleamares y bajamares de **hoy y los dos días siguientes**, como un carrusel: flechas ‹ › (o deslizar con el dedo) y tres puntitos para pasar de día a día. Cada marea muestra ▲ pleamar (azul) o ▼ bajamar (naranja), la hora y la altura en metros, en una sola línea: el cuadro es bajo (unos 66 px) y no agranda el encabezado, así el Line-up queda justo debajo de la barra de navegación. Al pasar el mouse dice que es la predicción del Servicio de Hidrografía Naval, en hora local, y que puede variar con el viento y la presión. Si no hay datos del día, el cuadro no se muestra.
+
+- **De dónde salen**: de las tablas de marea del SHN (`hidro.gov.ar/oceanografia/tmareas`), puerto **Puerto Ingeniero White** (código IWHI; referido al plano de reducción, nivel medio 2,74 m: por encima es pleamar). Ya viene cargado **todo 2026** (`app/data/mareas_iwhi_2026.json`, se siembra al arrancar) y se guarda en la tabla `mareas`.
+- **No hace falta pasar ningún archivo ni actualizar cada 6 meses**: cuando falta un mes (por ejemplo al empezar 2027), el sistema lo consulta solo al SHN, a la misma página que se usaba a mano, y lo guarda. Si el SHN no responde, no se rompe nada (se muestra lo que haya y se reintenta como mucho una vez por hora). Para dejar un año cargado de antemano se puede generar el archivo `mareas_iwhi_AAAA.json` con la misma función `mareas.descargar`.
+- Para sumar otro puerto (Rosales, Canal Principal a Bahía Blanca, etc.) alcanza con indicar su código del SHN; hoy está fijo en Ingeniero White.
+- Código: `app/mareas.py`, ruta `/mareas/proximos` (`app/routers/mareas.py`) y el cuadro en `app/templates/lineup.html`.

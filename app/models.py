@@ -1044,3 +1044,16 @@ class ProformaFinalReg(Base):
     modificado_por: Mapped[str] = mapped_column(String(60), default="")
     modificado_en: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     ediciones: Mapped[int] = mapped_column(Integer, default=0)  # cuantas veces se volvio a guardar
+
+
+class Marea(Base):
+    """Pleamares y bajamares predichas por el SHN (hora local, altura en metros sobre el plano de reduccion)."""
+
+    __tablename__ = "mareas"
+    __table_args__ = (UniqueConstraint("puerto", "fecha", "hora", name="uq_marea_puerto_fecha_hora"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    puerto: Mapped[str] = mapped_column(String(8), index=True)
+    fecha: Mapped[str] = mapped_column(String(10), index=True)   # YYYY-MM-DD
+    hora: Mapped[str] = mapped_column(String(5))                 # HH:MM
+    altura: Mapped[float] = mapped_column(Float)

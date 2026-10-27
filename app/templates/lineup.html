@@ -17,6 +17,16 @@
     {% endif %}
     <span class="muted">Última edición: {{ lineup.updated_by or "—" }}</span>
   </div>
+  <section class="tide" id="tide" aria-label="Tabla de mareas tentativa" title="Mareas tentativas de Puerto Ingeniero White. Predicción del Servicio de Hidrografía Naval, hora local, alturas en metros. Puede variar con el viento y la presión." hidden>
+    <div class="tide-nav">
+      <span class="tide-tit">Mareas <small>tentativas</small></span>
+      <button type="button" id="tide-prev" aria-label="Día anterior">‹</button>
+      <span class="tide-dia" id="tide-dia" aria-live="polite"></span>
+      <button type="button" id="tide-next" aria-label="Día siguiente">›</button>
+      <span class="tide-dots" id="tide-dots" role="tablist" aria-label="Elegir día"></span>
+    </div>
+    <div class="tide-ev" id="tide-ev"></div>
+  </section>
   <div class="actions">
     {% if not flammable %}
     <a class="btn" href="/import">⬆ Importar Excel</a>
@@ -142,6 +152,75 @@
 {% endfor %}
 
 <div id="recalc-result" class="recalc-box" hidden></div>
+<style>
+.tide { width: 340px; max-width: 100%; margin-left: auto; padding: 6px 10px 7px; background: #fff; border: 1px solid var(--line, #d8e2ef); border-radius: 12px; box-shadow: 0 1px 2px rgba(18, 53, 95, .05); }
+.tide[hidden] { display: none; }
+.tide-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
+.tide-tit { font-weight: 700; font-size: 13px; color: var(--navy, #12355f); white-space: nowrap; }
+.tide-tit small { font-weight: 400; font-size: 11px; color: var(--muted, #667); }
+.tide-nav button { flex: none; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--line, #d8e2ef); background: #f6f9fd; font-size: 16px; line-height: 1; cursor: pointer; color: var(--navy, #12355f); }
+.tide-nav button:disabled { opacity: .3; cursor: default; }
+.tide-dia { flex: 1; text-align: center; font-weight: 600; font-size: 12.5px; color: var(--navy, #12355f); white-space: nowrap; }
+.tide-ev { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; min-height: 24px; }
+.tide-e { display: flex; justify-content: center; align-items: baseline; gap: 4px; padding: 3px 0; border-radius: 8px; font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; }
+.tide-e b { font-weight: 700; }
+.tide-e.alta { background: #e6f1ff; color: #0b4a8f; }
+.tide-e.baja { background: #fdf1e3; color: #9a5a0b; }
+.tide-vacio { grid-column: 1 / -1; text-align: center; font-size: 12px; color: var(--muted, #667); }
+.tide-dots { flex: none; display: flex; gap: 4px; }
+.tide-dots button { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: #c5d3e6; cursor: pointer; }
+.tide-dots button[aria-selected="true"] { background: var(--navy, #12355f); }
+</style>
+<script>
+(function () {
+  const box = document.getElementById("tide");
+  if (!box) return;
+  let dias = [], i = 0;
+  const $ = (id) => document.getElementById(id);
+  const nombre = (d, k) => {
+    const [y, m, dd] = d.fecha.split("-");
+    return (k === 0 ? "Hoy" : k === 1 ? "Mañana" : d.dia.charAt(0).toUpperCase() + d.dia.slice(1)) + " " + dd + "/" + m;
+  };
+  const num = (n) => n.toFixed(2).replace(".", ",");
+  function pintar() {
+    const d = dias[i];
+    $("tide-dia").textContent = nombre(d, i);
+    $("tide-prev").disabled = i === 0;
+    $("tide-next").disabled = i === dias.length - 1;
+    const ev = $("tide-ev");
+    ev.replaceChildren();
+    if (!d.eventos.length) {
+      const v = document.createElement("div"); v.className = "tide-vacio"; v.textContent = "Sin datos de mareas para este día.";
+      ev.appendChild(v);
+    }
+    d.eventos.forEach((e) => {
+      const c = document.createElement("div"); c.className = "tide-e " + (e.tipo === "pleamar" ? "alta" : "baja");
+      c.title = (e.tipo === "pleamar" ? "Pleamar " : "Bajamar ") + e.hora + ", " + num(e.altura) + " m";
+      const h = document.createElement("b"); h.textContent = (e.tipo === "pleamar" ? "▲ " : "▼ ") + e.hora;
+      const a = document.createElement("span"); a.textContent = num(e.altura);
+      c.append(h, a); ev.appendChild(c);
+    });
+    [...$("tide-dots").children].forEach((b, k) => b.setAttribute("aria-selected", k === i ? "true" : "false"));
+  }
+  function ir(k) { i = Math.max(0, Math.min(dias.length - 1, k)); pintar(); }
+  $("tide-prev").addEventListener("click", () => ir(i - 1));
+  $("tide-next").addEventListener("click", () => ir(i + 1));
+  box.addEventListener("keydown", (e) => { if (e.key === "ArrowLeft") ir(i - 1); if (e.key === "ArrowRight") ir(i + 1); });
+  let x0 = null;  // deslizar con el dedo en el celular
+  box.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+  box.addEventListener("touchend", (e) => { if (x0 === null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 40) ir(i + (dx < 0 ? 1 : -1)); });
+  fetch("/mareas/proximos", { headers: { Accept: "application/json" } })
+    .then((r) => r.ok && (r.headers.get("Content-Type") || "").includes("json") ? r.json() : null)
+    .then((d) => {
+      if (!d || !d.dias || !d.hay_datos) return;  // sin datos no se muestra nada (mejor que una tabla vacia)
+      dias = d.dias;
+      dias.forEach((_x, k) => { const b = document.createElement("button"); b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-label", "Día " + (k + 1)); b.addEventListener("click", () => ir(k)); $("tide-dots").appendChild(b); });
+      box.hidden = false;
+      pintar();
+    })
+    .catch(() => {});
+})();
+</script>
 {% endblock %}
 
 {% block scripts %}<script src="/static/lineup.js?v={{ static_v('lineup.js') }}"></script>{% endblock %}
