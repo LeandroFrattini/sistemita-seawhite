@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import re
 from datetime import date, datetime
 
@@ -479,7 +480,37 @@ def _build_excel_final(state: dict, chequeo: dict | None, db) -> bytes:
     libres = muelle.bloques_beneficio(db, entrada, b["inicio"]) if not s["muelle"]["sin_beneficio"] else frozenset()
     d = muelle.dias(entrada, salida, libres)
     dias = {"total": d["total"], "detalle": [x["subtotal"] for x in d["detalle"] if x["subtotal"] > 0]}
-    return proforma_xlsx.generar(s, ch, tally, serenos, dias, feriados, _filas_resumen(s), _filas_estado(s))
+    try:
+        det = _detalle_formulas(db, s)
+    except Exception:  # la solapa FORMULAS es un extra de control: si no se puede armar, la proforma se baja igual
+        logging.getLogger(__name__).exception("No se pudo reunir el detalle de la solapa FORMULAS")
+        det = None
+    return proforma_xlsx.generar(s, ch, tally, serenos, dias, feriados, _filas_resumen(s), _filas_estado(s), det)
+
+
+def _detalle_formulas(db, s: dict) -> dict:
+    """Todo lo que la solapa FORMULAS necesita para explicar las cuentas: los desgloses de cada calculo y los parametros que usaron."""
+    from . import lds as lds_calc, migraciones, muelle, practicaje
+    from .docgen.fechas import parse_number
+    from .proformador_calc import get_param
+
+    b, mu, fo, vi = s["buque"], s["muelle"], s["fondeo"], s["vias"]
+    cantidad = parse_number(b["cantidad"]) if b["cantidad"] else 0.0
+    am, de, es_, dr = s["lds_amarre"], s["lds_desamarre"], s["escala"], s["lds_draft"]
+    return {
+        "pract": practicaje.calcular(db, b["eslora"], b["manga"], b["puntal"], b["calado_entrada"], b["calado_salida"]),
+        "pilot": {"coef_maniobra": get_param(db, "pilotage_coef_maniobra", 14.0), "coef_navegacion": get_param(db, "pilotage_coef_navegacion", 8.0),
+                  "coef_km": get_param(db, "pilotage_coef_km", 12.0), "km": get_param(db, "pilotage_km_recorrido", 53.0),
+                  "descuento": get_param(db, "pilotage_descuento", 0.2), "service": get_param(db, "pilotage_service_usd", 6600.0)},
+        "calc": muelle.calcular(db, trn=b["trn"], cantidad=cantidad or 0.0, entrada=mu["entrada"] or b["amarre"], salida=mu["salida"] or b["zarpe"], fondeo=fo["on"],
+                                fondeo_entrada=fo["entrada"], fondeo_salida=fo["salida"], solo_bunker=vi["solo_bunker"], factor_via=vi["factor"], inicio=b["inicio"],
+                                aplicar_beneficio=not mu["sin_beneficio"]),
+        "lds": lds_calc.calcular(db, eslora=b["eslora"], amarre=am["momento"] or b["amarre"], desamarre=de["momento"] or b["zarpe"], lanchas_amarre=am["lanchas"],
+                                 lanchas_desamarre=de["lanchas"], escala=es_["on"], escala_dias=es_["dias"], draft=dr["on"], draft_momento=dr["momento"] or b["fin"]),
+        "mig": migraciones.calcular(db, trn=b["trn"], items=s["migraciones"]["items"], dolar=s["dolar"]["valor"] or 0.0),
+        "free": {"resta": get_param(db, "libre_platica_resta_trn", 1001.0), "coef": get_param(db, "libre_platica_coef", 6942.9),
+                 "base": get_param(db, "libre_platica_base", 416574.0)},
+    }
 
 
 def barco_clave(b: dict) -> str:

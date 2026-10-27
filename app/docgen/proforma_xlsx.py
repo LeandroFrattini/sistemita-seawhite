@@ -630,11 +630,12 @@ def _serenos(h: Hoja, s: dict, serenos: dict, nombre_buque: str, dolar: float, f
 
 
 # ------------------------------------------------------------------------------------------------------------------------- armado
-def generar(s: dict, ch: dict, tally: dict, serenos: dict, dias: dict, feriados: set[str], filas_resumen: list[list], filas_estado: list[list]) -> bytes:
-    """El libro completo: hoja de la agencia, SERENOS, TALLY y las dos hojas ocultas (_estado y _resumen)."""
+def generar(s: dict, ch: dict, tally: dict, serenos: dict, dias: dict, feriados: set[str], filas_resumen: list[list], filas_estado: list[list], det: dict | None = None) -> bytes:
+    """El libro completo: hoja de la agencia, SERENOS, TALLY, FORMULAS (control interno, si hay detalle) y las dos hojas ocultas (_estado y _resumen)."""
     lib = Libro()
     principal = lib.hoja(1)
-    lib.renombrar(1, nombre_hoja(s["agencia"]["nombre"]))
+    nombre_principal = nombre_hoja(s["agencia"]["nombre"])
+    lib.renombrar(1, nombre_principal)
     lib.renombrar(2, "SERENOS")
     lib.renombrar(3, "TALLY")
     dolar = s["dolar"]["valor"] or 0.0
@@ -649,6 +650,15 @@ def generar(s: dict, ch: dict, tally: dict, serenos: dict, dias: dict, feriados:
         lib.quitar_hoja(2)
     else:
         _serenos(lib.hoja(2), s, serenos, titulo, dolar, feriados)
+    if det is not None:  # solapa de control interno: cada importe explicado paso a paso
+        try:
+            from .formulas_bloques import construir
+
+            construir(lib, s, ch, tally, serenos, det, nombre_principal)
+        except Exception:  # un fallo aca no puede impedir bajar la proforma
+            import logging
+
+            logging.getLogger(__name__).exception("No se pudo armar la solapa FORMULAS")
     lib.agregar_hoja_oculta("_resumen", filas_resumen)
     lib.agregar_hoja_oculta("_estado", filas_estado)
     return lib.to_bytes()
