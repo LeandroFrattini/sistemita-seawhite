@@ -31,7 +31,12 @@ VENTANAS_SERENOS = ("00-06", "06-12", "12-18", "18-24")
 CATEGORIAS_TALLY = {"ACEITE": "Aceite", "CEREAL": "Cereal", "BOLSONES": "Bolsones / materiales", "FERTILIZANTES": "Fertilizantes"}
 CATEGORIAS_SERENOS = {"NORMAL": "Normal (aceite)", "INSALUBRE": "Insalubre (cereal, fertilizantes, bolsones)", "PELIGROSO": "Peligroso (amoníaco, gasoil, posta)"}
 VIATICOS = {"WHITE": "Viáticos White", "GALVAN": "Viáticos Galván"}
-NIVELES_TALLY = {"H": "Básico (hábil)", "100": "Extra 100 %", "150": "Extra 150 %", "F3": "Feriado (×3)"}
+NIVELES_TALLY = {"H": "Básico (hábil)", "100": "Extra 100 %", "150": "Extra 150 %", "F3": "Feriado (×3)", "AT": "AT ORDERS (turno especial)"}
+
+
+def es_at_orders(act) -> bool:
+    """AT ORDERS: turno especial que se paga solo en ocasiones especiales, con un monto fijo (tarifa «Turno especial AT ORDERS»)."""
+    return " ".join(str(act or "").upper().split()).startswith("AT ORDER")
 TIERS_SERENOS = {"HABIL": "Día hábil", "INHABIL": "Día inhábil", "DOMINGO": "Domingo y feriado"}
 FACTOR_FERIADO_TALLY = 3
 
@@ -42,6 +47,7 @@ TARIFAS_SEMILLA = [
     ("TALLY", "CEREAL", "H", 328361.35), ("TALLY", "CEREAL", "100", 540207.38), ("TALLY", "CEREAL", "150", 646130.40),
     ("TALLY", "BOLSONES", "H", 370730.56), ("TALLY", "BOLSONES", "100", 582576.59), ("TALLY", "BOLSONES", "150", 688499.61),
     ("TALLY", "FERTILIZANTES", "H", 434284.37), ("TALLY", "FERTILIZANTES", "100", 646130.40), ("TALLY", "FERTILIZANTES", "150", 752053.42),
+    ("TALLY", "ESPECIAL", "AT_ORDERS", 211846.03),
     ("SERENO", "NORMAL", "HABIL", 193493.56), ("SERENO", "NORMAL", "INHABIL", 290239.54), ("SERENO", "NORMAL", "DOMINGO", 386930.38),
     ("SERENO", "INSALUBRE", "HABIL", 290229.31), ("SERENO", "INSALUBRE", "INHABIL", 435353.11), ("SERENO", "INSALUBRE", "DOMINGO", 580462.60),
     ("SERENO", "PELIGROSO", "HABIL", 348316.28), ("SERENO", "PELIGROSO", "INHABIL", 522503.33), ("SERENO", "PELIGROSO", "DOMINGO", 696633.10),
@@ -140,13 +146,16 @@ def calcular_tally(db: Session, *, categoria: str, turnos: list[dict], precios: 
     cat = categoria if categoria in CATEGORIAS_TALLY else ""
     h = base.get(("TALLY", cat, "H"), 0.0) if cat else 0.0
     de_tabla = {"H": h, "100": base.get(("TALLY", cat, "100"), 0.0) if cat else 0.0,
-                "150": base.get(("TALLY", cat, "150"), 0.0) if cat else 0.0, "F3": h * FACTOR_FERIADO_TALLY}
+                "150": base.get(("TALLY", cat, "150"), 0.0) if cat else 0.0, "F3": h * FACTOR_FERIADO_TALLY,
+                "AT": base.get(("TALLY", "ESPECIAL", "AT_ORDERS"), 0.0)}  # el turno especial no depende de la categoria de la carga
     filas, cuenta = [], {k: 0 for k in NIVELES_TALLY}
     for t in turnos:
         f = _d(t.get("fecha"))
         if not f or t.get("turno") not in TURNOS_TALLY:
             continue
         tipo, auto = nivel_tally(f, t["turno"], feriados, no_lab)
+        if es_at_orders(t.get("act")):
+            auto = "AT"  # el turno especial va a su monto fijo cualquiera sea el dia y la hora
         nivel = t.get("nivel") if t.get("nivel") in NIVELES_TALLY else auto
         cuenta[nivel] += 1
         filas.append({"fecha": f.isoformat(), "turno": t["turno"], "act": t.get("act") or "", "tipo_dia": tipo, "nivel_auto": auto, "nivel": nivel})

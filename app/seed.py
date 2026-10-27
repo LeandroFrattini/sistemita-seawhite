@@ -25,6 +25,7 @@ from .models import (
     ProformaPilotageTramo,
     ProformaTarifaTurno,
     ProformaTugTarifa,
+    TarifaPersonal,
     Terminal,
     User,
 )
@@ -192,7 +193,6 @@ PROFORMA_PARAMETROS = [
     ("law_25413_pct", "Proforma final -- LAW NR 25413 (% del total sin el fee)", 1.2),
     ("taxi_ars", "Proforma final -- Taxi para migraciones o sanidad, cada uno (ARS)", 160000.0),
     ("viatico_encargado_ars", "Proforma final -- Viatico del encargado (Head Tally), por dia trabajado (ARS)", 22933.49),
-    ("encargados_at_orders_ars", "Encargados -- Turno especial AT ORDERS: monto que se liquida al encargado (ARS)", 211846.03),
     ("encargados_margen_ars", "Encargados -- Margen del tope de sueldo bruto: con menos que esto de diferencia ya no se descuentan aportes (ARS)", 100000.0),
     ("aduana_habilitacion_usd", "Proforma final -- Habilitacion de aduana, cada una (USD)", 200.0),
     ("bunker_customs_shift_usd", "Bunker -- Customs, USD por turno de 6hs", 300.0),
@@ -530,6 +530,18 @@ def _seed_proformador(db: Session) -> None:
         if t is not None and t.valor == 222000.0:
             t.valor = 160000.0
         db.add(AppSetting(key="taxi_fijo_160000", value="1"))
+
+    # una sola vez: el monto de AT ORDERS (turno especial del Tally) pasa de «Formulas» a las tarifas de Tally, con su vigencia
+    if not db.get(AppSetting, "at_orders_a_tarifas"):
+        par = db.scalar(select(ProformaParametro).where(ProformaParametro.clave == "encargados_at_orders_ars"))
+        monto = par.valor if par is not None else 211846.03
+        db.flush()
+        for vig in {v for (v,) in db.execute(select(TarifaPersonal.vigencia))}:
+            if not db.scalar(select(TarifaPersonal).where(TarifaPersonal.vigencia == vig, TarifaPersonal.servicio == "TALLY", TarifaPersonal.categoria == "ESPECIAL")):
+                db.add(TarifaPersonal(servicio="TALLY", categoria="ESPECIAL", nivel="AT_ORDERS", valor=monto, vigencia=vig))
+        if par is not None:
+            db.delete(par)
+        db.add(AppSetting(key="at_orders_a_tarifas", value="1"))
 
     # una sola vez: el SENASA de la proforma final se cargo con 40 y el monto fijo es 45 (si despues lo cambian a mano, no se toca mas)
     if not db.get(AppSetting, "senasa_fijo_45"):

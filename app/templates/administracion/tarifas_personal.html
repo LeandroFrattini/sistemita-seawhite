@@ -53,8 +53,12 @@
       {% for fila in tally %}
         <tr><td>{{ fila.etiqueta }}</td>{% for c in fila.celdas %}<td>{% if c %}<input name="v_{{ c.id }}" value="{{ ('{:,.2f}'.format(c.valor))|replace(',', '§')|replace('.', ',')|replace('§', '.') }}" inputmode="decimal" aria-label="{{ fila.etiqueta }}">{% endif %}</td>{% endfor %}</tr>
       {% endfor %}
+      {% for fila in especial %}
+        <tr class="tf-especial"><td>{{ fila.etiqueta }} <small class="muted">(monto fijo, sin importar la categoría)</small></td>{% for c in fila.celdas %}<td>{% if c %}<input name="v_{{ c.id }}" value="{{ ('{:,.2f}'.format(c.valor))|replace(',', '§')|replace('.', ',')|replace('§', '.') }}" inputmode="decimal" aria-label="{{ fila.etiqueta }}">{% endif %}</td>{% endfor %}<td colspan="2"></td></tr>
+      {% endfor %}
       </tbody>
     </table>
+    <p class="muted" style="margin-bottom:0">El <b>turno especial AT ORDERS</b> se paga solo en ocasiones especiales: se elige escribiendo «AT ORDERS» en la actividad del turno (paso 8) y vale este monto, en la proforma y en la liquidación del encargado. Es el jornal básico sobre el que se arman los demás: se actualiza junto con los otros precios.</p>
   </div>
 
   <div class="card" style="margin-top:14px">

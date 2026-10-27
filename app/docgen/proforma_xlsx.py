@@ -443,7 +443,7 @@ def _principal(h: Hoja, s: dict, ch: dict, dias: dict) -> int:
 
 
 # ------------------------------------------------------------------------------------------------------------------------- TALLY
-TIER_TALLY = [("H", "BASICO", "h"), ("100", "EXTRA 100%", 100), ("150", "EXTRA 150%", 150), ("F3", "FERIADO x3", 300)]
+TIER_TALLY = [("H", "BASICO", "h"), ("100", "EXTRA 100%", 100), ("150", "EXTRA 150%", 150), ("F3", "FERIADO x3", 300), ("AT", "AT ORDERS", "AT")]
 
 
 def _tally(h: Hoja, s: dict, tally: dict, nombre_buque: str, dolar: float) -> None:
@@ -459,6 +459,8 @@ def _tally(h: Hoja, s: dict, tally: dict, nombre_buque: str, dolar: float) -> No
     primero = r
     for nivel, etiqueta, _cod in TIER_TALLY:
         x = resumen[nivel]
+        if nivel == "AT" and not x["cantidad"]:
+            continue  # el turno especial solo aparece si hubo
         fila_est = 11 if nivel == "F3" else 8
         h.poner(f"C{r}", x["cantidad"], 4)
         h.poner(f"D{r}", "WAGES AT", 4)

@@ -31,12 +31,7 @@ def es_berthing(act) -> bool:
     return str(act or "").strip().upper().startswith("BERTHING")
 
 
-AT_ORDERS_DEFECTO = 211846.03  # monto fijo del turno especial AT ORDERS (se cambia en Formulas: «encargados_at_orders_ars»)
-
-
-def es_at_orders(act) -> bool:
-    """AT ORDERS: turno especial que se paga solo en ocasiones especiales, con un monto fijo en la liquidacion del encargado."""
-    return " ".join(str(act or "").upper().split()).startswith("AT ORDER")
+from .personal import es_at_orders  # noqa: E402  (AT ORDERS: turno especial a monto fijo; el monto sale de las tarifas de Tally)
 
 
 def limpiar_nombre(txt) -> str:
@@ -132,8 +127,7 @@ def _aplicar_tope(turnos: list[dict], tope: float, margen: float = MARGEN_DEFECT
         acumulado += t["bruto"]
 
 
-def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str, base: dict, padron: list[tuple[int, str]],
-             at_orders: float = AT_ORDERS_DEFECTO) -> dict:
+def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str, base: dict, padron: list[tuple[int, str]]) -> dict:
     """Los turnos de Tally del barco con su encargado: bruto, descomposicion, aportes (con tope mensual) y neto.
 
     `filas`: turnos del paso 8 ya calculados (fecha, turno, precio, nombre). `padron`: [(id, nombre)]. ValueError si falta un encargado o el tope del mes."""
@@ -151,8 +145,8 @@ def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str
         raise ValueError("Falta elegir la categoría de la carga del Tally (paso 8).")
     actuales = []
     for i, f in enumerate(filas):
-        if es_at_orders(f.get("act")):  # monto fijo: todo es jornal basico (sin insalubridad ni produccion)
-            d = {**descomponer(base, categoria, at_orders), "basico": _r2(at_orders), "insal": 0.0, "prod": 0.0, "bruto": _r2(at_orders)}
+        if es_at_orders(f.get("act")):  # monto fijo del turno especial: todo es jornal basico (sin insalubridad ni produccion)
+            d = {**descomponer(base, categoria, f["precio"]), "basico": _r2(f["precio"]), "insal": 0.0, "prod": 0.0, "bruto": _r2(f["precio"])}
         else:
             d = descomponer(base, categoria, f["precio"])
         actuales.append({**f, **d, "orden": i, "actual": True, "encargado_id": ids.get(f["nombre"].lower())})

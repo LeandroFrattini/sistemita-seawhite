@@ -179,7 +179,6 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
         # tramos de calado del practicaje (en pies) para mostrarlos tambien en metros
         "serenos_padron": [s.nombre for s in db.scalars(select(Sereno).order_by(Sereno.nombre))],
         "encargados_padron": [e.nombre for e in db.scalars(select(Encargado).order_by(Encargado.nombre))],
-        "at_orders_ars": get_param(db, "encargados_at_orders_ars", enc.AT_ORDERS_DEFECTO),
         "tramos_calado": [{"hasta": t.hasta_pies, "coef": t.valor_usd}
                           for t in db.scalars(select(ProformaPilotageTramo).order_by(ProformaPilotageTramo.orden))],
     })
@@ -613,6 +612,7 @@ def tarifas_personal_page(request: Request, vigencia: str = "", db: Session = De
     return templates.TemplateResponse(request, "administracion/tarifas_personal.html", {
         "user": user, "vigencias": vigencias, "elegida": elegida, "hoy": date.today().isoformat(),
         "tally": grilla("TALLY", personal.CATEGORIAS_TALLY, ("H", "100", "150")),
+        "especial": grilla("TALLY", {"ESPECIAL": "Turno especial AT ORDERS"}, ("AT_ORDERS",)),
         "serenos": grilla("SERENO", personal.CATEGORIAS_SERENOS, ("HABIL", "INHABIL", "DOMINGO")),
         "viaticos": grilla("VIATICO", personal.VIATICOS, ("TURNO",)),
         "aviso": request.query_params.get("ok", ""), "error": request.query_params.get("error", ""),

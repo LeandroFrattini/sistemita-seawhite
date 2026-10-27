@@ -482,7 +482,6 @@
 const AGENCIAS = {{ agencias|tojson }};
 const PADRON_SERENOS = {{ serenos_padron|tojson }};  // nombres cargados en Administracion -> Serenos
 const PADRON_ENCARGADOS = {{ encargados_padron|tojson }};  // nombres cargados en Administracion -> Encargados
-const AT_ORDERS_ARS = {{ at_orders_ars|tojson }};  // monto fijo del turno especial AT ORDERS en la liquidacion del encargado
 const BARCOS = {{ barcos|tojson }};
 const buqueVacio = () => ({ operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "", carga: "", shipper: "", trn: 0, trb: 0, eslora: 0, manga: 0, puntal: 0, bandera: "",
   calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [] });
@@ -1180,8 +1179,8 @@ function actualizarTotalesAd() {
 // ---- Paso 8 (Tally) y paso 9 (Serenos): en pesos; el calculo y las reglas estan en el servidor (app/personal.py)
 const TURNOS_TXT = { "01-07": "01:00–07:00", "07-13": "07:00–13:00", "13-19": "13:00–19:00", "19-01": "19:00–01:00" };
 const VENT_TXT = { "00-06": "00:00–06:00", "06-12": "06:00–12:00", "12-18": "12:00–18:00", "18-24": "18:00–24:00" };
-const NIV_TXT = { H: "Básico (hábil)", "100": "Extra 100 %", "150": "Extra 150 %", F3: "Feriado (×3)" };
-const NIV_CORTO = { H: "Básico", "100": "Extra 100 %", "150": "Extra 150 %", F3: "Feriado ×3" };  // para el desplegable, que es angosto
+const NIV_TXT = { H: "Básico (hábil)", "100": "Extra 100 %", "150": "Extra 150 %", F3: "Feriado (×3)", AT: "AT ORDERS" };
+const NIV_CORTO = { H: "Básico", "100": "Extra 100 %", "150": "Extra 150 %", F3: "Feriado ×3", AT: "AT ORDERS" };  // para el desplegable, que es angosto
 const CAT_TXT = { NORMAL: "Normal", INSALUBRE: "Insalubre", PELIGROSO: "Peligroso" };
 const TIER_TXT = { HABIL: "día hábil", INHABIL: "día inhábil", DOMINGO: "domingo / feriado" };
 const ars = (n) => "$ " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1227,7 +1226,7 @@ function selectorEncargado(t) {
   sel.value = t.nombre || "";
   sel.addEventListener("change", () => { t.nombre = sel.value; });
   caja.appendChild(sel);
-  if (/^\s*AT\s+ORDER/i.test(t.act || "")) caja.appendChild(elx("p", "muted", "AT ORDERS: turno especial, en la liquidación del encargado se paga " + ars(AT_ORDERS_ARS) + "."));
+  if (/^\s*AT\s+ORDER/i.test(t.act || "")) caja.appendChild(elx("p", "muted", "AT ORDERS: turno especial a monto fijo (se actualiza en Tarifas de Tally y Serenos)."));
   return caja;
 }
 
