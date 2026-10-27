@@ -18,10 +18,10 @@ from ..auth import GATE_COOKIE, GATE_MAX_AGE, administracion_required, datos_res
 from ..database import get_db
 from ..docgen.fechas import parse_number
 from ..docgen import voucher as vch
-from ..models import AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, Sereno, TarifaPersonal, User, Encargado, EncargadoTope
+from ..models import ProformaFinalReg, AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, Sereno, TarifaPersonal, User, Encargado, EncargadoTope
 from .. import practicaje as pract
 from .. import lds as lds_calc
-from .. import chequeo, encargados as enc, migraciones, personal, serenos_padron, serenos_pagos
+from .. import chequeo, encargados as enc, migraciones, personal, proformas_hist, serenos_padron, serenos_pagos
 from ..docgen import resumen_sereno_xlsx
 from .. import muelle as muelle_calc
 from ..vouchers_lib import estado_voucher
@@ -162,8 +162,18 @@ def _barcos_a_proformar(db: Session, limite: int = 300) -> list[dict]:
 
 
 @router.get("/proforma-final", response_class=HTMLResponse)
-def proforma_final_page(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def proforma_final_page(request: Request, id: int | None = None, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     g_ser, g_tal = cargas_generales(db)
+    abierta = estado_inicial = None
+    if id:  # se abrio una proforma del historial para modificarla
+        reg = db.get(ProformaFinalReg, id)
+        if reg is not None:
+            abierta, estado_inicial = proformas_hist.meta(reg), proformas_hist.estado_de(reg)
+    # una proforma por barco: si ya hay una hecha, la pantalla avisa para abrirla en vez de rehacerla
+    existentes = {}
+    for r in proformas_hist.listar(db):
+        if r.operated_id and r.operated_id not in existentes:
+            existentes[r.operated_id] = {"id": r.id, "quien": proformas_hist._quien_cuando(r.creado_por, r.creado_en)}
     agencias = [{
         "id": c.id, "nombre": c.name,
         "serenos_pct": c.cargas_sociales_pct if c.cargas_sociales_pct is not None else g_ser,
@@ -172,6 +182,7 @@ def proforma_final_page(request: Request, db: Session = Depends(get_db), user: U
     } for c in _agencias(db)]
     return templates.TemplateResponse(request, "administracion/proforma_final.html", {
         "user": user, "agencias": agencias, "barcos": _barcos_a_proformar(db), "pasos": pf.PASOS,
+        "abierta": abierta, "estado_inicial": estado_inicial, "existentes": existentes,
         "hoy": date.today().isoformat(),
         "aduana_usd": get_param(db, "aduana_habilitacion_usd", pf.ADUANA_USD),
         "law_pct": ("%g" % get_param(db, "law_25413_pct", chequeo.LAW_PCT)).replace(".", ","),
@@ -276,6 +287,45 @@ async def proforma_final_excel(request: Request, db: Session = Depends(get_db), 
         contenido = pf.build_excel(state)
         headers["X-Aviso"] = "version-simplificada"
     return Response(content=contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", headers=headers)
+
+
+@router.post("/proforma-final/guardar")
+async def proforma_final_guardar(request: Request, id: int | None = None, base: str = "", forzar: int = 0, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Guarda la proforma en el historial (nueva, o actualiza la que se abrio). Si alguien la cambio mientras estaba abierta, avisa (409) en vez de pisarla."""
+    try:
+        reg = proformas_hist.guardar(db, await request.json(), user.username, id, base, bool(forzar))
+    except proformas_hist.Conflicto as e:
+        return JSONResponse({"ok": False, "error": e.mensaje, "conflicto": True, "duplicada": e.duplicada}, status_code=409)
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=422)
+    except Exception:
+        log.exception("proforma final: no se pudo guardar en el historial (usuario=%s)", user.username)
+        return JSONResponse({"ok": False, "error": "No se pudo guardar en el historial. Avisale al administrador del sistema."}, status_code=500)
+    if reg is None:
+        return {"ok": True, "id": None, "prueba": True}
+    return {"ok": True, "id": reg.id, **proformas_hist.meta(reg)}
+
+
+@router.get("/proformas", response_class=HTMLResponse)
+def proformas_historial(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    return templates.TemplateResponse(request, "administracion/proformas.html", {"user": user, "filas": proformas_hist.listar(db), "tope": proformas_hist.MAX_LISTA})
+
+
+@router.get("/proformas/{proforma_id}/excel")
+def proformas_excel(proforma_id: int, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Vuelve a armar el Excel de una proforma guardada (con lo que se guardo), sin tocar el historial."""
+    reg = db.get(ProformaFinalReg, proforma_id)
+    if reg is None:
+        return RedirectResponse("/administracion/proformas", status_code=303)
+    state = proformas_hist.estado_de(reg)
+    nombre = f"Proforma final - {reg.agencia or 'sin agencia'} - {reg.buque} - {date.today().strftime('%d.%m.%Y')}.xlsx"
+    try:
+        contenido = pf.build_excel(state, chequeo.armar(db, state), db)
+    except Exception:
+        log.exception("proforma final: no se pudo rearmar el Excel guardado %s", proforma_id)
+        contenido = pf.build_excel(state)
+    return Response(content=contenido, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": 'attachment; filename="' + (nombre.encode("ascii", "ignore").decode() or "Proforma final.xlsx") + '"'})
 
 
 @router.post("/proforma-final/excel-serenos")

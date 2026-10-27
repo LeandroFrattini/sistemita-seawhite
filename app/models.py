@@ -1023,3 +1023,24 @@ class EncargadoSuperoTope(Base):
     usuario: Mapped[str] = mapped_column(String(60), default="")
     fecha: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+
+
+class ProformaFinalReg(Base):
+    """Historial de proformas finales: cada una con su estado completo (el mismo JSON que lleva el Excel en la hoja _estado), quien la hizo,
+    quien la toco por ultima vez y el total. Se guarda al bajar el Excel o con «Guardar»; abrirla desde el historial permite modificarla sin empezar de cero."""
+
+    __tablename__ = "proformas_finales"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    buque: Mapped[str] = mapped_column(String(120), default="", index=True)
+    agencia: Mapped[str] = mapped_column(String(120), default="")
+    barco_clave: Mapped[str] = mapped_column(String(160), default="", index=True)
+    operated_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    total_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_ars: Mapped[float | None] = mapped_column(Float, nullable=True)
+    estado: Mapped[str] = mapped_column(Text, default="")
+    creado_por: Mapped[str] = mapped_column(String(60), default="")
+    creado_en: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    modificado_por: Mapped[str] = mapped_column(String(60), default="")
+    modificado_en: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    ediciones: Mapped[int] = mapped_column(Integer, default=0)  # cuantas veces se volvio a guardar

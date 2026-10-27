@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block nav_administracion %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Historial de proformas</h1>
+    <span class="muted">Cada proforma que se guarda queda acá, con quién la hizo y cuándo. «Modificar» la abre en el asistente con todo lo que se cargó, para corregirla sin empezar de cero.</span>
+  </div>
+  <div class="actions">
+    <a class="btn primary" href="/administracion/proforma-final">+ Nueva proforma</a>
+    <a class="btn" href="/administracion">← Administración</a>
+  </div>
+</div>
+
+<div class="card">
+  {% if not filas %}
+  <p class="muted">Todavía no hay proformas guardadas. Se guardan solas al descargar el Excel de la proforma final (o con el botón «Guardar» del asistente).</p>
+  {% else %}
+  <div class="hp-filtro">
+    <input type="search" id="hp-q" placeholder="Buscar por buque, agencia o persona…" aria-label="Buscar en el historial" autocomplete="off">
+    <span class="muted" id="hp-cuenta">{{ filas|length }} proformas</span>
+  </div>
+  <div class="hp-scroll">
+    <table class="hp-tabla">
+      <thead>
+        <tr><th>Buque</th><th>Agencia</th><th class="num">Total USD</th><th class="num">Total ARS</th><th>La hizo</th><th>Última modificación</th><th></th></tr>
+      </thead>
+      <tbody id="hp-filas">
+        {% for r in filas %}
+        <tr data-t="{{ (r.buque ~ ' ' ~ r.agencia ~ ' ' ~ r.creado_por ~ ' ' ~ r.modificado_por)|lower }}">
+          <td><b>{{ r.buque }}</b></td>
+          <td>{{ r.agencia or '—' }}</td>
+          <td class="num">{% if r.total_usd is not none %}USD {{ (r.total_usd|ars)[2:] }}{% else %}—{% endif %}</td>
+          <td class="num">{% if r.total_ars is not none %}{{ r.total_ars|ars }}{% else %}—{% endif %}</td>
+          <td>{{ r.creado_por or '—' }}<small>{{ r.creado_en|localdt }}</small></td>
+          <td>{{ r.modificado_por or '—' }}<small>{{ r.modificado_en|localdt }}{% if r.ediciones %} · {{ r.ediciones }} {{ 'modificación' if r.ediciones == 1 else 'modificaciones' }}{% endif %}</small></td>
+          <td class="hp-acc">
+            <a class="btn primary" href="/administracion/proforma-final?id={{ r.id }}" aria-label="Modificar la proforma de {{ r.buque }}">Modificar</a>
+            <a class="btn" href="/administracion/proformas/{{ r.id }}/excel" aria-label="Descargar el Excel de {{ r.buque }}">Excel</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="muted" id="hp-vacio" hidden>Ninguna proforma coincide con la búsqueda.</p>
+  {% if filas|length >= tope %}<p class="muted">Se muestran las últimas {{ tope }} proformas.</p>{% endif %}
+  {% endif %}
+</div>
+
+<style>
+.hp-filtro { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.hp-filtro input { min-width: 280px; font-size: 14px; }
+.hp-scroll { overflow-x: auto; }
+.hp-tabla { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.hp-tabla th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.hp-tabla td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft, var(--line)); vertical-align: top; }
+.hp-tabla td small { display: block; color: var(--muted); font-size: 12px; }
+.hp-tabla .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hp-acc { white-space: nowrap; text-align: right; }
+.hp-acc .btn { margin-left: 6px; }
+</style>
+<script>
+(function () {
+  const q = document.getElementById("hp-q");
+  if (!q) return;
+  const filas = [...document.querySelectorAll("#hp-filas tr")];
+  q.addEventListener("input", () => {
+    const t = q.value.trim().toLowerCase();
+    let n = 0;
+    filas.forEach((f) => { const ver = !t || f.dataset.t.includes(t); f.hidden = !ver; if (ver) n++; });
+    document.getElementById("hp-cuenta").textContent = n + (n === 1 ? " proforma" : " proformas");
+    document.getElementById("hp-vacio").hidden = n > 0;
+  });
+})();
+</script>
+{% endblock %}

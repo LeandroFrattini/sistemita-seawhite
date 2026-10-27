@@ -4,10 +4,11 @@
 <div class="page-head">
   <div>
     <h1 style="margin:0">Proforma final</h1>
-    <span class="muted">Se baja como Excel; ese mismo Excel se puede volver a cargar para rehacerla o modificarla. El sistema no guarda las proformas.
+    <span class="muted">Se guarda en el historial al bajar el Excel (o con «Guardar»): desde ahí se puede abrir para modificarla sin empezar de cero.
     <span title="Versión del sistema que estás usando" style="opacity:.7">· versión {{ version }}</span></span>
   </div>
   <div class="actions">
+    <a class="btn" href="/administracion/proformas">Historial</a>
     <a class="btn" href="/administracion/calendario">Calendario</a>
     <a class="btn" href="/administracion/agencias">Agencias</a>
     <a class="btn" href="/administracion/tarifas-personal">Tarifas</a>
@@ -17,10 +18,14 @@
 
 <div class="pfn-bar card">
   <button type="button" class="btn primary" id="pfn-bajar">⬇ Descargar Excel</button>
-  <label class="btn" for="pfn-subir">Cargar proforma anterior…</label>
+  <button type="button" class="btn" id="pfn-guardar">💾 Guardar</button>
+  <label class="btn" for="pfn-subir">Cargar desde un Excel…</label>
   <input type="file" id="pfn-subir" accept=".xlsx" hidden>
   <span id="pfn-msg" class="muted" role="status"></span>
 </div>
+
+<div class="pfn-abierta card" id="pfn-abierta" hidden role="status"></div>
+<div class="pfn-abierta card" id="pfn-dup" hidden role="status"></div>
 
 <div class="pfn-layout">
   <nav class="pfn-steps card" aria-label="Pasos">
@@ -246,7 +251,7 @@
         <h3>Para terminar, bajá los 3 archivos</h3>
         <div class="ck-desc-fila">
           <button type="button" class="btn primary" id="ck-bajar">⬇ Proforma final</button>
-          <span class="muted">El sistema no guarda las proformas: guardá el archivo. Para rehacerla, «Cargar proforma anterior».</span>
+          <span class="muted">Se guarda en el historial (menú «Historial») para poder abrirla y modificarla después.</span>
         </div>
         <div class="ck-desc-fila">
           <button type="button" class="btn" id="ck-bajar-se">⬇ Liquidación de serenos</button>
@@ -277,6 +282,8 @@
 </div>
 
 <style>
+.pfn-abierta { margin-bottom: 14px; padding: 10px 14px; background: #fff8e6; border-color: #f1d28a; font-size: 13.5px; line-height: 1.5; }
+.pfn-abierta b { color: var(--navy, #12355f); }
 .pfn-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .pfn-layout { display: grid; grid-template-columns: 290px minmax(0, 1fr); grid-template-areas: "steps body" "resumen body"; grid-template-rows: auto 1fr; gap: 14px; align-items: start; }
 .pfn-steps { grid-area: steps; }
@@ -656,6 +663,7 @@ function elegirBarco(valor) {
   }
   if (o.zarpe) $("#dolar-fecha").value = o.zarpe.slice(0, 10);  // la cotizacion suele ser la del dia de zarpada (se puede cambiar)
   renderBuque(); pintarPaso3(true, o); render();
+  avisoDuplicada(o.id);
   msg(o.agencia_id ? "Barco cargado. La agencia a facturar es " + o.agencia + "." : "Barco cargado. Su agencia (" + (o.agencia || "sin cliente") + ") no figura en Clientes: elegila en el paso 2.", !!o.agencia_id);
 }
 
@@ -1796,10 +1804,66 @@ $("#ag-add-fee").addEventListener("click", () => {
   renderFees(); render();
 });
 
+// Historial: la proforma abierta (si se entro desde el historial) y su ultima version conocida, para avisar si alguien la cambio mientras tanto
+const ABIERTA = {{ abierta|tojson }};
+const ESTADO_INICIAL = {{ estado_inicial|tojson }};
+const EXISTENTES = {{ existentes|tojson }};
+let PROFORMA = { id: ABIERTA ? ABIERTA.id : null, mod: ABIERTA ? ABIERTA.mod : "" };
+
+function mostrarAbierta(m) {
+  const c = $("#pfn-abierta");
+  if (!m || !m.id) { c.hidden = true; return; }
+  c.hidden = false;
+  c.replaceChildren();
+  const t = document.createElement("div");
+  const b = document.createElement("b"); b.textContent = "Estás modificando la proforma de " + m.buque + ". ";
+  t.append(b, document.createTextNode("La hizo " + m.creada + (m.ediciones ? " · última modificación: " + m.modificada : "") + ". Al guardar o descargar el Excel se actualiza ESTA proforma (no se crea otra)."));
+  c.appendChild(t);
+}
+function avisoDuplicada(opId) {
+  const c = $("#pfn-dup"), e = EXISTENTES[opId];
+  c.hidden = !(e && !PROFORMA.id);
+  if (c.hidden) return;
+  c.replaceChildren();
+  const b = document.createElement("b"); b.textContent = "Ojo: este barco ya tiene una proforma guardada. ";
+  const a = document.createElement("a"); a.href = "/administracion/proforma-final?id=" + e.id; a.textContent = "Abrirla para modificarla";
+  c.append(b, document.createTextNode("La hizo " + e.quien + ". Para corregirla conviene abrirla en vez de rehacerla: "), a, document.createTextNode("."));
+}
+
+// Guarda en el historial. Devuelve {ok, id?, error?, cancelado?}; si alguien la cambio mientras estaba abierta (o ya hay una del barco), pregunta antes de pisar.
+async function guardarProforma(forzar = false) {
+  const s = getState();
+  if (!s.buque.nombre) return { ok: false, error: "Elegí el barco (paso 1) para poder guardarla." };
+  const q = new URLSearchParams();
+  if (PROFORMA.id) { q.set("id", PROFORMA.id); q.set("base", PROFORMA.mod); }
+  if (forzar) q.set("forzar", "1");
+  let res;
+  try { res = await fetch("/administracion/proforma-final/guardar?" + q, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) }); }
+  catch (e) { return { ok: false, error: "No se pudo conectar con el sistema." }; }
+  const d = await res.json().catch(() => null);
+  if (!d) return { ok: false, error: res.redirected || res.status === 401 || res.status === 403 || res.ok ? "Se cerró tu sesión. Entrá de nuevo en otra pestaña (los datos de esta pantalla siguen acá)." : "Error " + res.status + "." };
+  if (res.status === 409) {
+    const sigue = PROFORMA.id ? "Aceptar = guardar igual y pisar sus cambios.\nCancelar = no guardar (volvé a abrirla desde el Historial para ver lo último)." : "Aceptar = guardar igual como OTRA proforma del mismo barco.\nCancelar = no guardar (abrí la que ya existe desde el Historial).";
+    if (confirm(d.error + "\n\n" + sigue)) return guardarProforma(true);
+    return { ok: false, cancelado: true, error: "No se guardó en el historial." };
+  }
+  if (d.ok && d.id) { PROFORMA = { id: d.id, mod: d.mod }; mostrarAbierta(d); $("#pfn-dup").hidden = true; }
+  return d;
+}
+
+$("#pfn-guardar").addEventListener("click", async () => {
+  msg("Guardando…");
+  const g = await guardarProforma();
+  if (g.ok) { SUCIO = false; msg(g.prueba ? "Es un barco de prueba: no se guarda en el historial." : "Guardada en el historial. Podés seguir trabajando o abrirla más tarde desde «Historial».", true); }
+  else msg(g.error || "No se pudo guardar.", false);
+});
+
 $("#pfn-bajar").addEventListener("click", async () => {
   const s = getState();
   if (!s.agencia.id) { msg("Elegí la agencia (paso 2) antes de bajar el Excel.", false); step = 2; render(); return; }
-  msg("Armando el Excel…");
+  msg("Guardando y armando el Excel…");
+  const g = await guardarProforma();
+  if (g.cancelado) { msg(g.error, false); return; }
   let res;
   try { res = await fetch("/administracion/proforma-final/excel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(s) }); }
   catch (e) { msg("No se pudo conectar con el sistema para armar el Excel. Revisá tu conexión y probá de nuevo.", false); return; }
@@ -1814,8 +1878,9 @@ $("#pfn-bajar").addEventListener("click", async () => {
   SUCIO = false;
   const f = faltantes(getState()), pend = [1, 2, 3, 4, 5, 6].filter((n) => f[n].length);
   const simple = res.headers.get("X-Aviso") === "version-simplificada";
+  const hist = g.ok ? (g.prueba ? " (barco de prueba: no se guarda en el historial)" : " y guardada en el historial") : ". OJO: NO se pudo guardar en el historial (" + (g.error || "error") + "). Guardá el Excel: es el respaldo";
   msg(simple ? "Se descargó una versión SIMPLIFICADA (resumen en una hoja): no se pudo armar el Excel con el formato de las proformas. Avisale al administrador del sistema." :
-    "Excel descargado. El sistema no guarda la proforma: guardá ese archivo." + (pend.length ? ` Ojo: quedaron incompletos los pasos ${pend.join(", ")}.` : ""), !pend.length && !simple);
+    "Excel descargado" + hist + "." + (pend.length ? ` Ojo: quedaron incompletos los pasos ${pend.join(", ")}.` : ""), !pend.length && !simple && g.ok);
 });
 
 // Excels aparte de la proforma final: recibos de serenos y declaracion de encargados
@@ -1852,8 +1917,9 @@ $("#pfn-subir").addEventListener("change", async (ev) => {
   const data = await res.json().catch(() => ({ ok: false, error: "No se pudo leer el archivo." }));
   if (!data.ok) { msg(data.error, false); return; }
   setState(data.state);
+  PROFORMA = { id: null, mod: "" }; mostrarAbierta(null);  // viene de un Excel: al guardar entra al historial como una proforma nueva
   step = 1; render();
-  msg("Proforma cargada. Podés modificar lo que necesites y volver a bajarla.");
+  msg("Proforma cargada desde el Excel. Podés modificar lo que necesites y volver a bajarla.");
 });
 
 renderFees();
@@ -1861,5 +1927,11 @@ pintarPaso3(false);
 pintarPracticaje();
 pintarMuelle();
 render();
+if (ABIERTA && ESTADO_INICIAL) {  // se abrio una proforma del historial: se carga entera y se avisa que se esta modificando
+  setState(ESTADO_INICIAL);
+  mostrarAbierta(ABIERTA);
+  step = 1; render();
+  msg("Proforma cargada del historial. Modificá lo que necesites y bajá el Excel (o «Guardar»).");
+}
 </script>
 {% endblock %}
