@@ -192,6 +192,7 @@ PROFORMA_PARAMETROS = [
     ("law_25413_pct", "Proforma final -- LAW NR 25413 (% del total sin el fee)", 1.2),
     ("taxi_ars", "Proforma final -- Taxi para migraciones o sanidad, cada uno (ARS)", 160000.0),
     ("viatico_encargado_ars", "Proforma final -- Viatico del encargado (Head Tally), por dia trabajado (ARS)", 22933.49),
+    ("encargados_at_orders_ars", "Encargados -- Turno especial AT ORDERS: monto que se liquida al encargado (ARS)", 211846.03),
     ("encargados_margen_ars", "Encargados -- Margen del tope de sueldo bruto: con menos que esto de diferencia ya no se descuentan aportes (ARS)", 100000.0),
     ("aduana_habilitacion_usd", "Proforma final -- Habilitacion de aduana, cada una (USD)", 200.0),
     ("bunker_customs_shift_usd", "Bunker -- Customs, USD por turno de 6hs", 300.0),

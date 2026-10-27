@@ -31,6 +31,14 @@ def es_berthing(act) -> bool:
     return str(act or "").strip().upper().startswith("BERTHING")
 
 
+AT_ORDERS_DEFECTO = 211846.03  # monto fijo del turno especial AT ORDERS (se cambia en Formulas: «encargados_at_orders_ars»)
+
+
+def es_at_orders(act) -> bool:
+    """AT ORDERS: turno especial que se paga solo en ocasiones especiales, con un monto fijo en la liquidacion del encargado."""
+    return " ".join(str(act or "").upper().split()).startswith("AT ORDER")
+
+
 def limpiar_nombre(txt) -> str:
     return " ".join(str(txt or "").split())[:40]
 
@@ -124,7 +132,8 @@ def _aplicar_tope(turnos: list[dict], tope: float, margen: float = MARGEN_DEFECT
         acumulado += t["bruto"]
 
 
-def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str, base: dict, padron: list[tuple[int, str]]) -> dict:
+def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str, base: dict, padron: list[tuple[int, str]],
+             at_orders: float = AT_ORDERS_DEFECTO) -> dict:
     """Los turnos de Tally del barco con su encargado: bruto, descomposicion, aportes (con tope mensual) y neto.
 
     `filas`: turnos del paso 8 ya calculados (fecha, turno, precio, nombre). `padron`: [(id, nombre)]. ValueError si falta un encargado o el tope del mes."""
@@ -142,7 +151,10 @@ def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str
         raise ValueError("Falta elegir la categoría de la carga del Tally (paso 8).")
     actuales = []
     for i, f in enumerate(filas):
-        d = descomponer(base, categoria, f["precio"])
+        if es_at_orders(f.get("act")):  # monto fijo: todo es jornal basico (sin insalubridad ni produccion)
+            d = {**descomponer(base, categoria, at_orders), "basico": _r2(at_orders), "insal": 0.0, "prod": 0.0, "bruto": _r2(at_orders)}
+        else:
+            d = descomponer(base, categoria, f["precio"])
         actuales.append({**f, **d, "orden": i, "actual": True, "encargado_id": ids.get(f["nombre"].lower())})
     marg = margen(db)
     # lo que ya cobraron esos encargados en esos meses en otros barcos
@@ -170,7 +182,8 @@ def calcular(db: Session, *, barco_clave: str, filas: list[dict], categoria: str
         t["sind"] = t["bruto"] * PCT_SIND
         t["neto"] = t["bruto"] - t["os"] - t["jubil"] - t["ley"] - t["sind"]
     actuales.sort(key=lambda t: (_orden(t["fecha"], t["turno"]), t["nombre"]))
-    return {"filas": actuales, "topes": topes, "manuales": manuales, "margen": marg, "categoria": categoria}
+    tipica = descomponer(base, categoria, base.get(("TALLY", categoria, "H"), 0.0))  # para el titulo «Insal. 30%» de la declaracion
+    return {"filas": actuales, "topes": topes, "manuales": manuales, "margen": marg, "categoria": categoria, "insal_pct": tipica["insal_pct"]}
 
 
 def registrar(db: Session, *, barco_clave: str, buque: str, filas: list[dict], usuario: str) -> None:

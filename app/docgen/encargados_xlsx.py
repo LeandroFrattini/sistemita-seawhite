@@ -60,7 +60,7 @@ def generar(*, buque: str, operacion: str, carga: str, sitio: str, calc: dict, c
     ws["E8"] = carga
     ws["E10"] = sitio
     ws["E11"] = hoy.strftime("%d/%m/%Y")
-    ws["G16"] = filas[0]["insal_pct"] if filas else 0
+    ws["G16"] = calc.get("insal_pct", 0)
     # turnos por dia
     r = 20
     primero = r

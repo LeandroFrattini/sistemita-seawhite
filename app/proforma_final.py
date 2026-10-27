@@ -556,7 +556,8 @@ def build_excel_encargados(state: dict, db, usuario: str = "") -> tuple[bytes, s
     for f in filas:
         if f["nombre"] and f["nombre"] not in cuil_de:
             raise ValueError(f"{f['nombre']} ya no está en la lista de encargados (Administración → Encargados): elegí otro encargado en el paso 8.")
-    calc = enc.calcular(db, barco_clave=barco_clave(b), filas=filas, categoria=t["categoria"], base=base, padron=[(e.id, e.nombre) for e in lista])
+    calc = enc.calcular(db, barco_clave=barco_clave(b), filas=filas, categoria=t["categoria"], base=base, padron=[(e.id, e.nombre) for e in lista],
+                        at_orders=get_param(db, "encargados_at_orders_ars", enc.AT_ORDERS_DEFECTO))
     titulo = proforma_xlsx.titulo_buque(b["nombre"])
     operacion = "DESCARGA" if any(str(f.get("act") or "").upper().startswith(("DISCH", "DESC")) for f in filas) else "CARGA"
     plano = re.sub(r"^(MV|M/V|M\.V\.)\s+", "", titulo)  # en la declaracion el barco va sin el MV, como en el libro
