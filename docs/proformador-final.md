@@ -588,3 +588,14 @@ Cuando alguien completa los datos de un barco (**Completar datos** en Nuestros b
 - Quien completó los datos **no se avisa a sí misma**. Se muestran hasta 3 avisos juntos y un «y N más para proformar».
 - Solo se avisa de lo completado **desde que se prendió la función** (los barcos viejos no aparecen todos juntos). Hay un aviso por cada fila de agencia del barco (cada agencia se proforma aparte).
 - Quien no es de Administración no ve nada. Código: `app/avisos.py`, ruta `/avisos/proformar` (`app/routers/avisos.py`), script en `app/static/nav.js` y estilo en `app/static/app.css`.
+
+## Recuento de barcos operados: estiba sin tilde, barcos «sin clasificar» y alta a mano
+
+Dos causas por las que un barco que se sacaba del line-up (la ✕) no figuraba en el recuento de Operados:
+
+1. **Estiba sin el tilde «Nuestro»**: antes solo pasaban a Operados los barcos con «Nuestro» tildado. Ahora también pasa un barco que **tiene una estiba entre sus clientes** (principal u otras agencias), aunque no tenga el tilde. En ese caso cuentan **solo las estibas** (si el barco además tenía una agencia ajena, esa agencia no suma). Con el tilde, todo sigue como siempre: una fila por cada cliente. Un barco con estiba también aparece ahora en «En el line-up» de Nuestros barcos (y se anuncia), y se puede sacar desde ahí. «Lo cargué por error» sigue sin contar.
+2. **Barcos «sin clasificar»** (por ejemplo del Flammable, como GAS VENUS): se archivaban bien, pero si no tenían cliente o su cliente no está en la planilla de Clientes **no aparecían en ninguna de las dos tablas** (Agencias / Estibas) y solo se nombraban en una nota. Ahora se muestran en una tabla aparte, **«Sin clasificar»**, con el selector para elegir el cliente (al elegirlo pasan a su tabla), y salen en una hoja «Sin clasificar» del Excel de operados.
+
+**Para no perder barcos sin darse cuenta**: al eliminar un barco que **no** está tildado como «Nuestro», la pantalla avisa antes («no pasa a Operados ni cuenta en el recuento, salvo que tenga una estiba nuestra») y, después, dice si se contó («Eliminado: pasó a Operados») o no («Eliminado: NO se contó en Operados»).
+
+**Corregir lo que ya se perdió**: en Nuestros barcos → Operados hay un botón **«+ Agregar a operados»**: se escribe el barco, se elige el cliente (agencia o estiba) y el mes, y queda en Operados para el recuento (no se duplica si ya está con ese cliente ese mes). Queda marcado como cargado a mano.

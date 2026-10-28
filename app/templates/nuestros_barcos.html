@@ -182,8 +182,12 @@
     <h2>Operados
       {% if mes %}· {{ period_label(mes) }} ({{ operados|length }}){% else %}· todos ({{ total_operados }}){% endif %}
     </h2>
-    <a class="btn" href="/nuestros-barcos/operados/exportar.xlsx{{ '?mes=' ~ mes if mes }}">⬇ Exportar Excel</a>
+    <span class="op-head-acc">
+      <button type="button" class="btn" id="open-operado-modal">+ Agregar a operados</button>
+      <a class="btn" href="/nuestros-barcos/operados/exportar.xlsx{{ '?mes=' ~ mes if mes }}">⬇ Exportar Excel</a>
+    </span>
   </div>
+  {% if request.query_params.get('error') == 'operado' %}<p class="flash-inline" role="alert">No se pudo agregar: completá el barco, elegí el cliente y el mes.</p>{% endif %}
   <p class="muted">Cuando borrás un barco nuestro del line-up (la ✕), pasa acá. El <b>mes</b> se toma del ETC/ETS
   del barco, y lo podés cambiar por fila para tu recuento. Al completar los datos operativos, la fila se pinta de verde.</p>
 
@@ -198,6 +202,10 @@
 
   {{ operados_tabla("Agencias", operados_agencia, false) }}
   {{ operados_tabla("Estibas", operados_estiba, true) }}
+  {% if operados_sin_clasificar %}
+  <p class="flash-inline" role="status" style="max-width:none">Los barcos de abajo se cuentan como operados pero <b>no tienen cliente</b> (o su cliente no está en la planilla de Clientes), por eso no entran en Agencias ni en Estibas. Elegí el cliente de cada uno en su fila y pasan a la tabla que corresponde.</p>
+  {{ operados_tabla("Sin clasificar", operados_sin_clasificar, false) }}
+  {% endif %}
 </section>
 
 <dialog id="sacar-modal">
@@ -213,6 +221,29 @@
     <button type="submit" name="motivo" value="error" class="btn danger" style="display:block;width:100%">
       Lo cargué por error: borrarlo sin contarlo
     </button>
+  </form>
+</dialog>
+
+<dialog id="operado-modal">
+  <div class="modal-head">
+    <h2>Agregar a operados</h2>
+    <button type="button" class="modal-close" id="close-operado-modal" aria-label="Cerrar">×</button>
+  </div>
+  <p class="muted" style="margin:-4px 0 12px">Para corregir el recuento: suma un barco directo a Operados, con su cliente y el mes que elijas. Si ya figura ese barco con ese cliente en ese mes, no se duplica.</p>
+  <form method="post" action="/nuestros-barcos/operados/agregar" class="vf-report-form">
+    <label>Barco<input type="text" name="vessel_name" placeholder="ej. MV EXAMPLE" maxlength="120" required autocomplete="off"></label>
+    <div class="vf-fields">
+      <label>Cliente
+        <select name="principal" required>
+          <option value="">Elegí el cliente…</option>
+          <optgroup label="Agencias">{% for c in clients if not c.is_estiba %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</optgroup>
+          <optgroup label="Estibas">{% for c in clients if c.is_estiba %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}</optgroup>
+        </select>
+      </label>
+      <label>Mes<input type="month" name="mes" value="{{ mes or hoy_mes }}" required></label>
+    </div>
+    <label>Muelle / ubicación (opcional)<input type="text" name="ubicacion" placeholder="ej. ADM" maxlength="120" autocomplete="off"></label>
+    <button type="submit" class="btn primary vf-submit">Agregar a operados</button>
   </form>
 </dialog>
 
@@ -268,6 +299,11 @@ sacarModal?.addEventListener("click", (ev) => {
   if (ev.target === sacarModal) sacarModal.close();
 });
 
+const operadoModal = document.getElementById("operado-modal");
+document.getElementById("open-operado-modal")?.addEventListener("click", () => operadoModal.showModal());
+document.getElementById("close-operado-modal")?.addEventListener("click", () => operadoModal.close());
+operadoModal?.addEventListener("click", (ev) => { if (ev.target === operadoModal) operadoModal.close(); });
+
 // modal "Completar datos" -- un solo dialog reusado para todas las filas
 const completarModal = document.getElementById("completar-modal");
 const completarForm = document.getElementById("completar-form");
@@ -310,6 +346,7 @@ completarModal?.addEventListener("click", (ev) => {
 });
 </script>
 <style>
+.op-head-acc { display: inline-flex; gap: 8px; flex-wrap: wrap; }
 .tag-husb { display: inline-block; margin-left: 6px; padding: 1px 7px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: #7a4a00; background: #fff1d6; border: 1px solid #f0cf94; border-radius: 999px; vertical-align: middle; }
 #completar-modal .vf-fields label[hidden] { display: none; }
 .servicio-campo { flex: 1 0 100% !important; }

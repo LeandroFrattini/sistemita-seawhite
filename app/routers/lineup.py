@@ -104,7 +104,7 @@ def our_vessels_page(request: Request, mes: str = "", tipo: str = "AGENCY", db: 
         term_by_id = {t.id: t for t in terminals}
         for t in terminals:
             for c in grouped.get(t.id, []):
-                if c.is_ours:
+                if c.is_ours or _tiene_estiba(c):  # con estiba asignada tambien es nuestro (se anuncia y se puede sacar a Operados)
                     en_lineup.append((kind, term_by_id.get(c.terminal_id), c))
     en_lineup.sort(key=lambda row: eta_sort_key(row[2].eta, row[2].etb))
 
@@ -141,6 +141,8 @@ def our_vessels_page(request: Request, mes: str = "", tipo: str = "AGENCY", db: 
     # cada cliente asociado, asi que cada fila es un cliente distinto).
     operados_agencia = [o for o in operados if tipo_por_nombre.get(o.principal.strip().casefold()) == "AGENCY"]
     operados_estiba = [o for o in operados if tipo_por_nombre.get(o.principal.strip().casefold()) == "ESTIBA"]
+    # los que no tienen cliente o tienen uno que no esta en la planilla de Clientes: se muestran aparte (con el selector para elegir el cliente) para que no queden ocultos
+    operados_sin_clasificar = [o for o in operados if tipo_por_nombre.get(o.principal.strip().casefold()) is None]
 
     return templates.TemplateResponse(
         request,
@@ -151,6 +153,8 @@ def our_vessels_page(request: Request, mes: str = "", tipo: str = "AGENCY", db: 
             "operados": operados,
             "operados_agencia": operados_agencia,
             "operados_estiba": operados_estiba,
+            "operados_sin_clasificar": operados_sin_clasificar,
+            "hoy_mes": date.today().strftime("%Y-%m"),
             "grafico_operados": grafico_operados,
             "grafico_anunciados": grafico_anunciados,
             "fuera_operados": describir_fuera(fuera_op),
@@ -200,9 +204,11 @@ def exportar_operados(mes: str = "", db: Session = Depends(get_db), user: User =
     def _fill(color):
         return PatternFill("solid", fgColor=color)
 
+    sin_clasificar = [o for o in operados if tipo_por_nombre.get(o.principal.strip().casefold()) is None]
     wb = Workbook()
     wb.remove(wb.active)
-    for title, rows in (("Agencias", operados_agencia), ("Estibas", operados_estiba)):
+    hojas = [("Agencias", operados_agencia), ("Estibas", operados_estiba)] + ([("Sin clasificar", sin_clasificar)] if sin_clasificar else [])
+    for title, rows in hojas:
         ws = wb.create_sheet(title)
         headers = ["BARCO", "SITIO / MUELLE", "ZARPADA", "DESTINO", "CLIENTE"]
         for i, h in enumerate(headers, start=1):
@@ -230,6 +236,32 @@ def exportar_operados(mes: str = "", db: Session = Depends(get_db), user: User =
         bio, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/nuestros-barcos/operados/agregar")
+def agregar_operado_a_mano(
+    db: Session = Depends(get_db), user: User = Depends(current_user),
+    vessel_name: str = Form(""), principal: str = Form(""), mes: str = Form(""), ubicacion: str = Form(""),
+):
+    """Suma un barco directo a Operados (para corregir el recuento cuando un barco se saco del line-up sin pasar por ahi).
+    Va con su cliente (agencia o estiba) y el mes que se elija; si ya hay uno igual ese mes, no lo duplica."""
+    nombre = " ".join(vessel_name.split()).upper()[:120]
+    cli = db.scalar(select(Client).where(func.lower(Client.name) == principal.strip().lower(), Client.active.is_(True)))
+    try:
+        anio, m = (int(x) for x in mes.split("-"))
+        fecha = datetime(anio, m, 15, 12, 0)
+    except (ValueError, TypeError):
+        fecha = None
+    destino = f"/nuestros-barcos?tipo={'ESTIBA' if cli is not None and cli.client_type == 'ESTIBA' else 'AGENCY'}"
+    if not nombre or cli is None or fecha is None:
+        return RedirectResponse(destino + "&error=operado#operados", status_code=302)
+    ya = db.scalar(select(OperatedVessel.id).where(func.lower(OperatedVessel.vessel_name) == nombre.lower(), func.lower(OperatedVessel.principal) == cli.name.lower(),
+                                                   OperatedVessel.period == mes))
+    if ya is None:
+        db.add(OperatedVessel(removed_by=f"{user.username} (a mano)", operated_at=fecha, period=mes, vessel_name=nombre, principal=cli.name,
+                              terminal_code=ubicacion.strip()[:255], berth_label=ubicacion.strip()[:255]))
+        db.commit()
+    return RedirectResponse(destino + f"&mes={mes}#operados", status_code=302)
 
 
 @router.post("/nuestros-barcos/agregar")
@@ -524,11 +556,20 @@ async def move_call(call_id: int, request: Request, db: Session = Depends(get_db
     return {"ok": True}
 
 
-def _retire_call(db: Session, call: VesselCall, user: User, *, operated: bool = True) -> None:
-    """Saca un barco del line-up. operated=True: si es nuestro, pasa a Operados (cuenta para el
-    recuento) y se cierra su legajo. operated=False: se cargo por error, no cuenta en nada y el
-    legajo se borra si esta vacio (sin reportes, SOF ni cargas) o se cierra si ya tenia algo."""
+def _tiene_estiba(call: VesselCall) -> bool:
+    """El barco tiene una estiba entre sus clientes (principal u otras agencias): lo operamos como estiba aunque no este tildado «Nuestro»."""
+    return any((c.client_type or "").upper() == "ESTIBA" for c in call.recipient_clients())
+
+
+def _retire_call(db: Session, call: VesselCall, user: User, *, operated: bool = True) -> bool:
+    """Saca un barco del line-up. operated=True: si es nuestro (tildado «Nuestro») o tiene una estiba asignada, pasa a
+    Operados (cuenta para el recuento). Si es nuestro tambien se cierra su legajo. Un barco con estiba pero sin el tilde
+    cuenta solo por sus estibas (no suma una agencia que no es nuestra). operated=False: se cargo por error, no cuenta en
+    nada y el legajo se borra si esta vacio (sin reportes, SOF ni cargas) o se cierra si ya tenia algo."""
     vf = None
+    cuenta = operated and (call.is_ours or _tiene_estiba(call))  # pasa a Operados y cuenta en el recuento
+    if operated and not call.is_ours and cuenta:
+        _archive_operated(db, call, user, solo_estibas=True)
     if call.is_ours:
         vf = db.scalar(
             select(VesselFile).where(
@@ -548,14 +589,14 @@ def _retire_call(db: Session, call: VesselCall, user: User, *, operated: bool = 
             vf.closed_at = datetime.utcnow()
     db.delete(call)
     db.commit()
+    return cuenta
 
 
 @router.delete("/api/calls/{call_id}")
 def delete_call(call_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
     call = db.get(VesselCall, call_id)
-    if call:
-        _retire_call(db, call, user)
-    return {"ok": True}
+    contado = _retire_call(db, call, user) if call else False
+    return {"ok": True, "contado": contado}
 
 
 @router.post("/nuestros-barcos/lineup/{call_id}/sacar")
@@ -601,7 +642,7 @@ def _buscar_operado_mismo_imo(
     return db.scalar(select(OperatedVessel).where(*filtros).order_by(OperatedVessel.operated_at.desc()))
 
 
-def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
+def _archive_operated(db: Session, call: VesselCall, user: User, *, solo_estibas: bool = False) -> None:
     """Una fila por CADA cliente (principal + otras agencias) -- si el barco
     tenia 3 clientes cuenta como 3 barcos operados para el recuento mensual,
     no como uno solo con los otros dos pegados en un campo de texto aparte.
@@ -615,6 +656,8 @@ def _archive_operated(db: Session, call: VesselCall, user: User) -> None:
     nuevo_terminal_code = term.code if term else ""
     nuevo_berth = (term.berth_label or term.code) if term else ""
     clients = call.recipient_clients()
+    if solo_estibas:  # no es nuestro: solo cuentan las estibas (las agencias de ese barco no son clientes nuestros)
+        clients = [c for c in clients if (c.client_type or "").upper() == "ESTIBA"]
     names = [c.name for c in clients] if clients else [call.principal_name]
     for name in names:
         existente = _buscar_operado_mismo_imo(db, call.imo, call.vessel_name, name, ahora)

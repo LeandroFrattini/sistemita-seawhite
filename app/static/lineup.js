@@ -189,10 +189,21 @@ document.querySelectorAll(".grid").forEach((grid) => {
         await api(`/api/calls/${id}/move`, "POST", { direction: btn.dataset.move });
         location.reload();
       } else if (btn.hasAttribute("data-del")) {
-        if (!confirm("¿Eliminar este barco del line-up?")) return;
-        await api(`/api/calls/${id}`, "DELETE");
-        btn.closest("tr").remove();
-        flash("Eliminado");
+        const fila = btn.closest("tr");
+        const nuestro = fila.querySelector('[data-f="is_ours"]');
+        const aviso = nuestro && !nuestro.checked
+          ? "Este barco NO está tildado como «Nuestro».
+
+Si lo eliminás, no pasa a Operados ni cuenta en el recuento (salvo que tenga una estiba nuestra asignada).
+
+¿Eliminarlo igual?"
+          : "¿Eliminar este barco del line-up?
+
+Pasa a Operados y cuenta en el recuento.";
+        if (!confirm(aviso)) return;
+        const r = await api(`/api/calls/${id}`, "DELETE");
+        fila.remove();
+        flash(r && r.contado ? "Eliminado: pasó a Operados" : "Eliminado: NO se contó en Operados (no es nuestro)", !!(r && r.contado));
       }
     } catch (e) {
       flash("Error: " + e.message, false);
