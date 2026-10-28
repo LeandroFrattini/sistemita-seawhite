@@ -2,7 +2,7 @@
 {% if flammable %}{% block nav_flammable %}active{% endblock %}{% else %}{% block nav_lineup %}active{% endblock %}{% endif %}
 {% block main_class %}wide{% endblock %}
 {% block content %}
-<div class="page-head lineup-head">
+<div class="page-head">
   <div class="lineup-meta">
     <h1 style="margin:0">{{ 'Line-up Flammable' if flammable else 'Line-up Grain' }}</h1>
     <span class="lineup-date-fixed">Fecha: <b>{{ lineup.lineup_date }}</b> <span class="muted">(hoy, automático)</span></span>
@@ -17,16 +17,6 @@
     {% endif %}
     <span class="muted">Última edición: {{ lineup.updated_by or "—" }}</span>
   </div>
-  <section class="tide" id="tide" aria-label="Tabla de mareas tentativa" title="Mareas tentativas de Puerto Ingeniero White. Predicción del Servicio de Hidrografía Naval, hora local, alturas en metros. Puede variar con el viento y la presión." hidden>
-    <div class="tide-nav">
-      <span class="tide-tit">Mareas <small>tentativas</small></span>
-      <button type="button" id="tide-prev" aria-label="Día anterior">‹</button>
-      <span class="tide-dia" id="tide-dia" aria-live="polite"></span>
-      <button type="button" id="tide-next" aria-label="Día siguiente">›</button>
-      <span class="tide-dots" id="tide-dots" role="tablist" aria-label="Elegir día"></span>
-    </div>
-    <div class="tide-ev" id="tide-ev"></div>
-  </section>
   <div class="actions">
     {% if not flammable %}
     <a class="btn" href="/import">⬆ Importar Excel</a>
@@ -37,6 +27,15 @@
     <a class="btn" href="/export/clients.xlsx">⬇ GRAIN TERMINAL</a>
     {% endif %}
     <a class="btn primary" href="/reports?kind={{ kind }}">Generar reportes →</a>
+    <section class="tide" id="tide" aria-label="Tabla de mareas tentativa" title="Mareas tentativas de Puerto Ingeniero White. Predicción del Servicio de Hidrografía Naval, hora local, alturas en metros. Puede variar con el viento y la presión." hidden>
+      <span class="tide-nav">
+        <span class="tide-tit">Mareas</span>
+        <button type="button" id="tide-prev" aria-label="Día anterior">‹</button>
+        <span class="tide-dia" id="tide-dia" aria-live="polite"></span>
+        <button type="button" id="tide-next" aria-label="Día siguiente">›</button>
+      </span>
+      <span class="tide-ev" id="tide-ev"></span>
+    </section>
   </div>
 </div>
 
@@ -153,29 +152,21 @@
 
 <div id="recalc-result" class="recalc-box" hidden></div>
 <style>
-.tide { width: 318px; max-width: 100%; margin-left: auto; padding: 6px 10px 7px; background: #fff; border: 1px solid var(--line, #d8e2ef); border-radius: 12px; box-shadow: 0 1px 2px rgba(18, 53, 95, .05); }
+.page-head .actions { align-items: center; flex: 1 1 100%; }
+.tide { margin-left: auto; display: flex; align-items: center; gap: 10px; box-sizing: border-box; height: 36px; padding: 0 10px; background: #fff; border: 1px solid var(--line, #d8e2ef); border-radius: 8px; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink, #1c2733); }
 .tide[hidden] { display: none; }
-/* encabezado en cuadricula: titulo y botones a la izquierda, mareas a la derecha ocupando las dos filas (no agranda el encabezado) */
-.lineup-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 20px; row-gap: 12px; align-items: end; }
-.lineup-head .lineup-meta { grid-column: 1; grid-row: 1; }
-.lineup-head .actions { grid-column: 1; grid-row: 2; }
-.lineup-head .tide { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin-left: 0; }
-@media (max-width: 1150px) { .lineup-head { grid-template-columns: minmax(0, 1fr); } .lineup-head .tide { grid-column: 1; grid-row: 3; width: 100%; } }
-.tide-nav { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
-.tide-tit { font-weight: 700; font-size: 13px; color: var(--navy, #12355f); white-space: nowrap; }
-.tide-tit small { font-weight: 400; font-size: 11px; color: var(--muted, #667); }
-.tide-nav button { flex: none; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--line, #d8e2ef); background: #f6f9fd; font-size: 16px; line-height: 1; cursor: pointer; color: var(--navy, #12355f); }
+.tide-nav { display: flex; align-items: center; gap: 6px; }
+.tide-tit { font-weight: 700; color: var(--navy, #12355f); white-space: nowrap; }
+.tide-nav button { flex: none; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--line, #d8e2ef); background: #f6f9fd; font-size: 15px; line-height: 1; cursor: pointer; color: var(--navy, #12355f); display: inline-flex; align-items: center; justify-content: center; box-shadow: none; }
 .tide-nav button:disabled { opacity: .3; cursor: default; }
-.tide-dia { flex: 1; text-align: center; font-weight: 600; font-size: 12.5px; color: var(--navy, #12355f); white-space: nowrap; }
-.tide-ev { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; min-height: 24px; }
-.tide-e { display: flex; justify-content: center; align-items: baseline; gap: 3px; padding: 3px 0; border-radius: 8px; font-variant-numeric: tabular-nums; font-size: 11.5px; white-space: nowrap; }
+.tide-dia { min-width: 78px; text-align: center; font-weight: 600; color: var(--navy, #12355f); white-space: nowrap; }
+.tide-ev { display: flex; gap: 4px; }
+.tide-e { display: flex; align-items: baseline; gap: 4px; padding: 2px 7px; border-radius: 8px; white-space: nowrap; }
 .tide-e b { font-weight: 700; }
 .tide-e.alta { background: #e6f1ff; color: #0b4a8f; }
 .tide-e.baja { background: #fdf1e3; color: #9a5a0b; }
-.tide-vacio { grid-column: 1 / -1; text-align: center; font-size: 12px; color: var(--muted, #667); }
-.tide-dots { flex: none; display: flex; gap: 4px; }
-.tide-dots button { width: 7px; height: 7px; padding: 0; border: 0; border-radius: 50%; background: #c5d3e6; cursor: pointer; }
-.tide-dots button[aria-selected="true"] { background: var(--navy, #12355f); }
+.tide-vacio { font-size: 12px; color: var(--muted, #667); white-space: nowrap; }
+@media (max-width: 700px) { .tide { width: 100%; justify-content: space-between; height: auto; padding: 6px 8px; flex-wrap: wrap; } }
 </style>
 <script>
 (function () {
@@ -196,17 +187,16 @@
     const ev = $("tide-ev");
     ev.replaceChildren();
     if (!d.eventos.length) {
-      const v = document.createElement("div"); v.className = "tide-vacio"; v.textContent = "Sin datos de mareas para este día.";
+      const v = document.createElement("span"); v.className = "tide-vacio"; v.textContent = "Sin datos de mareas para este día.";
       ev.appendChild(v);
     }
     d.eventos.forEach((e) => {
-      const c = document.createElement("div"); c.className = "tide-e " + (e.tipo === "pleamar" ? "alta" : "baja");
+      const c = document.createElement("span"); c.className = "tide-e " + (e.tipo === "pleamar" ? "alta" : "baja");
       c.title = (e.tipo === "pleamar" ? "Pleamar " : "Bajamar ") + e.hora + ", " + num(e.altura) + " m";
       const h = document.createElement("b"); h.textContent = (e.tipo === "pleamar" ? "▲ " : "▼ ") + e.hora;
       const a = document.createElement("span"); a.textContent = num(e.altura);
       c.append(h, a); ev.appendChild(c);
     });
-    [...$("tide-dots").children].forEach((b, k) => b.setAttribute("aria-selected", k === i ? "true" : "false"));
   }
   function ir(k) { i = Math.max(0, Math.min(dias.length - 1, k)); pintar(); }
   $("tide-prev").addEventListener("click", () => ir(i - 1));
@@ -220,7 +210,6 @@
     .then((d) => {
       if (!d || !d.dias || !d.hay_datos) return;  // sin datos no se muestra nada (mejor que una tabla vacia)
       dias = d.dias;
-      dias.forEach((_x, k) => { const b = document.createElement("button"); b.type = "button"; b.setAttribute("role", "tab"); b.setAttribute("aria-label", "Día " + (k + 1)); b.addEventListener("click", () => ir(k)); $("tide-dots").appendChild(b); });
       box.hidden = false;
       pintar();
     })
