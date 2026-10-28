@@ -556,3 +556,8 @@ En la fila de los botones del **Line-up Grain** (y del Flammable), pegado a la d
 - **No hace falta pasar ningún archivo ni actualizar cada 6 meses**: cuando falta un mes (por ejemplo al empezar 2027), el sistema lo consulta solo al SHN, a la misma página que se usaba a mano, y lo guarda. Si el SHN no responde, no se rompe nada (se muestra lo que haya y se reintenta como mucho una vez por hora). Para dejar un año cargado de antemano se puede generar el archivo `mareas_iwhi_AAAA.json` con la misma función `mareas.descargar`.
 - Para sumar otro puerto (Rosales, Canal Principal a Bahía Blanca, etc.) alcanza con indicar su código del SHN; hoy está fijo en Ingeniero White.
 - Código: `app/mareas.py`, ruta `/mareas/proximos` (`app/routers/mareas.py`) y el cuadro en `app/templates/lineup.html`.
+
+## Confirmaciones del usuario (dólar del fee y tope de aportes)
+
+- **Dólar del fee**: es un dólar especial que **se carga a mano** en cada proforma, en el campo «Dólar para pasar el fee a pesos» del paso 2. No hay una fuente automática ni una cotización fija: queda como está.
+- **Tope de aportes del mes**: se **calcula en Administración fuera del sistema y después se carga a mano**, mes a mes, en Administración → Encargados (el sistema no lo calcula). Tiene que estar cargado antes de bajar el primer Excel de encargados del mes; el mes siguiente se vuelve a cargar.
