@@ -71,6 +71,7 @@
     <a href="/logout">Salir</a>
   </div>
 </header>
+{% if user.is_admin or user.is_administracion %}<div id="avisos-proformar" class="avisos-proformar" role="status" aria-live="polite" hidden></div>{% endif %}
 {% endif %}
 <main class="{% block main_class %}wrap{% endblock %}">
   {% block content %}{% endblock %}

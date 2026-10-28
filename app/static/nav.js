@@ -98,3 +98,46 @@
   window.addEventListener("scroll", closeAllTop, true);
   window.addEventListener("resize", closeAllTop);
 })();
+
+// Aviso verde para Administracion: «PEPITO completó los datos del barco MV X: queda para proformar».
+// Se actualiza solo cada minuto; cada persona puede ocultar los suyos. Desaparece cuando la proforma del barco se guarda.
+(function () {
+  const caja = document.getElementById("avisos-proformar");
+  if (!caja) return;
+  const VER = 3;  // cuantos se muestran juntos; el resto se resume
+  function pintar(lista) {
+    caja.replaceChildren();
+    caja.hidden = !lista.length;
+    lista.slice(0, VER).forEach((a) => {
+      const fila = document.createElement("div");
+      fila.className = "avp-fila";
+      const t = document.createElement("span");
+      t.className = "avp-txt";
+      const quien = document.createElement("b"); quien.textContent = a.quien.toUpperCase();
+      t.append("✓ ", quien, " completó los datos del barco ");
+      const barco = document.createElement("b"); barco.textContent = a.barco + (a.agencia ? " (" + a.agencia + ")" : "");
+      t.append(barco, " — queda para proformar" + (a.servicio === "HUSBANDRY" ? " (Husbandry)" : ""));
+      const ir = document.createElement("a"); ir.href = a.url; ir.className = "avp-btn"; ir.textContent = "Proformar →";
+      const x = document.createElement("button"); x.type = "button"; x.className = "avp-x"; x.setAttribute("aria-label", "Ocultar este aviso"); x.title = "Ocultar"; x.textContent = "×";
+      x.addEventListener("click", () => {
+        fila.remove();
+        fetch("/avisos/proformar/" + a.id + "/ocultar", { method: "POST" }).then(cargar).catch(() => {});
+      });
+      fila.append(t, ir, x);
+      caja.appendChild(fila);
+    });
+    if (lista.length > VER) {
+      const mas = document.createElement("div"); mas.className = "avp-mas"; mas.textContent = "y " + (lista.length - VER) + " más para proformar";
+      caja.appendChild(mas);
+    }
+  }
+  function cargar() {
+    fetch("/avisos/proformar", { headers: { Accept: "application/json" } })
+      .then((r) => (r.ok && (r.headers.get("Content-Type") || "").includes("json") ? r.json() : null))
+      .then((d) => { if (d && Array.isArray(d.avisos)) pintar(d.avisos); })
+      .catch(() => {});
+  }
+  cargar();
+  setInterval(() => { if (!document.hidden) cargar(); }, 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) cargar(); });
+})();

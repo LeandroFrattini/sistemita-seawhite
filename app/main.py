@@ -10,6 +10,7 @@ from .routers import (
     admin,
     administracion,
     auth,
+    avisos,
     clients,
     docgen,
     exports,
@@ -99,3 +100,4 @@ app.include_router(docgen.router)
 app.include_router(administracion.router)
 app.include_router(proforma_final.router)
 app.include_router(mareas.router)
+app.include_router(avisos.router)

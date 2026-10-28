@@ -1072,3 +1072,14 @@ class Marea(Base):
     fecha: Mapped[str] = mapped_column(String(10), index=True)   # YYYY-MM-DD
     hora: Mapped[str] = mapped_column(String(5))                 # HH:MM
     altura: Mapped[float] = mapped_column(Float)
+
+
+class AvisoOculto(Base):
+    """«Ocultar» un aviso de «datos completados, queda para proformar»: cada persona oculta los suyos (no se los saca a las demas)."""
+
+    __tablename__ = "avisos_ocultos"
+    __table_args__ = (UniqueConstraint("user_id", "operated_id", name="uq_aviso_user_operado"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True)
+    operated_id: Mapped[int] = mapped_column(Integer, index=True)

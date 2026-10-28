@@ -163,7 +163,7 @@ def _barcos_a_proformar(db: Session, limite: int = 300) -> list[dict]:
 
 
 @router.get("/proforma-final", response_class=HTMLResponse)
-def proforma_final_page(request: Request, id: int | None = None, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+def proforma_final_page(request: Request, id: int | None = None, barco: int | None = None, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     g_ser, g_tal = cargas_generales(db)
     abierta = estado_inicial = None
     if id:  # se abrio una proforma del historial para modificarla
@@ -183,7 +183,7 @@ def proforma_final_page(request: Request, id: int | None = None, db: Session = D
     } for c in _agencias(db)]
     return templates.TemplateResponse(request, "administracion/proforma_final.html", {
         "user": user, "agencias": agencias, "barcos": _barcos_a_proformar(db), "pasos": pf.PASOS,
-        "abierta": abierta, "estado_inicial": estado_inicial, "existentes": existentes,
+        "abierta": abierta, "estado_inicial": estado_inicial, "existentes": existentes, "barco_inicial": barco if (barco and not abierta) else None,
         "hoy": date.today().isoformat(),
         "aduana_usd": get_param(db, "aduana_habilitacion_usd", pf.ADUANA_USD),
         "law_pct": ("%g" % get_param(db, "law_25413_pct", chequeo.LAW_PCT)).replace(".", ","),

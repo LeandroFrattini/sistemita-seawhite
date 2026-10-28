@@ -1966,5 +1966,7 @@ if (ABIERTA && ESTADO_INICIAL) {  // se abrio una proforma del historial: se car
   step = 1; render();
   msg("Proforma cargada del historial. Modificá lo que necesites y bajá el Excel (o «Guardar»).");
 }
+const BARCO_INICIAL = {{ barco_inicial|tojson }};  // se vino desde el aviso «datos completados, queda para proformar»: el barco ya viene elegido
+if (BARCO_INICIAL && BARCOS.some((x) => x.id === BARCO_INICIAL)) { bsel.value = String(BARCO_INICIAL); bsel.dispatchEvent(new Event("change", { bubbles: true })); }
 </script>
 {% endblock %}
