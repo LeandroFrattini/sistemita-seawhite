@@ -129,6 +129,8 @@ def clean_buque(raw) -> dict:
         "manga": _num(raw.get("manga"), 1000),
         "puntal": _num(raw.get("puntal"), 1000),
         "bandera": _texto(raw.get("bandera"), 80),
+        # FULL / OPA (todo lo que se proforma siempre) o HUSBANDRY (solo gastos basicos: sin practicaje, muelle, LDS, tally ni serenos)
+        "servicio": "HUSBANDRY" if str(raw.get("servicio") or "").upper() == "HUSBANDRY" else "FULL",
         "calado_entrada": _num(raw.get("calado_entrada"), 200),  # en pies, como la tabla de practicaje
         "calado_salida": _num(raw.get("calado_salida"), 200),
         # lo que se uso segun el voucher (foto): servicios y turnos de Head Tally
@@ -208,7 +210,7 @@ def clean_state(raw) -> dict:
     items = _aduana_items(ad.get("items"), bool(ad.get("cuenta_ajena")))
     from . import chequeo, migraciones, personal  # import tardio: usan tipo_dia / _num de este modulo
 
-    return {
+    out = {
         "v": VERSION,
         "buque": clean_buque(raw.get("buque")),
         "practicaje": {"in": mov("in"), "out": mov("out")},
@@ -246,6 +248,12 @@ def clean_state(raw) -> dict:
             "fees": fees,
         },
     }
+    if out["buque"]["servicio"] == "HUSBANDRY":
+        # solo gastos basicos: no se proforma nada de practicaje, muelle, fondeadero, vias, amarre, escala, draft, tally ni serenos
+        for c in (out["practicaje"]["in"], out["practicaje"]["out"], out["muelle"], out["fondeo"], out["vias"], out["lds_amarre"], out["lds_desamarre"],
+                  out["escala"], out["lds_draft"], out["tally"], out["serenos"]):
+            c["omitido"], c["cuenta_ajena"] = True, False
+    return out
 
 
 def total_fee(state: dict) -> float:

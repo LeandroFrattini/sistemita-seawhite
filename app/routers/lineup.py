@@ -329,7 +329,7 @@ def set_operated_client(op_id: int, cliente: str = Form(""), volver: str = Form(
 def completar_operado(
     op_id: int, volver: str = Form(""), tipo: str = Form("AGENCY"),
     amarre: str = Form(""), inicio_operacion: str = Form(""), fin_operacion: str = Form(""),
-    zarpe: str = Form(""), cantidad_operada: str = Form(""),
+    zarpe: str = Form(""), cantidad_operada: str = Form(""), servicio: str = Form("FULL"),
     db: Session = Depends(get_db), user: User = Depends(current_user),
 ):
     """Carga los datos operativos de un barco ya operado (Amarre/Inicio/Final/
@@ -342,11 +342,15 @@ def completar_operado(
     line-up) para no tener que cargarlo mas de una vez."""
     row = db.get(OperatedVessel, op_id)
     if row:
+        row.servicio = "HUSBANDRY" if servicio.strip().upper() == "HUSBANDRY" and tipo.upper() != "ESTIBA" else "FULL"
         row.amarre = amarre.strip()
-        row.inicio_operacion = inicio_operacion.strip()
-        row.fin_operacion = fin_operacion.strip()
         row.zarpe = zarpe.strip()
-        row.cantidad_operada = cantidad_operada.strip()
+        if row.servicio == "HUSBANDRY":  # no hay operacion de carga: comienzo, final y carga no corresponden
+            row.inicio_operacion = row.fin_operacion = row.cantidad_operada = ""
+        else:
+            row.inicio_operacion = inicio_operacion.strip()
+            row.fin_operacion = fin_operacion.strip()
+            row.cantidad_operada = cantidad_operada.strip()
 
         hermanas = db.scalars(
             select(OperatedVessel).where(
@@ -359,6 +363,7 @@ def completar_operado(
             )
         ).all()
         for h in hermanas:
+            h.servicio = row.servicio
             h.amarre = row.amarre
             h.inicio_operacion = row.inicio_operacion
             h.fin_operacion = row.fin_operacion

@@ -86,6 +86,28 @@ CATALOGO = {
 }
 
 
+FULL, HUSBANDRY = "FULL", "HUSBANDRY"
+# Husbandry: solo gastos basicos (cambio de tripulacion, provisiones, agua, despacho, sanidad, migraciones, gastos de agencia).
+# Nada de uso de muelle, vias, remolcadores, practicaje, amarre, serenos, head tally ni escala.
+HUSBANDRY_CLAVES = {"agency", "bank", "senasa", "immigration", "taxi_immigration", "free_pratique", "sanitary", "taxi_sanitary", "custom"}
+HUSBANDRY_CUSTOM = ("CLEARANCE", "STORE LIST ENDORSED", "FRESH WATER", "PROVISIONS")
+
+
+def catalogo(formato: str, servicio: str = FULL) -> list[dict]:
+    """Los conceptos que ofrece el voucher: todos, o solo los basicos si el servicio es Husbandry."""
+    todos = CATALOGO[formato]
+    if servicio != HUSBANDRY:
+        return todos
+    out = []
+    for c in todos:
+        if c["key"] not in HUSBANDRY_CLAVES:
+            continue
+        if c["tipo"] == "group":
+            c = {**c, "subs": [s for s in c["subs"] if s in HUSBANDRY_CUSTOM]}
+        out.append(c)
+    return out
+
+
 def formato_para(agencia: str) -> str:
     """Solo OCEANWAY usa su propio formato (Word); el resto, el general de Sea White (Excel)."""
     return WORD if (agencia or "").strip().lower().startswith("oceanway") else EXCEL
@@ -99,17 +121,17 @@ def _estado_concepto(c: dict) -> dict:
     return {"on": True, "in": True, "out": True, "in_buoy": False, "out_buoy": False}
 
 
-def estado_inicial(formato: str) -> dict:
+def estado_inicial(formato: str, servicio: str = FULL) -> dict:
     """Todos los conceptos tildados; ustedes destildan los que no corresponden."""
-    return {"c": {c["key"]: _estado_concepto(c) for c in CATALOGO[formato]}, "extra": []}
+    return {"c": {c["key"]: _estado_concepto(c) for c in catalogo(formato, servicio)}, "extra": []}
 
 
-def normalizar(formato: str, raw) -> dict:
+def normalizar(formato: str, raw, servicio: str = FULL) -> dict:
     """Estado valido a partir de lo que llega del navegador (solo claves conocidas, booleanos y textos acotados)."""
     raw = raw if isinstance(raw, dict) else {}
     rc = raw.get("c") if isinstance(raw.get("c"), dict) else {}
-    out = estado_inicial(formato)
-    for c in CATALOGO[formato]:
+    out = estado_inicial(formato, servicio)
+    for c in catalogo(formato, servicio):
         src = rc.get(c["key"])
         if not isinstance(src, dict):
             continue
@@ -139,11 +161,11 @@ def normalizar(formato: str, raw) -> dict:
     return out
 
 
-def lineas(formato: str, estado: dict) -> list[str]:
+def lineas(formato: str, estado: dict, servicio: str = FULL) -> list[str]:
     """Las lineas que salen en el documento, en el orden del formato, mas los conceptos agregados a mano."""
-    est = normalizar(formato, estado)
+    est = normalizar(formato, estado, servicio)
     out: list[str] = []
-    for c in CATALOGO[formato]:
+    for c in catalogo(formato, servicio):
         e = est["c"][c["key"]]
         if not e["on"]:
             continue
@@ -171,10 +193,10 @@ def lineas(formato: str, estado: dict) -> list[str]:
     return out
 
 
-def tiene(formato: str, estado: dict, marca: str) -> bool:
+def tiene(formato: str, estado: dict, marca: str, servicio: str = FULL) -> bool:
     """True si un concepto con esa marca (head_tally, shore_gangway) esta tildado."""
-    est = normalizar(formato, estado)
-    return any(c.get(marca) and est["c"][c["key"]]["on"] for c in CATALOGO[formato])
+    est = normalizar(formato, estado, servicio)
+    return any(c.get(marca) and est["c"][c["key"]]["on"] for c in catalogo(formato, servicio))
 
 
 # ------------------------------------------------------------------ fechas --

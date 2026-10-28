@@ -38,7 +38,7 @@ def estado_voucher(v: Voucher) -> dict:
 
 
 def lleva_head_tally(v: Voucher) -> bool:
-    return vch.tiene(v.formato, estado_voucher(v), "head_tally")
+    return vch.tiene(v.formato, estado_voucher(v), "head_tally", v.servicio)
 
 
 def turnos_confirmados(v: Voucher) -> bool:

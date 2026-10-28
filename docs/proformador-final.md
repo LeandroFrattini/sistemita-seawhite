@@ -561,3 +561,18 @@ En la fila de los botones del **Line-up Grain** (y del Flammable), pegado a la d
 
 - **Dólar del fee**: es un dólar especial que **se carga a mano** en cada proforma, en el campo «Dólar para pasar el fee a pesos» del paso 2. No hay una fuente automática ni una cotización fija: queda como está.
 - **Tope de aportes del mes**: se **calcula en Administración fuera del sistema y después se carga a mano**, mes a mes, en Administración → Encargados (el sistema no lo calcula). Tiene que estar cargado antes de bajar el primer Excel de encargados del mes; el mes siguiente se vuelve a cargar.
+
+## Tipo de servicio: FULL / OPA o HUSBANDRY
+
+En **Nuestros barcos → Operados → Completar datos** hay un selector nuevo, **«Tipo de servicio»**, con dos opciones:
+
+- **FULL / OPA** (por defecto): se proforma todo lo de siempre, según lo que se tilde en el voucher. Pide los mismos 5 datos de antes (amarre, comienzo, final, carga y zarpe).
+- **HUSBANDRY**: solo gastos **básicos** (cambio de tripulación, embarco de provisiones, etc.). **No** se proforma nada de uso de muelle, fondeadero, vías navegables, practicaje, remolcadores, amarre/desamarre, escala, **encargado (head tally) ni serenos**. Como no hay operación de carga, el formulario solo pide **amarre y zarpe** (comienzo, final y carga se ocultan y no se guardan). Una estiba nunca es Husbandry.
+
+Se guarda en el barco operado (`operated_vessels.servicio`, FULL o HUSBANDRY) y se copia a sus filas hermanas (las de las otras agencias del mismo movimiento). En la lista de operados, el barco Husbandry lleva la etiqueta **HUSBANDRY**.
+
+**Qué cambia en cada lugar**
+- **Voucher**: en Husbandry solo ofrece los conceptos básicos: *Agency expenses*, *Bank commission / LAW 25413*, *SENASA*, *Immigration*, *taxi de migraciones*, *Free pratique*, *taxi de sanidad* y *Custom overtime* **solo** con CLEARANCE, STORE LIST ENDORSED, FRESH WATER y PROVISIONS (sin ENTRANCE, LOADING, PERMANENCE ni BUNKERING). Quedan afuera port dues, channel toll, remolcadores, pilot, mooring, watchman, head tally y shore gangway (también en el formato Oceanway). Los conceptos agregados a mano siguen disponibles (ahí van, por ejemplo, el cambio de tripulación y las lanchas). La lista está en `app/docgen/voucher.py` (`HUSBANDRY_CLAVES`, `HUSBANDRY_CUSTOM`) y se cambia ahí.
+- **Proforma final**: el paso 1 muestra el mismo selector (viene del barco elegido y se puede cambiar; sirve también para un barco escrito a mano). En Husbandry el asistente **salta los pasos 4, 5, 6, 8 y 9** (practicaje, muelle/fondeadero/vías, amarre/desamarre, tally, serenos) y queda 1, 2, 3, 7, 10 y 11; en el paso 3 solo pide amarre y zarpe. Todo lo que no corresponde se marca como omitido: no figura en la proforma, ni en el chequeo, ni en el Excel (que no trae las hojas SERENOS ni TALLY). El LAW NR 25413 se calcula solo sobre lo que sí figura. En el paso 11 se agregan los renglones libres (cambio de tripulación, provisiones, lanchas, etc.).
+- El tipo de servicio viaja en el Excel y en el historial: al volver a cargar o abrir una proforma Husbandry, sigue siendo Husbandry.
+- Un barco que ya tenía el voucher armado y se pasa a Husbandry (o al revés): el voucher sigue al barco; lo que no corresponde deja de salir.

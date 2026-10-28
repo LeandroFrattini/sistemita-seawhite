@@ -53,6 +53,15 @@
       <div id="barco-manual" class="pfn-grid" hidden>
         <label class="pfn-wide">Nombre del barco<input id="barco-nombre" maxlength="120" placeholder="ej. MV EXAMPLE"></label>
       </div>
+      <div class="pfn-grid">
+        <label class="pfn-wide">Tipo de servicio
+          <select id="servicio-sel">
+            <option value="FULL">FULL / OPA — se proforma todo lo de siempre</option>
+            <option value="HUSBANDRY">HUSBANDRY — solo gastos básicos</option>
+          </select>
+        </label>
+      </div>
+      <p class="muted" id="servicio-nota"></p>
       <div id="barco-datos" class="pfn-datos" hidden></div>
       <p class="muted">Salen los barcos operados con su agencia. Al elegir uno se completa la agencia (paso 2) y se traen los horarios que cargó Operaciones.</p>
 
@@ -490,8 +499,20 @@ const PADRON_SERENOS = {{ serenos_padron|tojson }};  // nombres cargados en Admi
 const PADRON_ENCARGADOS = {{ encargados_padron|tojson }};  // nombres cargados en Administracion -> Encargados
 const BARCOS = {{ barcos|tojson }};
 const buqueVacio = () => ({ operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "", carga: "", shipper: "", trn: 0, trb: 0, eslora: 0, manga: 0, puntal: 0, bandera: "",
-  calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [] });
+  calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [], servicio: "FULL" });
 let BUQUE = buqueVacio();
+// FULL / OPA = todo lo de siempre. HUSBANDRY = solo gastos basicos (cambio de tripulacion, provisiones...): sin practicaje, muelle, LDS, tally ni serenos
+const esHusb = () => BUQUE.servicio === "HUSBANDRY";
+const PASOS_SOLO_FULL = [4, 5, 6, 8, 9];
+const pasosVisibles = () => Array.from({ length: TOTAL }, (_x, i) => i + 1).filter((n) => !(esHusb() && PASOS_SOLO_FULL.includes(n)));
+function pintarServicio() {
+  const sv = $("#servicio-sel"); if (sv) sv.value = esHusb() ? "HUSBANDRY" : "FULL";
+  $$(".pfn-step").forEach((b) => { b.hidden = esHusb() && PASOS_SOLO_FULL.includes(Number(b.dataset.step)); });
+  const n = $("#servicio-nota");
+  if (n) n.textContent = esHusb()
+    ? "Husbandry: solo se proforma lo básico (cambio de tripulación, provisiones, habilitaciones de aduana, migraciones y los renglones que agregues en el chequeo). Se saltean practicaje, muelle, amarre, tally y serenos."
+    : "FULL / OPA: se proforma todo lo de siempre, según lo que se tildó en el voucher.";
+}
 let PRACT = { in: { usd: 0, manual: false, cuenta_ajena: false }, out: { usd: 0, manual: false, cuenta_ajena: false } };  // importe de cada movimiento (calculado o modificado a mano)
 let PRACT_CALC = null;       // ultima respuesta del servidor (con el desglose)
 let firmaPractAnt = "";      // con que datos se calculo por ultima vez
@@ -529,7 +550,7 @@ function getState(sincronizar = true) {
       cantidad: $("#b-cantidad").value.trim(), carga: $("#b-carga").value.trim(), shipper: $("#b-shipper").value.trim(), trn: num($("#b-trn").value), trb: num($("#b-trb").value), eslora: num($("#b-eslora").value),
       manga: num($("#b-manga").value), puntal: num($("#b-puntal").value), bandera: $("#b-bandera").value.trim() };
   }
-  return {
+  const st = {
     v: 5,
     buque: BUQUE,
     practicaje: PRACT,
@@ -545,6 +566,12 @@ function getState(sincronizar = true) {
       fees: FEES.map((f) => ({ texto: f.texto, monto_usd: f.monto_usd, on: f.on })),
     },
   };
+  if (esHusb()) {
+    const o = (c) => ({ ...c, omitido: true, cuenta_ajena: false });
+    st.practicaje = { in: o(st.practicaje.in), out: o(st.practicaje.out) };
+    ["muelle", "fondeo", "vias", "lds_amarre", "lds_desamarre", "lds_draft", "escala", "tally", "serenos"].forEach((k) => { st[k] = o(st[k]); });
+  }
+  return st;
 }
 
 function updateTotal() {
@@ -637,7 +664,8 @@ function renderBuque() {
   $("#barco-manual").hidden = $("#barco-sel").value !== "manual";
   if (box.hidden) return;
   const filas = [["Barco", b.nombre + (b.imo ? "  ·  IMO " + b.imo : "")], ["Sitio / muelle", b.sitio || "—"], ["Amarre", fmtDT(b.amarre)],
-    ["Inicio de operación", fmtDT(b.inicio)], ["Fin de operación", fmtDT(b.fin)], ["Zarpe", fmtDT(b.zarpe)], ["Cantidad operada", b.cantidad || "—"]];
+    ["Inicio de operación", fmtDT(b.inicio)], ["Fin de operación", fmtDT(b.fin)], ["Zarpe", fmtDT(b.zarpe)], ["Cantidad operada", b.cantidad || "—"]]
+    .filter(([k]) => !esHusb() || !["Inicio de operación", "Fin de operación", "Cantidad operada"].includes(k));  // Husbandry: no hay operacion de carga
   box.replaceChildren();
   filas.forEach(([k, v]) => {
     const d = document.createElement("div");
@@ -653,7 +681,7 @@ function elegirBarco(valor) {
   const o = BARCOS.find((x) => String(x.id) === String(valor));
   if (!o) { BUQUE = buqueVacio(); resetPract(); renderBuque(); pintarPaso3(false); render(); return; }
   BUQUE = { operated_id: o.id, nombre: o.nombre, imo: o.imo, sitio: o.sitio, amarre: o.amarre, inicio: o.inicio, fin: o.fin, zarpe: o.zarpe, cantidad: o.cantidad, carga: o.carga || "", shipper: o.shipper || "",
-    trn: o.trn || 0, trb: o.trb || 0, eslora: o.eslora || 0, manga: o.manga || 0, puntal: o.puntal || 0, bandera: o.bandera || "",
+    trn: o.trn || 0, trb: o.trb || 0, eslora: o.eslora || 0, manga: o.manga || 0, puntal: o.puntal || 0, bandera: o.bandera || "", servicio: o.servicio === "HUSBANDRY" ? "HUSBANDRY" : "FULL",
     calado_entrada: o.calado_entrada || 0, calado_salida: o.calado_salida || 0, servicios: o.servicios || [], turnos: o.turnos || [], mig_voucher: o.mig_voucher || {} };
   resetPract();
   pintarPaso3(true, o);  // antes de cambiar la agencia: ese cambio vuelve a leer los campos de pantalla
@@ -1628,6 +1656,7 @@ function faltantes(s) {
   f[2] = s.agencia.id ? [] : ["Elegí la agencia a facturar."];
   f[3] = [];
   [[b.amarre, "el amarre"], [b.inicio, "el inicio de operación"], [b.fin, "el final de operación"], [b.zarpe, "el zarpe"], [b.cantidad, "la cantidad operada"], [b.trn > 0, "el TRN"]]
+    .filter((_x, i) => !esHusb() || i === 0 || i === 3)  // Husbandry: no hay operacion de carga, alcanza con el amarre y el zarpe
     .forEach(([v, t]) => { if (!v) f[3].push("Falta cargar " + t + "."); });
   f[4] = [];
   [[b.eslora, "la eslora"], [b.manga, "la manga"], [b.puntal, "el puntal"], [b.calado_entrada, "el calado de entrada"], [b.calado_salida, "el calado de salida"]]
@@ -1711,6 +1740,8 @@ function pintarResumen(s) {
 }
 
 function render() {
+  pintarServicio();
+  if (!pasosVisibles().includes(step)) step = pasosVisibles().find((n) => n > step) || TOTAL;  // un paso que no corresponde no se muestra
   $$("[data-pane]").forEach((p) => (p.hidden = Number(p.dataset.pane) !== step));
   const s = getState();
   VISITADOS.add(step);
@@ -1737,7 +1768,7 @@ function render() {
   });
   pintarAviso(s, faltan);
   pintarResumen(s);
-  $("#pfn-prev").disabled = step === 1;
+  $("#pfn-prev").disabled = step === pasosVisibles()[0];
   $("#pfn-next").textContent = step === TOTAL ? "⬇ Descargar Excel" : "Siguiente →";
   $("#pfn-next").disabled = false;
 }
@@ -1750,8 +1781,10 @@ function ir(n) {  // cambia de paso y vuelve arriba, para que se vea el principi
   const b = $(`.pfn-step[data-step="${step}"]`); if (b) b.scrollIntoView({ inline: "center", block: "nearest" });
 }
 $$(".pfn-step").forEach((b) => b.addEventListener("click", () => ir(Number(b.dataset.step))));
-$("#pfn-prev").addEventListener("click", () => ir(step - 1));
-$("#pfn-next").addEventListener("click", () => { if (step === TOTAL) $("#pfn-bajar").click(); else ir(step + 1); });  // en el ultimo paso, este boton descarga
+const vecino = (d) => { const v = pasosVisibles(); return v[Math.max(0, Math.min(v.length - 1, v.indexOf(step) + d))]; };
+$("#pfn-prev").addEventListener("click", () => ir(vecino(-1)));
+$("#servicio-sel").addEventListener("change", () => { BUQUE = { ...BUQUE, servicio: $("#servicio-sel").value === "HUSBANDRY" ? "HUSBANDRY" : "FULL" }; SUCIO = true; CK_CALC = null; firmaCkAnt = ""; render(); });
+$("#pfn-next").addEventListener("click", () => { if (step === TOTAL) $("#pfn-bajar").click(); else ir(vecino(1)); });  // en el ultimo paso, este boton descarga
 $("#ck-bajar").addEventListener("click", () => $("#pfn-bajar").click());
 
 // el sistema no guarda las proformas: si hay cambios sin bajar a Excel, el navegador avisa antes de cerrar o recargar

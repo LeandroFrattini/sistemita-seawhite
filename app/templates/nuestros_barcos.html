@@ -122,7 +122,7 @@
   <tbody>
   {% for o in filas %}
     <tr class="{{ 'row-completo' if o.datos_completos(es_estiba) else 'row-pendiente' }}">
-      <td><b>{{ o.vessel_name|upper }}</b></td>
+      <td><b>{{ o.vessel_name|upper }}</b>{% if o.servicio == 'HUSBANDRY' %} <span class="tag-husb" title="Solo gastos básicos: sin muelle, encargado, practicaje ni amarre">HUSBANDRY</span>{% endif %}</td>
       <td>{{ o.berth_label or o.terminal_code }}</td>
       <td>{% if o.zarpe %}{{ o.zarpe|fmtzarpe }}{% else %}<span class="zarpada-pendiente">Pendiente</span>{% endif %}</td>
       <td>{{ o.destination or "—" }}</td>
@@ -153,7 +153,7 @@
           <button type="button" class="op-btn {{ 'op-btn-ok' if o.datos_completos(es_estiba) else 'op-btn-main' }} btn-completar"
             data-id="{{ o.id }}" data-vessel="{{ o.vessel_name|upper }}" data-estiba="{{ '1' if es_estiba else '' }}"
             data-amarre="{{ o.amarre }}" data-inicio="{{ o.inicio_operacion }}" data-fin="{{ o.fin_operacion }}"
-            data-zarpe="{{ o.zarpe }}" data-cantidad="{{ o.cantidad_operada }}">
+            data-zarpe="{{ o.zarpe }}" data-cantidad="{{ o.cantidad_operada }}" data-servicio="{{ o.servicio or 'FULL' }}">
             {% if o.datos_completos(es_estiba) %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg>Datos{% else %}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 16v4zM14 6l4 4"/></svg>Completar datos{% endif %}
           </button>
         </div>
@@ -225,10 +225,17 @@
     <input type="hidden" name="volver" value="{{ mes }}">
     <input type="hidden" name="tipo" value="{{ tipo }}">
     <div class="vf-fields">
+      <label class="campo-extra servicio-campo">Tipo de servicio
+        <select name="servicio" id="completar-servicio">
+          <option value="FULL">FULL / OPA</option>
+          <option value="HUSBANDRY">HUSBANDRY</option>
+        </select>
+        <small id="completar-servicio-nota" class="muted"></small>
+      </label>
       <label class="campo-extra">Amarre<input type="datetime-local" name="amarre" id="completar-amarre"></label>
-      <label class="campo-extra">Comienzo<input type="datetime-local" name="inicio_operacion" id="completar-inicio"></label>
-      <label><span id="completar-fin-text">Final</span><input type="datetime-local" name="fin_operacion" id="completar-fin"></label>
-      <label class="campo-extra">Carga<input type="text" name="cantidad_operada" id="completar-cantidad" placeholder="ej. 25000 tn"></label>
+      <label class="campo-extra solo-full">Comienzo<input type="datetime-local" name="inicio_operacion" id="completar-inicio"></label>
+      <label class="solo-full"><span id="completar-fin-text">Final</span><input type="datetime-local" name="fin_operacion" id="completar-fin"></label>
+      <label class="campo-extra solo-full">Carga<input type="text" name="cantidad_operada" id="completar-cantidad" placeholder="ej. 25000 tn"></label>
       <label class="campo-extra">Zarpe<input type="datetime-local" name="zarpe" id="completar-zarpe"></label>
     </div>
     <button type="submit" class="btn primary vf-submit">Guardar</button>
@@ -268,6 +275,18 @@ const completarCamposExtra = document.querySelectorAll(".campo-extra");
 const completarFinText = document.getElementById("completar-fin-text");
 const completarTitulo = document.getElementById("completar-titulo");
 
+// FULL / OPA pide todos los datos de la operacion; HUSBANDRY (gastos basicos) solo el amarre y el zarpe
+const NOTAS_SERVICIO = {
+  FULL: "Se proforma todo lo de siempre, según lo que se tilde en el voucher.",
+  HUSBANDRY: "Solo gastos básicos (cambio de tripulación, provisiones…). No se proforma muelle, encargado, practicaje ni amarre.",
+};
+function aplicarServicio(esEstiba) {
+  const husb = !esEstiba && document.getElementById("completar-servicio").value === "HUSBANDRY";
+  document.querySelectorAll(".solo-full").forEach((el) => { el.hidden = husb || (esEstiba && el.classList.contains("campo-extra")); });
+  document.getElementById("completar-servicio-nota").textContent = NOTAS_SERVICIO[husb ? "HUSBANDRY" : "FULL"];
+}
+document.getElementById("completar-servicio").addEventListener("change", () => aplicarServicio(false));
+
 document.querySelectorAll(".btn-completar").forEach((btn) => {
   btn.addEventListener("click", () => {
     const esEstiba = btn.dataset.estiba === "1";
@@ -280,6 +299,8 @@ document.querySelectorAll(".btn-completar").forEach((btn) => {
     document.getElementById("completar-cantidad").value = btn.dataset.cantidad || "";
     completarCamposExtra.forEach((el) => { el.hidden = esEstiba; });
     completarFinText.textContent = esEstiba ? "Final de carga/descarga" : "Final";
+    document.getElementById("completar-servicio").value = btn.dataset.servicio === "HUSBANDRY" ? "HUSBANDRY" : "FULL";
+    aplicarServicio(esEstiba);
     completarModal.showModal();
   });
 });
@@ -289,6 +310,11 @@ completarModal?.addEventListener("click", (ev) => {
 });
 </script>
 <style>
+.tag-husb { display: inline-block; margin-left: 6px; padding: 1px 7px; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: #7a4a00; background: #fff1d6; border: 1px solid #f0cf94; border-radius: 999px; vertical-align: middle; }
+#completar-modal .vf-fields label[hidden] { display: none; }
+.servicio-campo { flex: 1 0 100% !important; }
+.servicio-campo select { width: 100%; }
+.servicio-campo small { margin-top: 2px; font-size: 12px; }
 .op-acc { display: inline-flex; align-items: center; gap: 6px; margin-right: 8px; vertical-align: middle; }
 .op-btn { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; font-size: 12.5px; font-weight: 600; line-height: 1; color: var(--blue-dark, #12467f); background: #fff; border: 1px solid #c3d4e8; border-radius: 9px; text-decoration: none; cursor: pointer; white-space: nowrap; transition: background .12s, border-color .12s, box-shadow .12s, transform .12s; }
 .op-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }

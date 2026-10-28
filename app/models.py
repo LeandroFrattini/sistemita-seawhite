@@ -308,13 +308,19 @@ class OperatedVessel(Base):
     # Se completan al cargar los datos de una agencia: dispara el voucher (ver Voucher)
     datos_completados_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completado_por: Mapped[str] = mapped_column(String(120), default="")
+    # FULL (todo lo que se proforma siempre, segun lo que se tilde en el voucher; tambien «OPA») o HUSBANDRY (solo gastos basicos: cambio de
+    # tripulacion, provisiones, etc.; sin practicaje, muelle, LDS, tally ni serenos). Se elige en «Completar datos».
+    servicio: Mapped[str] = mapped_column(String(12), default="FULL")
     voucher: Mapped["Voucher | None"] = relationship(cascade="all, delete-orphan", uselist=False)
 
     def datos_completos(self, es_estiba: bool) -> bool:
         """Estiba: solo hace falta el fin de carga/descarga. Agencia: los
-        5 campos operativos, porque se usan para calculos futuros."""
+        5 campos operativos, porque se usan para calculos futuros.
+        Husbandry: no hay operacion de carga, alcanza con el amarre y el zarpe."""
         if es_estiba:
             return bool(self.fin_operacion.strip())
+        if self.servicio == "HUSBANDRY":
+            return bool(self.amarre.strip() and self.zarpe.strip())
         return all([
             self.amarre.strip(), self.inicio_operacion.strip(), self.fin_operacion.strip(),
             self.zarpe.strip(), self.cantidad_operada.strip(),
@@ -344,6 +350,15 @@ class Voucher(Base):
     actualizado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     enviado_por: Mapped[str] = mapped_column(String(120), default="")
     enviado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    @property
+    def servicio(self) -> str:
+        """FULL o HUSBANDRY: es el del barco operado (si cambia alla, el voucher lo sigue)."""
+        from sqlalchemy.orm import object_session
+
+        db = object_session(self)
+        o = db.get(OperatedVessel, self.operated_id) if db is not None else None
+        return (o.servicio if o is not None else "FULL") or "FULL"
 
 
 class VoucherConcepto(Base):

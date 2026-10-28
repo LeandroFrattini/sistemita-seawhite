@@ -127,7 +127,7 @@ def _del_voucher(o: OperatedVessel) -> dict:
         turnos = [t for t in json.loads(v.turnos or "[]") if isinstance(t, dict)]
     except ValueError:
         turnos = []
-    servicios = vch.lineas(v.formato, estado_voucher(v))
+    servicios = vch.lineas(v.formato, estado_voucher(v), v.servicio)
     return {"servicios": servicios, "turnos": turnos, "hay_voucher": True, "voucher_enviado": v.estado == "ENVIADO",
             "mig_voucher": migraciones.desde_voucher(servicios)}
 
@@ -154,7 +154,8 @@ def _barcos_a_proformar(db: Session, limite: int = 300) -> list[dict]:
             "carga": (o.grade or "").strip().upper(), "shipper": (o.shipper or "").strip().upper(),
             **_particulares(historial.get((o.imo or "").strip()), escalas.get((o.imo or "").strip())),
             **_del_voucher(o),
-            "completo": bool(o.amarre and o.inicio_operacion and o.fin_operacion and o.zarpe and o.cantidad_operada),
+            "servicio": o.servicio or "FULL",
+            "completo": o.datos_completos(False),
         })
         if len(out) >= limite:
             break

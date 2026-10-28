@@ -35,7 +35,7 @@ def _crear(db: Session, o: OperatedVessel, user: User) -> Voucher:
     formato = vch.formato_para(o.principal)
     v = Voucher(
         operated_id=o.id, formato=formato, buque=(o.vessel_name or "").strip(), agencia=(o.principal or "").strip(),
-        fecha=lib.fecha_por_defecto(o), items=json.dumps(vch.estado_inicial(formato)),
+        fecha=lib.fecha_por_defecto(o), items=json.dumps(vch.estado_inicial(formato, o.servicio)),
         creado_por=user.username, bloqueo_user=o.completado_por or user.username,
     )
     db.add(v)
@@ -89,15 +89,15 @@ def editar(vid: int, request: Request, db: Session = Depends(get_db), user: User
     memoria = [{"id": m.id, "texto": m.texto} for m in db.scalars(
         select(VoucherConcepto).order_by(VoucherConcepto.usos.desc(), VoucherConcepto.texto).limit(40))]
     return templates.TemplateResponse(request, "vouchers/editar.html", {
-        "user": user, "v": v, "catalogo": vch.CATALOGO[v.formato], "estado": vch.normalizar(v.formato, lib.estado_voucher(v)),
-        "memoria": memoria, "lineas": vch.lineas(v.formato, lib.estado_voucher(v)),
+        "user": user, "v": v, "catalogo": vch.catalogo(v.formato, v.servicio), "estado": vch.normalizar(v.formato, lib.estado_voucher(v), v.servicio),
+        "memoria": memoria, "lineas": vch.lineas(v.formato, lib.estado_voucher(v), v.servicio), "servicio": v.servicio,
         "head_tally": lib.lleva_head_tally(v), "bloqueado": lib.voucher_bloqueante(db, user.username) is not None,
         "bloqueo_activo": lib.bloqueo_activo(db),
     })
 
 
 def _leer(v: Voucher, data: dict) -> tuple[dict, str]:
-    estado = vch.normalizar(v.formato, data.get("items"))
+    estado = vch.normalizar(v.formato, data.get("items"), v.servicio)
     try:
         fecha = date.fromisoformat(str(data.get("fecha") or "")).isoformat()
     except ValueError:
@@ -123,8 +123,8 @@ async def vista(vid: int, request: Request, db: Session = Depends(get_db), user:
         return JSONResponse({"error": "no existe"}, status_code=404)
     data = await request.json()
     estado, _ = _leer(v, data)
-    return {"lineas": vch.lineas(v.formato, estado), "head_tally": vch.tiene(v.formato, estado, "head_tally"),
-            "shore_gangway": vch.tiene(v.formato, estado, "shore_gangway")}
+    return {"lineas": vch.lineas(v.formato, estado, v.servicio), "head_tally": vch.tiene(v.formato, estado, "head_tally", v.servicio),
+            "shore_gangway": vch.tiene(v.formato, estado, "shore_gangway", v.servicio)}
 
 
 @router.post("/{vid}/guardar")
@@ -146,7 +146,7 @@ async def enviar(vid: int, request: Request, db: Session = Depends(get_db), user
     if not v:
         return JSONResponse({"error": "no existe"}, status_code=404)
     estado, fecha = _leer(v, await request.json())
-    if not vch.lineas(v.formato, estado):
+    if not vch.lineas(v.formato, estado, v.servicio):
         return JSONResponse({"ok": False, "error": "Tildá al menos un concepto antes de enviar."}, status_code=400)
     primera_vez = v.estado != "ENVIADO"
     v.items, v.fecha = json.dumps(estado, ensure_ascii=False), fecha
