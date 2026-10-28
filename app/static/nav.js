@@ -99,7 +99,7 @@
   window.addEventListener("resize", closeAllTop);
 })();
 
-// Aviso verde para Administracion: «PEPITO completó los datos del barco MV X: queda para proformar».
+// Aviso verde para Administracion: «PEPITO envió el voucher del barco MV X: queda para proformar».
 // Se actualiza solo cada minuto; cada persona puede ocultar los suyos. Desaparece cuando la proforma del barco se guarda.
 (function () {
   const caja = document.getElementById("avisos-proformar");
@@ -114,7 +114,7 @@
       const t = document.createElement("span");
       t.className = "avp-txt";
       const quien = document.createElement("b"); quien.textContent = a.quien.toUpperCase();
-      t.append("✓ ", quien, " completó los datos del barco ");
+      t.append("✓ ", quien, " envió el voucher del barco ");
       const barco = document.createElement("b"); barco.textContent = a.barco + (a.agencia ? " (" + a.agencia + ")" : "");
       t.append(barco, " — queda para proformar" + (a.servicio === "HUSBANDRY" ? " (Husbandry)" : ""));
       const ir = document.createElement("a"); ir.href = a.url; ir.className = "avp-btn"; ir.textContent = "Proformar →";

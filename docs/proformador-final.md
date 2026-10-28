@@ -577,16 +577,16 @@ Se guarda en el barco operado (`operated_vessels.servicio`, FULL o HUSBANDRY) y 
 - El tipo de servicio viaja en el Excel y en el historial: al volver a cargar o abrir una proforma Husbandry, sigue siendo Husbandry.
 - Un barco que ya tenía el voucher armado y se pasa a Husbandry (o al revés): el voucher sigue al barco; lo que no corresponde deja de salir.
 
-## Aviso verde «datos completados, queda para proformar» (Administración)
+## Aviso verde «voucher enviado, queda para proformar» (Administración)
 
-Cuando alguien completa los datos de un barco (**Completar datos** en Nuestros barcos), a las personas de **Administración** (y a los administradores) les aparece, debajo de la barra azul y en **cualquier pantalla**, un aviso verde: «✓ **PEPITO** completó los datos del barco **MV X (agencia)** — queda para proformar» (con «(Husbandry)» si corresponde), con un botón **«Proformar →»** y una **×** para ocultarlo.
+Cuando alguien **envía el voucher** de un barco (ya tiene los datos completos y los conceptos elegidos, o sea que el barco está realmente listo), a las personas de **Administración** (y a los administradores) les aparece, debajo de la barra azul y en **cualquier pantalla**, un aviso verde: «✓ **PEPITO** envió el voucher del barco **MV X (agencia)** — queda para proformar» (con «(Husbandry)» si corresponde), con un botón **«Proformar →»** y una **×** para ocultarlo. (Primero se disparaba al completar los datos; se pasó al envío del voucher para que, cuando abren la proforma, los conceptos del voucher ya estén cargados. Completar los datos solo **no** avisa.)
 
 - **Proformar →** abre el asistente de proforma final con ese barco ya elegido (con su agencia y su tipo de servicio).
 - **Se actualiza solo** cada minuto (y al volver a la pestaña), sin recargar la página.
 - **Desaparece** cuando la proforma de ese barco se guarda en el historial (al bajar el Excel o con «Guardar»).
 - **Ocultar** es por persona: cada una oculta los suyos y no se los saca a las demás.
-- Quien completó los datos **no se avisa a sí misma**. Se muestran hasta 3 avisos juntos y un «y N más para proformar».
-- Solo se avisa de lo completado **desde que se prendió la función** (los barcos viejos no aparecen todos juntos). Hay un aviso por cada fila de agencia del barco (cada agencia se proforma aparte).
+- Quien envió el voucher **no se avisa a sí misma**. Se muestran hasta 3 avisos juntos y un «y N más para proformar».
+- Solo se avisa de los vouchers enviados **desde que se prendió la función** (los viejos no aparecen todos juntos). Hay un aviso por cada fila de agencia del barco (cada agencia se proforma aparte).
 - Quien no es de Administración no ve nada. Código: `app/avisos.py`, ruta `/avisos/proformar` (`app/routers/avisos.py`), script en `app/static/nav.js` y estilo en `app/static/app.css`.
 
 ## Recuento de barcos operados: estiba sin tilde, barcos «sin clasificar» y alta a mano
