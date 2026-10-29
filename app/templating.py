@@ -21,6 +21,34 @@ def localdt(value, fmt: str = "%d/%m/%Y %H:%M") -> str:
     return value.astimezone(_AR_TZ).strftime(fmt)
 
 
+def hace(value) -> str:
+    """'hace 5 min', 'hace 2 h', 'ayer 10:24', 'hace 3 días' o la fecha: para ver de un vistazo cuanto hace que paso algo."""
+    if value is None:
+        return ""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    from datetime import datetime
+
+    seg = (datetime.now(timezone.utc) - value).total_seconds()
+    if seg < 60:
+        return "recién"
+    if seg < 3600:
+        return f"hace {int(seg // 60)} min"
+    if seg < 86400 and value.astimezone(_AR_TZ).date() == datetime.now(_AR_TZ).date():
+        return f"hace {int(seg // 3600)} h"
+    dias = (datetime.now(_AR_TZ).date() - value.astimezone(_AR_TZ).date()).days
+    if dias == 1:
+        return "ayer " + value.astimezone(_AR_TZ).strftime("%H:%M")
+    if dias < 7:
+        return f"hace {dias} días"
+    return value.astimezone(_AR_TZ).strftime("%d/%m/%Y")
+
+
+def color_idx(texto) -> int:
+    """0 a 5, siempre el mismo para el mismo texto (para darle a cada persona su color)."""
+    return sum(ord(c) for c in (texto or "?")) % 6
+
+
 def fmt_zarpe(value: str) -> str:
     """'2026-09-20T20:15' (datetime-local) -> '20/09/2026 20:15'."""
     if not value:
@@ -72,4 +100,6 @@ def mes_nombre(value: str) -> str:
 
 
 templates.env.filters["ars"] = ars
+templates.env.filters["hace"] = hace
+templates.env.filters["color_idx"] = color_idx
 templates.env.filters["mesnom"] = mes_nombre

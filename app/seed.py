@@ -124,6 +124,7 @@ _MIGRATIONS = [
     ("vessel_files", "checklist", "TEXT DEFAULT ''"),
     ("terminals", "simple_columns", "BOOLEAN DEFAULT FALSE"),
     ("operated_vessels", "servicio", "TEXT DEFAULT 'FULL'"),
+    ("proformas_finales", "servicio", "TEXT DEFAULT 'FULL'"),
 ]
 
 

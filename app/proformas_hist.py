@@ -74,6 +74,7 @@ def guardar(db: Session, state_raw: dict, usuario: str, proforma_id: int | None 
         raise Conflicto(f"{reg.modificado_por or 'Otra persona'} guardó cambios en esta proforma el {localdt(reg.modificado_en)}, mientras la tenías abierta.", reg.id)
     reg.buque, reg.agencia = s["buque"]["nombre"], s["agencia"]["nombre"]
     reg.barco_clave, reg.operated_id = clave, op
+    reg.servicio = s["buque"].get("servicio") or "FULL"
     reg.total_usd, reg.total_ars = usd, ars
     reg.estado = json.dumps(s, ensure_ascii=False, separators=(",", ":"))
     reg.modificado_por, reg.modificado_en = usuario, ahora

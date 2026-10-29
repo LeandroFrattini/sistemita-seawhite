@@ -12,66 +12,166 @@
   </div>
 </div>
 
-<div class="card">
-  {% if not filas %}
-  <p class="muted">Todavía no hay proformas guardadas. Se guardan solas al descargar el Excel de la proforma final (o con el botón «Guardar» del asistente).</p>
-  {% else %}
-  <div class="hp-filtro">
-    <input type="search" id="hp-q" placeholder="Buscar por buque, agencia o persona…" aria-label="Buscar en el historial" autocomplete="off">
-    <span class="muted" id="hp-cuenta">{{ filas|length }} proformas</span>
+{% if filas %}
+<div class="hp-stats">
+  <div class="hp-stat">
+    <span class="hp-stat-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-3-2-2 2-2-2-2 2-2-2-3 2V4a1 1 0 0 1 1-1z"/><path d="M9 8h6M9 12h6"/></svg></span>
+    <span><b>{{ resumen.total }}</b><small>proformas guardadas</small></span>
   </div>
-  <div class="hp-scroll">
-    <table class="hp-tabla">
-      <thead>
-        <tr><th>Buque</th><th>Agencia</th><th class="num">Total USD</th><th class="num">Total ARS</th><th>La hizo</th><th>Última modificación</th><th></th></tr>
-      </thead>
-      <tbody id="hp-filas">
-        {% for r in filas %}
-        <tr data-t="{{ (r.buque ~ ' ' ~ r.agencia ~ ' ' ~ r.creado_por ~ ' ' ~ r.modificado_por)|lower }}">
-          <td><b>{{ r.buque }}</b></td>
-          <td>{{ r.agencia or '—' }}</td>
-          <td class="num">{% if r.total_usd is not none %}USD {{ (r.total_usd|ars)[2:] }}{% else %}—{% endif %}</td>
-          <td class="num">{% if r.total_ars is not none %}{{ r.total_ars|ars }}{% else %}—{% endif %}</td>
-          <td>{{ r.creado_por or '—' }}<small>{{ r.creado_en|localdt }}</small></td>
-          <td>{{ r.modificado_por or '—' }}<small>{{ r.modificado_en|localdt }}{% if r.ediciones %} · {{ r.ediciones }} {{ 'modificación' if r.ediciones == 1 else 'modificaciones' }}{% endif %}</small></td>
-          <td class="hp-acc">
-            <a class="btn primary" href="/administracion/proforma-final?id={{ r.id }}" aria-label="Modificar la proforma de {{ r.buque }}">Modificar</a>
-            <a class="btn" href="/administracion/proformas/{{ r.id }}/excel" aria-label="Descargar el Excel de {{ r.buque }}">Excel</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="hp-stat">
+    <span class="hp-stat-ico verde"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M15 9.500c0-1-1.300-1.500-3-1.500s-3 .8-3 2 1.300 1.700 3 2 3 .8 3 2-1.300 2-3 2-3-.5-3-1.500"/></svg></span>
+    <span><b>USD {{ (resumen.usd|ars)[2:] }}</b><small>suma de las guardadas</small></span>
   </div>
-  <p class="muted" id="hp-vacio" hidden>Ninguna proforma coincide con la búsqueda.</p>
-  {% if filas|length >= tope %}<p class="muted">Se muestran las últimas {{ tope }} proformas.</p>{% endif %}
-  {% endif %}
+  <div class="hp-stat">
+    <span class="hp-stat-ico ambar"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+    <span><b>{{ resumen.semana }}</b><small>tocadas en los últimos 7 días</small></span>
+  </div>
 </div>
 
+<div class="hp-barra">
+  <label class="hp-buscar">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.500-3.500"/></svg>
+    <input type="search" id="hp-q" placeholder="Buscar por buque, agencia o persona…" aria-label="Buscar en el historial" autocomplete="off">
+  </label>
+  <div class="hp-chips" role="group" aria-label="Filtrar">
+    <button type="button" class="hp-chip on" data-f="todas">Todas</button>
+    <button type="button" class="hp-chip" data-f="mias">Mías</button>
+    <button type="button" class="hp-chip" data-f="full">FULL / OPA</button>
+    <button type="button" class="hp-chip" data-f="husb">Husbandry</button>
+  </div>
+  <span class="hp-cuenta" id="hp-cuenta">{{ filas|length }} proformas</span>
+</div>
+
+<div class="hp-lista" id="hp-filas">
+  {% for r in filas %}
+  {% set husb = r.servicio == 'HUSBANDRY' %}
+  {% set mia = r.creado_por == user.username or r.modificado_por == user.username %}
+  <article class="hp-row" data-t="{{ (r.buque ~ ' ' ~ r.agencia ~ ' ' ~ r.creado_por ~ ' ' ~ r.modificado_por)|lower }}" data-mia="{{ '1' if mia else '' }}" data-serv="{{ 'husb' if husb else 'full' }}">
+    <div class="hp-ico{{ ' husb' if husb }}" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12a1 1 0 0 1 1 1v17l-3-2-2 2-2-2-2 2-2-2-3 2V4a1 1 0 0 1 1-1z"/><path d="M9 8h6M9 12h6"/></svg></div>
+    <div class="hp-main">
+      <div class="hp-buque">{{ r.buque }}{% if husb %}<span class="hp-tag">HUSBANDRY</span>{% endif %}</div>
+      <div class="hp-sub"><span class="hp-agencia">{{ r.agencia or 'Sin agencia' }}</span></div>
+    </div>
+    <div class="hp-monto">
+      {% if r.total_usd is not none %}<b>USD {{ (r.total_usd|ars)[2:] }}</b>{% else %}<b class="vacio">Sin total</b>{% endif %}
+      {% if r.total_ars is not none %}<small>{{ r.total_ars|ars }}</small>{% endif %}
+    </div>
+    <div class="hp-quien">
+      <div class="hp-p">
+        <span class="hp-av c{{ r.creado_por|color_idx }}" aria-hidden="true">{{ (r.creado_por or '?')[:2]|upper }}</span>
+        <span class="hp-p-txt"><span>Hecha por <b>{{ r.creado_por or '—' }}</b></span><small title="{{ r.creado_en|localdt }}">{{ r.creado_en|hace }}</small></span>
+      </div>
+      {% if r.ediciones %}
+      <div class="hp-p">
+        <span class="hp-av c{{ r.modificado_por|color_idx }}" aria-hidden="true">{{ (r.modificado_por or '?')[:2]|upper }}</span>
+        <span class="hp-p-txt"><span>Modificada por <b>{{ r.modificado_por or '—' }}</b></span><small title="{{ r.modificado_en|localdt }}">{{ r.modificado_en|hace }} · {{ r.ediciones }} {{ 'vez' if r.ediciones == 1 else 'veces' }}</small></span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="hp-acc">
+      <a class="btn primary hp-btn" href="/administracion/proforma-final?id={{ r.id }}" aria-label="Modificar la proforma de {{ r.buque }}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 16v4zM14 6l4 4"/></svg>Modificar
+      </a>
+      <a class="btn hp-btn" href="/administracion/proformas/{{ r.id }}/excel" aria-label="Descargar el Excel de {{ r.buque }}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4-4m4 4l4-4M5 20h14"/></svg>Excel
+      </a>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+<div class="hp-vacio" id="hp-vacio" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.500-3.500"/></svg>
+  <b>No hay proformas que coincidan</b>
+  <span>Probá con otro nombre o sacá el filtro.</span>
+</div>
+{% if filas|length >= tope %}<p class="muted">Se muestran las últimas {{ tope }} proformas.</p>{% endif %}
+
+{% else %}
+<div class="hp-vacio" style="display:flex">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-3-2-2 2-2-2-2 2-2-2-3 2V4a1 1 0 0 1 1-1z"/><path d="M9 8h6M9 12h6"/></svg>
+  <b>Todavía no hay proformas guardadas</b>
+  <span>Se guardan solas al descargar el Excel de la proforma final, o con el botón «Guardar» del asistente.</span>
+  <a class="btn primary" href="/administracion/proforma-final">Armar la primera</a>
+</div>
+{% endif %}
+
 <style>
-.hp-filtro { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-.hp-filtro input { min-width: 280px; font-size: 14px; }
-.hp-scroll { overflow-x: auto; }
-.hp-tabla { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.hp-tabla th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-.hp-tabla td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft, var(--line)); vertical-align: top; }
-.hp-tabla td small { display: block; color: var(--muted); font-size: 12px; }
-.hp-tabla .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.hp-acc { white-space: nowrap; text-align: right; }
-.hp-acc .btn { margin-left: 6px; }
+.hp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.hp-stat { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 1px 2px rgba(16, 42, 77, .05); }
+.hp-stat b { display: block; font-size: 21px; line-height: 1.15; letter-spacing: -.01em; color: var(--navy, #0f2a4a); font-variant-numeric: tabular-nums; }
+.hp-stat small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); }
+.hp-stat-ico { flex: none; width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; background: #e6f0fb; color: var(--blue); }
+.hp-stat-ico.verde { background: #e4f6ec; color: #17824f; }
+.hp-stat-ico.ambar { background: #fdf1dc; color: #b45309; }
+.hp-stat-ico svg, .hp-ico svg, .hp-buscar svg, .hp-btn svg, .hp-vacio svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.hp-barra { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.hp-buscar { position: relative; flex: 1 1 280px; max-width: 420px; display: block; }
+.hp-buscar svg { position: absolute; left: 12px; top: 50%; width: 18px; height: 18px; margin-top: -9px; color: var(--muted); pointer-events: none; }
+.hp-buscar input { width: 100%; padding: 10px 12px 10px 38px; font-size: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.hp-buscar input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27, 95, 168, .15); }
+.hp-chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.hp-chip { padding: 7px 14px; font-size: 13px; font-weight: 600; color: var(--blue-dark); background: #fff; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; box-shadow: none; }
+.hp-chip:hover { border-color: var(--blue); }
+.hp-chip.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.hp-cuenta { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+.hp-lista { display: flex; flex-direction: column; gap: 10px; }
+.hp-row { display: grid; grid-template-columns: 46px minmax(170px, 1.2fr) minmax(150px, .8fr) minmax(230px, 1.4fr) auto; align-items: center; gap: 16px; padding: 14px 16px; background: #fff; border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 14px; box-shadow: 0 1px 2px rgba(16, 42, 77, .05); transition: box-shadow .15s, transform .15s, border-color .15s; }
+.hp-row:hover { box-shadow: 0 10px 24px -14px rgba(16, 42, 77, .35); transform: translateY(-1px); }
+.hp-row[data-serv="husb"] { border-left-color: #d98a1c; }
+.hp-row[hidden] { display: none; }
+.hp-ico { width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center; background: #e6f0fb; color: var(--blue); }
+.hp-ico.husb { background: #fdf1dc; color: #b45309; }
+.hp-buque { font-size: 16px; font-weight: 700; letter-spacing: -.01em; color: var(--navy, #0f2a4a); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hp-tag { padding: 2px 8px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; color: #7a4a00; background: #fff1d6; border: 1px solid #f0cf94; border-radius: 999px; }
+.hp-sub { margin-top: 5px; }
+.hp-agencia { display: inline-block; padding: 2px 10px; font-size: 12.5px; font-weight: 600; color: var(--blue-dark); background: #eaf2fb; border-radius: 999px; }
+.hp-monto b { display: block; font-size: 17px; font-weight: 700; color: #0b5132; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.hp-monto b.vacio { color: var(--muted); font-weight: 500; font-size: 14px; }
+.hp-monto small { display: block; margin-top: 2px; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hp-quien { display: flex; flex-direction: column; gap: 8px; }
+.hp-p { display: flex; align-items: center; gap: 10px; }
+.hp-p-txt { display: flex; flex-direction: column; font-size: 13px; line-height: 1.3; min-width: 0; }
+.hp-p-txt small { font-size: 12px; color: var(--muted); }
+.hp-av { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 11.5px; font-weight: 700; color: #fff; letter-spacing: .02em; }
+.hp-av.c0 { background: #1b5fa8; } .hp-av.c1 { background: #17824f; } .hp-av.c2 { background: #b45309; }
+.hp-av.c3 { background: #7c3aed; } .hp-av.c4 { background: #be185d; } .hp-av.c5 { background: #0e7490; }
+.hp-acc { display: flex; gap: 8px; justify-content: flex-end; }
+.hp-btn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.hp-btn svg { width: 16px; height: 16px; stroke-width: 2; }
+
+.hp-vacio { flex-direction: column; align-items: center; gap: 6px; padding: 40px 16px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 14px; display: flex; }
+.hp-vacio[hidden] { display: none; }
+.hp-vacio svg { width: 34px; height: 34px; color: #9db3cc; }
+.hp-vacio b { font-size: 15px; color: var(--navy, #0f2a4a); }
+.hp-vacio .btn { margin-top: 10px; }
+
+@media (max-width: 1100px) {
+  .hp-row { grid-template-columns: 46px minmax(0, 1fr) auto; }
+  .hp-monto { text-align: right; }
+  .hp-quien { grid-column: 2 / -1; }
+  .hp-acc { grid-column: 2 / -1; justify-content: flex-start; }
+}
 </style>
 <script>
 (function () {
-  const q = document.getElementById("hp-q");
-  if (!q) return;
-  const filas = [...document.querySelectorAll("#hp-filas tr")];
-  q.addEventListener("input", () => {
+  const filas = [...document.querySelectorAll("#hp-filas .hp-row")];
+  if (!filas.length) return;
+  const q = document.getElementById("hp-q"), chips = [...document.querySelectorAll(".hp-chip")];
+  let modo = "todas";
+  function aplicar() {
     const t = q.value.trim().toLowerCase();
     let n = 0;
-    filas.forEach((f) => { const ver = !t || f.dataset.t.includes(t); f.hidden = !ver; if (ver) n++; });
+    filas.forEach((f) => {
+      const ok = (!t || f.dataset.t.includes(t)) && (modo === "todas" || (modo === "mias" && f.dataset.mia) || (modo === "full" && f.dataset.serv === "full") || (modo === "husb" && f.dataset.serv === "husb"));
+      f.hidden = !ok; if (ok) n++;
+    });
     document.getElementById("hp-cuenta").textContent = n + (n === 1 ? " proforma" : " proformas");
     document.getElementById("hp-vacio").hidden = n > 0;
-  });
+  }
+  q.addEventListener("input", aplicar);
+  chips.forEach((c) => c.addEventListener("click", () => { modo = c.dataset.f; chips.forEach((x) => x.classList.toggle("on", x === c)); aplicar(); }));
 })();
 </script>
 {% endblock %}

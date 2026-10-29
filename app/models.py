@@ -1059,6 +1059,7 @@ class ProformaFinalReg(Base):
     modificado_por: Mapped[str] = mapped_column(String(60), default="")
     modificado_en: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
     ediciones: Mapped[int] = mapped_column(Integer, default=0)  # cuantas veces se volvio a guardar
+    servicio: Mapped[str] = mapped_column(String(12), default="FULL")  # FULL / OPA o HUSBANDRY (para mostrarlo en el historial)
 
 
 class Marea(Base):

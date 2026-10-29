@@ -5,7 +5,7 @@ import json
 import logging
 import os
 import re
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -309,7 +309,10 @@ async def proforma_final_guardar(request: Request, id: int | None = None, base: 
 
 @router.get("/proformas", response_class=HTMLResponse)
 def proformas_historial(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
-    return templates.TemplateResponse(request, "administracion/proformas.html", {"user": user, "filas": proformas_hist.listar(db), "tope": proformas_hist.MAX_LISTA})
+    filas = proformas_hist.listar(db)
+    semana = datetime.utcnow() - timedelta(days=7)
+    resumen = {"total": len(filas), "usd": round(sum(r.total_usd or 0 for r in filas), 2), "semana": sum(1 for r in filas if r.modificado_en and r.modificado_en >= semana)}
+    return templates.TemplateResponse(request, "administracion/proformas.html", {"user": user, "filas": filas, "tope": proformas_hist.MAX_LISTA, "resumen": resumen})
 
 
 @router.get("/proformas/{proforma_id}/excel")
