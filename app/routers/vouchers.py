@@ -168,7 +168,7 @@ def descargar(vid: int, db: Session = Depends(get_db), user: User = Depends(curr
         fecha = date.fromisoformat(v.fecha)
     except ValueError:
         fecha = date.today()
-    contenido, nombre, mime = vch.generar(v.formato, v.buque, v.agencia, lib.estado_voucher(v), fecha)
+    contenido, nombre, mime = vch.generar(v.formato, v.buque, v.agencia, lib.estado_voucher(v), fecha, v.servicio)
     return Response(content=contenido, media_type=mime,
                     headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nombre)}"})
 

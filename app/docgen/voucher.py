@@ -285,9 +285,9 @@ def _word(buque: str, agencia: str, lines: list[str], fecha: date) -> bytes:
     return buf.getvalue()
 
 
-def generar(formato: str, buque: str, agencia: str, estado: dict, fecha: date) -> tuple[bytes, str, str]:
-    """(contenido, nombre de archivo, tipo MIME)."""
-    lines = lineas(formato, estado)
+def generar(formato: str, buque: str, agencia: str, estado: dict, fecha: date, servicio: str = FULL) -> tuple[bytes, str, str]:
+    """(contenido, nombre de archivo, tipo MIME). En Husbandry solo salen los conceptos basicos (los demas no se imprimen aunque el estado los traiga)."""
+    lines = lineas(formato, estado, servicio)
     base = re.sub(r'[\\/:*?"<>|]+', " ", f"VOUCHER {buque} - {agencia}").strip()
     if formato == WORD:
         return (_word(buque, agencia, lines, fecha), base + ".docx",
