@@ -192,14 +192,8 @@ document.querySelectorAll(".grid").forEach((grid) => {
         const fila = btn.closest("tr");
         const nuestro = fila.querySelector('[data-f="is_ours"]');
         const aviso = nuestro && !nuestro.checked
-          ? "Este barco NO está tildado como «Nuestro».
-
-Si lo eliminás, no pasa a Operados ni cuenta en el recuento (salvo que tenga una estiba nuestra asignada).
-
-¿Eliminarlo igual?"
-          : "¿Eliminar este barco del line-up?
-
-Pasa a Operados y cuenta en el recuento.";
+          ? "Este barco NO está tildado como «Nuestro».\n\nSi lo eliminás, no pasa a Operados ni cuenta en el recuento (salvo que tenga una estiba nuestra asignada).\n\n¿Eliminarlo igual?"
+          : "¿Eliminar este barco del line-up?\n\nPasa a Operados y cuenta en el recuento.";
         if (!confirm(aviso)) return;
         const r = await api(`/api/calls/${id}`, "DELETE");
         fila.remove();
