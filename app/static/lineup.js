@@ -77,8 +77,7 @@ function aplicarManual(tr, r) {
   const tag = tr.querySelector(".man-tag");
   if (tag) {
     tag.hidden = !campos.length;
-    const s = tag.querySelector("span");
-    if (s) s.textContent = campos.map((f) => f.toUpperCase()).join(" · ");
+    tag.title = "Fecha escrita a mano (" + campos.map((f) => f.toUpperCase()).join(" y ") + "): el recálculo la respeta. Tocá para volver al cálculo automático.";
   }
 }
 

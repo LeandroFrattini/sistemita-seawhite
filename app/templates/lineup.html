@@ -85,7 +85,7 @@
           {% set man_f = [] %}{% if not loop.first %}{% if call.etb_manual %}{% set _ = man_f.append('ETB') %}{% endif %}{% if call.etc_manual %}{% set _ = man_f.append('ETC') %}{% endif %}{% endif %}
           <td>
             <input data-f="vessel_name" value="{{ call.vessel_name }}" class="w-vessel">
-            <button type="button" class="man-tag" data-auto title="Escribiste esta fecha a mano y el recálculo la respeta. Tocá para volver al cálculo automático." {{ 'hidden' if not man_f }}>✎ MODIFICADO A MANO <span>{{ man_f|join(' · ') }}</span></button>
+            <button type="button" class="man-tag" data-auto title="Fecha escrita a mano ({{ man_f|join(' y ') }}): el recálculo la respeta. Tocá para volver al cálculo automático." {{ 'hidden' if not man_f }}>✎ MODIFICADO A MANO</button>
           </td>
           {% if not flammable %}
           <td>
