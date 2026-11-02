@@ -12,6 +12,9 @@ Regla (definida con el usuario y verificada contra el Excel real):
     - nuevo ETC = nuevo ETB + duracion
 * Si un barco tiene ETB = "Alongside" no se mueve: su ETC (que debe ser
   fecha) queda como ancla para el siguiente.
+* Un ETB o un ETC escrito A MANO (etb_manual / etc_manual) se respeta: no se
+  recalcula. Si el ETC es a mano, es el ancla del barco siguiente; si solo el ETB
+  es a mano, el ETC se calcula desde ese ETB. Solo se recalculan los de abajo.
 """
 from __future__ import annotations
 
@@ -60,13 +63,19 @@ def recalc_terminal(calls: list) -> list[RecalcChange]:
 
         duration = _duration_days(call.etb, call.etc)
         eta_d = parse_date(call.eta)
+        etb_mano = bool(getattr(call, "etb_manual", False)) and parse_date(call.etb) is not None
+        etc_mano = bool(getattr(call, "etc_manual", False)) and parse_date(call.etc) is not None
 
-        new_etb = anchor
-        if eta_d and eta_d > new_etb:
-            new_etb = eta_d
-        new_etc = new_etb + timedelta(days=duration)
+        if etb_mano:  # lo escrito a mano manda
+            new_etb = parse_date(call.etb)
+        else:
+            new_etb = anchor
+            if eta_d and eta_d > new_etb:
+                new_etb = eta_d
+        new_etc = parse_date(call.etc) if etc_mano else new_etb + timedelta(days=duration)
 
-        new_etb_s, new_etc_s = fmt_display(new_etb), fmt_display(new_etc)
+        new_etb_s = call.etb if etb_mano else fmt_display(new_etb)
+        new_etc_s = call.etc if etc_mano else fmt_display(new_etc)
         if new_etb_s != call.etb:
             changes.append(RecalcChange(call.id, call.vessel_name, "ETB", call.etb, new_etb_s))
             call.etb = new_etb_s

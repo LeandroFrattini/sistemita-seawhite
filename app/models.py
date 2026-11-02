@@ -190,6 +190,10 @@ class VesselCall(Base):
         ForeignKey("clients.id"), nullable=True
     )
 
+    # ETB / ETC escritos a mano por una persona (por un tema puntual del barco): «Recalcular» los respeta y recalcula solo los barcos de abajo
+    etb_manual: Mapped[bool] = mapped_column(Boolean, default=False)
+    etc_manual: Mapped[bool] = mapped_column(Boolean, default=False)
+
     is_ours: Mapped[bool] = mapped_column(Boolean, default=False)
     second_call: Mapped[bool] = mapped_column(Boolean, default=False)  # flammable "2ND CALL"
     # False para barcos que solo cuentan para el recuento (ej. bunker en

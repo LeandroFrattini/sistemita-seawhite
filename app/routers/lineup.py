@@ -480,7 +480,11 @@ async def update_call(call_id: int, request: Request, db: Session = Depends(get_
     elif field == "principal":
         _set_principal(db, call, str(value).strip())
     elif field in EDITABLE:
-        setattr(call, field, str(value).strip())
+        nuevo = str(value).strip()
+        if field in ("etb", "etc") and nuevo != (getattr(call, field) or ""):
+            # una fecha escrita a mano queda marcada (el recalculo la respeta); si se borra o se pone texto («Alongside»), vuelve a automatico
+            setattr(call, f"{field}_manual", parse_date(nuevo) is not None)
+        setattr(call, field, nuevo)
         if field == "local_agent":
             call.is_ours = (str(value).strip().lower() in SEA_WHITE) or call.is_ours
     else:
@@ -494,10 +498,27 @@ async def update_call(call_id: int, request: Request, db: Session = Depends(get_
     return {
         "ok": True,
         "is_ours": call.is_ours,
+        "etb_manual": bool(call.etb_manual),
+        "etc_manual": bool(call.etc_manual),
         "principal_name": call.principal_name,
         "linked": call.principal_client_id is not None,
         "file_id": vf.id if vf else None,
     }
+
+
+@router.post("/api/calls/{call_id}/auto")
+def volver_a_automatico(call_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Saca la marca «modificado a mano» de las fechas de un barco y recalcula el muelle: vuelve al calculo automatico."""
+    call = db.get(VesselCall, call_id)
+    if not call:
+        return JSONResponse({"error": "no existe"}, status_code=404)
+    call.etb_manual = call.etc_manual = False
+    calls = list(db.scalars(select(VesselCall).where(VesselCall.lineup_id == call.lineup_id, VesselCall.terminal_id == call.terminal_id)
+                            .order_by(VesselCall.sort_order, VesselCall.id)))
+    changes = recalc_terminal(calls)
+    call.lineup.updated_by = user.username
+    db.commit()
+    return _changes_payload(changes)
 
 
 @router.post("/api/terminals/{terminal_id}/note")

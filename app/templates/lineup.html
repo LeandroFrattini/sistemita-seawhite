@@ -76,13 +76,17 @@
       </thead>
       <tbody>
       {% for call in grouped.get(term.id, []) %}
-        <tr data-call="{{ call.id }}" class="{{ 'is-ours' if call.is_ours }}">
+        <tr data-call="{{ call.id }}" data-first="{{ '1' if loop.first }}" class="{{ 'is-ours' if call.is_ours }}">
           <td class="col-ord">
             <button class="mini" data-move="up" title="Subir">▲</button>
             <button class="mini" data-move="down" title="Bajar">▼</button>
             <button class="mini danger" data-del title="Eliminar">✕</button>
           </td>
-          <td><input data-f="vessel_name" value="{{ call.vessel_name }}" class="w-vessel"></td>
+          {% set man_f = [] %}{% if not loop.first %}{% if call.etb_manual %}{% set _ = man_f.append('ETB') %}{% endif %}{% if call.etc_manual %}{% set _ = man_f.append('ETC') %}{% endif %}{% endif %}
+          <td>
+            <input data-f="vessel_name" value="{{ call.vessel_name }}" class="w-vessel">
+            <button type="button" class="man-tag" data-auto title="Escribiste esta fecha a mano y el recálculo la respeta. Tocá para volver al cálculo automático." {{ 'hidden' if not man_f }}>✎ MODIFICADO A MANO <span>{{ man_f|join(' · ') }}</span></button>
+          </td>
           {% if not flammable %}
           <td>
             <select data-f="vessel_type" class="w-type">
@@ -94,8 +98,8 @@
           <td><input data-f="imo" value="{{ call.imo }}" class="w-imo"></td>
           {% endif %}
           <td><input data-f="eta" value="{{ call.eta }}" class="w-date"></td>
-          <td><input data-f="etb" value="{{ call.etb }}" class="w-date"></td>
-          <td><input data-f="etc" value="{{ call.etc }}" class="w-date"></td>
+          <td><input data-f="etb" value="{{ call.etb }}" class="w-date{{ ' man' if 'ETB' in man_f }}"></td>
+          <td><input data-f="etc" value="{{ call.etc }}" class="w-date{{ ' man' if 'ETC' in man_f }}"></td>
           {% if not term.simple_columns %}
           <td><input data-f="operation" value="{{ call.operation }}" class="w-oper"></td>
           <td><input data-f="quantity" value="{{ call.quantity }}" class="w-qty"></td>

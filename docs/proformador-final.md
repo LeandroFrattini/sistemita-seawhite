@@ -599,3 +599,13 @@ Dos causas por las que un barco que se sacaba del line-up (la ✕) no figuraba e
 **Para no perder barcos sin darse cuenta**: al eliminar un barco que **no** está tildado como «Nuestro», la pantalla avisa antes («no pasa a Operados ni cuenta en el recuento, salvo que tenga una estiba nuestra») y, después, dice si se contó («Eliminado: pasó a Operados») o no («Eliminado: NO se contó en Operados»).
 
 **Corregir lo que ya se perdió**: en Nuestros barcos → Operados hay un botón **«+ Agregar a operados»**: se escribe el barco, se elige el cliente (agencia o estiba) y el mes, y queda en Operados para el recuento (no se duplica si ya está con ese cliente ese mes). Queda marcado como cargado a mano.
+
+## Line-up: fechas ETB / ETC escritas a mano (el recálculo las respeta)
+
+Cuando por un tema puntual de un barco hay que **escribir a mano** el ETB (amarre) o el ETC (desamarre) en el line-up, esa fecha **queda fija**: «Recalcular TODO» (o «Recalcular ETB/ETC de este muelle») ya no la pisa, y **recalcula solo los barcos de abajo** tomando como punto de partida lo escrito a mano.
+
+- **Cómo se marca**: al escribir una fecha distinta en el ETB o el ETC de un barco, queda marcada como «a mano». Escribir lo mismo que ya había no la marca; **borrarla** o poner un texto («Alongside», «At roads») la saca de «a mano».
+- **Cómo se ve** (solo en el sistema; **no sale en el Excel, ni en los mails ni en los reportes**): la fecha se pinta de **ámbar** y debajo del nombre del barco aparece el cartelito **«✎ MODIFICADO A MANO · ETB · ETC»** (según cuáles se tocaron). Se pinta al instante, sin recargar.
+- **Cómo se calcula**: si el **ETC** es a mano, es el punto de partida del barco siguiente. Si solo el **ETB** es a mano, el ETC se calcula desde ese ETB con la duración de siempre. Un ETB a mano gana aunque el ETA sea posterior. El **primer** barco de cada muelle no se pinta ni lleva cartelito (sus fechas siempre las carga una persona).
+- **Volver al cálculo automático**: tocando el cartelito (pregunta antes) se sacan las marcas de ese barco y se recalcula el muelle. «Recalcular TODO» avisa en su resultado que las fechas a mano se respetan.
+- Código: `app/recalc.py` (la regla), columnas `vessel_calls.etb_manual` / `etc_manual`, ruta `POST /api/calls/{id}/auto` en `app/routers/lineup.py`, y el pintado en `lineup.html`, `lineup.js` y `app.css`.

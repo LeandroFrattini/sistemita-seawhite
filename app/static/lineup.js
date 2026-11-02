@@ -69,6 +69,19 @@ function markEtaConflict(tr) {
   return bad;
 }
 
+// fechas escritas a mano (ETB / ETC): se pintan y llevan el cartelito; el primer barco del muelle no (sus fechas siempre las carga una persona)
+function aplicarManual(tr, r) {
+  const primero = tr.dataset.first === "1";
+  const campos = ["etb", "etc"].filter((f) => !primero && r[f + "_manual"]);
+  ["etb", "etc"].forEach((f) => tr.querySelector(`[data-f="${f}"]`)?.classList.toggle("man", campos.includes(f)));
+  const tag = tr.querySelector(".man-tag");
+  if (tag) {
+    tag.hidden = !campos.length;
+    const s = tag.querySelector("span");
+    if (s) s.textContent = campos.map((f) => f.toUpperCase()).join(" · ");
+  }
+}
+
 function vesselOf(tr) {
   return (tr.querySelector('[data-f="vessel_name"]')?.value || "").trim() || "(sin nombre)";
 }
@@ -131,6 +144,7 @@ document.querySelectorAll(".grid [data-f]").forEach((input) => {
       if (field === "principal") {
         input.classList.toggle("linked", r.linked);
       }
+      if (field === "etb" || field === "etc") aplicarManual(tr, r);
       flash("Guardado");
       if (field === "eta" || field === "etb") {
         if (markEtaConflict(tr)) showEtaAlert([vesselOf(tr)]);
@@ -187,6 +201,10 @@ document.querySelectorAll(".grid").forEach((grid) => {
     try {
       if (btn.dataset.move) {
         await api(`/api/calls/${id}/move`, "POST", { direction: btn.dataset.move });
+        location.reload();
+      } else if (btn.hasAttribute("data-auto")) {
+        if (!confirm("Esta fecha la escribiste a mano y el recálculo la respeta.\n\n¿Volver al cálculo automático? Se recalculan las fechas de este barco y de los que están debajo.")) return;
+        await api(`/api/calls/${id}/auto`, "POST");
         location.reload();
       } else if (btn.hasAttribute("data-del")) {
         const fila = btn.closest("tr");
@@ -290,7 +308,7 @@ document.getElementById("btn-recalc").addEventListener("click", async (ev) => {
   try {
     const r = await api("/api/recalc?kind=" + encodeURIComponent(kind), "POST");
     if (!r.count) {
-      box.innerHTML = "<strong>Sin cambios.</strong> Todas las fechas ya estaban en cascada.";
+      box.innerHTML = "<strong>Sin cambios.</strong> Todas las fechas ya estaban en cascada (las escritas a mano se respetan).";
     } else {
       box.innerHTML =
         `<strong>${r.count} cambios:</strong><ul>` +
