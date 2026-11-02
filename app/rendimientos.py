@@ -1,4 +1,4 @@
-"""Rendimientos de carga y descarga: los datos de rendimientos_data.py armados para mostrarlos por muelle o por producto (Utilidades de Operaciones)."""
+"""Ritmos de carga y descarga: los datos de rendimientos_data.py armados para mostrarlos por muelle o por producto (Utilidades de Operaciones)."""
 from __future__ import annotations
 
 from .rendimientos_data import RENDIMIENTOS, SIN_DATOS

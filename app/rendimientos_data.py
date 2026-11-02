@@ -30,10 +30,9 @@ RENDIMIENTOS: list[tuple[int, str, str, str, int, int, str]] = [
     (4, 'CORN', 'GRAIN', 'DREYFUS', 8000, 0, ''),
     (5, 'BARLEY', 'GRAIN', 'PIER 2/3 GALVAN', 6600, 0, ''),
     (5, 'BARLEY', 'GRAIN', 'DREYFUS', 9000, 0, ''),
-    (5, 'BARLEY', 'GRAIN', 'CARGILL TERMINAL', 1800, 0, ''),
+    (5, 'BARLEY', 'GRAIN', 'CARGILL TERMINAL', 8400, 0, ''),  # el listado traia 1800 y 1500; el usuario confirmo 8400
     (5, 'BARLEY', 'GRAIN', 'PIER 5/6 TBB', 9600, 0, ''),
     (5, 'BARLEY', 'GRAIN', 'ADM AGRO TERMINAL', 7200, 0, ''),
-    (5, 'BARLEY', 'GRAIN', 'CARGILL TERMINAL', 1500, 0, 'El listado trae un segundo valor para este producto en este muelle: confirmar cuál corresponde.'),
     (5, 'BARLEY', 'GRAIN', 'PIER 9 TBB', 4950, 0, ''),
     (6, 'MALT', 'GRAIN', 'CARGILL TERMINAL', 1800, 0, ''),
     (6, 'MALT', 'GRAIN', 'PIER 2/3 GALVAN', 1800, 0, ''),

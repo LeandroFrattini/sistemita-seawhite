@@ -3,7 +3,7 @@
 {% block content %}
 <div class="page-head">
   <div>
-    <h1 style="margin:0">Rendimientos</h1>
+    <h1 style="margin:0">Ritmos de Carga</h1>
     <span class="muted">Promedio de carga y de descarga de cada producto en cada muelle, en toneladas por día. Fuente: Listado de Productos (31/10/2026).</span>
   </div>
   <div class="actions">
@@ -12,7 +12,7 @@
 </div>
 
 <div class="rd-barra">
-  <div class="rd-seg" role="tablist" aria-label="Cómo ver los rendimientos">
+  <div class="rd-seg" role="tablist" aria-label="Cómo ver los ritmos de carga">
     <button type="button" class="rd-seg-b on" role="tab" data-vista="muelle" aria-selected="true">Por muelle</button>
     <button type="button" class="rd-seg-b" role="tab" data-vista="producto" aria-selected="false">Por producto</button>
   </div>
@@ -78,7 +78,7 @@
   </div>
   {% if sin_datos %}
   <details class="rd-sin">
-    <summary>Productos del listado sin rendimientos cargados ({{ sin_datos|length }})</summary>
+    <summary>Productos del listado sin ritmos cargados ({{ sin_datos|length }})</summary>
     <p class="muted">Figuran en el listado pero sin muelles ni promedios: {% for p in sin_datos %}{{ p.nombre }}{{ ', ' if not loop.last }}{% endfor %}.</p>
   </details>
   {% endif %}
