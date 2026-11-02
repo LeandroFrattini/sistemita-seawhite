@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block nav_utilidades %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Rendimientos</h1>
+    <span class="muted">Promedio de carga y de descarga de cada producto en cada muelle, en toneladas por día. Fuente: Listado de Productos (31/10/2026).</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/operaciones/utilidades">← Utilidades</a>
+  </div>
+</div>
+
+<div class="rd-barra">
+  <div class="rd-seg" role="tablist" aria-label="Cómo ver los rendimientos">
+    <button type="button" class="rd-seg-b on" role="tab" data-vista="muelle" aria-selected="true">Por muelle</button>
+    <button type="button" class="rd-seg-b" role="tab" data-vista="producto" aria-selected="false">Por producto</button>
+  </div>
+  <label class="rd-buscar">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.500-3.500"/></svg>
+    <input type="search" id="rd-q" placeholder="Buscar un muelle o un producto…" aria-label="Buscar" autocomplete="off">
+  </label>
+  <span class="rd-cuenta" id="rd-cuenta"></span>
+</div>
+
+<section id="rd-muelle" class="rd-vista">
+  {% for g in por_muelle %}
+  <div class="rd-grupo">
+    <h2 class="rd-grupo-t">{{ g.titulo }}</h2>
+    <div class="rd-grid">
+      {% for m in g.muelles %}
+      <article class="rd-card" data-n="{{ m.nombre|lower }}">
+        <header class="rd-card-h">
+          <span class="rd-card-t">{{ m.nombre }}</span>
+          {% set n_prod = m.filas|map(attribute='producto')|unique|list|length %}<span class="rd-chip">{{ n_prod }} {{ 'producto' if n_prod == 1 else 'productos' }}</span>
+        </header>
+        <table class="rd-tabla">
+          <thead><tr><th>Producto</th>{% if m.tiene_carga %}<th class="num">Carga</th>{% endif %}{% if m.tiene_descarga %}<th class="num">Descarga</th>{% endif %}</tr></thead>
+          <tbody>
+            {% for f in m.filas %}
+            <tr data-p="{{ f.producto|lower }}">
+              <td>{{ f.producto }}{% if f.nota %} <span class="rd-aviso" title="{{ f.nota }}">⚠</span>{% endif %}</td>
+              {% if m.tiene_carga %}<td class="num">{{ f.carga if f.carga != '—' }}</td>{% endif %}
+              {% if m.tiene_descarga %}<td class="num">{{ f.descarga if f.descarga != '—' }}</td>{% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</section>
+
+<section id="rd-producto" class="rd-vista" hidden>
+  <div class="rd-grid">
+    {% for p in por_producto %}
+    <article class="rd-card" data-n="{{ p.nombre|lower }}">
+      <header class="rd-card-h">
+        <span class="rd-card-t">{{ p.nombre }}</span>
+        <span class="rd-chip rubro">{{ p.rubro }}</span>
+      </header>
+      <table class="rd-tabla">
+        <thead><tr><th>Muelle</th>{% if p.tiene_carga %}<th class="num">Carga</th>{% endif %}{% if p.tiene_descarga %}<th class="num">Descarga</th>{% endif %}</tr></thead>
+        <tbody>
+          {% for m in p.muelles %}
+          <tr data-p="{{ m.nombre|lower }}">
+            <td>{{ m.nombre }}{% if m.nota %} <span class="rd-aviso" title="{{ m.nota }}">⚠</span>{% endif %}</td>
+            {% if p.tiene_carga %}<td class="num{{ ' mejor' if m.mejor_carga }}" {% if m.mejor_carga %}title="El de mayor carga para este producto"{% endif %}>{{ m.carga if m.carga != '—' }}</td>{% endif %}
+            {% if p.tiene_descarga %}<td class="num{{ ' mejor' if m.mejor_descarga }}" {% if m.mejor_descarga %}title="El de mayor descarga para este producto"{% endif %}>{{ m.descarga if m.descarga != '—' }}</td>{% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </article>
+    {% endfor %}
+  </div>
+  {% if sin_datos %}
+  <details class="rd-sin">
+    <summary>Productos del listado sin rendimientos cargados ({{ sin_datos|length }})</summary>
+    <p class="muted">Figuran en el listado pero sin muelles ni promedios: {% for p in sin_datos %}{{ p.nombre }}{{ ', ' if not loop.last }}{% endfor %}.</p>
+  </details>
+  {% endif %}
+</section>
+
+<p class="rd-vacio" id="rd-vacio" hidden>No hay nada que coincida con la búsqueda.</p>
+<p class="muted rd-pie">En verde, el muelle de mayor rendimiento de ese producto (cuando se opera en más de uno). ⚠ = el listado trae más de un valor y hay que confirmar cuál corresponde.</p>
+
+<style>
+.rd-barra { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.rd-seg { display: inline-flex; padding: 3px; background: #e6edf6; border-radius: 12px; }
+.rd-seg-b { padding: 8px 18px; font-size: 13.5px; font-weight: 600; color: var(--blue-dark); background: transparent; border: 0; border-radius: 9px; cursor: pointer; box-shadow: none; }
+.rd-seg-b.on { background: #fff; color: var(--navy, #0f2a4a); box-shadow: 0 1px 3px rgba(16, 42, 77, .18); }
+.rd-buscar { position: relative; flex: 1 1 260px; max-width: 400px; }
+.rd-buscar svg { position: absolute; left: 12px; top: 50%; width: 18px; height: 18px; margin-top: -9px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; pointer-events: none; }
+.rd-buscar input { width: 100%; padding: 10px 12px 10px 38px; font-size: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.rd-buscar input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27, 95, 168, .15); }
+.rd-cuenta { margin-left: auto; font-size: 13px; color: var(--muted); }
+.rd-vista[hidden] { display: none; }
+.rd-grupo { margin-bottom: 22px; }
+.rd-grupo-t { margin: 0 0 10px; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.rd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; align-items: start; }
+.rd-card { background: #fff; border: 1px solid var(--line); border-top: 4px solid var(--blue); border-radius: 14px; padding: 12px 14px 8px; box-shadow: 0 1px 2px rgba(16, 42, 77, .05); }
+.rd-card[hidden] { display: none; }
+.rd-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.rd-card-t { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; color: var(--navy, #0f2a4a); }
+.rd-chip { padding: 2px 9px; font-size: 11.5px; font-weight: 600; color: var(--blue-dark); background: #eaf2fb; border-radius: 999px; white-space: nowrap; }
+.rd-chip.rubro { color: #7a4a00; background: #fff1d6; font-size: 10.5px; letter-spacing: .04em; }
+.rd-tabla { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.rd-tabla th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.rd-tabla td { padding: 6px; border-bottom: 1px solid #eef2f7; }
+.rd-tabla tr:last-child td { border-bottom: 0; }
+.rd-tabla tbody tr:hover { background: #f5f9fe; }
+.rd-tabla .num { text-align: right; width: 24%; }
+.rd-tabla td.nulo { color: #b6c2d0; }
+.rd-tabla td.mejor { color: #0b5132; font-weight: 700; background: #e8f7ee; border-radius: 6px; }
+.rd-tabla tr[hidden] { display: none; }
+.rd-aviso { color: #b45309; cursor: help; }
+.rd-sin { margin-top: 16px; padding: 10px 14px; background: #fff; border: 1px dashed var(--line); border-radius: 12px; font-size: 13.5px; }
+.rd-sin summary { cursor: pointer; font-weight: 600; color: var(--navy, #0f2a4a); }
+.rd-vacio { padding: 30px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 12px; }
+.rd-pie { margin-top: 16px; font-size: 12.5px; }
+</style>
+<script>
+(function () {
+  const vistas = { muelle: document.getElementById("rd-muelle"), producto: document.getElementById("rd-producto") };
+  const botones = [...document.querySelectorAll(".rd-seg-b")];
+  const q = document.getElementById("rd-q");
+  let vista = "muelle";
+  function aplicar() {
+    const t = q.value.trim().toLowerCase();
+    Object.entries(vistas).forEach(([k, el]) => { el.hidden = k !== vista; });
+    botones.forEach((b) => { const on = b.dataset.vista === vista; b.classList.toggle("on", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
+    let cards = 0;
+    vistas[vista].querySelectorAll(".rd-card").forEach((c) => {
+      const filas = [...c.querySelectorAll("tbody tr")];
+      const nombreOk = !t || c.dataset.n.includes(t);  // si el nombre del muelle/producto coincide, se ve todo
+      let alguna = false;
+      filas.forEach((f) => { const ok = nombreOk || f.dataset.p.includes(t); f.hidden = !ok; if (ok) alguna = true; });
+      c.hidden = !alguna;
+      if (alguna) cards++;
+    });
+    vistas[vista].querySelectorAll(".rd-grupo").forEach((g) => { g.hidden = ![...g.querySelectorAll(".rd-card")].some((c) => !c.hidden); });
+    document.getElementById("rd-cuenta").textContent = cards + (vista === "muelle" ? (cards === 1 ? " muelle" : " muelles") : (cards === 1 ? " producto" : " productos"));
+    document.getElementById("rd-vacio").hidden = cards > 0;
+  }
+  botones.forEach((b) => b.addEventListener("click", () => { vista = b.dataset.vista; aplicar(); }));
+  q.addEventListener("input", aplicar);
+  aplicar();
+})();
+</script>
+{% endblock %}

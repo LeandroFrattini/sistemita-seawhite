@@ -1,0 +1,96 @@
+"""Rendimientos de carga y descarga por producto y por muelle (Utilidades de Operaciones).
+
+Fuente: «Listado de Productos» (reporte del sistema de la terminal, 31/10/2026): para cada producto, los muelles donde se opera y el promedio de carga y de
+descarga (Prom_Carga / Prom_Descarga, en toneladas por dia). No se cargan las boyas B11 y B17, las monoboyas SBM ni Piedra Buena. Es informacion de referencia fija: cuando cambia el listado, se actualiza esta lista y se pushea
+(mismo criterio que costos_templates.py y fondeaderos_templates.py).
+
+Cada renglon: (codigo del producto, producto, rubro, muelle, carga, descarga, nota). 0 = no se opera en ese sentido. Los productos sin muelles cargados en el
+listado van en SIN_DATOS.
+"""
+from __future__ import annotations
+
+# (codigo, producto, rubro, muelle, carga tn/dia, descarga tn/dia, nota)
+RENDIMIENTOS: list[tuple[int, str, str, str, int, int, str]] = [
+    (2, 'SOYBEANS', 'GRAIN', 'ADM AGRO TERMINAL', 9000, 0, ''),
+    (2, 'SOYBEANS', 'GRAIN', 'PIER 9 TBB', 6600, 0, ''),
+    (2, 'SOYBEANS', 'GRAIN', 'CARGILL TERMINAL', 9600, 0, ''),
+    (2, 'SOYBEANS', 'GRAIN', 'PIER 2/3 GALVAN', 8400, 0, ''),
+    (2, 'SOYBEANS', 'GRAIN', 'DREYFUS', 9000, 0, ''),
+    (3, 'WHEAT', 'GRAIN', 'DREYFUS', 9000, 0, ''),
+    (3, 'WHEAT', 'GRAIN', 'PIER 2/3 GALVAN', 9000, 0, ''),
+    (3, 'WHEAT', 'GRAIN', 'CARGILL TERMINAL', 9000, 0, ''),
+    (3, 'WHEAT', 'GRAIN', 'PIER 5/6 TBB', 6600, 0, ''),
+    (3, 'WHEAT', 'GRAIN', 'ADM AGRO TERMINAL', 9000, 0, ''),
+    (3, 'WHEAT', 'GRAIN', 'PIER 9 TBB', 6600, 0, ''),
+    (4, 'CORN', 'GRAIN', 'ADM AGRO TERMINAL', 9000, 0, ''),
+    (4, 'CORN', 'GRAIN', 'PIER 5/6 TBB', 4800, 0, ''),
+    (4, 'CORN', 'GRAIN', 'PIER 9 TBB', 9000, 0, ''),
+    (4, 'CORN', 'GRAIN', 'CARGILL TERMINAL', 8000, 0, ''),
+    (4, 'CORN', 'GRAIN', 'PIER 2/3 GALVAN', 9000, 0, ''),
+    (4, 'CORN', 'GRAIN', 'DREYFUS', 8000, 0, ''),
+    (5, 'BARLEY', 'GRAIN', 'PIER 2/3 GALVAN', 6600, 0, ''),
+    (5, 'BARLEY', 'GRAIN', 'DREYFUS', 9000, 0, ''),
+    (5, 'BARLEY', 'GRAIN', 'CARGILL TERMINAL', 1800, 0, ''),
+    (5, 'BARLEY', 'GRAIN', 'PIER 5/6 TBB', 9600, 0, ''),
+    (5, 'BARLEY', 'GRAIN', 'ADM AGRO TERMINAL', 7200, 0, ''),
+    (5, 'BARLEY', 'GRAIN', 'CARGILL TERMINAL', 1500, 0, 'El listado trae un segundo valor para este producto en este muelle: confirmar cuál corresponde.'),
+    (5, 'BARLEY', 'GRAIN', 'PIER 9 TBB', 4950, 0, ''),
+    (6, 'MALT', 'GRAIN', 'CARGILL TERMINAL', 1800, 0, ''),
+    (6, 'MALT', 'GRAIN', 'PIER 2/3 GALVAN', 1800, 0, ''),
+    (7, 'SUNFLOWERSEED', 'VEGETABLE OIL', 'ADM AGRO TERMINAL', 3000, 0, ''),
+    (7, 'SUNFLOWERSEED', 'VEGETABLE OIL', 'CARGILL TERMINAL', 4800, 0, ''),
+    (7, 'SUNFLOWERSEED', 'VEGETABLE OIL', 'PIER 2/3 GALVAN', 5100, 0, ''),
+    (8, 'FUEL OIL', 'INFLAMMABLE / CHEMICALS', 'JETTY 3', 1800, 1800, ''),
+    (9, 'SOYA BEANS MEAL PELLETS', 'SUBPRODUCT', 'CARGILL TERMINAL', 3000, 0, ''),
+    (9, 'SOYA BEANS MEAL PELLETS', 'SUBPRODUCT', 'PIER 2/3 GALVAN', 7800, 0, ''),
+    (10, 'SUNFLOWER MEAL PELLETS', 'SUBPRODUCT', 'CARGILL TERMINAL', 1200, 0, ''),
+    (10, 'SUNFLOWER MEAL PELLETS', 'SUBPRODUCT', 'PIER 2/3 GALVAN', 1200, 0, ''),
+    (11, 'SOYA BEANS MEAL', 'SUBPRODUCT', 'CARGILL TERMINAL', 3000, 0, ''),
+    (11, 'SOYA BEANS MEAL', 'SUBPRODUCT', 'PIER 2/3 GALVAN', 7800, 0, ''),
+    (12, 'FERTILIZERS', 'FERTILIZERS', 'PIER 21', 1300, 1300, ''),
+    (12, 'FERTILIZERS', 'FERTILIZERS', 'PIER 5 GALVAN', 1300, 1300, ''),
+    (13, 'UREA', 'FERTILIZERS', 'PIER 21', 0, 1300, ''),
+    (13, 'UREA', 'FERTILIZERS', 'PROFERTIL TERMINAL', 5100, 0, ''),
+    (13, 'UREA', 'FERTILIZERS', 'PIER 5 GALVAN', 0, 1300, ''),
+    (14, 'GASOLINE', 'INFLAMMABLE / CHEMICALS', 'JETTY 1', 1200, 1200, ''),
+    (14, 'GASOLINE', 'INFLAMMABLE / CHEMICALS', 'JETTY 2', 1500, 1500, ''),
+    (14, 'GASOLINE', 'INFLAMMABLE / CHEMICALS', 'MEGA TERMINAL', 6000, 5000, ''),
+    (16, 'BUTANE', 'INFLAMMABLE / CHEMICALS', 'JETTY 2', 1000, 0, ''),
+    (16, 'BUTANE', 'INFLAMMABLE / CHEMICALS', 'MEGA TERMINAL', 1000, 0, ''),
+    (17, 'PROPANE', 'INFLAMMABLE / CHEMICALS', 'JETTY 2', 1800, 1800, ''),
+    (17, 'PROPANE', 'INFLAMMABLE / CHEMICALS', 'MEGA TERMINAL', 12000, 12000, ''),
+    (18, 'GAS OIL', 'INFLAMMABLE / CHEMICALS', 'JETTY 1', 1200, 1200, ''),
+    (18, 'GAS OIL', 'INFLAMMABLE / CHEMICALS', 'JETTY 3', 1800, 1800, ''),
+    (19, 'EDC', 'INFLAMMABLE / CHEMICALS', 'JETTY 1', 1200, 1200, ''),
+    (20, 'CAUSTIC SODA', 'INFLAMMABLE / CHEMICALS', 'JETTY 1', 1200, 1200, ''),
+    (22, 'ETHYLENE', 'INFLAMMABLE / CHEMICALS', 'JETTY 2', 600, 600, ''),
+    (24, 'UAN FERTILIZER', 'FERTILIZERS', 'PIER 9 TBB', 0, 2400, ''),
+    (25, 'SOYA BEAN OIL', 'VEGETABLE OIL', 'CARGILL TERMINAL', 3900, 0, ''),
+    (25, 'SOYA BEAN OIL', 'VEGETABLE OIL', 'PIER 2/3 GALVAN', 3900, 0, ''),
+    (26, 'SUNFLOWER OIL', 'VEGETABLE OIL', 'PIER 2/3 GALVAN', 3900, 0, ''),
+    (26, 'SUNFLOWER OIL', 'VEGETABLE OIL', 'CARGILL TERMINAL', 3900, 0, ''),
+    (32, 'NAPHTHA', 'INFLAMMABLE / CHEMICALS', 'JETTY 2', 1500, 1500, ''),
+    (32, 'NAPHTHA', 'INFLAMMABLE / CHEMICALS', 'JETTY 3', 1800, 1800, ''),
+    (32, 'NAPHTHA', 'INFLAMMABLE / CHEMICALS', 'JETTY 1', 1200, 1200, ''),
+    (33, 'SORGHUM', 'GRAIN', 'DREYFUS', 10000, 0, ''),
+    (35, 'PYGAS', 'INFLAMMABLE / CHEMICALS', 'JETTY 2', 1500, 1500, ''),
+    (39, 'BARITE', 'GENERAL CARGO', 'PIER 21', 0, 1800, ''),
+    (39, 'BARITE', 'GENERAL CARGO', 'PIER 5 GALVAN', 0, 1800, ''),
+    (41, 'OCTENE', 'INFLAMMABLE / CHEMICALS', 'JETTY 1', 1080, 1080, ''),
+    (42, 'HEXENE', 'INFLAMMABLE / CHEMICALS', 'JETTY 1', 1080, 1080, ''),
+]
+
+# productos que figuran en el listado pero sin muelles ni promedios cargados: (codigo, producto, rubro)
+SIN_DATOS: list[tuple[int, str, str]] = [
+    (15, 'NH3', 'INFLAMMABLE / CHEMICALS'),
+    (23, 'VCM', 'INFLAMMABLE / CHEMICALS'),
+    (28, 'FISH', 'GENERAL CARGO'),
+    (29, 'PROJECT CARGO', 'GENERAL CARGO'),
+    (30, 'METHANE', 'INFLAMMABLE / CHEMICALS'),
+    (31, 'REGAS CAMPAING', 'INFLAMMABLE / CHEMICALS'),
+    (34, 'POTASH', 'FERTILIZERS'),
+    (36, 'MTBE', 'INFLAMMABLE / CHEMICALS'),
+    (37, 'CONTAINERS', 'CONTAINERS'),
+    (38, 'READINESS', 'READINESS'),
+    (40, 'BENTONITE', 'GENERAL CARGO'),
+]
