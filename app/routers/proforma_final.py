@@ -24,6 +24,7 @@ from .. import lds as lds_calc
 from .. import chequeo, encargados as enc, migraciones, personal, proformas_hist, serenos_padron, serenos_pagos
 from ..docgen import resumen_sereno_xlsx
 from .. import muelle as muelle_calc
+from .. import vouchers_lib as lib_vouchers
 from ..vouchers_lib import estado_voucher
 from ..proforma_fees_2026 import buscar_en_lista, sugerir_monto
 from ..proformador_calc import get_param
@@ -128,7 +129,9 @@ def _del_voucher(o: OperatedVessel) -> dict:
     except ValueError:
         turnos = []
     servicios = vch.lineas(v.formato, estado_voucher(v), v.servicio)
+    llevan = lib_vouchers.exclusivos_activos(v.formato, estado_voucher(v), v.servicio)
     return {"servicios": servicios, "turnos": turnos, "hay_voucher": True, "voucher_enviado": v.estado == "ENVIADO",
+            "lleva_tally": "head_tally" in llevan, "lleva_serenos": "watchman" in llevan,
             "mig_voucher": migraciones.desde_voucher(servicios)}
 
 

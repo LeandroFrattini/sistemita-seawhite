@@ -609,3 +609,15 @@ Cuando por un tema puntual de un barco hay que **escribir a mano** el ETB (amarr
 - **Cómo se calcula**: si el **ETC** es a mano, es el punto de partida del barco siguiente. Si solo el **ETB** es a mano, el ETC se calcula desde ese ETB con la duración de siempre. Un ETB a mano gana aunque el ETA sea posterior. El **primer** barco de cada muelle no se pinta ni lleva cartelito (sus fechas siempre las carga una persona).
 - **Volver al cálculo automático**: tocando el cartelito (pregunta antes) se sacan las marcas de ese barco y se recalcula el muelle. «Recalcular TODO» avisa en su resultado que las fechas a mano se respetan.
 - Código: `app/recalc.py` (la regla), columnas `vessel_calls.etb_manual` / `etc_manual`, ruta `POST /api/calls/{id}/auto` en `app/routers/lineup.py`, y el pintado en `lineup.html`, `lineup.js` y `app.css`.
+
+## Barco con dos (o más) clientes: un voucher por cliente, Head Tally y Serenos en uno solo
+
+Cuando un barco se atiende para más de un cliente (por ejemplo AMI y Heinlein), **los horarios son los mismos** pero **cada cliente tiene su propio voucher**, porque se le prestan servicios distintos. Al completar los datos de un barco, los horarios se copian a la fila de cada cliente y quedan **dos vouchers por completar** (aparecen en «Por completar» y, al enviar el primero, el sistema lleva al siguiente). Las estibas no llevan voucher.
+
+**Head Tally y Serenos (watchman) van en UN solo voucher por barco: el que los tenga tildado.**
+- El **primer voucher** que se arma viene con todo tildado, como siempre; el **segundo nace sin Head Tally ni Serenos** (y lo dice en pantalla).
+- En cada voucher aparece un cartel **«Este barco también se atiende para otro cliente»** con el voucher del otro cliente (estado: sin armar / borrador / enviado) y cuál lleva Head Tally y Serenos, con link para ir a él.
+- Si se tilda el Head Tally o los Serenos en un voucher y **ya están en el del otro cliente**, el sistema avisa y pregunta: «¿Pasar HEAD TALLY a ESTE voucher? Se destildan en el de AMI». Si se confirma, **se pasan** (se sacan del otro); si no, no se guarda nada. Pasa lo mismo al enviar. Destildar nunca genera avisos.
+- **Proforma final**: según el voucher de cada cliente, el Tally y los Serenos **ya vienen sin facturar** (omitidos) en el cliente cuyo voucher no los lleva, y el asistente lo avisa al elegir el barco («si corresponde, tildá "Esto sí lo facturamos" en su paso»). En un barco de un solo cliente no cambia nada. (Cambio: antes los Serenos se calculaban siempre; ahora siguen el voucher.)
+- El documento del voucher que se descarga también sale sin Head Tally ni Serenos en el cliente que no los lleva.
+- Cómo se detectan los «hermanos»: mismo nombre de barco, mismo amarre y mismo zarpe (las filas de estiba no cuentan). Código: `app/vouchers_lib.py` (`hermanos`, `conflictos`, `sacar_de`), rutas en `app/routers/vouchers.py`.

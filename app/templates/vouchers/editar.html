@@ -18,13 +18,24 @@
 <p class="vc-aviso vc-suave">El bloqueo está prendido: quien cargó los datos del barco tiene que completar este voucher para seguir trabajando.</p>
 {% endif %}
 
+{% if hermanos %}
+<div class="vc-herm" role="note">
+  <b>Este barco también se atiende para otro cliente.</b> Cada cliente tiene su propio voucher; el <b>Head Tally</b> y los <b>Serenos</b> van en <u>un solo</u> voucher: el que los tenga tildado.
+  <ul>
+    {% for h in hermanos %}
+    <li><a href="{{ h.url }}">{{ h.agencia }}</a> <span class="vc-pill {{ 'vc-ok' if h.estado == 'Enviado' else 'vc-borrador' }}">{{ h.estado }}</span>{% if h.lleva %} <span class="muted">· lleva {{ h.lleva|join(' y ') }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
 <div class="vc-estado" id="vc-estado">
   {% if v.estado == 'ENVIADO' %}
   <span class="vc-pill vc-ok">Enviado</span>
   <span class="muted">por {{ v.enviado_por }} el {{ v.enviado_en|localdt("%d/%m/%Y %H:%M") }}. Podés seguir editándolo y descargarlo.</span>
   {% else %}
   <span class="vc-pill vc-borrador">Borrador</span>
-  <span class="muted">Todos los conceptos vienen tildados: destildá los que no corresponden. Cuando esté listo, tocá ENVIAR.</span>
+  <span class="muted">Todos los conceptos vienen tildados{% if hermanos %} (menos los que ya lleva el voucher del otro cliente){% endif %}: destildá los que no corresponden. Cuando esté listo, tocá ENVIAR.</span>
   {% endif %}
 </div>
 
@@ -106,6 +117,9 @@
 .vc-chip .vc-chip-del { padding: 4px 8px; color: var(--muted); border-left: 1px solid var(--line); }
 .vc-chip button:hover { background: #dbe9f8; }
 .vc-vista-lista { margin: 0; padding-left: 18px; font-family: "Times New Roman", serif; font-size: 13.5px; line-height: 1.5; }
+.vc-herm { margin: 0 0 12px; padding: 10px 14px; background: #eef6ff; border: 1px solid #b9d4f1; border-radius: 12px; font-size: 13.5px; color: #123f73; }
+.vc-herm ul { margin: 6px 0 0; padding-left: 18px; }
+.vc-herm li { margin: 2px 0; }
 .vc-acciones { display: flex; flex-direction: column; gap: 8px; }
 .vc-acciones .btn { text-align: center; justify-content: center; text-decoration: none; }
 .vc-enviar { padding: 12px; font-size: 15px; letter-spacing: .04em; }
@@ -196,10 +210,17 @@ document.addEventListener("click", async (ev) => {
   }
 });
 
-const cuerpo = () => JSON.stringify({ items: ESTADO, fecha: $("#vc-fecha") ? $("#vc-fecha").value : "" });
-async function post(url) {
-  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: cuerpo() });
-  return { ok: r.ok, data: await r.json().catch(() => ({})) };
+const cuerpo = (mover) => JSON.stringify({ items: ESTADO, fecha: $("#vc-fecha") ? $("#vc-fecha").value : "", mover: !!mover });
+async function post(url, mover) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: cuerpo(mover) });
+  return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
+}
+// Head Tally y Serenos van en un solo voucher por barco: si ya estan en el de otro cliente, se pregunta si se pasan a este
+async function resolverChoque(r, url) {
+  if (r.status !== 409 || !r.data.conflicto) return r;
+  if (confirm(r.data.error + "\n\n¿Pasar " + r.data.conceptos + " a ESTE voucher? Se destildan en el de " + r.data.agencia + ".")) return post(url, true);
+  location.reload();  // no se paso: se vuelve a lo guardado
+  return { ok: false, data: { error: "No se guardó." } };
 }
 
 let timer = null;
@@ -207,7 +228,8 @@ function cambio() {
   $("#vc-guardado").textContent = "Guardando…";
   clearTimeout(timer);
   timer = setTimeout(async () => {
-    const [vista, guardado] = await Promise.all([post(`/vouchers/${VID}/vista`), post(`/vouchers/${VID}/guardar`)]);
+    const [vista, guardado0] = await Promise.all([post(`/vouchers/${VID}/vista`), post(`/vouchers/${VID}/guardar`)]);
+    const guardado = await resolverChoque(guardado0, `/vouchers/${VID}/guardar`);
     if (vista.ok) {
       const ul = $("#vc-vista"); ul.replaceChildren();
       vista.data.lineas.forEach((l) => ul.appendChild(el("li", null, l)));
@@ -222,7 +244,7 @@ $("#vc-fecha") && $("#vc-fecha").addEventListener("change", cambio);
 $("#vc-enviar").addEventListener("click", async () => {
   clearTimeout(timer);
   $("#vc-guardado").textContent = "Enviando…";
-  const r = await post(`/vouchers/${VID}/enviar`);
+  const r = await resolverChoque(await post(`/vouchers/${VID}/enviar`), `/vouchers/${VID}/enviar`);
   if (!r.ok) { $("#vc-guardado").textContent = r.data.error || "No se pudo enviar"; return; }
   location.href = r.data.next;
 });

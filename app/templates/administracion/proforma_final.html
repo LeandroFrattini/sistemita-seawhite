@@ -684,6 +684,9 @@ function elegirBarco(valor) {
     trn: o.trn || 0, trb: o.trb || 0, eslora: o.eslora || 0, manga: o.manga || 0, puntal: o.puntal || 0, bandera: o.bandera || "", servicio: o.servicio === "HUSBANDRY" ? "HUSBANDRY" : "FULL",
     calado_entrada: o.calado_entrada || 0, calado_salida: o.calado_salida || 0, servicios: o.servicios || [], turnos: o.turnos || [], mig_voucher: o.mig_voucher || {} };
   resetPract();
+  // si el voucher de este cliente no lleva Head Tally o Serenos (en un barco con dos clientes van en uno solo), no se proforman (se pueden tildar en su paso)
+  TALLY.omitido = !!(o.hay_voucher && !o.lleva_tally); SERENOS.omitido = !!(o.hay_voucher && !o.lleva_serenos);
+  const sinPersonal = [TALLY.omitido ? "el Head Tally" : "", SERENOS.omitido ? "los Serenos" : ""].filter(Boolean).join(" ni ");
   pintarPaso3(true, o);  // antes de cambiar la agencia: ese cambio vuelve a leer los campos de pantalla
   if (o.agencia_id && String(o.agencia_id) !== sel.value) {  // la agencia a facturar es la del barco
     sel.value = String(o.agencia_id);
@@ -692,6 +695,7 @@ function elegirBarco(valor) {
   if (o.zarpe) $("#dolar-fecha").value = o.zarpe.slice(0, 10);  // la cotizacion suele ser la del dia de zarpada (se puede cambiar)
   renderBuque(); pintarPaso3(true, o); render();
   avisoDuplicada(o.id);
+  if (sinPersonal && !esHusb()) { msg("Barco cargado. Ojo: en el voucher de este cliente no figuran " + sinPersonal + ", así que no se proforman (si corresponde, tildá «Esto sí lo facturamos» en su paso)."); return; }
   msg(o.agencia_id ? "Barco cargado. La agencia a facturar es " + o.agencia + "." : "Barco cargado. Su agencia (" + (o.agencia || "sin cliente") + ") no figura en Clientes: elegila en el paso 2.", !!o.agencia_id);
 }
 

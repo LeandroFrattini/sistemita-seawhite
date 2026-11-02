@@ -4,11 +4,11 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from .docgen import voucher as vch
-from .models import AppSetting, OperatedVessel, Voucher
+from .models import AppSetting, Client, OperatedVessel, Voucher
 
 BLOQUEO_KEY = "voucher_bloqueo"  # "1" = prendido. Viene APAGADO: se prende a mano desde Admin cuando se termine de probar.
 
@@ -35,6 +35,67 @@ def estado_voucher(v: Voucher) -> dict:
         return json.loads(v.items or "{}")
     except ValueError:
         return {}
+
+
+# Cuando un barco se atiende para mas de un cliente, cada uno tiene su voucher, pero el Head Tally y los Serenos (watchman)
+# van en UN solo voucher: el que los tenga tildado.
+EXCLUSIVOS = {"head_tally": "HEAD TALLY", "watchman": "SERENOS"}
+
+
+def _estibas(db: Session) -> set[str]:
+    return {c.name.strip().lower() for c in db.scalars(select(Client).where(Client.client_type == "ESTIBA"))}
+
+
+def hermanos(db: Session, o: OperatedVessel) -> list[OperatedVessel]:
+    """Las otras filas de agencia del mismo barco y la misma estadia (mismo nombre, mismo amarre y zarpe): los demas clientes del barco."""
+    if not (o.amarre or "").strip() or not (o.zarpe or "").strip():
+        return []
+    estibas = _estibas(db)
+    return [h for h in db.scalars(select(OperatedVessel).where(
+        OperatedVessel.id != o.id, func.lower(OperatedVessel.vessel_name) == (o.vessel_name or "").strip().lower(),
+        OperatedVessel.amarre == o.amarre, OperatedVessel.zarpe == o.zarpe)) if es_fila_de_agencia(h, estibas)]
+
+
+def exclusivos_activos(formato: str, estado: dict, servicio: str = "FULL") -> set[str]:
+    """Cuales de los conceptos que van en un solo voucher (head_tally, watchman) estan tildados en ese estado."""
+    est = vch.normalizar(formato, estado, servicio)
+    return {k for k in EXCLUSIVOS if k in est["c"] and est["c"][k].get("on")}
+
+
+def conflictos(db: Session, v: Voucher, estado: dict) -> list[tuple[Voucher, set[str]]]:
+    """Los vouchers hermanos que ya llevan alguno de los conceptos exclusivos que este voucher tiene tildados: [(voucher, {claves})]."""
+    propios = exclusivos_activos(v.formato, estado, v.servicio)
+    if not propios:
+        return []
+    o = db.get(OperatedVessel, v.operated_id)
+    out = []
+    for h in hermanos(db, o) if o is not None else []:
+        if h.voucher is None:
+            continue
+        comunes = propios & exclusivos_activos(h.voucher.formato, estado_voucher(h.voucher), h.voucher.servicio)
+        if comunes:
+            out.append((h.voucher, comunes))
+    return out
+
+
+def sacar_de(v: Voucher, claves: set[str]) -> None:
+    """Destilda esos conceptos en un voucher (se pasan al otro)."""
+    est = vch.normalizar(v.formato, estado_voucher(v), v.servicio)
+    for k in claves:
+        if k in est["c"]:
+            est["c"][k]["on"] = False
+    v.items = json.dumps(est, ensure_ascii=False)
+
+
+def resumen_hermanos(db: Session, o: OperatedVessel) -> list[dict]:
+    """Para mostrar en el voucher: los otros clientes del barco, como va su voucher y cual lleva Head Tally / Serenos."""
+    out = []
+    for h in hermanos(db, o):
+        v = h.voucher
+        out.append({"agencia": h.principal, "estado": ("Enviado" if v.estado == "ENVIADO" else "Borrador") if v else "Sin armar",
+                    "url": f"/vouchers/{v.id}" if v else f"/vouchers/nuevo?operated_id={h.id}",
+                    "lleva": [EXCLUSIVOS[k] for k in EXCLUSIVOS if v and k in exclusivos_activos(v.formato, estado_voucher(v), v.servicio)]})
+    return out
 
 
 def lleva_head_tally(v: Voucher) -> bool:
