@@ -624,12 +624,12 @@ Cuando un barco se atiende para más de un cliente (por ejemplo AMI y Heinlein),
 
 ## Utilidades → Ritmos de Carga (promedios de carga y descarga por muelle y por producto)
 
-Nueva utilidad de Operaciones (Operaciones → Utilidades → **RITMOS DE CARGA**) con el **promedio de carga y de descarga** de cada producto en cada muelle, en **toneladas por día**. Sale del «Listado de Productos» (reporte de la terminal del 31/10/2026), que viene como un listado de producto → muelles muy difícil de leer; acá se ve así:
+Nueva utilidad de Operaciones (Operaciones → Utilidades → **RITMOS DE CARGA**) con el **promedio de carga y de descarga** de cada producto en cada muelle, en **toneladas cada 6 horas**. Sale del «Listado de Productos» (reporte de la terminal del 31/10/2026), que viene como un listado de producto → muelles muy difícil de leer; acá se ve así:
 
 - **Por muelle** (vista principal): 13 tarjetas agrupadas por lo que se opera (granos, subproductos y aceites; fertilizantes y carga general; inflamables y químicos). Cada tarjeta lista los productos con su carga y su descarga.
 - **Por producto**: una tarjeta por producto con los muelles donde se opera, y en **verde** el muelle de mayor carga (o descarga) cuando se opera en más de uno. Abajo, los productos del listado que no tienen rendimientos cargados.
 - **Solo las columnas que tienen datos**: si en un muelle (o en un producto) no hay nada de descarga, la tarjeta no muestra la columna «Descarga» (ni al revés); y donde falta un dato no se pone un guión, se deja en blanco.
 - **Buscador** que filtra por muelle o por producto (si coincide el nombre del muelle, muestra todo el muelle).
 - **No se cargaron** las boyas B11 y B17, las monoboyas SBM Punta Ancla y Punta Cigüeña ni Piedra Buena (pedido del usuario); los productos que solo se operaban ahí (VLSFO/MGO, Bunkers, Crude Oil) tampoco figuran.
-- **Cebada en CARGILL**: el listado traía dos valores (1.800 y 1.500); por indicación del usuario queda **una sola fila con 8.400**. Se asumió que «Prom_Carga / Prom_Descarga» son toneladas por día.
+- **Cebada en CARGILL**: el listado traía dos valores (1.800 y 1.500); por indicación del usuario queda **una sola fila con 8.400**. «Prom_Carga / Prom_Descarga» son toneladas cada 6 horas (confirmado por el usuario).
 - Es información fija (mismo criterio que Fondeaderos y Costos): los datos están en `app/rendimientos_data.py`; cuando cambia el listado se actualiza ese archivo. Armado en `app/rendimientos.py`, pantalla `utilidades/rendimientos.html`.

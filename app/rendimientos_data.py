@@ -1,7 +1,7 @@
 """Rendimientos de carga y descarga por producto y por muelle (Utilidades de Operaciones).
 
 Fuente: «Listado de Productos» (reporte del sistema de la terminal, 31/10/2026): para cada producto, los muelles donde se opera y el promedio de carga y de
-descarga (Prom_Carga / Prom_Descarga, en toneladas por dia). No se cargan las boyas B11 y B17, las monoboyas SBM ni Piedra Buena. Es informacion de referencia fija: cuando cambia el listado, se actualiza esta lista y se pushea
+descarga (Prom_Carga / Prom_Descarga, en toneladas cada 6 horas). No se cargan las boyas B11 y B17, las monoboyas SBM ni Piedra Buena. Es informacion de referencia fija: cuando cambia el listado, se actualiza esta lista y se pushea
 (mismo criterio que costos_templates.py y fondeaderos_templates.py).
 
 Cada renglon: (codigo del producto, producto, rubro, muelle, carga, descarga, nota). 0 = no se opera en ese sentido. Los productos sin muelles cargados en el
@@ -9,7 +9,7 @@ listado van en SIN_DATOS.
 """
 from __future__ import annotations
 
-# (codigo, producto, rubro, muelle, carga tn/dia, descarga tn/dia, nota)
+# (codigo, producto, rubro, muelle, carga tn/6 h, descarga tn/6 h, nota)
 RENDIMIENTOS: list[tuple[int, str, str, str, int, int, str]] = [
     (2, 'SOYBEANS', 'GRAIN', 'ADM AGRO TERMINAL', 9000, 0, ''),
     (2, 'SOYBEANS', 'GRAIN', 'PIER 9 TBB', 6600, 0, ''),
