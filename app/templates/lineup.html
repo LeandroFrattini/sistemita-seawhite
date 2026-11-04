@@ -23,7 +23,7 @@
     {% endif %}
     <button id="btn-recalc" class="btn" data-kind="{{ kind }}">↻ Recalcular TODO</button>
     {% if not flammable %}
-    <a class="btn" href="/export/internal.xlsx">⬇ EXCEL HEINLEIN</a>
+    <a class="btn" href="/export/heinlein.eml" title="Baja el mail para Heinlein ya armado (asunto, texto, destinatarios, copia y el Excel adjunto) para abrirlo en Outlook">✉ MAIL HEINLEIN</a>
     <a class="btn" href="/export/clients.xlsx">⬇ GRAIN TERMINAL</a>
     {% endif %}
     <a class="btn primary" href="/reports?kind={{ kind }}">Generar reportes →</a>

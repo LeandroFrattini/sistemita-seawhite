@@ -1,18 +1,26 @@
 import json
+from html import escape
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, Response, StreamingResponse
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..auth import current_user
+from ..config import settings
 from ..database import get_db
+from ..eml import build_eml, safe_filename
 from ..excel_export import build_lineup_xlsx
-from ..models import ArchivedLineup, User
+from ..models import ArchivedLineup, Client, User
 from ..service import (
+    CC_KEY,
+    DEFAULT_CC,
     active_terminals,
     calls_for_lineup,
     get_draft_lineup,
+    get_setting,
     group_by_terminal,
+    split_emails,
 )
 from ..templating import templates
 
@@ -37,6 +45,30 @@ def _xlsx_response(db: Session, *, internal: bool) -> StreamingResponse:
 @router.get("/export/internal.xlsx")
 def export_internal(db: Session = Depends(get_db), user: User = Depends(current_user)):
     return _xlsx_response(db, internal=True)
+
+
+@router.get("/export/heinlein.eml")
+def export_heinlein_eml(db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """El mail que se le manda a Heinlein, armado: asunto, texto, destinatarios (los de Heinlein en Clientes), copia a Operations y el Excel interno adjunto.
+    Se baja como .eml (borrador de Outlook): se abre, se revisa y se envia."""
+    lineup = get_draft_lineup(db)
+    terminals = [t for t in active_terminals(db) if not t.exclude_from_excel]
+    grouped = group_by_terminal(terminals, calls_for_lineup(db, lineup.id))
+    bio, nombre_xlsx = build_lineup_xlsx(lineup, terminals, grouped, internal=True)
+    cliente = db.scalar(select(Client).where(func.lower(Client.name).like("%heinlein%"), Client.active.is_(True)).order_by(Client.id))
+    para = cliente.email_list if cliente else []
+    cc = [e for e in (split_emails(get_setting(db, CC_KEY, DEFAULT_CC)) or ["operations@seawhite.com.ar"]) if e not in para]
+    fecha = (lineup.lineup_date or "").replace("/", ".")
+    puerto = (settings.port_name or "BAHIA BLANCA").upper().replace(" PORT", "").strip()
+    asunto = f"{puerto} - GRAIN TERMINALS LINE UP - {fecha} / HEINLEIN"
+    lineas = [fecha, "", "BUEN DIA,", "", "NOTAR ADJUNTO GRAIN TERMINALS LINE UP CON AGENCIAS LOCALES/DE BS AS."]
+    texto = "\n".join(lineas) + "\n"
+    html = ('<div style="font-family:\'Courier New\',Courier,monospace;font-size:13px;line-height:1.4;">'
+            + "<br>".join(escape(l) if l else "&nbsp;" for l in lineas) + "</div>")
+    data = build_eml(subject=asunto, to_emails=para, cc_emails=cc, html_body=html, text_body=texto,
+                     attachments=[(nombre_xlsx, bio.getvalue(), XLSX_MIME)])
+    return Response(content=data, media_type="message/rfc822",
+                    headers={"Content-Disposition": f'attachment; filename="{safe_filename(asunto.replace(" / ", " - "))}.eml"'})
 
 
 @router.get("/export/clients.xlsx")

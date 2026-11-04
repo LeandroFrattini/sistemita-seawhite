@@ -633,3 +633,16 @@ Nueva utilidad de Operaciones (Operaciones → Utilidades → **RITMOS DE CARGA*
 - **No se cargaron** las boyas B11 y B17, las monoboyas SBM Punta Ancla y Punta Cigüeña ni Piedra Buena (pedido del usuario); los productos que solo se operaban ahí (VLSFO/MGO, Bunkers, Crude Oil) tampoco figuran.
 - **Cebada en CARGILL**: el listado traía dos valores (1.800 y 1.500); por indicación del usuario queda **una sola fila con 8.400**. «Prom_Carga / Prom_Descarga» son toneladas cada 6 horas (confirmado por el usuario).
 - Es información fija (mismo criterio que Fondeaderos y Costos): los datos están en `app/rendimientos_data.py`; cuando cambia el listado se actualiza ese archivo. Armado en `app/rendimientos.py`, pantalla `utilidades/rendimientos.html`.
+
+## Line-up: el botón «✉ MAIL HEINLEIN» baja el mail armado (.eml)
+
+En el Line-up Grain, el botón que antes decía «⬇ EXCEL HEINLEIN» ahora es **«✉ MAIL HEINLEIN»** y baja un **.eml** (borrador de Outlook) con el mail que se le manda a Heinlein, ya armado:
+
+- **Asunto**: `BAHIA BLANCA - GRAIN TERMINALS LINE UP - 04.11.26 / HEINLEIN` (con la fecha del line-up).
+- **Cuerpo** (letra de máquina, como el original): la fecha, «BUEN DIA,» y «NOTAR ADJUNTO GRAIN TERMINALS LINE UP CON AGENCIAS LOCALES/DE BS AS.».
+- **Para**: los mails de Heinlein cargados en **Clientes**. **Cc**: Operations de Sea White (el mismo que usan los reportes, configurable en Admin).
+- **Adjunto**: el Excel **interno** (con LOCAL y PRINCIPAL), con su nombre de siempre («HEINLEIN GRAIN TERMINALS LINE UP 04.11.26.xlsx»).
+- Se abre como borrador editable: se revisa y se envía. Como los demás `.eml` del sistema, **no lleva la firma** (Outlook la agrega al abrir/enviar según cada usuario).
+- Si hay que sumar destinatarios a Heinlein (por ejemplo a Ulises Pampin), se cargan en Clientes → Heinlein.
+- En «Exportar y finalizar» siguen los dos: el mail armado y «Solo el Excel HEINLEIN». El Excel «GRAIN TERMINAL» para clientes no cambió.
+- Código: `/export/heinlein.eml` en `app/routers/exports.py`.
