@@ -12,6 +12,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from . import migraciones
+from .proforma_final import con_shifting
 from .proformador_calc import get_param
 
 # (clave, texto de la proforma, parametro del monto, valor por defecto en USD)
@@ -23,7 +24,7 @@ FIJOS = [
 CLAVES_FIJOS = [k for k, *_ in FIJOS]
 LAW_PCT = 1.2
 # orden de los renglones, como en las proformas reales (lo de LDS arriba si se factura; despues port dues y channel toll, tally, serenos, migraciones...)
-ORDEN = ["mooring", "unmooring", "gangway", "draft", "port_dues", "anchor", "channel_toll", "pilot_in", "pilot_out", "tally", "serenos", "mig_in", "mig_out",
+ORDEN = ["mooring", "unmooring", "unmooring_shift", "mooring_shift", "gangway", "draft", "port_dues", "anchor", "channel_toll", "pilot_in", "pilot_out", "pilot_shift", "tally", "serenos", "mig_in", "mig_out",
          "free_pratique", "aduana_", "taxi_in", "taxi_out", "taxi_sanidad", "senasa", "maritime", "misc", "extra_"]
 
 
@@ -95,12 +96,18 @@ def armar(db: Session, s: dict) -> dict:
     pr = s["practicaje"]
     add("pilot_in", "PILOT SERVICE IN", "USD", pr["in"]["usd"], pr["in"], 4)
     add("pilot_out", "PILOT SERVICE OUT", "USD", pr["out"]["usd"], pr["out"], 4)
+    shifting = con_shifting(b)  # cambio de muelle: un practicaje, un desamarre y un amarre mas
+    if shifting:
+        add("pilot_shift", "PILOT SERVICE (SHIFTING)", "USD", pr["shift"]["usd"], pr["shift"], 4)
     add("port_dues", "PORT DUES", "USD", s["muelle"]["usd"], s["muelle"], 5)
     if s["fondeo"]["on"]:
         add("anchor", "ANCHOR DUES", "USD", s["fondeo"]["usd"], s["fondeo"], 5)
     add("channel_toll", "CHANNEL TOLL", "USD", s["vias"]["usd"], s["vias"], 5)
     add("mooring", "MOORING SERVICE (LDS)", "USD", s["lds_amarre"]["usd"], s["lds_amarre"], 6)
     add("unmooring", "UNMOORING SERVICE (LDS)", "USD", s["lds_desamarre"]["usd"], s["lds_desamarre"], 6)
+    if shifting:
+        add("unmooring_shift", "UNMOORING SERVICE (LDS) - SHIFTING", "USD", s["lds_shift_desamarre"]["usd"], s["lds_shift_desamarre"], 6)
+        add("mooring_shift", "MOORING SERVICE (LDS) - SHIFTING", "USD", s["lds_shift_amarre"]["usd"], s["lds_shift_amarre"], 6)
     if s["escala"]["on"]:
         add("gangway", "SHORE GANGWAY (LDS)", "USD", s["escala"]["usd"], s["escala"], 6)
     if s["lds_draft"]["on"]:

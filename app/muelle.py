@@ -48,18 +48,25 @@ def _dt(raw: str) -> datetime | None:
 def dias(entrada: str, salida: str, exentos: set | frozenset = frozenset()) -> dict:
     """Dias de estadia por bloques de 8 horas (los bloques son [desde, hasta): a las 16:00 en punto ya es el otro bloque).
     `exentos` son bloques (fecha ISO, hora desde) que no se cobran (beneficio de fin de semana); se listan igual, marcados."""
-    a, b = _dt(entrada), _dt(salida)
-    if not a or not b or b <= a:
+    return dias_tramos([(entrada, salida)], exentos)
+
+
+def dias_tramos(tramos: list[tuple[str, str]], exentos: set | frozenset = frozenset()) -> dict:
+    """Lo mismo para uno o mas tramos de estadia (un barco con shifting estuvo en dos muelles): un bloque en el que el barco estuvo en CUALQUIERA
+    de los tramos se cobra una sola vez (si desamarra de un muelle y amarra en el otro dentro del mismo bloque, no se cobra dos veces)."""
+    validos = [(a, b) for a, b in ((_dt(x), _dt(y)) for x, y in tramos) if a and b and b > a]
+    if not validos:
         return {"total": 0.0, "perdonados": 0.0, "detalle": []}
     detalle = []
     total = perdonados = 0.0
-    dia = a.date()
-    while dia <= b.date():
+    dia = min(a for a, _ in validos).date()
+    ultimo = max(b for _, b in validos).date()
+    while dia <= ultimo:
         base = datetime.combine(dia, datetime.min.time())
         bloques = []
         for h1, h2, peso in BLOQUES:
             ini, fin = base + timedelta(hours=h1), base + timedelta(hours=h2)
-            if a < fin and b > ini:
+            if any(a < fin and b > ini for a, b in validos):
                 bloques.append({"desde": f"{h1:02d}", "hasta": f"{h2:02d}", "peso": peso, "beneficio": (dia.isoformat(), h1) in exentos})
         if bloques:
             sub = round(sum(x["peso"] for x in bloques if not x["beneficio"]), 2)
@@ -96,19 +103,32 @@ def bloques_beneficio(db: Session, entrada: str, inicio: str) -> set:
     return libres
 
 
+def tramos_estadia(entrada: str, salida: str, shift_desamarre: str = "", shift_amarre: str = "") -> list[tuple[str, str]]:
+    """Las estadias en muelle: una sola (amarre -> zarpe) o, con shifting, dos (amarre -> desamarre del primer muelle y amarre en el segundo -> zarpe).
+    Si las horas del shifting no cierran (desamarre antes del amarre, o el segundo amarre antes del desamarre), se usa una sola estadia."""
+    a, d, m, z = _dt(entrada), _dt(shift_desamarre), _dt(shift_amarre), _dt(salida)
+    if a and d and m and z and a < d <= m < z:
+        return [(entrada, shift_desamarre), (shift_amarre, salida)]
+    return [(entrada, salida)]
+
+
 def calcular(db: Session, *, trn: float, cantidad: float, entrada: str, salida: str, fondeo: bool,
              fondeo_entrada: str, fondeo_salida: str, solo_bunker: bool, factor_via: float = 1.0,
-             inicio: str = "", aplicar_beneficio: bool = True) -> dict:
+             inicio: str = "", aplicar_beneficio: bool = True, shift_desamarre: str = "", shift_amarre: str = "") -> dict:
     wharfage = get_param(db, "wharfage_usd_trn_dia", 0.46)
     fondeadero = get_param(db, "fondeadero_usd_trn_dia", 0.15)
     tarifa_via = get_param(db, "channel_toll_usd_tn", 2.05)
 
     libres = bloques_beneficio(db, entrada, inicio)
-    d_bruto = dias(entrada, salida, frozenset())
-    d_muelle = dias(entrada, salida, libres if aplicar_beneficio else frozenset())
+    tramos = tramos_estadia(entrada, salida, shift_desamarre, shift_amarre)
+    d_bruto = dias_tramos(tramos, frozenset())
+    d_muelle = dias_tramos(tramos, libres if aplicar_beneficio else frozenset())
     # el beneficio se "detecta" solo si realmente toca algun bloque de la estadia (el barco puede haber zarpado antes)
-    detectado = bool(libres) and dias(entrada, salida, libres)["perdonados"] > 0
+    detectado = bool(libres) and dias_tramos(tramos, libres)["perdonados"] > 0
+    # con shifting: cuanto se habria cobrado de mas si cada muelle se contara por separado (los bloques compartidos se cobran una vez)
+    solapado_shifting = round(sum(dias_tramos([t], frozenset())["total"] for t in tramos) - d_bruto["total"], 2) if len(tramos) > 1 else 0.0
     muelle = {"tarifa": wharfage, "dias": d_muelle["total"], "detalle": d_muelle["detalle"], "dias_brutos": d_bruto["total"],
+              "shifting": len(tramos) > 1, "tramos": [list(t) for t in tramos], "solapado_shifting": solapado_shifting,
               "beneficio": {"detectado": detectado, "aplicado": detectado and aplicar_beneficio, "dias": d_muelle["perdonados"]},
               "total": round(wharfage * trn * d_muelle["total"], 2) if trn and d_muelle["total"] else None}
 

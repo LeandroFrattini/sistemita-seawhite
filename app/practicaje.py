@@ -41,7 +41,7 @@ def _movimiento(db: Session, uf: float, calado_pies: float, dos_practicos: bool)
 
 
 def calcular(db: Session, eslora: float, manga: float, puntal: float, calado_entrada: float, calado_salida: float,
-             dos_manual: bool = False) -> dict:
+             dos_manual: bool = False, calado_shifting: float = 0.0) -> dict:
     """Practicaje de entrada y de salida con el desglose, o lo que falta cargar.
     Lleva dos practicos si la manga supera 39,9 m o si se pidio a mano (dos_manual)."""
     uf = (eslora * manga * puntal / 800) if (eslora and manga and puntal) else 0.0
@@ -53,4 +53,6 @@ def calcular(db: Session, eslora: float, manga: float, puntal: float, calado_ent
         "remark": "BASIS OUR TARIFF WITH SERVICE PROVIDER" + ((" (TWO PILOTS -- BEAM OVER 40M)" if manga > MANGA_DOS_PRACTICOS else " (TWO PILOTS)") if dos else ""),
         "in": _movimiento(db, uf, calado_entrada, dos),
         "out": _movimiento(db, uf, calado_salida, dos),
+        # shifting (cambio de muelle): un movimiento mas, con su propio calado; solo se calcula si se cargo
+        "shift": _movimiento(db, uf, calado_shifting, dos) if calado_shifting else None,
     }

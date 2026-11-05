@@ -111,6 +111,18 @@
         <label>Shipper<input id="b-shipper" maxlength="60" placeholder="ej. QUILMES"></label>
       </div>
 
+      <h3 class="pfn-sub">Shifting (cambio de muelle)</h3>
+      <label class="pfn-chk"><input type="checkbox" id="b-shift-on"> El barco hizo shifting (pasó de un muelle a otro)</label>
+      <div id="b-shift-box" hidden>
+        <p class="muted">El <b>amarre</b> de arriba es el del primer muelle y el <b>zarpe</b> el del segundo. Acá van las horas del movimiento entre muelles. Se suman un practicaje, un desamarre y un amarre con lanchas; el uso de muelle no se duplica (si desamarra y amarra en el mismo tercio del día se cobra una sola vez).</p>
+        <div class="pfn-grid">
+          <label>Desamarre del primer muelle<input type="datetime-local" id="b-shift-des"></label>
+          <label>Amarre en el segundo muelle<input type="datetime-local" id="b-shift-am"></label>
+          <label>Calado del movimiento (metros)<input id="b-shift-cal" inputmode="decimal" placeholder="ej. 11,60"><small class="pfn-pies" id="b-shift-cal-pies" aria-live="polite"></small></label>
+        </div>
+        <p class="falta" id="b-shift-nota" hidden></p>
+      </div>
+
       <h3 class="pfn-sub">Datos del buque</h3>
       <div class="pfn-grid">
         <label>TRN<input id="b-trn" inputmode="decimal" placeholder="ej. 21173"></label>
@@ -503,8 +515,11 @@ const AGENCIAS = {{ agencias|tojson }};
 const PADRON_SERENOS = {{ serenos_padron|tojson }};  // nombres cargados en Administracion -> Serenos
 const PADRON_ENCARGADOS = {{ encargados_padron|tojson }};  // nombres cargados en Administracion -> Encargados
 const BARCOS = {{ barcos|tojson }};
+const shiftingVacio = () => ({ on: false, desamarre: "", amarre: "", calado: 0 });
+// el shifting solo cuenta cuando esta tildado y estan las dos horas del movimiento
+const shiftOn = () => !!(BUQUE.shifting && BUQUE.shifting.on && BUQUE.shifting.desamarre && BUQUE.shifting.amarre);
 const buqueVacio = () => ({ operated_id: null, nombre: "", imo: "", sitio: "", amarre: "", inicio: "", fin: "", zarpe: "", cantidad: "", carga: "", shipper: "", trn: 0, trb: 0, eslora: 0, manga: 0, puntal: 0, bandera: "",
-  calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [], servicio: "FULL" });
+  calado_entrada: 0, calado_salida: 0, servicios: [], turnos: [], servicio: "FULL", shifting: shiftingVacio() });
 let BUQUE = buqueVacio();
 // FULL / OPA = todo lo de siempre. HUSBANDRY = solo gastos basicos (cambio de tripulacion, provisiones...): sin practicaje, muelle, LDS, tally ni serenos
 const esHusb = () => BUQUE.servicio === "HUSBANDRY";
@@ -518,7 +533,7 @@ function pintarServicio() {
     ? "Husbandry: solo se proforma lo básico (cambio de tripulación, provisiones, habilitaciones de aduana, migraciones y los renglones que agregues en el chequeo). Se saltean practicaje, muelle, amarre, tally y serenos."
     : "FULL / OPA: se proforma todo lo de siempre, según lo que se tildó en el voucher.";
 }
-let PRACT = { in: { usd: 0, manual: false, cuenta_ajena: false }, out: { usd: 0, manual: false, cuenta_ajena: false } };  // importe de cada movimiento (calculado o modificado a mano)
+let PRACT = { in: { usd: 0, manual: false, cuenta_ajena: false }, out: { usd: 0, manual: false, cuenta_ajena: false }, shift: { usd: 0, manual: false, cuenta_ajena: false } };  // importe de cada movimiento (calculado o modificado a mano)
 let PRACT_CALC = null;       // ultima respuesta del servidor (con el desglose)
 let firmaPractAnt = "";      // con que datos se calculo por ultima vez
 let firmaCargada = null;     // datos con los que se guardo la proforma que se cargo de un Excel (esos importes se respetan)
@@ -553,14 +568,15 @@ function getState(sincronizar = true) {
     // lo que se ve en el paso 3 es lo que manda (se puede corregir lo traido de Operaciones)
     BUQUE = { ...BUQUE, amarre: $("#b-amarre").value, inicio: $("#b-inicio").value, fin: $("#b-fin").value, zarpe: $("#b-zarpe").value,
       cantidad: $("#b-cantidad").value.trim(), carga: $("#b-carga").value.trim(), shipper: $("#b-shipper").value.trim(), trn: num($("#b-trn").value), trb: num($("#b-trb").value), eslora: num($("#b-eslora").value),
-      manga: num($("#b-manga").value), puntal: num($("#b-puntal").value), bandera: $("#b-bandera").value.trim() };
+      manga: num($("#b-manga").value), puntal: num($("#b-puntal").value), bandera: $("#b-bandera").value.trim(),
+      shifting: { ...shiftingVacio(), ...BUQUE.shifting, on: $("#b-shift-on").checked, desamarre: $("#b-shift-des").value, amarre: $("#b-shift-am").value } };
   }
   const st = {
     v: 5,
     buque: BUQUE,
     practicaje: PRACT,
     muelle: MUELLE, fondeo: FONDEO, vias: VIAS,
-    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_draft: DRAFT, aduana: { ...ADUANA, usd: totalAduana() }, tally: TALLY, serenos: SERENOS, migraciones: MIG, chequeo: CHEQ, escala: { ...ESCALA, on: escalaOn(), on_set: true },
+    lds_amarre: AMLDS, lds_desamarre: DESLDS, lds_shift_desamarre: SHDES, lds_shift_amarre: SHAM, lds_draft: DRAFT, aduana: { ...ADUANA, usd: totalAduana() }, tally: TALLY, serenos: SERENOS, migraciones: MIG, chequeo: CHEQ, escala: { ...ESCALA, on: escalaOn(), on_set: true },
     dolar: { valor: num($("#dolar-valor").value), fecha: $("#dolar-fecha").value, origen: "MANUAL" },
     agencia: {
       id: sel.value ? Number(sel.value) : null,
@@ -573,8 +589,8 @@ function getState(sincronizar = true) {
   };
   if (esHusb()) {
     const o = (c) => ({ ...c, omitido: true, cuenta_ajena: false });
-    st.practicaje = { in: o(st.practicaje.in), out: o(st.practicaje.out) };
-    ["muelle", "fondeo", "vias", "lds_amarre", "lds_desamarre", "lds_draft", "escala", "tally", "serenos"].forEach((k) => { st[k] = o(st[k]); });
+    st.practicaje = { in: o(st.practicaje.in), out: o(st.practicaje.out), shift: o(st.practicaje.shift) };
+    ["muelle", "fondeo", "vias", "lds_amarre", "lds_desamarre", "lds_shift_desamarre", "lds_shift_amarre", "lds_draft", "escala", "tally", "serenos"].forEach((k) => { st[k] = o(st[k]); });
   }
   return st;
 }
@@ -659,6 +675,33 @@ function pintarPiesCalado() {
   BUQUE[n ? "calado_salida" : "calado_entrada"] = aPies(num($(id).value)); pintarPiesCalado();
 }));
 
+// Shifting: la caja se muestra solo si se tilda; las horas tienen que ir en orden (amarre < desamarre <= segundo amarre < zarpe)
+function pintarShifting() {
+  const on = $("#b-shift-on").checked;
+  $("#b-shift-box").hidden = !on;
+  const p = (BUQUE.shifting && BUQUE.shifting.calado) || 0, el = $("#b-shift-cal-pies"); el.replaceChildren();
+  if (p > 0) el.append("= ", elx("b", null, fm2(p) + " pies"));
+  const nota = $("#b-shift-nota"); nota.hidden = true; nota.textContent = "";
+  if (!on) return;
+  const a = $("#b-amarre").value, d = $("#b-shift-des").value, m = $("#b-shift-am").value, z = $("#b-zarpe").value;
+  let txt = "";
+  if (!d || !m) txt = "Cargá el desamarre del primer muelle y el amarre en el segundo: sin esas dos horas no se cobra el shifting.";
+  else if (a && d && a >= d) txt = "El desamarre del primer muelle tiene que ser posterior al amarre.";
+  else if (d > m) txt = "El amarre en el segundo muelle no puede ser anterior al desamarre del primero.";
+  else if (z && m >= z) txt = "El zarpe tiene que ser posterior al amarre en el segundo muelle.";
+  else if (!(p > 0)) txt = "Falta el calado del movimiento: con él se calcula el practicaje del shifting.";
+  if (txt) { nota.textContent = txt; nota.hidden = false; }
+}
+$("#b-shift-on").addEventListener("change", () => {
+  if ($("#b-shift-on").checked && !((BUQUE.shifting || {}).calado > 0)) {  // sugiere el calado de salida (se puede cambiar)
+    BUQUE.shifting = { ...shiftingVacio(), ...BUQUE.shifting, calado: BUQUE.calado_salida || 0 };
+    $("#b-shift-cal").value = BUQUE.shifting.calado ? fm2(aMetros(BUQUE.shifting.calado)) : "";
+  }
+  getState(); pintarShifting(); render();
+});
+["#b-shift-des", "#b-shift-am", "#b-amarre", "#b-zarpe"].forEach((id) => $(id).addEventListener("change", () => { getState(); pintarShifting(); render(); }));
+$("#b-shift-cal").addEventListener("input", () => { BUQUE.shifting = { ...shiftingVacio(), ...BUQUE.shifting, calado: aPies(num($("#b-shift-cal").value)) }; pintarShifting(); render(); });
+
 const fmtDT = (v) => (v ? v.slice(8, 10) + "/" + v.slice(5, 7) + "/" + v.slice(0, 4) + " " + v.slice(11, 16) : "—");
 
 function renderBuque() {
@@ -687,7 +730,7 @@ function elegirBarco(valor) {
   if (!o) { BUQUE = buqueVacio(); resetPract(); renderBuque(); pintarPaso3(false); render(); return; }
   BUQUE = { operated_id: o.id, nombre: o.nombre, imo: o.imo, sitio: o.sitio, amarre: o.amarre, inicio: o.inicio, fin: o.fin, zarpe: o.zarpe, cantidad: o.cantidad, carga: o.carga || "", shipper: o.shipper || "",
     trn: o.trn || 0, trb: o.trb || 0, eslora: o.eslora || 0, manga: o.manga || 0, puntal: o.puntal || 0, bandera: o.bandera || "", servicio: o.servicio === "HUSBANDRY" ? "HUSBANDRY" : "FULL",
-    calado_entrada: o.calado_entrada || 0, calado_salida: o.calado_salida || 0, servicios: o.servicios || [], turnos: o.turnos || [], mig_voucher: o.mig_voucher || {} };
+    calado_entrada: o.calado_entrada || 0, calado_salida: o.calado_salida || 0, servicios: o.servicios || [], turnos: o.turnos || [], mig_voucher: o.mig_voucher || {}, shifting: shiftingVacio() };
   resetPract();
   // si el voucher de este cliente no lleva Head Tally o Serenos (en un barco con dos clientes van en uno solo), no se proforman (se pueden tildar en su paso)
   TALLY.omitido = !!(o.hay_voucher && !o.lleva_tally); SERENOS.omitido = !!(o.hay_voucher && !o.lleva_serenos);
@@ -716,6 +759,9 @@ function pintarPaso3(hayBarco, o) {
   $("#b-bandera").value = b.bandera || "";
   const campoM = (id, pies) => { $(id).value = pies ? fm2(aMetros(pies)) : ""; };  // se muestra en metros; lo guardado sigue siendo pies
   campoM("#b-cal-ent", b.calado_entrada); campoM("#b-cal-sal", b.calado_salida);
+  const sh = b.shifting || shiftingVacio();
+  $("#b-shift-on").checked = !!sh.on; $("#b-shift-des").value = sh.desamarre || ""; $("#b-shift-am").value = sh.amarre || ""; campoM("#b-shift-cal", sh.calado);
+  pintarShifting();
   pintarPiesCalado();
   $("#b-calado-nota").textContent = o && o.calado_historial
     ? "Calado de entrada traído del último «Calados Entrada» del Generador de documentos (en metros). Completá el de salida y corregí lo que haga falta. El sistema los pasa a pies solo."
@@ -742,7 +788,7 @@ function pintarPaso3(hayBarco, o) {
 
 function setState(s) {
   BUQUE = { ...s.buque };
-  PRACT = { in: { ...s.practicaje.in }, out: { ...s.practicaje.out } };
+  PRACT = { in: { ...s.practicaje.in }, out: { ...s.practicaje.out }, shift: { usd: 0, manual: false, cuenta_ajena: false, ...s.practicaje.shift } };
   MUELLE = { ...muelleVacio(), ...s.muelle }; FONDEO = { ...fondeoVacio(), ...s.fondeo }; VIAS = { ...viasVacio(), ...s.vias };
   $("#barco-sel").value = BUQUE.operated_id && BARCOS.some((x) => x.id === BUQUE.operated_id) ? String(BUQUE.operated_id) : (BUQUE.nombre ? "manual" : "");
   if ($("#barco-sel").value === "manual") $("#barco-nombre").value = BUQUE.nombre;
@@ -752,6 +798,7 @@ function setState(s) {
   firmaMuCargada = firmaMu(); firmaMuAnt = "";
   SUCIO = false;
   AMLDS = { ...ldVacio(), ...s.lds_amarre }; DESLDS = { ...ldVacio(), ...s.lds_desamarre };
+  SHDES = { ...ldVacio(), ...s.lds_shift_desamarre }; SHAM = { ...ldVacio(), ...s.lds_shift_amarre };
   ESCALA = { ...escalaVacia(), ...s.escala }; DRAFT = { ...draftVacio(), ...s.lds_draft };
   ADUANA = { cuenta_ajena: !!(s.aduana && s.aduana.cuenta_ajena), items: s.aduana && s.aduana.items ? s.aduana.items.map((i) => ({ ...i })) : aduanaInicial().items };
   pintarAduana();
@@ -781,7 +828,7 @@ function setState(s) {
 
 // ---- Paso 4: practicaje (la formula y las tablas son las del proformador inicial, se calculan en el servidor)
 function resetPract() {  // al cambiar de barco los importes de practicaje empiezan de cero
-  PRACT = { in: { usd: 0, manual: false, cuenta_ajena: false }, out: { usd: 0, manual: false, cuenta_ajena: false } }; PRACT_CALC = null; firmaCargada = null; firmaPractAnt = "";
+  PRACT = { in: { usd: 0, manual: false, cuenta_ajena: false }, out: { usd: 0, manual: false, cuenta_ajena: false }, shift: { usd: 0, manual: false, cuenta_ajena: false } }; PRACT_CALC = null; firmaCargada = null; firmaPractAnt = "";
   pintarPracticaje();
   resetMuelle();
   resetLds();
@@ -791,7 +838,8 @@ function resetPract() {  // al cambiar de barco los importes de practicaje empie
   resetMig();
   resetCheq();
 }
-const firmaPract = () => { const b = BUQUE; return [b.eslora, b.manga, b.puntal, b.calado_entrada, b.calado_salida].join("|"); };
+const firmaPract = () => { const b = BUQUE; return [b.eslora, b.manga, b.puntal, b.calado_entrada, b.calado_salida, shiftOn() ? b.shifting.calado : 0].join("|"); };
+const clavesPract = () => (shiftOn() ? ["in", "out", "shift"] : ["in", "out"]);
 const usd2 = (n) => "USD " + (Math.round(n * 100) / 100).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 async function calcularPracticaje() {
@@ -804,7 +852,7 @@ async function calcularPracticaje() {
   if (pedido !== SEQ.pract) return;  // llego una respuesta vieja: ya hay un pedido mas nuevo
   PRACT_CALC = dato;
   const respetar = firmaCargada !== null && firmaCargada === firmaPract();  // proforma cargada de un Excel y sin tocar los datos: se conservan sus importes
-  ["in", "out"].forEach((k) => {
+  clavesPract().forEach((k) => {
     if (!PRACT[k].manual && !(respetar && PRACT[k].usd > 0)) PRACT[k].usd = PRACT_CALC[k] ? PRACT_CALC[k].total : 0;
   });
   pintarPracticaje();
@@ -820,7 +868,8 @@ function pintarPracticaje() {
   dato("UF (÷ 800)", c && c.uf ? fmt(c.uf) : "—");
   dato("Prácticos", c && c.dos_practicos ? "DOS (manga mayor a 39,9 m)" : "Uno");
   const box = $("#pr-box"); box.replaceChildren();
-  [["in", "PILOTAGE IN", "calado de entrada", b.calado_entrada], ["out", "PILOTAGE OUT", "calado de salida", b.calado_salida]].forEach(([k, titulo, cal, calado]) => {
+  [["in", "PILOTAGE IN", "calado de entrada", b.calado_entrada], ["out", "PILOTAGE OUT", "calado de salida", b.calado_salida]]
+    .concat(shiftOn() ? [["shift", "PILOTAGE (SHIFTING)", "calado del shifting", b.shifting.calado]] : []).forEach(([k, titulo, cal, calado]) => {
     const card = document.createElement("div"); card.className = "pfn-pract";
     const h = document.createElement("h4"); h.textContent = titulo; card.appendChild(h);
     const m = c ? c[k] : null;
@@ -856,7 +905,7 @@ function pintarPracticaje() {
   actualizarTotalPract();
 }
 function actualizarTotalPract() {
-  const l = [PRACT.in, PRACT.out];
+  const l = clavesPract().map((k) => PRACT[k]);
   const fact = l.filter((x) => !x.cuenta_ajena && !x.omitido).reduce((a, x) => a + x.usd, 0), ajena = l.filter((x) => x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
   $("#pr-total").textContent = usd2(fact) + (ajena ? ` · por cuenta del armador (informativo): ${usd2(ajena)}` : "");
 }
@@ -870,7 +919,8 @@ let MUELLE = muelleVacio(), FONDEO = fondeoVacio(), VIAS = viasVacio();
 let MU_CALC = null, firmaMuAnt = "", firmaMuCargada = null;
 const entradaEf = () => MUELLE.entrada || BUQUE.amarre || "";   // sin cargar a mano, las del paso 3 (amarre y zarpe)
 const salidaEf = () => MUELLE.salida || BUQUE.zarpe || "";
-const firmaMu = () => [BUQUE.trn, num(BUQUE.cantidad), entradaEf(), salidaEf(), BUQUE.inicio, MUELLE.sin_beneficio, FONDEO.on, FONDEO.entrada, FONDEO.salida, VIAS.solo_bunker, VIAS.factor].join("|");
+const shiftMu = () => (shiftOn() ? [BUQUE.shifting.desamarre, BUQUE.shifting.amarre] : ["", ""]);
+const firmaMu = () => [BUQUE.trn, num(BUQUE.cantidad), entradaEf(), salidaEf(), shiftMu().join(">"), BUQUE.inicio, MUELLE.sin_beneficio, FONDEO.on, FONDEO.entrada, FONDEO.salida, VIAS.solo_bunker, VIAS.factor].join("|");
 
 function resetMuelle() {  // al cambiar de barco, el paso 5 empieza de cero
   MUELLE = muelleVacio(); FONDEO = fondeoVacio(); VIAS = viasVacio(); MU_CALC = null; firmaMuCargada = null; firmaMuAnt = "";
@@ -882,7 +932,7 @@ async function calcularMuelle() {
   getState();  // sincroniza lo que se ve en el paso 3
   firmaMuAnt = firmaMu();
   const body = { trn: BUQUE.trn, cantidad: num(BUQUE.cantidad), entrada: entradaEf(), salida: salidaEf(), inicio: BUQUE.inicio, aplicar_beneficio: !MUELLE.sin_beneficio, fondeo: FONDEO.on,
-    fondeo_entrada: FONDEO.entrada, fondeo_salida: FONDEO.salida, solo_bunker: VIAS.solo_bunker, factor: VIAS.factor };
+    fondeo_entrada: FONDEO.entrada, fondeo_salida: FONDEO.salida, solo_bunker: VIAS.solo_bunker, factor: VIAS.factor, shift_desamarre: shiftMu()[0], shift_amarre: shiftMu()[1] };
   const r = await fetch("/administracion/proforma-final/muelle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) return;
   const dato = await r.json();
@@ -993,6 +1043,8 @@ function pintarMuelle() {
     d.appendChild(casilla("Beneficio: amarró entre las 21:00 y las 24:00 (o un domingo o feriado, a cualquier hora) y empezó a operar el día hábil siguiente: no se cobra ese tramo y se cobra desde las 00:00 del día en que opera",
       !MUELLE.sin_beneficio, (v) => { MUELLE.sin_beneficio = !v; render(); pintarMuelle(); }));
   if (c && c.muelle.dias) d.appendChild(tablaDias(c.muelle, trn, c.muelle.tarifa));
+  if (c && c.muelle.shifting) d.appendChild(elx("p", "muted", "Shifting: dos estadías (hasta " + fmtDT(c.muelle.tramos[0][1]) + " en el primer muelle y desde " + fmtDT(c.muelle.tramos[1][0]) + " en el segundo). "
+    + (c.muelle.solapado_shifting > 0 ? "Los bloques compartidos se cobran una sola vez: se descuentan " + f2(c.muelle.solapado_shifting) + " d." : "No hay bloques compartidos.")));
   else falta(d, !trn ? "Falta el TRN (paso 3)." : "Falta la entrada y la salida del muelle (el amarre y el zarpe del paso 3).");
   d.appendChild(bloqueImporte(MUELLE, c && c.muelle));
 
@@ -1044,17 +1096,19 @@ function actualizarTotalesMu() {
 const ldVacio = () => ({ momento: "", lanchas: 0, usd: 0, manual: false, cuenta_ajena: false });
 const escalaVacia = () => ({ on: false, on_set: false, dias: 0, usd: 0, manual: false, cuenta_ajena: false });
 const draftVacio = () => ({ on: false, momento: "", usd: 0, manual: false, cuenta_ajena: false });
-let AMLDS = ldVacio(), DESLDS = ldVacio(), ESCALA = escalaVacia(), DRAFT = draftVacio();
+let AMLDS = ldVacio(), DESLDS = ldVacio(), SHDES = ldVacio(), SHAM = ldVacio(), ESCALA = escalaVacia(), DRAFT = draftVacio();
 let LD_CALC = null, firmaLdAnt = "", firmaLdCargada = null;
 const tieneGangway = () => (BUQUE.servicios || []).some((x) => /SHORE\s+GANGWAY/i.test(x));
 const escalaOn = () => (ESCALA.on_set ? ESCALA.on : tieneGangway());
 const momAm = () => AMLDS.momento || BUQUE.amarre || "";
 const momDes = () => DESLDS.momento || BUQUE.zarpe || "";
 const momDraft = () => DRAFT.momento || BUQUE.fin || "";   // el draft se hace al terminar la carga
-const firmaLd = () => [BUQUE.eslora, momAm(), momDes(), AMLDS.lanchas, DESLDS.lanchas, escalaOn(), ESCALA.dias, DRAFT.on, momDraft()].join("|");
+const momShDes = () => SHDES.momento || (shiftOn() ? BUQUE.shifting.desamarre : "");   // el shifting: desamarre del primer muelle y amarre en el segundo
+const momShAm = () => SHAM.momento || (shiftOn() ? BUQUE.shifting.amarre : "");
+const firmaLd = () => [BUQUE.eslora, momAm(), momDes(), AMLDS.lanchas, DESLDS.lanchas, escalaOn(), ESCALA.dias, DRAFT.on, momDraft(), shiftOn() ? momShDes() + ">" + momShAm() + ">" + SHAM.lanchas : ""].join("|");
 
 function resetLds() {  // al cambiar de barco, el paso 6 empieza de cero
-  AMLDS = ldVacio(); DESLDS = ldVacio(); ESCALA = escalaVacia(); DRAFT = draftVacio();
+  AMLDS = ldVacio(); DESLDS = ldVacio(); SHDES = ldVacio(); SHAM = ldVacio(); ESCALA = escalaVacia(); DRAFT = draftVacio();
   LD_CALC = null; firmaLdCargada = null; firmaLdAnt = "";
   pintarLds();
 }
@@ -1064,14 +1118,15 @@ async function calcularLds() {
   getState();
   firmaLdAnt = firmaLd();
   const body = { eslora: BUQUE.eslora, amarre: momAm(), desamarre: momDes(), lanchas_amarre: AMLDS.lanchas, lanchas_desamarre: DESLDS.lanchas,
-    escala: escalaOn(), escala_dias: ESCALA.dias, draft: DRAFT.on, draft_momento: momDraft() };
+    escala: escalaOn(), escala_dias: ESCALA.dias, draft: DRAFT.on, draft_momento: momDraft(),
+    shift_desamarre: shiftOn() ? momShDes() : "", shift_amarre: shiftOn() ? momShAm() : "", lanchas_shift_amarre: SHAM.lanchas };
   const r = await fetch("/administracion/proforma-final/lds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok) return;
   const dato = await r.json();
   if (pedido !== SEQ.lds) return;  // llego una respuesta vieja: ya hay un pedido mas nuevo
   LD_CALC = dato;
   const respetar = firmaLdCargada !== null && firmaLdCargada === firmaLd();  // Excel cargado y sin tocar los datos: se conservan sus importes
-  [[AMLDS, LD_CALC.amarre], [DESLDS, LD_CALC.desamarre], [ESCALA, LD_CALC.escala], [DRAFT, LD_CALC.draft]].forEach(([obj, c]) => {
+  [[AMLDS, LD_CALC.amarre], [DESLDS, LD_CALC.desamarre], [SHDES, LD_CALC.shift_desamarre], [SHAM, LD_CALC.shift_amarre], [ESCALA, LD_CALC.escala], [DRAFT, LD_CALC.draft]].forEach(([obj, c]) => {
     if (!obj.manual && !(respetar && obj.usd > 0)) obj.usd = c && c.total_usd ? c.total_usd : 0;
   });
   pintarLds();
@@ -1112,6 +1167,11 @@ function pintarLds() {
   cardMovimiento(box, "AMARRE (MOORING)", "amarre", AMLDS, c && c.amarre, BUQUE.amarre || "", (v) => { AMLDS.momento = v === (BUQUE.amarre || "") ? "" : v; render(); pintarLds(); }, falta);
   cardMovimiento(box, "DESAMARRE (UNMOORING)", "desamarre", DESLDS, c && c.desamarre, BUQUE.zarpe || "", (v) => { DESLDS.momento = v === (BUQUE.zarpe || "") ? "" : v; render(); pintarLds(); }, falta);
 
+  if (shiftOn()) {  // cambio de muelle: se cobra el desamarre del primero y el amarre (con lanchas) en el segundo, con el recargo de SU dia y hora
+    cardMovimiento(box, "DESAMARRE POR SHIFTING (UNMOORING)", "desamarre", SHDES, c && c.shift_desamarre, BUQUE.shifting.desamarre, (v) => { SHDES.momento = v === BUQUE.shifting.desamarre ? "" : v; render(); pintarLds(); }, falta);
+    cardMovimiento(box, "AMARRE POR SHIFTING (MOORING)", "amarre", SHAM, c && c.shift_amarre, BUQUE.shifting.amarre, (v) => { SHAM.momento = v === BUQUE.shifting.amarre ? "" : v; render(); pintarLds(); }, falta);
+  }
+
   const d = elx("div", "pfn-pract"); d.appendChild(elx("h4", null, "ESCALA (SHORE GANGWAY)")); box.appendChild(d);
   d.appendChild(casilla(tieneGangway() ? "Lleva escala (el voucher tiene SHORE GANGWAY)" : "Lleva escala (el voucher no tiene SHORE GANGWAY)", escalaOn(),
     (v) => { ESCALA.on = v; ESCALA.on_set = true; render(); pintarLds(); }));
@@ -1148,7 +1208,7 @@ function pintarLds() {
 }
 
 function actualizarTotalesLd() {
-  const lista = [AMLDS, DESLDS, escalaOn() ? ESCALA : null, DRAFT.on ? DRAFT : null].filter(Boolean);
+  const lista = [AMLDS, DESLDS, shiftOn() ? SHDES : null, shiftOn() ? SHAM : null, escalaOn() ? ESCALA : null, DRAFT.on ? DRAFT : null].filter(Boolean);
   const fact = lista.filter((x) => !x.cuenta_ajena && !x.omitido).reduce((a, x) => a + x.usd, 0);
   const ajena = lista.filter((x) => x.cuenta_ajena).reduce((a, x) => a + x.usd, 0);
   $("#ld-total").textContent = usd2(fact);
@@ -1579,7 +1639,7 @@ const cheqVacio = () => ({ armado: false, senasa: { on: false, precio: 0, cuenta
 let CHEQ = cheqVacio(), CK_CALC = null, firmaCkAnt = "";
 // el objeto del estado donde vive "se factura o no" de cada renglon de la proforma (null: no se puede pasar al pie, como el fee y LAW)
 function objetoLinea(clave) {
-  const fijos = { pilot_in: PRACT.in, pilot_out: PRACT.out, port_dues: MUELLE, anchor: FONDEO, channel_toll: VIAS, mooring: AMLDS, unmooring: DESLDS, gangway: ESCALA, draft: DRAFT,
+  const fijos = { pilot_in: PRACT.in, pilot_out: PRACT.out, pilot_shift: PRACT.shift, mooring_shift: SHAM, unmooring_shift: SHDES, port_dues: MUELLE, anchor: FONDEO, channel_toll: VIAS, mooring: AMLDS, unmooring: DESLDS, gangway: ESCALA, draft: DRAFT,
     tally: TALLY, serenos: SERENOS, senasa: CHEQ.senasa, maritime: CHEQ.maritime, misc: CHEQ.misc };
   if (fijos[clave]) return fijos[clave];
   if (clave.startsWith("aduana_")) return ADUANA.items.find((x) => "aduana_" + x.key === clave) || null;
@@ -1714,8 +1774,9 @@ function faltantes(s) {
   f[4] = [];
   [[b.eslora, "la eslora"], [b.manga, "la manga"], [b.puntal, "el puntal"], [b.calado_entrada, "el calado de entrada"], [b.calado_salida, "el calado de salida"]]
     .forEach(([v, t]) => { if (!(v > 0)) f[4].push("Falta " + t + " (se carga en el paso 3)."); });
-  if (s.practicaje.in.omitido && s.practicaje.out.omitido) f[4] = [];  // si no figura el practicaje, no se piden sus datos
-  if (!f[4].length) { if (!s.practicaje.in.omitido && !(s.practicaje.in.usd > 0)) f[4].push("Falta el importe del practicaje de entrada."); if (!s.practicaje.out.omitido && !(s.practicaje.out.usd > 0)) f[4].push("Falta el importe del practicaje de salida."); }
+  if (s.practicaje.in.omitido && s.practicaje.out.omitido && (!shiftOn() || s.practicaje.shift.omitido)) f[4] = [];  // si no figura el practicaje, no se piden sus datos
+  if (b.shifting && b.shifting.on && !shiftOn()) f[4].push("Marcaste shifting pero faltan las horas del desamarre y del segundo amarre (paso 3).");
+  if (!f[4].length) { if (!s.practicaje.in.omitido && !(s.practicaje.in.usd > 0)) f[4].push("Falta el importe del practicaje de entrada."); if (!s.practicaje.out.omitido && !(s.practicaje.out.usd > 0)) f[4].push("Falta el importe del practicaje de salida."); if (shiftOn() && !s.practicaje.shift.omitido && !(s.practicaje.shift.usd > 0)) f[4].push("Falta el importe del practicaje del shifting (revisá el calado del movimiento en el paso 3)."); }
   f[5] = [];
   if (!s.muelle.omitido && !(s.muelle.usd > 0)) f[5].push("Falta el importe de uso de muelle (revisá el TRN, el amarre y el zarpe)." );
   if (s.fondeo.on && !s.fondeo.omitido && !(s.fondeo.usd > 0)) f[5].push("Falta el importe del fondeadero (cargá la entrada y la salida del fondeo).");
@@ -1723,6 +1784,8 @@ function faltantes(s) {
   f[6] = [];
   if (!s.lds_amarre.omitido && !(s.lds_amarre.usd > 0)) f[6].push("Falta el importe del amarre (revisá la fecha de la maniobra).");
   if (!s.lds_desamarre.omitido && !(s.lds_desamarre.usd > 0)) f[6].push("Falta el importe del desamarre (revisá la fecha de la maniobra).");
+  if (shiftOn() && !s.lds_shift_desamarre.omitido && !(s.lds_shift_desamarre.usd > 0)) f[6].push("Falta el importe del desamarre por shifting (revisá la fecha de la maniobra).");
+  if (shiftOn() && !s.lds_shift_amarre.omitido && !(s.lds_shift_amarre.usd > 0)) f[6].push("Falta el importe del amarre por shifting (revisá la fecha de la maniobra).");
   if (s.escala.on && !s.escala.omitido && !(s.escala.usd > 0)) f[6].push("Falta el importe de la escala (revisá los días de alquiler).");
   if (s.lds_draft.on && !s.lds_draft.omitido && !(s.lds_draft.usd > 0)) f[6].push("Falta el importe de la lancha de draft (revisá la fecha del uso).");
   f[7] = s.aduana.items.some((i) => i.on && !i.omitido && !(i.cant > 0)) ? ["Hay habilitaciones tildadas sin cantidad."] : [];
@@ -1775,11 +1838,13 @@ function pintarResumen(s) {
   fila("Fee de la agencia", fee, false);
   fila("Practicaje entrada", s.practicaje.in.usd, s.practicaje.in.cuenta_ajena, !s.practicaje.in.omitido);
   fila("Practicaje salida", s.practicaje.out.usd, s.practicaje.out.cuenta_ajena, !s.practicaje.out.omitido);
+  if (shiftOn()) fila("Practicaje shifting", s.practicaje.shift.usd, s.practicaje.shift.cuenta_ajena, !s.practicaje.shift.omitido);
   fila("Uso de muelle", s.muelle.usd, s.muelle.cuenta_ajena, !s.muelle.omitido);
   fila("Uso de fondeadero", s.fondeo.usd, s.fondeo.cuenta_ajena, s.fondeo.on && !s.fondeo.omitido);
   fila("Vías navegables", s.vias.usd, s.vias.cuenta_ajena, !s.vias.omitido);
   fila("Amarre", s.lds_amarre.usd, s.lds_amarre.cuenta_ajena, !s.lds_amarre.omitido);
   fila("Desamarre", s.lds_desamarre.usd, s.lds_desamarre.cuenta_ajena, !s.lds_desamarre.omitido);
+  if (shiftOn()) { fila("Desamarre por shifting", s.lds_shift_desamarre.usd, s.lds_shift_desamarre.cuenta_ajena, !s.lds_shift_desamarre.omitido); fila("Amarre por shifting", s.lds_shift_amarre.usd, s.lds_shift_amarre.cuenta_ajena, !s.lds_shift_amarre.omitido); }
   fila("Escala (shore gangway)", s.escala.usd, s.escala.cuenta_ajena, s.escala.on && !s.escala.omitido);
   fila("Lancha de draft", s.lds_draft.usd, s.lds_draft.cuenta_ajena, s.lds_draft.on && !s.lds_draft.omitido);
   fila("Habilitaciones de aduana", s.aduana.usd, s.aduana.cuenta_ajena);

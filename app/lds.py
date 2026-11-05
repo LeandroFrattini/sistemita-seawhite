@@ -92,7 +92,8 @@ def escala_costo(dias: int) -> dict:
 
 
 def calcular(db: Session, *, eslora: float, amarre: str, desamarre: str, lanchas_amarre: int = 0, lanchas_desamarre: int = 0,
-             escala: bool = False, escala_dias: int = 0, draft: bool = False, draft_momento: str = "") -> dict:
+             escala: bool = False, escala_dias: int = 0, draft: bool = False, draft_momento: str = "",
+             shift_desamarre: str = "", shift_amarre: str = "", lanchas_shift_amarre: int = 0) -> dict:
     """Amarre, desamarre y (si se pide) escala. Sin fecha valida el servicio queda en None (no se inventa un importe).
     Dias de la escala: los indicados o, si no, los dias de calendario entre el amarre y el desamarre (ambos inclusive)."""
     feriados, _ = conjuntos(db)
@@ -101,6 +102,12 @@ def calcular(db: Session, *, eslora: float, amarre: str, desamarre: str, lanchas
         m = _dt(raw)
         if m:
             out[clave] = costo_servicio(clave, m, eslora, feriados, lanchas)
+    # shifting: se desamarra del primer muelle (solo el servicio) y se amarra en el segundo (servicio + lanchas), con el recargo de SU dia y hora
+    out["shift_desamarre"] = out["shift_amarre"] = None
+    for clave, raw, lanchas, servicio in (("shift_desamarre", shift_desamarre, 0, "desamarre"), ("shift_amarre", shift_amarre, lanchas_shift_amarre, "amarre")):
+        m = _dt(raw)
+        if m:
+            out[clave] = costo_servicio(servicio, m, eslora, feriados, lanchas)
     if draft:
         m = _dt(draft_momento)
         out["draft"] = costo_draft(m, feriados) if m else {"total_usd": None}

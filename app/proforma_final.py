@@ -104,6 +104,17 @@ def _turnos_limpios(raw) -> list[dict]:
     return out
 
 
+def clean_shifting(raw) -> dict:
+    raw = raw if isinstance(raw, dict) else {}
+    return {"on": bool(raw.get("on")), "desamarre": _datetime(raw.get("desamarre")), "amarre": _datetime(raw.get("amarre")), "calado": _num(raw.get("calado"), 200)}
+
+
+def con_shifting(b: dict) -> bool:
+    """El barco hizo shifting y se cargaron las dos horas del movimiento (las que mandan para cobrar el desamarre y el amarre)."""
+    sh = b.get("shifting") or {}
+    return bool(sh.get("on") and sh.get("desamarre") and sh.get("amarre"))
+
+
 def clean_buque(raw) -> dict:
     raw = raw if isinstance(raw, dict) else {}
     try:
@@ -131,6 +142,9 @@ def clean_buque(raw) -> dict:
         "bandera": _texto(raw.get("bandera"), 80),
         # FULL / OPA (todo lo que se proforma siempre) o HUSBANDRY (solo gastos basicos: sin practicaje, muelle, LDS, tally ni serenos)
         "servicio": "HUSBANDRY" if str(raw.get("servicio") or "").upper() == "HUSBANDRY" else "FULL",
+        # shifting (cambio de muelle): amarre y zarpe de arriba son los del primer amarre y del zarpe final; aca van el desamarre del primer muelle,
+        # el amarre en el segundo y el calado del movimiento (en pies). Cobra un practicaje, un desamarre y un amarre mas; el uso de muelle no se duplica.
+        "shifting": clean_shifting(raw.get("shifting")),
         "calado_entrada": _num(raw.get("calado_entrada"), 200),  # en pies, como la tabla de practicaje
         "calado_salida": _num(raw.get("calado_salida"), 200),
         # lo que se uso segun el voucher (foto): servicios y turnos de Head Tally
@@ -206,6 +220,7 @@ def clean_state(raw) -> dict:
 
     mu, fo, vi = sub("muelle"), sub("fondeo"), sub("vias")
     la, ld, es, dr = sub("lds_amarre"), sub("lds_desamarre"), sub("escala"), sub("lds_draft")
+    sd, sa = sub("lds_shift_desamarre"), sub("lds_shift_amarre")
     ad = sub("aduana")
     items = _aduana_items(ad.get("items"), bool(ad.get("cuenta_ajena")))
     from . import chequeo, migraciones, personal  # import tardio: usan tipo_dia / _num de este modulo
@@ -213,7 +228,7 @@ def clean_state(raw) -> dict:
     out = {
         "v": VERSION,
         "buque": clean_buque(raw.get("buque")),
-        "practicaje": {"in": mov("in"), "out": mov("out")},
+        "practicaje": {"in": mov("in"), "out": mov("out"), "shift": mov("shift")},
         # entrada/salida vacias = las del paso 3 (amarre y zarpe); "cuenta_ajena" = figura en FOR YOUR ACCOUNT (no se factura)
         "muelle": concepto(mu, {"entrada": _datetime(mu.get("entrada")), "salida": _datetime(mu.get("salida")),
                       # beneficio por amarre fuera de dia habil: se destilda con sin_beneficio; "perdonados" es la foto de los dias no cobrados
@@ -223,6 +238,9 @@ def clean_state(raw) -> dict:
         # LDS: momento vacio = el amarre / el zarpe del paso 3; lanchas 0 = automatico (dos si la eslora supera 150 m)
         "lds_amarre": concepto(la, {"momento": _datetime(la.get("momento")), "lanchas": int(_num(la.get("lanchas"), 4))}),
         "lds_desamarre": concepto(ld, {"momento": _datetime(ld.get("momento")), "lanchas": int(_num(ld.get("lanchas"), 4))}),
+        # shifting: desamarre del primer muelle y amarre en el segundo (momento vacio = las horas del shifting del paso 3)
+        "lds_shift_desamarre": concepto(sd, {"momento": _datetime(sd.get("momento")), "lanchas": int(_num(sd.get("lanchas"), 4))}),
+        "lds_shift_amarre": concepto(sa, {"momento": _datetime(sa.get("momento")), "lanchas": int(_num(sa.get("lanchas"), 4))}),
         # escala (SHORE GANGWAY): on_set indica que alguien tildo o destildo la casilla (si no, manda lo que dice el voucher)
         "escala": concepto(es, {"on": bool(es.get("on")), "on_set": bool(es.get("on_set")), "dias": int(_num(es.get("dias"), 365))}),
         # lancha de draft (opcional): momento vacio = el fin de operacion del paso 3
@@ -250,8 +268,8 @@ def clean_state(raw) -> dict:
     }
     if out["buque"]["servicio"] == "HUSBANDRY":
         # solo gastos basicos: no se proforma nada de practicaje, muelle, fondeadero, vias, amarre, escala, draft, tally ni serenos
-        for c in (out["practicaje"]["in"], out["practicaje"]["out"], out["muelle"], out["fondeo"], out["vias"], out["lds_amarre"], out["lds_desamarre"],
-                  out["escala"], out["lds_draft"], out["tally"], out["serenos"]):
+        for c in (out["practicaje"]["in"], out["practicaje"]["out"], out["practicaje"]["shift"], out["muelle"], out["fondeo"], out["vias"], out["lds_amarre"],
+                  out["lds_desamarre"], out["lds_shift_desamarre"], out["lds_shift_amarre"], out["escala"], out["lds_draft"], out["tally"], out["serenos"]):
             c["omitido"], c["cuenta_ajena"] = True, False
     return out
 
@@ -374,12 +392,19 @@ def _filas_pasos(s: dict) -> list[tuple]:
          (f"en metros: {_metros(b['calado_entrada'])} / {_metros(b['calado_salida'])}" if b["calado_entrada"] or b["calado_salida"] else "")),
         ("Practicaje IN (USD)", s["practicaje"]["in"]["usd"] or "", _nota_practicaje(s["practicaje"]["in"])),
         ("Practicaje OUT (USD)", s["practicaje"]["out"]["usd"] or "", _nota_practicaje(s["practicaje"]["out"])),
+    ] + ([
+        ("Practicaje SHIFTING (USD)", s["practicaje"]["shift"]["usd"] or "", _nota_practicaje(s["practicaje"]["shift"])),
+    ] if con_shifting(b) else []) + [
         ("Uso de muelle (USD)", s["muelle"]["usd"] or "", _nota_concepto(s["muelle"], s["muelle"]["entrada"] or b["amarre"], s["muelle"]["salida"] or b["zarpe"])
          + (f" · beneficio por amarre fuera de día hábil: {str(s['muelle']['perdonados']).replace('.', ',')} días no cobrados" if s["muelle"]["perdonados"] and not s["muelle"]["sin_beneficio"] else "")),
         ("Uso de fondeadero (USD)", s["fondeo"]["usd"] or "" if s["fondeo"]["on"] else "—", _nota_concepto(s["fondeo"], s["fondeo"]["entrada"], s["fondeo"]["salida"]) if s["fondeo"]["on"] else "sin fondeo"),
         ("Vías navegables (USD)", s["vias"]["usd"] or "", _nota_concepto(s["vias"]) + (" · solo bunker: 20 % del TRN × " + str(s["vias"]["factor"]) if s["vias"]["solo_bunker"] else "")),
         ("Amarre LDS (USD)", s["lds_amarre"]["usd"] or "", _nota_concepto(s["lds_amarre"], s["lds_amarre"]["momento"] or b["amarre"])),
         ("Desamarre LDS (USD)", s["lds_desamarre"]["usd"] or "", _nota_concepto(s["lds_desamarre"], s["lds_desamarre"]["momento"] or b["zarpe"])),
+    ] + ([
+        ("Desamarre LDS por shifting (USD)", s["lds_shift_desamarre"]["usd"] or "", _nota_concepto(s["lds_shift_desamarre"], s["lds_shift_desamarre"]["momento"] or b["shifting"]["desamarre"])),
+        ("Amarre LDS por shifting (USD)", s["lds_shift_amarre"]["usd"] or "", _nota_concepto(s["lds_shift_amarre"], s["lds_shift_amarre"]["momento"] or b["shifting"]["amarre"])),
+    ] if con_shifting(b) else []) + [
         ("Escala LDS (USD)", s["escala"]["usd"] or "" if s["escala"]["on"] else "—", _nota_concepto(s["escala"]) if s["escala"]["on"] else "sin shore gangway"),
         ("Lancha de draft LDS (USD)", s["lds_draft"]["usd"] or "" if s["lds_draft"]["on"] else "—",
          _nota_concepto(s["lds_draft"], s["lds_draft"]["momento"] or b["fin"]) if s["lds_draft"]["on"] else "sin uso de lancha de draft"),
@@ -506,15 +531,19 @@ def _detalle_formulas(db, s: dict) -> dict:
     cantidad = parse_number(b["cantidad"]) if b["cantidad"] else 0.0
     am, de, es_, dr = s["lds_amarre"], s["lds_desamarre"], s["escala"], s["lds_draft"]
     return {
-        "pract": practicaje.calcular(db, b["eslora"], b["manga"], b["puntal"], b["calado_entrada"], b["calado_salida"]),
+        "pract": practicaje.calcular(db, b["eslora"], b["manga"], b["puntal"], b["calado_entrada"], b["calado_salida"], calado_shifting=b["shifting"]["calado"] if con_shifting(b) else 0.0),
         "pilot": {"coef_maniobra": get_param(db, "pilotage_coef_maniobra", 14.0), "coef_navegacion": get_param(db, "pilotage_coef_navegacion", 8.0),
                   "coef_km": get_param(db, "pilotage_coef_km", 12.0), "km": get_param(db, "pilotage_km_recorrido", 53.0),
                   "descuento": get_param(db, "pilotage_descuento", 0.2), "service": get_param(db, "pilotage_service_usd", 6600.0)},
         "calc": muelle.calcular(db, trn=b["trn"], cantidad=cantidad or 0.0, entrada=mu["entrada"] or b["amarre"], salida=mu["salida"] or b["zarpe"], fondeo=fo["on"],
                                 fondeo_entrada=fo["entrada"], fondeo_salida=fo["salida"], solo_bunker=vi["solo_bunker"], factor_via=vi["factor"], inicio=b["inicio"],
-                                aplicar_beneficio=not mu["sin_beneficio"]),
+                                aplicar_beneficio=not mu["sin_beneficio"],
+                                shift_desamarre=b["shifting"]["desamarre"] if con_shifting(b) else "", shift_amarre=b["shifting"]["amarre"] if con_shifting(b) else ""),
         "lds": lds_calc.calcular(db, eslora=b["eslora"], amarre=am["momento"] or b["amarre"], desamarre=de["momento"] or b["zarpe"], lanchas_amarre=am["lanchas"],
-                                 lanchas_desamarre=de["lanchas"], escala=es_["on"], escala_dias=es_["dias"], draft=dr["on"], draft_momento=dr["momento"] or b["fin"]),
+                                 lanchas_desamarre=de["lanchas"], escala=es_["on"], escala_dias=es_["dias"], draft=dr["on"], draft_momento=dr["momento"] or b["fin"],
+                                 shift_desamarre=(s["lds_shift_desamarre"]["momento"] or b["shifting"]["desamarre"]) if con_shifting(b) else "",
+                                 shift_amarre=(s["lds_shift_amarre"]["momento"] or b["shifting"]["amarre"]) if con_shifting(b) else "",
+                                 lanchas_shift_amarre=s["lds_shift_amarre"]["lanchas"]),
         "mig": migraciones.calcular(db, trn=b["trn"], items=s["migraciones"]["items"], dolar=s["dolar"]["valor"] or 0.0),
         "free": {"resta": get_param(db, "libre_platica_resta_trn", 1001.0), "coef": get_param(db, "libre_platica_coef", 6942.9),
                  "base": get_param(db, "libre_platica_base", 416574.0)},

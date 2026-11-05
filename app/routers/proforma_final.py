@@ -203,7 +203,8 @@ def proforma_final_page(request: Request, id: int | None = None, barco: int | No
 async def proforma_final_practicaje(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     """Practicaje IN y OUT con el desglose (misma formula y tablas que el proformador inicial)."""
     b = pf.clean_buque(await request.json())
-    return pract.calcular(db, b["eslora"], b["manga"], b["puntal"], b["calado_entrada"], b["calado_salida"])
+    sh = b["shifting"]
+    return pract.calcular(db, b["eslora"], b["manga"], b["puntal"], b["calado_entrada"], b["calado_salida"], calado_shifting=sh["calado"] if sh["on"] else 0.0)
 
 
 @router.post("/proforma-final/muelle")
@@ -211,12 +212,13 @@ async def proforma_final_muelle(request: Request, db: Session = Depends(get_db),
     """Uso de muelle, fondeadero y vias navegables con el desglose de dias por bloques de 8 horas."""
     d = await request.json()
     d = d if isinstance(d, dict) else {}
-    fechas = {k: pf._datetime(d.get(k)) for k in ("entrada", "salida", "fondeo_entrada", "fondeo_salida", "inicio")}
+    fechas = {k: pf._datetime(d.get(k)) for k in ("entrada", "salida", "fondeo_entrada", "fondeo_salida", "inicio", "shift_desamarre", "shift_amarre")}
     return muelle_calc.calcular(
         db, trn=pf._num(d.get("trn"), 1_000_000), cantidad=pf._num(d.get("cantidad"), 100_000_000), fondeo=bool(d.get("fondeo")),
         solo_bunker=bool(d.get("solo_bunker")), factor_via=pf._num(d.get("factor"), 10) or 1.0,
         entrada=fechas["entrada"], salida=fechas["salida"], fondeo_entrada=fechas["fondeo_entrada"], fondeo_salida=fechas["fondeo_salida"],
         inicio=fechas["inicio"], aplicar_beneficio=d.get("aplicar_beneficio") is not False,
+        shift_desamarre=fechas["shift_desamarre"], shift_amarre=fechas["shift_amarre"],
     )
 
 
@@ -230,6 +232,8 @@ async def proforma_final_lds(request: Request, db: Session = Depends(get_db), us
         lanchas_amarre=int(pf._num(d.get("lanchas_amarre"), 4)), lanchas_desamarre=int(pf._num(d.get("lanchas_desamarre"), 4)),
         escala=bool(d.get("escala")), escala_dias=int(pf._num(d.get("escala_dias"), 365)),
         draft=bool(d.get("draft")), draft_momento=pf._datetime(d.get("draft_momento")),
+        shift_desamarre=pf._datetime(d.get("shift_desamarre")), shift_amarre=pf._datetime(d.get("shift_amarre")),
+        lanchas_shift_amarre=int(pf._num(d.get("lanchas_shift_amarre"), 4)),
     )
 
 

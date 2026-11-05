@@ -20,7 +20,7 @@ def _suma(filas: list[int]) -> str:
 
 # ------------------------------------------------------------------------------------------------------------------ bloques
 def _practicaje(ex: Ex, c: dict, l: dict, s: dict, det: dict) -> int | None:
-    k = "in" if l["clave"] == "pilot_in" else "out"
+    k = {"pilot_in": "in", "pilot_shift": "shift"}.get(l["clave"], "out")
     pr, m, p = det["pract"], det["pract"].get(k), det["pilot"]
     if not m:
         return None
@@ -30,7 +30,7 @@ def _practicaje(ex: Ex, c: dict, l: dict, s: dict, det: dict) -> int | None:
     f_m = ex.dato("Manga", b["manga"], "m", "Paso 3 (datos del buque)")
     f_p = ex.dato("Puntal", b["puntal"], "m", "Paso 3 (datos del buque)")
     f_uf = ex.cuenta("UF = eslora × manga × puntal ÷ 800", f"C{f_e}*C{f_m}*C{f_p}/800", "", "Valor del barco para la tarifa.", fmt="4")
-    f_cal = ex.dato(f"Calado de {'entrada' if k == 'in' else 'salida'}", m["calado_pies"], "pies", "Paso 3 (en pies)")
+    f_cal = ex.dato(f"Calado de {'entrada' if k == 'in' else ('salida' if k == 'out' else 'shifting')}", m["calado_pies"], "pies", "Paso 3 (en pies)")
     f_fac = ex.dato("Coeficiente por calado", m["factor"], "", "Tabla de practicaje (Proformador → Fórmulas), tramo en el que cae el calado.", fmt="4")
     f_cm = ex.dato("Coeficiente de maniobra", p["coef_maniobra"], "", "Parámetro de practicaje (Proformador → Fórmulas)", fmt="4")
     f_cn = ex.dato("Coeficiente de navegación", p["coef_navegacion"], "", "Parámetro de practicaje", fmt="4")
@@ -124,8 +124,8 @@ def _vias(ex: Ex, c: dict, l: dict, s: dict, det: dict) -> int | None:
 
 
 def _lds(ex: Ex, c: dict, l: dict, s: dict, det: dict) -> int | None:
-    am = l["clave"] == "mooring"
-    x = det["lds"].get("amarre" if am else "desamarre")
+    am = l["clave"] in ("mooring", "mooring_shift")
+    x = det["lds"].get({"mooring": "amarre", "unmooring": "desamarre", "mooring_shift": "shift_amarre", "unmooring_shift": "shift_desamarre"}[l["clave"]])
     if not x:
         return None
     ex.nota("Lanchas del Sur: el importe depende del día y la hora del servicio (recargo 0 / 50 / 100 %). " + ("El amarre lleva el servicio más las lanchas." if am else "El desamarre es solo el servicio: NO lleva lanchas."))
@@ -273,7 +273,7 @@ def _law(ex: Ex, c: dict, l: dict, s: dict, ch: dict, det: dict) -> int | None:
 # ------------------------------------------------------------------------------------------------------------------ armado
 def _bloque(ex: Ex, c: dict, l: dict, s: dict, ch: dict, det: dict, tally: dict, serenos: dict) -> int | None:
     k = l["clave"]
-    if k in ("pilot_in", "pilot_out"):
+    if k in ("pilot_in", "pilot_out", "pilot_shift"):
         return _practicaje(ex, c, l, s, det)
     if k == "port_dues":
         return _muelle(ex, c, l, s, det)
@@ -281,7 +281,7 @@ def _bloque(ex: Ex, c: dict, l: dict, s: dict, ch: dict, det: dict, tally: dict,
         return _fondeo(ex, c, l, s, det)
     if k == "channel_toll":
         return _vias(ex, c, l, s, det)
-    if k in ("mooring", "unmooring"):
+    if k in ("mooring", "unmooring", "mooring_shift", "unmooring_shift"):
         return _lds(ex, c, l, s, det)
     if k == "gangway":
         return _escala(ex, c, l, s, det)
