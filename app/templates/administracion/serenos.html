@@ -31,7 +31,19 @@
 </div>
 
 <div class="card">
-  <h3>Lista ({{ serenos|length }})</h3>
+  <div class="sr-cab">
+    <h3 style="margin:0">Lista ({{ serenos|length }})</h3>
+    {% if meses %}
+    <form method="get" class="sr-mes">
+      <label>Jornales de
+        <select name="mes" onchange="this.form.submit()" aria-label="Mes de los jornales">
+          {% for m in meses %}<option value="{{ m }}" {{ 'selected' if m == mes }}>{{ m|mesnom|capitalize }}</option>{% endfor %}
+        </select>
+      </label>
+      <noscript><button type="submit">Ver</button></noscript>
+    </form>
+    {% endif %}
+  </div>
   {% if not serenos %}<p class="muted">Todavía no hay serenos cargados. Agregá el primero arriba.</p>{% endif %}
   {% for s in serenos %}
   <div class="sr-item">
@@ -40,6 +52,8 @@
       <label><span class="sr-et">CUIL</span><input name="cuil" inputmode="numeric" maxlength="13" required value="{{ s.cuil }}" aria-label="CUIL de {{ s.nombre }}" autocomplete="off"></label>
       <button type="submit">Guardar</button>
     </form>
+    {% set j = jornales.get(s.id, jornales.get(s.nombre, 0)) %}
+    <div class="sr-jor" title="Jornales de {{ s.nombre }} en {{ mes|mesnom if mes else 'el mes' }}"><b class="{{ 'cero' if not j }}">{{ j }}</b><span>jornales</span></div>
     <a class="btn" href="/administracion/serenos/{{ s.id }}" aria-label="Resumen de {{ s.nombre }}">Resumen</a>
     <form method="post" action="/administracion/serenos/{{ s.id }}/eliminar" onsubmit="return confirm('¿Sacar a {{ s.nombre|e }} de la lista? Las proformas ya armadas no cambian.')">
       <button type="submit" class="danger" aria-label="Eliminar a {{ s.nombre }}">Eliminar</button>
@@ -58,6 +72,12 @@
 .sr-item:last-child { border-bottom: 0; }
 .sr-item .sr-et { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .sr-err { flex-basis: 100%; margin: 4px 0 0; }
+.sr-cab { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+.sr-mes label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.sr-jor { display: flex; flex-direction: column; align-items: center; min-width: 96px; line-height: 1.15; }
+.sr-jor b { font-size: 20px; }
+.sr-jor b.cero { color: var(--muted); font-weight: 500; }
+.sr-jor span { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
 @media (max-width: 640px) { .sr-fila input { min-width: 0; width: 100%; } .sr-fila label { flex: 1 1 100%; } }
 </style>
 {% endblock %}

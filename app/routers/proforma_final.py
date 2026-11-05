@@ -485,9 +485,14 @@ def acceso_datos_enviar(request: Request, password: str = Form(""), next: str = 
 
 # -------------------------------------------------------------- serenos ----
 @router.get("/serenos", response_class=HTMLResponse)
-def serenos_page(request: Request, db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
+def serenos_page(request: Request, mes: str = "", db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
+    # la columna de jornales es de un mes: el que se elija; por defecto el mes en curso si ya tiene jornales, y si no el mas reciente que tenga
+    meses = serenos_pagos.meses_registrados(db)
+    hoy_mes = date.today().strftime("%Y-%m")
+    elegido = mes if mes in meses else (hoy_mes if hoy_mes in meses else (meses[0] if meses else ""))
     return templates.TemplateResponse(request, "administracion/serenos.html", {
         "user": user, "serenos": db.scalars(select(Sereno).order_by(Sereno.nombre)).all(),
+        "meses": meses, "mes": elegido, "jornales": serenos_pagos.jornales_por_sereno(db, elegido) if elegido else {},
         "ok": request.query_params.get("ok", ""), "error": request.query_params.get("error", ""),
         "nombre_en_error": request.query_params.get("n", ""), "cuil_en_error": request.query_params.get("c", ""),
     })

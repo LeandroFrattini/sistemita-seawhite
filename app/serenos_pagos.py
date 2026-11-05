@@ -56,6 +56,19 @@ def resumen(db: Session, sereno: Sereno, mes: str = "") -> dict:
     return {"filas": filas, "totales": tot, "mes": mes, "por_mes": por_mes}
 
 
+def jornales_por_sereno(db: Session, mes: str) -> dict:
+    """Jornales de cada sereno en un mes (para la lista de serenos): {sereno_id: jornales}; lo que no tiene sereno de la lista va por nombre."""
+    out: dict = {}
+    for p in db.scalars(select(SerenoPago).where(SerenoPago.mes == mes)):
+        k = p.sereno_id if p.sereno_id is not None else p.nombre
+        out[k] = out.get(k, 0) + p.jornales
+    return out
+
+
+def meses_registrados(db: Session) -> list[str]:
+    return sorted({m for (m,) in db.execute(select(SerenoPago.mes))}, reverse=True)
+
+
 def quitar(db: Session, sereno: Sereno, barco_clave: str) -> None:
     for r in db.scalars(select(SerenoPago).where(_filtro(sereno), SerenoPago.barco_clave == barco_clave)):
         db.delete(r)
