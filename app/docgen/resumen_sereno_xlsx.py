@@ -21,7 +21,7 @@ def _fecha(iso: str) -> str:
     return f"{iso[8:10]}/{iso[5:7]}/{iso[:4]}" if iso else ""
 
 
-def generar(*, nombre: str, cuil: str, mes: str, filas: list, hoy: date) -> bytes:
+def generar(*, nombre: str, cuil: str, mes: str, filas: list, hoy: date, por_mes: list | None = None) -> bytes:
     """`filas`: renglones de SerenoPago (buque, mes, desde, hasta, jornales, bruto, descuentos, viaticos, neto)."""
     wb = Workbook()
     ws = wb.active
@@ -34,7 +34,8 @@ def generar(*, nombre: str, cuil: str, mes: str, filas: list, hoy: date) -> byte
     ws["A3"], ws["B3"] = "CUIL:", cuil
     ws["A4"], ws["B4"] = "Período:", (_mes(mes) if mes else "Todos los meses")
     ws["A5"], ws["B5"] = "Emitido:", hoy.strftime("%d/%m/%Y")
-    for r in range(2, 6):
+    ws["A6"] = "Cantidad de jornales:"  # el numero del periodo (la formula va mas abajo, cuando se sabe la fila del TOTAL)
+    for r in range(2, 7):
         ws[f"A{r}"].font, ws[f"B{r}"].font = f12b, f12
     cab = ("BUQUE", "MES", "DESDE", "HASTA", "JORNALES", "BRUTO", "DESCUENTOS", "VIATICOS", "NETO")
     for i, t in enumerate(cab):
@@ -61,6 +62,28 @@ def generar(*, nombre: str, cuil: str, mes: str, filas: list, hoy: date) -> byte
         c.number_format = "0" if col == "E" else NUM2
         if filas:
             cache[("RESUMEN", f"{col}{r}")] = sum(getattr(f, clave) for f in filas)
+    ws["B6"] = f"=E{r}" if filas else 0
+    ws["B6"].font, ws["B6"].alignment, ws["B6"].number_format = Font(name="Arial", size=14, bold=True), Alignment(horizontal="left"), "0"
+    if filas:
+        cache[("RESUMEN", "B6")] = sum(f.jornales for f in filas)
+    fin = r + 4
+    if por_mes and len(por_mes) > 1:  # todos los meses: el numero de cada mes
+        ws[f"A{fin}"] = "JORNALES POR MES"
+        ws[f"A{fin}"].font = f12b
+        for i, h in enumerate(("MES", "BARCOS", "JORNALES", "NETO")):
+            c = ws.cell(row=fin + 1, column=1 + i if i == 0 else 1 + i, value=h)
+            c.font, c.border, c.alignment = f12b, Border(bottom=FINA), Alignment(horizontal="center")
+        for k, m in enumerate(por_mes):
+            q = fin + 2 + k
+            ws[f"A{q}"], ws[f"B{q}"], ws[f"D{q}"] = _mes(m["mes"]), m["barcos"], m["neto"]
+            ws[f"C{q}"] = f'=SUMIF($B$8:$B${ultimo},A{q},$E$8:$E${ultimo})'
+            cache[("RESUMEN", f"C{q}")] = m["jornales"]
+            for col in "ABCD":
+                ws[f"{col}{q}"].font = f12
+            ws[f"C{q}"].number_format = "0"
+            ws[f"D{q}"].number_format = NUM2
+            ws[f"C{q}"].alignment = Alignment(horizontal="center")
+            ws[f"B{q}"].alignment = Alignment(horizontal="center")
     ws[f"A{r + 2}"] = "BRUTO: lo que se gana por los jornales. NETO: lo que cobra (bruto menos jubilación, contribución solidaria y obra social, más los viáticos)."
     ws[f"A{r + 2}"].font = Font(name="Arial", size=10, italic=True)
     for col, ancho in zip("ABCDEFGHI", (30, 18, 13, 13, 11, 18, 16, 16, 18)):

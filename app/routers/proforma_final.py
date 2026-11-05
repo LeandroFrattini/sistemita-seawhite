@@ -529,7 +529,7 @@ def sereno_resumen_excel(sereno_id: int, mes: str = "", db: Session = Depends(ge
         return RedirectResponse("/administracion/serenos?error=no_existe", status_code=303)
     m = enc.mes_valido(mes)
     r = serenos_pagos.resumen(db, s, m)
-    datos = resumen_sereno_xlsx.generar(nombre=s.nombre, cuil=s.cuil, mes=m, filas=r["filas"], hoy=date.today())
+    datos = resumen_sereno_xlsx.generar(nombre=s.nombre, cuil=s.cuil, mes=m, filas=r["filas"], hoy=date.today(), por_mes=r["por_mes"])
     nombre = re.sub(r"[^A-Za-z0-9 ._-]", "", f"RESUMEN {s.nombre} {m or 'todos los meses'}").strip() + ".xlsx"
     return Response(content=datos, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f'attachment; filename="{nombre}"'})

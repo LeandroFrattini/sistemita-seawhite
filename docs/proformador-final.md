@@ -671,3 +671,6 @@ Un barco que pasa de un muelle a otro (mismo IMO) es **una sola proforma**; en e
 - Sin el tilde de shifting, nada cambia (aunque haya importes cargados).
 - Tally y serenos no se separan por muelle: van con el barco entero.
 - Código: `clean_shifting` / `con_shifting` en `app/proforma_final.py`; `dias_tramos` / `tramos_estadia` en `app/muelle.py`; `shift` en `app/practicaje.py`; `shift_desamarre` / `shift_amarre` en `app/lds.py`. Test: `t_shifting`.
+
+## Resumen de serenos: cantidad de jornales y número de cada mes
+En el resumen de cada sereno (Administración → Serenos → Resumen) aparece arriba, bien grande, la **cantidad de jornales** del período elegido. Con «Todos los meses» se agrega un cuadro con **el número de cada mes** (barcos, jornales y neto), porque los jornales se liquidan por mes. El Excel del resumen lleva lo mismo: «Cantidad de jornales» arriba y, si son varios meses, el bloque «JORNALES POR MES» abajo (con fórmulas). Código: `serenos_pagos.resumen` (`por_mes`), `sereno_resumen.html`, `resumen_sereno_xlsx.py`.

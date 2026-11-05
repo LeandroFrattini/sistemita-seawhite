@@ -47,7 +47,13 @@ def resumen(db: Session, sereno: Sereno, mes: str = "") -> dict:
     tot = {k: round(sum(getattr(f, k) for f in filas), 2) for k in ("bruto", "descuentos", "viaticos", "neto")}
     tot["jornales"] = sum(f.jornales for f in filas)
     tot["barcos"] = len({f.barco_clave for f in filas})
-    return {"filas": filas, "totales": tot, "mes": mes}
+    # el numero de cada mes (los jornales se liquidan por mes): barcos, jornales, bruto y neto de cada uno
+    por_mes = []
+    for m in sorted({f.mes for f in filas}, reverse=True):
+        de_mes = [f for f in filas if f.mes == m]
+        por_mes.append({"mes": m, "barcos": len({f.barco_clave for f in de_mes}), "jornales": sum(f.jornales for f in de_mes),
+                        **{k: round(sum(getattr(f, k) for f in de_mes), 2) for k in ("bruto", "descuentos", "viaticos", "neto")}})
+    return {"filas": filas, "totales": tot, "mes": mes, "por_mes": por_mes}
 
 
 def quitar(db: Session, sereno: Sereno, barco_clave: str) -> None:
