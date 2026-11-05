@@ -646,3 +646,11 @@ En el Line-up Grain, el botón que antes decía «⬇ EXCEL HEINLEIN» ahora es 
 - Si hay que sumar destinatarios a Heinlein (por ejemplo a Ulises Pampin), se cargan en Clientes → Heinlein.
 - En «Exportar y finalizar» siguen los dos: el mail armado y «Solo el Excel HEINLEIN». El Excel «GRAIN TERMINAL» para clientes no cambió.
 - Código: `/export/heinlein.eml` en `app/routers/exports.py`.
+
+## Encargados y Serenos: un barco con turnos de dos meses sale en solapas separadas por mes
+El tope de aportes y la liquidación son **mensuales**, así que cuando un barco tiene turnos en dos meses (ej. MV BH FORTUNE: 31/10 y 01 al 03/11) los Excel ya no salen en una sola hoja:
+- **ENCARGADOS**: una solapa por mes, con el nombre del barco y el mes (`BH FORTUNE OCT 26`, `BH FORTUNE NOV 26`). Cada una lleva «PERÍODO: OCTUBRE 2026» arriba, sus propios turnos, totales, viáticos (los días de ese mes) y el aviso de tope de aportes de **ese** mes (cada mes empieza de cero).
+- **SERENOS**: los recibos y el `RESULTADO` van por mes (`CEREALEROS OCT 26`, `CEREALEROS NOV 26`, `RESULTADO OCT 26`, `RESULTADO NOV 26`); las fórmulas del RESULTADO apuntan a la solapa de su mes. `CUIL` y `WATCHMAN` quedan una sola vez para todo el barco.
+- Un barco con turnos de **un solo mes** sale igual que siempre (sin sufijo ni período).
+- El registro de lo pagado (para el tope) sigue guardando cada turno en su mes.
+- Código: `generar` / `_llenar_hoja` en `app/docgen/encargados_xlsx.py`; `generar` / `_sufijo` / `_ref` en `app/docgen/serenos_xlsx.py`. Test: `t_dos_meses`.

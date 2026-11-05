@@ -85,6 +85,19 @@ def _r2(n: float) -> float:
     return round(n + 0.0, 2)
 
 
+ABREV = ("ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC")
+
+
+def _sufijo(mes: date) -> str:
+    """' OCT 26': lo que se le suma al nombre de cada solapa cuando el barco tiene turnos de mas de un mes."""
+    return f" {ABREV[mes.month - 1]} {mes.strftime('%y')}"
+
+
+def _ref(hoja: str) -> str:
+    """Nombre de hoja listo para una formula ('CEREALEROS OCT 26' va entre comillas)."""
+    return hoja if re.fullmatch(r"[A-Za-z0-9_]+", hoja) else "'" + hoja.replace("'", "''") + "'"
+
+
 # ---------------------------------------------------------------------------------------------------------------- recibos
 def faltantes(serenos: dict) -> list[str]:
     """Lo que impide armar los recibos: turnos sin sereno, sin categoria, o sin precio (devuelve frases para mostrar tal cual)."""
@@ -256,6 +269,8 @@ def _logo() -> XLImage:
 
 def _hoja_recibos(wb: Workbook, cache: dict, nombre: str, recibos: list[dict], buque: str, hoy: date, viat_unit: float) -> None:
     ws = wb.create_sheet(nombre)
+    for r in recibos:
+        r["sheet"] = nombre  # para las formulas de RESULTADO
     h = Hoja(ws, cache)
     for col, ancho in (("A", 2.55), ("B", 40.89), ("C", 14.11), ("D", 6.89), ("E", 8.43), ("F", 8.43), ("G", 15.89), ("H", 2.0), ("I", 15.78), ("J", 3.89), ("K", 15.55)):
         ws.column_dimensions[col].width = ancho
@@ -279,8 +294,8 @@ def _hoja_recibos(wb: Workbook, cache: dict, nombre: str, recibos: list[dict], b
     ws.page_margins.left, ws.page_margins.right, ws.page_margins.top, ws.page_margins.bottom = 0.59, 0.2, 0.3, 0.3
 
 
-def _resultado(wb: Workbook, cache: dict, recibos: list[dict], buque: str, padron: list[tuple[str, str]]) -> None:
-    ws = wb.create_sheet("RESULTADO", 0)
+def _resultado(wb: Workbook, cache: dict, recibos: list[dict], buque: str, padron: list[tuple[str, str]], titulo: str = "RESULTADO", posicion: int = 0) -> None:
+    ws = wb.create_sheet(titulo, posicion)
     h = Hoja(ws, cache)
     for col, ancho in (("A", 22), ("B", 35.55), ("C", 12), ("D", 27.66), ("E", 18), ("F", 23.11), ("G", 16), ("H", 8)):
         ws.column_dimensions[col].width = ancho
@@ -295,10 +310,10 @@ def _resultado(wb: Workbook, cache: dict, recibos: list[dict], buque: str, padro
         h.v(f"B{fila}", buque, ARIAL12)
         a, b = r["ventana"].split("-")
         h.v(f"C{fila}", f"{a} - {b}", ARIAL12, h="center")
-        h.f(f"D{fila}", f"{hoja}!{c['nombre']}", r["nombre"], ARIAL12)
+        h.f(f"D{fila}", f"{_ref(r['sheet'])}!{c['nombre']}", r["nombre"], ARIAL12)
         h.f(f"E{fila}", f'IFERROR(VLOOKUP(D{fila},CUIL!$B$5:$C$300,2,FALSE),"SIN CUIL")', cuil_de.get(r["nombre"], "SIN CUIL"), ARIAL12)
-        h.f(f"F{fila}", f"{hoja}!{c['neto']}", r["neto"], ARIAL12, NUM2)
-        h.f(f"G{fila}", f"{hoja}!{c['viat']}", r["viat"], ARIAL12, NUM2)
+        h.f(f"F{fila}", f"{_ref(r['sheet'])}!{c['neto']}", r["neto"], ARIAL12, NUM2)
+        h.f(f"G{fila}", f"{_ref(r['sheet'])}!{c['viat']}", r["viat"], ARIAL12, NUM2)
         h.v(f"H{fila}", 1, ARIAL12, "0")  # DIAS: siempre 1 por tramo (por facturacion), aunque haya trabajado ese tramo en dos dias; los jornales y los viaticos siguen sumando todos
     ult = 1 + len(orden)
     t = ult + 1
@@ -488,11 +503,17 @@ def generar(*, buque: str, sitio: str, serenos: dict, base: dict, padron: list[t
     wb.remove(wb.active)
     cache: dict = {}
     unit = serenos["viatico"]["unit"] if serenos["viatico"]["tipo"] else 0.0
-    por_hoja = {h: [r for r in recibos if r["hoja"] == h] for h in HOJAS}
-    for nombre in HOJAS:
-        if por_hoja[nombre]:  # una solapa sin recibos no se arma (como las hojas sin datos de la proforma final)
-            _hoja_recibos(wb, cache, nombre, por_hoja[nombre], buque, hoy, unit)
-    _resultado(wb, cache, recibos, buque, padron)
+    # un barco con turnos de mas de un mes: cada mes va en sus propias solapas (recibos y RESULTADO), como se liquida
+    meses = sorted({r["mes"] for r in recibos})
+    multi = len(meses) > 1
+    for j, mes in enumerate(meses):
+        suf = _sufijo(mes) if multi else ""
+        del_mes = [r for r in recibos if r["mes"] == mes]
+        for nombre in HOJAS:
+            solos = [r for r in del_mes if r["hoja"] == nombre]
+            if solos:  # una solapa sin recibos no se arma (como las hojas sin datos de la proforma final)
+                _hoja_recibos(wb, cache, nombre + suf, solos, buque, hoy, unit)
+        _resultado(wb, cache, del_mes, buque, padron, "RESULTADO" + suf, j)
     _cuil(wb, cache, padron)
     _watchman(wb, cache, serenos, buque, pct, dolar, sitio, feriados)
     wb.calculation.fullCalcOnLoad = True

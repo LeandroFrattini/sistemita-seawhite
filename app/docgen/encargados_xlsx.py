@@ -1,6 +1,6 @@
 """Excel de ENCARGADOS (Head Tally): la declaracion jurada del personal eventual contratado, con el formato del libro de Administracion.
 
-Una hoja con el nombre del barco: encabezado (barco, operacion, tipo de carga, puerto, sitio, fecha) y, por dia, los turnos con su encargado:
+Una hoja con el nombre del barco (si los turnos son de mas de un mes, una hoja POR MES: cada mes con su declaracion, sus totales, sus viaticos y su tope de aportes): encabezado (barco, operacion, tipo de carga, puerto, sitio, fecha) y, por dia, los turnos con su encargado:
 jornal basico, insalubridad, 1era produccion, bruto y las retenciones (O.S. 3 %, jubilacion 11 %, sindical 3 %, ley 3 %) hasta el neto. Los aportes
 de O.S., jubilacion y ley se calculan sobre el bruto hasta el tope del mes (el sindical se descuenta siempre). Al final: totales y viaticos.
 Con formulas (como el original) y con su valor guardado para Vista protegida.
@@ -35,13 +35,39 @@ def _titulo_hoja(buque: str) -> str:
     return (t or "ENCARGADOS")[:31]
 
 
+ABREV = ("ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC")
+
+
+def _titulo_mes(buque: str, mes: str) -> str:
+    """'BH FORTUNE OCT 26': el nombre del barco (recortado para que entre) y el mes de esa solapa."""
+    suf = f" {ABREV[int(mes[5:7]) - 1]} {mes[2:4]}"
+    base = re.sub(r"[\[\]\\/*?:]", " ", buque).strip() or "ENCARGADOS"
+    return base[: 31 - len(suf)].rstrip() + suf
+
+
 def generar(*, buque: str, operacion: str, carga: str, sitio: str, calc: dict, cuil_de: dict[str, str], viatico_dia: float, hoy: date) -> bytes:
     filas = calc["filas"]
+    meses = sorted({f["fecha"][:7] for f in filas}) or [hoy.strftime("%Y-%m")]
     wb = load_workbook(PLANTILLA)
-    ws = wb[HOJA_MODELO]
+    modelo = wb[HOJA_MODELO]
     wb.remove(wb["Hoja1"])
+    hojas = [modelo] + [wb.copy_worksheet(modelo) for _ in meses[1:]]  # una copia limpia de la plantilla por cada mes (antes de tocar ninguna)
     cache: dict = {}
-    ws.title = _titulo_hoja(buque)
+    for ws, mes in zip(hojas, meses):
+        ws.title = _titulo_mes(buque, mes) if len(meses) > 1 else _titulo_hoja(buque)
+        _llenar_hoja(ws, cache, buque=buque, operacion=operacion, carga=carga, sitio=sitio, calc=calc, filas=[f for f in filas if f["fecha"][:7] == mes] if len(meses) > 1 else filas,
+                     cuil_de=cuil_de, viatico_dia=viatico_dia, hoy=hoy, periodo=f"{MESES[int(mes[5:7]) - 1].upper()} {mes[:4]}" if len(meses) > 1 else "")
+    wb.calculation.fullCalcOnLoad = True
+    import io as _io
+
+    salida = _io.BytesIO()
+    wb.save(salida)
+    return _con_valores(salida.getvalue(), cache, [w.title for w in wb.worksheets])
+
+
+def _llenar_hoja(ws, cache: dict, *, buque: str, operacion: str, carga: str, sitio: str, calc: dict, filas: list[dict], cuil_de: dict[str, str], viatico_dia: float, hoy: date,
+                 periodo: str = "") -> None:
+    """Una declaracion (una hoja) con los turnos de `filas`; `periodo` va arriba cuando el barco tiene turnos de mas de un mes."""
     # estilos de la plantilla, antes de borrar lo de ejemplo
     est = {k: {c: copy(ws[f"{c}{r}"]._style) for c in COLS + "Q"} for k, r in (("fecha", 20), ("turno", 21), ("blanca", 24), ("total", 31))}
     est_viat = {c: copy(ws[f"{c}33"]._style) for c in "MNOP"}
@@ -61,6 +87,9 @@ def generar(*, buque: str, operacion: str, carga: str, sitio: str, calc: dict, c
     ws["E10"] = sitio
     ws["E11"] = hoy.strftime("%d/%m/%Y")
     ws["G16"] = calc.get("insal_pct", 0)
+    if periodo:
+        ws["A4"] = f"PERÍODO: {periodo}"
+        ws["A4"].font = Font(name="Century Gothic", size=12, bold=True)
     # turnos por dia
     r = 20
     primero = r
@@ -143,6 +172,8 @@ def generar(*, buque: str, operacion: str, carga: str, sitio: str, calc: dict, c
         if any(f["fecha"][:7] == m and f["estado"] != "completo" for f in filas):
             avisos.append(f"Tope de sueldo bruto de {MESES[int(m[5:7]) - 1]} {m[:4]}: $ {tope:,.2f}. Alcanzado el tope del mes, O.S., Jubilación y Ley no se descuentan (el aporte sindical sí).".replace(",", "X").replace(".", ",").replace("X", "."))
     for nombre, m in calc.get("manuales", []):
+        if not any(f["fecha"][:7] == m for f in filas):
+            continue  # el aviso es de otro mes: va en la solapa de ese mes
         avisos.append(f"{nombre}: se marcó a mano que superó el tope de {MESES[int(m[5:7]) - 1]} {m[:4]}. O.S., Jubilación y Ley no se descuentan (el aporte sindical sí).")
     r += 2
     for a in avisos:
@@ -153,9 +184,3 @@ def generar(*, buque: str, operacion: str, carga: str, sitio: str, calc: dict, c
     ws.print_area = f"A1:P{fin}"
     ws.page_setup.fitToHeight = 0
     ws.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
-    wb.calculation.fullCalcOnLoad = True
-    import io
-
-    buf = io.BytesIO()
-    wb.save(buf)
-    return _con_valores(buf.getvalue(), cache, [w.title for w in wb.worksheets])
