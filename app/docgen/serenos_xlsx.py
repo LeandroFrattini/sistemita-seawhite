@@ -357,9 +357,9 @@ def _cuil(wb: Workbook, cache: dict, padron: list[tuple[str, str]]) -> None:
         h.v(f"C{5 + i}", c, Font(name="Calibri", size=13), h="center", borde=Border(bottom=FINA, left=FINA, right=FINA))
 
 
-def _watchman(wb: Workbook, cache: dict, serenos: dict, buque: str, pct: float, dolar: float, sitio: str, feriados: set[str]) -> None:
+def _watchman(wb: Workbook, cache: dict, serenos: dict, buque: str, pct: float, dolar: float, sitio: str, feriados: set[str], titulo: str = "WATCHMAN") -> None:
     """La misma grilla de la hoja SERENOS de la proforma final: turnos x dias en pesos, subtotal, cargas sociales, viaticos y total (y en USD)."""
-    ws = wb.create_sheet("WATCHMAN")
+    ws = wb.create_sheet(titulo)
     h = Hoja(ws, cache)
     ws.sheet_view.showGridLines = False
     filas = serenos["filas"]
@@ -515,7 +515,10 @@ def generar(*, buque: str, sitio: str, serenos: dict, base: dict, padron: list[t
                 _hoja_recibos(wb, cache, nombre + suf, solos, buque, hoy, unit)
         _resultado(wb, cache, del_mes, buque, padron, "RESULTADO" + suf, j)
     _cuil(wb, cache, padron)
-    _watchman(wb, cache, serenos, buque, pct, dolar, sitio, feriados)
+    for mes in meses:  # la grilla WATCHMAN tambien va por mes (con los viaticos de los turnos de ese mes)
+        de_mes = [f for f in serenos["filas"] if f["fecha"][:7] == mes.strftime("%Y-%m")]
+        viat = dict(serenos["viatico"], total=round(unit * sum(f["cant"] for f in de_mes), 2)) if serenos["viatico"]["tipo"] else serenos["viatico"]
+        _watchman(wb, cache, dict(serenos, filas=de_mes, viatico=viat) if multi else serenos, buque, pct, dolar, sitio, feriados, "WATCHMAN" + (_sufijo(mes) if multi else ""))
     wb.calculation.fullCalcOnLoad = True
     buf = io.BytesIO()
     wb.save(buf)

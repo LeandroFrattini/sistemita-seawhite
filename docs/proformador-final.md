@@ -654,3 +654,9 @@ El tope de aportes y la liquidación son **mensuales**, así que cuando un barco
 - Un barco con turnos de **un solo mes** sale igual que siempre (sin sufijo ni período).
 - El registro de lo pagado (para el tope) sigue guardando cada turno en su mes.
 - Código: `generar` / `_llenar_hoja` en `app/docgen/encargados_xlsx.py`; `generar` / `_sufijo` / `_ref` en `app/docgen/serenos_xlsx.py`. Test: `t_dos_meses`.
+
+### Ajustes siguientes (misma fecha)
+- **WATCHMAN por mes**: cuando el barco tiene turnos de dos meses, la grilla WATCHMAN también se parte (`WATCHMAN OCT 26`, `WATCHMAN NOV 26`), cada una con sus días, su subtotal, cargas sociales y los viáticos de los turnos de ese mes. Con un solo mes sigue siendo una hoja `WATCHMAN`.
+- **Encargado: uno solo por barco** (paso 8, Tally): arriba de la lista de turnos hay un único selector «Encargado del barco» y se aplica a todos los turnos (el berthing no se liquida al encargado). Los turnos agregados a mano heredan ese encargado, y «Traer de nuevo los turnos» lo conserva. Si un caso viejo trae varios nombres cargados, el selector avisa «Hay varios cargados: elegí uno».
+- **Serenos: regla del tramo horario** (paso 9): al elegir un sereno en un turno se completa solo en los demás turnos del **mismo tramo** (ej. 12–18 de los otros días) **que estén sin nombre**; los que ya tienen nombre no se tocan. Cada turno se puede cambiar a mano, y el botón «⇊ Repetir en todos los de 12:00–18:00» copia ese sereno a todo el tramo (pide confirmación si va a pisar otros nombres). Un turno nuevo agregado a mano sugiere el sereno que ya figura en su tramo.
+- Tests: `t_dos_meses` (WATCHMAN) y `t_ui_reglas`.

@@ -329,6 +329,11 @@
 .pfn-trn .nombre-sereno { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; box-sizing: border-box; width: 100%; }
 .pfn-trn .nombre-sereno select, .pfn-trn .nombre-sereno input { font-size: 12.5px; flex: 1 1 220px; min-width: 0; }
 .pfn-trn .nombre-sereno [hidden] { display: none; }
+.pfn-trn .nombre-sereno .btn.chico { font-size: 11.5px; padding: 3px 9px; flex: 0 0 auto; white-space: nowrap; }
+.pfn-encargado { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--line, #d9dee5); border-radius: 8px; background: rgba(0,0,0,.02); }
+.pfn-encargado label { display: block; font-weight: 600; }
+.pfn-encargado select { display: block; margin-top: 4px; max-width: 360px; width: 100%; }
+.pfn-encargado p { margin: 6px 0 0; }
 .pfn-trn.feriado { background: #fef2f2; border-color: #f3c0c0; }
 .pfn-agregar { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin: 10px 0; padding: 10px 12px; background: #f4f8fd; border: 1px dashed var(--line); border-radius: 12px; }
 .pfn-agregar label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
@@ -1229,12 +1234,40 @@ const refFecha = () => (BUQUE.amarre || "").slice(0, 10) || ((TALLY.turnos[0] ||
 const ordenTurno = ["01-07", "07-13", "13-19", "19-01"], ordenVent = ["00-06", "06-12", "12-18", "18-24"];
 
 // Quien hizo el turno: se elige de la lista de Administracion -> Serenos (o se escribe si no esta). Sale en la hoja SERENOS.
+// Regla: en el mismo tramo horario suele estar el mismo sereno. Al elegir uno se completa en los demas turnos de ese tramo que estan sin nombre
+// (los que ya tienen nombre no se tocan); cada turno se puede cambiar a mano, y el boton «Repetir» lo copia a todos los del tramo.
+function repetirSereno(t, pisar) {
+  const otros = SERENOS.turnos.filter((u) => u !== t && u.ventana === t.ventana && (pisar || !u.nombre) && u.nombre !== t.nombre);
+  if (!t.nombre || !otros.length) return 0;
+  otros.forEach((u) => { u.nombre = t.nombre; });
+  return otros.length;
+}
+function nombreDelTramo(ventana) {  // el sereno que ya figura en ese tramo (el que mas se repite), para sugerirlo en un turno nuevo
+  const cuenta = {};
+  SERENOS.turnos.filter((u) => u.ventana === ventana && u.nombre).forEach((u) => { cuenta[u.nombre] = (cuenta[u.nombre] || 0) + 1; });
+  return Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a])[0] || "";
+}
+function aplicarRegla(t, pisar) {
+  const n = repetirSereno(t, pisar);
+  if (n) msg("«" + t.nombre + "» también quedó en los otros " + n + " turnos de " + VENT_TXT[t.ventana] + ". Si en alguno es otra persona, cambialo en ese turno.", true);
+  render(); pintarSerenos();
+}
 function selectorSereno(t) {
   const caja = elx("div", "nombre-sereno");
   const nom = elx("input"); nom.maxLength = 40; nom.setAttribute("aria-label", "Nombre del sereno");
   nom.addEventListener("input", () => { t.nombre = nom.value.toUpperCase(); });
+  nom.addEventListener("change", () => { if (t.nombre) aplicarRegla(t, false); });
+  const rep = elx("button", "btn chico", "⇊ Repetir en todos los de " + VENT_TXT[t.ventana]); rep.type = "button";
+  rep.title = "Pone este sereno en todos los turnos de " + VENT_TXT[t.ventana] + " (también en los que ya tenían otro nombre)";
+  rep.addEventListener("click", () => {
+    if (!t.nombre) { msg("Primero elegí el sereno de este turno.", false); return; }
+    const pisa = SERENOS.turnos.filter((u) => u !== t && u.ventana === t.ventana && u.nombre && u.nombre !== t.nombre).length;
+    if (pisa && !confirm("En " + pisa + " turno(s) de " + VENT_TXT[t.ventana] + " hay otro sereno cargado y se va a cambiar por " + t.nombre + ". ¿Seguir?")) return;
+    aplicarRegla(t, true);
+  });
+  if (SERENOS.turnos.filter((u) => u.ventana === t.ventana).length < 2) rep.hidden = true;
   if (!PADRON_SERENOS.length) {  // sin lista cargada: se escribe a mano, como siempre
-    nom.value = t.nombre || ""; nom.placeholder = "Nombre del sereno (opcional; sale en la hoja SERENOS)"; caja.appendChild(nom); return caja;
+    nom.value = t.nombre || ""; nom.placeholder = "Nombre del sereno (opcional; sale en la hoja SERENOS)"; caja.append(nom, rep); return caja;
   }
   const sel = elx("select"); sel.setAttribute("aria-label", "Sereno de este turno");
   sel.add(new Option("Sereno: sin nombre", ""));
@@ -1245,27 +1278,41 @@ function selectorSereno(t) {
   nom.value = enLista ? "" : t.nombre; nom.placeholder = "Escribí el apellido y nombre"; nom.hidden = enLista;
   sel.addEventListener("change", () => {
     if (sel.value === "__otro") { nom.hidden = false; t.nombre = nom.value.toUpperCase(); nom.focus(); }
-    else { nom.hidden = true; nom.value = ""; t.nombre = sel.value; }
+    else { nom.hidden = true; nom.value = ""; t.nombre = sel.value; if (t.nombre) aplicarRegla(t, false); }
   });
-  caja.append(sel, nom);
+  caja.append(sel, nom, rep);
   return caja;
 }
 
-// Encargado de un turno de Head Tally: se elige de la lista de Administracion -> Encargados. NO sale en la proforma: solo en el Excel de encargados.
-function selectorEncargado(t) {
-  const caja = elx("div", "nombre-sereno");
-  if (/^\s*BERTHING/i.test(t.act || "")) {  // el berthing esta en la proforma pero no se liquida al encargado
-    caja.appendChild(elx("p", "muted", "Berthing: este turno va en la proforma pero no se liquida al encargado."));
-    return caja;
-  }
-  const sel = elx("select"); sel.setAttribute("aria-label", "Encargado de este turno");
-  sel.add(new Option(PADRON_ENCARGADOS.length ? "Encargado: sin elegir" : "No hay encargados cargados (Administración → Encargados)", ""));
+// Encargado del barco: es uno solo para todos los turnos de Head Tally (menos el berthing, que no se liquida). Se elige de la lista de
+// Administracion -> Encargados. NO sale en la proforma: solo en el Excel de encargados.
+function esBerthing(t) { return /^\s*BERTHING/i.test(t.act || ""); }
+function encargadoBarco() {  // el que ya figura en los turnos (el que mas se repite); "" si no hay ninguno
+  const cuenta = {};
+  TALLY.turnos.filter((t) => !esBerthing(t) && t.nombre).forEach((t) => { cuenta[t.nombre] = (cuenta[t.nombre] || 0) + 1; });
+  return Object.keys(cuenta).sort((a, b) => cuenta[b] - cuenta[a])[0] || "";
+}
+function variosEncargados() { return new Set(TALLY.turnos.filter((t) => !esBerthing(t) && t.nombre).map((t) => t.nombre)).size > 1; }
+function ponerEncargado(nombre) { TALLY.turnos.forEach((t) => { t.nombre = esBerthing(t) ? "" : nombre; }); }
+function selectorEncargado() {
+  const caja = elx("div", "pfn-encargado");
+  const lab = elx("label", null, "Encargado del barco"); const sel = elx("select"); sel.setAttribute("aria-label", "Encargado del barco");
+  const varios = variosEncargados();
+  sel.add(new Option(PADRON_ENCARGADOS.length ? (varios ? "Hay varios cargados: elegí uno" : "— Elegí el encargado —") : "No hay encargados cargados (Administración → Encargados)", ""));
   PADRON_ENCARGADOS.forEach((n) => sel.add(new Option(n, n)));
-  if (t.nombre && !PADRON_ENCARGADOS.includes(t.nombre)) sel.add(new Option(t.nombre + " (ya no está en la lista)", t.nombre));
-  sel.value = t.nombre || "";
-  sel.addEventListener("change", () => { t.nombre = sel.value; });
-  caja.appendChild(sel);
-  if (/^\s*AT\s+ORDER/i.test(t.act || "")) caja.appendChild(elx("p", "muted", "AT ORDERS: turno especial a monto fijo (se actualiza en Tarifas de Tally y Serenos)."));
+  const actual = varios ? "" : encargadoBarco();
+  if (actual && !PADRON_ENCARGADOS.includes(actual)) sel.add(new Option(actual + " (ya no está en la lista)", actual));
+  sel.value = actual;
+  sel.addEventListener("change", () => { ponerEncargado(sel.value); render(); pintarTally(); });
+  lab.appendChild(sel); caja.appendChild(lab);
+  caja.appendChild(elx("p", "muted", "Es el mismo para todos los turnos del barco (el berthing no se liquida al encargado)."));
+  return caja;
+}
+function notaTurno(t) {  // avisos que van en la fila del turno
+  const caja = elx("div", "nombre-sereno");
+  if (esBerthing(t)) caja.appendChild(elx("p", "muted", "Berthing: este turno va en la proforma pero no se liquida al encargado."));
+  else if (/^\s*AT\s+ORDER/i.test(t.act || "")) caja.appendChild(elx("p", "muted", "AT ORDERS: turno especial a monto fijo (se actualiza en Tarifas de Tally y Serenos)."));
+  else return null;
   return caja;
 }
 
@@ -1279,7 +1326,8 @@ let TALLY = tallyVacio(), TA_CALC = null, firmaTaAnt = "";
 const firmaTa = () => JSON.stringify([TALLY.categoria, TALLY.turnos.map((t) => [t.fecha, t.turno, t.nivel, /^\s*AT\s+ORDER/i.test(t.act || "")]), TALLY.precios, $("#ag-tal").value, $("#dolar-valor").value, refFecha()]);
 
 function armarTally() {  // los turnos que se tildaron en el voucher del Head Tally
-  TALLY.turnos = (BUQUE.turnos || []).map((t) => ({ fecha: t.fecha, turno: t.turno, act: t.act || "", nivel: "", nombre: "" })); TALLY.armado = true;
+  const enc = encargadoBarco();  // al traer de nuevo los turnos se conserva el encargado que ya estaba elegido
+  TALLY.turnos = (BUQUE.turnos || []).map((t) => ({ fecha: t.fecha, turno: t.turno, act: t.act || "", nivel: "", nombre: /^\s*BERTHING/i.test(t.act || "") ? "" : enc })); TALLY.armado = true;
 }
 function resetTally() { TALLY = tallyVacio(); armarTally(); TA_CALC = null; firmaTaAnt = ""; pintarTally(); }
 
@@ -1304,6 +1352,7 @@ function pintarTally() {
   const ok = !!(c && c.filas && c.filas.length === lista.length);
   if (!lista.length) box.appendChild(elx("p", "muted", "No hay turnos de Head Tally. Si el voucher no lleva Head Tally no hace falta nada; si hubo, agregalos acá abajo."));
   else {
+    box.appendChild(selectorEncargado());
     const cab = elx("div", "pfn-trn cab"); ["Fecha", "Turno", "Actividad", "Escalón", "Precio", ""].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
     lista.forEach((t, i) => {
       const f = ok ? c.filas[i] : null;
@@ -1319,7 +1368,7 @@ function pintarTally() {
       const x = elx("button", "quitar", "✕"); x.type = "button"; x.title = "Quitar este turno"; x.setAttribute("aria-label", "Quitar el turno");
       x.addEventListener("click", () => { lista.splice(i, 1); render(); pintarTally(); });
       row.append(celdaFecha(t.fecha, f && f.tipo_dia), elx("span", null, TURNOS_TXT[t.turno]), act, sel, elx("span", "num", f ? ars(f.precio) : "—"), x);
-      row.appendChild(selectorEncargado(t));
+      const nota = notaTurno(t); if (nota) row.appendChild(nota);
       box.appendChild(row);
     });
   }
@@ -1331,7 +1380,7 @@ function pintarTally() {
   b.addEventListener("click", () => {
     if (!fi.value) { msg("Elegí la fecha del turno que querés agregar.", false); return; }
     if (lista.some((t) => t.fecha === fi.value && t.turno === ts.value)) { msg("Ese turno ya está en la lista.", false); return; }
-    lista.push({ fecha: fi.value, turno: ts.value, act: "", nivel: "", nombre: "" });
+    lista.push({ fecha: fi.value, turno: ts.value, act: "", nivel: "", nombre: encargadoBarco() });
     lista.sort((p, q) => (p.fecha + ordenTurno.indexOf(p.turno)).localeCompare(q.fecha + ordenTurno.indexOf(q.turno)));
     TALLY.armado = true; render(); pintarTally();
   });
@@ -1431,7 +1480,7 @@ function pintarSerenos() {
   b.addEventListener("click", () => {
     if (!fi.value) { msg("Elegí la fecha del turno que querés agregar.", false); return; }
     if (lista.some((t) => t.fecha === fi.value && t.ventana === ts.value)) { msg("Ese turno ya está en la lista: en cada turno va un solo sereno.", false); return; }
-    lista.push({ fecha: fi.value, ventana: ts.value, cat: cs.value, cant: 1, precio: 0, nombre: "" });
+    lista.push({ fecha: fi.value, ventana: ts.value, cat: cs.value, cant: 1, precio: 0, nombre: nombreDelTramo(ts.value) });  // sugiere el sereno de ese tramo
     lista.sort((p, q) => (p.fecha + ordenVent.indexOf(p.ventana)).localeCompare(q.fecha + ordenVent.indexOf(q.ventana)));
     SERENOS.armado = true; render(); pintarSerenos();
   });
