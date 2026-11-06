@@ -312,13 +312,13 @@ def _resultado(wb: Workbook, cache: dict, recibos: list[dict], buque: str, padro
         h.v(f"C{fila}", f"{a} - {b}", ARIAL12, h="center")
         h.f(f"D{fila}", f"{_ref(r['sheet'])}!{c['nombre']}", r["nombre"], ARIAL12)
         h.f(f"E{fila}", f'IFERROR(VLOOKUP(D{fila},CUIL!$B$5:$C$300,2,FALSE),"SIN CUIL")', cuil_de.get(r["nombre"], "SIN CUIL"), ARIAL12)
-        h.f(f"F{fila}", f"{_ref(r['sheet'])}!{c['neto']}", r["neto"], ARIAL12, NUM2)
+        h.f(f"F{fila}", f"{_ref(r['sheet'])}!{c['bruto']}", r["bruto"], ARIAL12, NUM2)  # el TOTAL de la liquidacion es el BRUTO (antes de los aportes)
         h.f(f"G{fila}", f"{_ref(r['sheet'])}!{c['viat']}", r["viat"], ARIAL12, NUM2)
         h.v(f"H{fila}", 1, ARIAL12, "0")  # DIAS: siempre 1 por tramo (por facturacion), aunque haya trabajado ese tramo en dos dias; los jornales y los viaticos siguen sumando todos
     ult = 1 + len(orden)
     t = ult + 1
     h.v(f"D{t}", "TOTAL", ARIAL12_B, h="right")
-    h.f(f"F{t}", f"SUM(F2:F{ult})", sum(r["neto"] for r in orden), ARIAL12_B, NUM2, borde=Border(top=FINA))
+    h.f(f"F{t}", f"SUM(F2:F{ult})", sum(r["bruto"] for r in orden), ARIAL12_B, NUM2, borde=Border(top=FINA))
     h.f(f"G{t}", f"SUM(G2:G{ult})", sum(r["viat"] for r in orden), ARIAL12_B, NUM2, borde=Border(top=FINA))
     h.f(f"H{t}", f"SUM(H2:H{ult})", len(orden), ARIAL12_B, "0", borde=Border(top=FINA))
     # total de cada sereno (suma de todos sus recibos)
@@ -332,7 +332,7 @@ def _resultado(wb: Workbook, cache: dict, recibos: list[dict], buque: str, padro
         mios = [r for r in orden if r["nombre"] == nom]
         h.v(f"D{fila}", nom, ARIAL12)
         h.f(f"E{fila}", f'IFERROR(VLOOKUP(D{fila},CUIL!$B$5:$C$300,2,FALSE),"SIN CUIL")', cuil_de.get(nom, "SIN CUIL"), ARIAL12)
-        h.f(f"F{fila}", f"SUMIF($D$2:$D${ult},D{fila},F$2:F${ult})", sum(r["neto"] for r in mios), ARIAL12, NUM2)
+        h.f(f"F{fila}", f"SUMIF($D$2:$D${ult},D{fila},F$2:F${ult})", sum(r["bruto"] for r in mios), ARIAL12, NUM2)
         h.f(f"G{fila}", f"SUMIF($D$2:$D${ult},D{fila},G$2:G${ult})", sum(r["viat"] for r in mios), ARIAL12, NUM2)
         h.f(f"H{fila}", f"SUMIF($D$2:$D${ult},D{fila},H$2:H${ult})", len(mios), ARIAL12, "0")
     ws.page_setup.paperSize = 9
