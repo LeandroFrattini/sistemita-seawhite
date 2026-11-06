@@ -183,7 +183,18 @@ def calcular_serenos(db: Session, *, categoria: str, viatico: str, viatico_preci
     filas_in = ventanas_serenos(amarre, zarpe) if generados else turnos
     base, vigencia = tabla(db, ref or _d(amarre) or next((_d(t.get("fecha")) for t in filas_in if _d(t.get("fecha"))), None))
     cat_global = categoria if categoria in CATEGORIAS_SERENOS else ""
-    filas, subtotal, cantidad = [], 0.0, 0
+    # viatico: el de arriba vale para todos los turnos; un barco con shifting (estuvo en dos muelles) puede llevar el suyo en cada turno
+    gv = viatico if viatico in (*VIATICOS, "NINGUNO") else ""
+    v_general = viatico if viatico in VIATICOS else ""
+
+    def unidad_viatico(tipo: str) -> float:
+        if tipo not in VIATICOS:
+            return 0.0
+        if tipo == v_general and viatico_precio > 0:  # el precio escrito a mano es del viatico general
+            return viatico_precio
+        return base.get(("VIATICO", tipo, "TURNO"), 0.0)
+
+    filas, subtotal, cantidad, viaticos = [], 0.0, 0, 0.0
     for t in filas_in:
         f = _d(t.get("fecha"))
         if not f or t.get("ventana") not in VENTANAS_SERENOS:
@@ -196,18 +207,32 @@ def calcular_serenos(db: Session, *, categoria: str, viatico: str, viatico_preci
         total = unit * cant
         subtotal += total
         cantidad += cant
-        filas.append({"fecha": f.isoformat(), "ventana": t["ventana"], "cat": t.get("cat") if t.get("cat") in CATEGORIAS_SERENOS else "", "cat_efectiva": cat,
+        propio = t.get("viatico") if t.get("viatico") in (*VIATICOS, "NINGUNO") else ""
+        tipo_v = propio or gv
+        v_u = unidad_viatico(tipo_v)
+        viaticos += v_u * cant
+        filas.append({"viatico": tipo_v, "viatico_propio": propio, "viat_unit": _r2(v_u), "viat": _r2(v_u * cant),
+                      "fecha": f.isoformat(), "ventana": t["ventana"], "cat": t.get("cat") if t.get("cat") in CATEGORIAS_SERENOS else "", "cat_efectiva": cat,
                       "cant": cant, "nombre": " ".join(str(t.get("nombre") or "").split())[:40].upper(), "tipo_dia": tipo, "tier": tier, "precio_tabla": _r2(base.get(("SERENO", cat, tier), 0.0)) if cat else 0.0,
                       "precio": _r2(unit), "manual": manual > 0, "total": _r2(total)})
-    v = viatico if viatico in VIATICOS else ""
+    # "tipo" es el viatico general (o, si no se eligio uno general pero los turnos llevan el suyo, el primero que figura): sirve de bandera «hay viaticos»
+    v = v_general or next((fl["viatico"] for fl in filas if fl["viatico"] in VIATICOS), "")
     v_tabla = base.get(("VIATICO", v, "TURNO"), 0.0) if v else 0.0
-    v_unit = viatico_precio if viatico_precio > 0 else v_tabla
-    viaticos = v_unit * cantidad if v else 0.0
+    v_unit = unidad_viatico(v) if v else 0.0
+    con_viatico = [fl for fl in filas if fl["viatico"] in VIATICOS]
+    partes: list[dict] = []
+    for fl in con_viatico:  # agrupado por tipo y valor: con shifting puede haber dos
+        p = next((x for x in partes if x["tipo"] == fl["viatico"] and abs(x["unit"] - fl["viat_unit"]) < 0.005), None)
+        if p is None:
+            partes.append({"tipo": fl["viatico"], "unit": fl["viat_unit"], "cantidad": 0})
+            p = partes[-1]
+        p["cantidad"] += fl["cant"]
     cargas = subtotal * pct / 100
     total = subtotal + cargas + viaticos
-    faltan = (["categoria"] if not cat_global and any(not fl["cat"] for fl in filas) else []) + (["viatico"] if filas and not v and viatico != "NINGUNO" else [])
+    faltan = (["categoria"] if not cat_global and any(not fl["cat"] for fl in filas) else []) + (["viatico"] if any(fl["viatico"] == "" for fl in filas) else [])
     out = {"categoria": cat_global, "vigencia": vigencia, "filas": filas, "cantidad": cantidad, "subtotal": _r2(subtotal), "cargas_pct": pct, "cargas": _r2(cargas),
-           "viatico": {"tipo": v, "unit": _r2(v_unit), "unit_tabla": _r2(v_tabla), "manual": viatico_precio > 0, "cantidad": cantidad, "total": _r2(viaticos)},
+           "viatico": {"tipo": v, "unit": _r2(v_unit), "unit_tabla": _r2(v_tabla), "manual": viatico_precio > 0 and bool(v_general), "cantidad": sum(fl["cant"] for fl in con_viatico),
+                       "total": _r2(viaticos), "partes": partes, "mixto": len(partes) > 1},
            "total": _r2(total), "total_usd": _r2(total / dolar) if dolar else None, "faltan": faltan}
     if generados:
         out["turnos_auto"] = filas_in
@@ -254,6 +279,7 @@ def clean_serenos(raw) -> dict:
         if isinstance(t, dict) and _fecha(t.get("fecha")) and str(t.get("ventana")) in VENTANAS_SERENOS:
             turnos.append({"fecha": _fecha(t["fecha"]), "ventana": str(t["ventana"]), "cat": t.get("cat") if t.get("cat") in CATEGORIAS_SERENOS else "",
                            "cant": 1, "precio": _num(t.get("precio"), 1e12),
+                           "viatico": t.get("viatico") if t.get("viatico") in (*VIATICOS, "NINGUNO") else "",  # solo con shifting: el viatico propio de este turno
                            "nombre": " ".join(str(t.get("nombre") or "").split())[:40].upper()})
     return {"categoria": raw.get("categoria") if raw.get("categoria") in CATEGORIAS_SERENOS else "",
             "viatico": raw.get("viatico") if raw.get("viatico") in (*VIATICOS, "NINGUNO") else "", "viatico_precio": _num(raw.get("viatico_precio"), 1e12),

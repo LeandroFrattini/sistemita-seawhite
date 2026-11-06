@@ -678,3 +678,12 @@ En el resumen de cada sereno (Administración → Serenos → Resumen) aparece a
 
 ## Liquidación de serenos: el TOTAL de RESULTADO es el bruto
 En la solapa `RESULTADO` del Excel de serenos, la columna **TOTAL** (en el detalle por recibo, en la fila TOTAL y en «TOTAL POR SERENO») es el **bruto** de cada recibo, es decir los jornales por su valor **antes** de descontar jubilación, contribución solidaria y obra social (en el ejemplo de GOMEZ RAUL: 1.015.832,19). Antes mostraba el neto. Los **viáticos** siguen en su propia columna y el neto sigue calculándose en cada recibo (hoja CEREALEROS, etc.). El resumen de cada sereno (bruto, descuentos, viáticos y neto) no cambia.
+
+## Serenos con shifting: viático turno por turno
+Un barco que hizo shifting (estuvo en dos muelles, por ejemplo Ingeniero White y Galván) puede tener un viático distinto a mitad de la operación. **Solo cuando se tilda el shifting en el paso 3**, en el paso 9 (Serenos):
+- Cada turno tiene su selector «Viático: como arriba (Galván) / White / Galván / Sin viático». Si no se toca, vale el de arriba, como siempre.
+- Hay un atajo: «Viático hasta el desamarre del 1.º muelle» y «Viático desde ahí (2.º muelle)» + «Aplicar a los turnos». Los turnos que arrancan antes del desamarre del primer muelle llevan el primero y el resto el segundo (después se puede corregir turno por turno).
+- El total muestra el detalle (ej. «4 × White + 5 × Galván»). Si todos los turnos llevan el suyo no hace falta elegir el viático de arriba.
+- En el Excel de serenos, cada recibo lleva el viático de sus turnos: si un mismo sereno, en el mismo tramo y mes, trabajó con dos viáticos distintos, salen **dos recibos** (uno por cada valor). La hoja WATCHMAN, la hoja SERENOS de la proforma final y la solapa FORMULAS suman cada viático por separado.
+- Sin shifting tildado se ignora cualquier viático por turno. El precio de viático escrito a mano vale solo para el viático general.
+- Código: `calcular_serenos` (`personal.py`), `armar_recibos` (`serenos_xlsx.py`), `selectorViatico` / `aplicarViaticoShifting` (`proforma_final.html`). Test: `t_viat_shifting`.

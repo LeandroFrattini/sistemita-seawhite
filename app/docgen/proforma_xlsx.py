@@ -596,8 +596,8 @@ def _serenos(h: Hoja, s: dict, serenos: dict, nombre_buque: str, dolar: float, f
     ini = r0 + 12  # 21
     bloque(ini, "SUBT", sub, f"SUM({vc}{r0}:{vc}{ini - 1})")
     bloque(ini + 3, pct, sub * pct, f"{vc}{ini}*{lc}{ini + 3}", est_etiqueta=(109, 110, 111))
-    conv = serenos["viatico"]["unit"] * serenos["viatico"]["cantidad"] if serenos["viatico"]["tipo"] else 0.0
-    cant_txt = f"{serenos['viatico']['cantidad']}*{serenos['viatico']['unit']:.2f}"
+    conv = serenos["viatico"]["total"] if serenos["viatico"]["tipo"] else 0.0
+    cant_txt = "+".join(f"{p['cantidad']}*{p['unit']:.2f}" for p in serenos["viatico"].get("partes") or []) or f"{serenos['viatico']['cantidad']}*{serenos['viatico']['unit']:.2f}"
     bloque(ini + 6, "CONV.", conv, cant_txt if conv else None)
     total = sub + sub * pct + conv
     bloque(ini + 9, "TOTAL", total, f"SUM({vc}{ini}:{vc}{ini + 8})", est_etiqueta=(109, 110, 111))

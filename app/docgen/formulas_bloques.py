@@ -201,9 +201,11 @@ def _serenos(ex: Ex, c: dict, l: dict, s: dict, det: dict, serenos: dict) -> int
     v = serenos["viatico"]
     partes = [f_s, f_cg]
     if v["total"]:
-        f_vc = ex.dato("Viáticos: cantidad de turnos", v["cantidad"], "turnos", "Un viático por turno cubierto", fmt="0")
-        f_vu = ex.dato("Viático por turno", v["unit"], "ARS", "Escrito a mano en el paso 9" if v["manual"] else f"Tarifa de viático {v['tipo']}")
-        partes.append(ex.cuenta("Viáticos = turnos × viático", f"C{f_vc}*C{f_vu}", "ARS"))
+        for p in (v.get("partes") or [{"tipo": v["tipo"], "unit": v["unit"], "cantidad": v["cantidad"]}]):
+            nom = f" {p['tipo']}" if v.get("mixto") else ""
+            f_vc = ex.dato(f"Viáticos{nom}: cantidad de turnos", p["cantidad"], "turnos", "Un viático por turno cubierto" + (" (barco con shifting: cada turno lleva su viático)" if v.get("mixto") else ""), fmt="0")
+            f_vu = ex.dato(f"Viático por turno{nom}", p["unit"], "ARS", "Escrito a mano en el paso 9" if v["manual"] and p["tipo"] == v["tipo"] else f"Tarifa de viático {p['tipo']}")
+            partes.append(ex.cuenta(f"Viáticos{nom} = turnos × viático", f"C{f_vc}*C{f_vu}", "ARS"))
     return ex.cuenta("Total serenos = sueldos + cargas + viáticos", f"ROUND({_suma(partes)},2)", "ARS")
 
 

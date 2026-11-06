@@ -120,14 +120,15 @@ def armar_recibos(serenos: dict, base: dict) -> list[dict]:
     """Un recibo por sereno, solapa, tramo de 6 horas y mes. Lanza ValueError si algo no cierra con el paso 9."""
     filas = serenos["filas"]
     hay_ins = any(f["cat_efectiva"] == "INSALUBRE" for f in filas)
-    unit_viat = serenos["viatico"]["unit"] if serenos["viatico"]["tipo"] else 0.0
     grupos: dict[tuple, dict] = {}
     for f in filas:
         hoja = hoja_de(f["cat_efectiva"], hay_ins)
-        clave = (hoja, f["ventana"], f["nombre"], f["fecha"][:7])
+        # con shifting un sereno puede tener viaticos distintos en el mismo tramo y mes (White antes, Galvan despues): un recibo para cada valor
+        clave = (hoja, f["ventana"], f["nombre"], f["fecha"][:7], f.get("viat_unit", 0.0))
         r = grupos.get(clave)
         if r is None:
-            r = grupos[clave] = {"hoja": hoja, "ventana": f["ventana"], "nombre": f["nombre"], "mes": date(int(f["fecha"][:4]), int(f["fecha"][5:7]), 1), "cuenta": {}, "extra": {}, "fechas": set()}
+            r = grupos[clave] = {"hoja": hoja, "ventana": f["ventana"], "nombre": f["nombre"], "mes": date(int(f["fecha"][:4]), int(f["fecha"][5:7]), 1), "cuenta": {}, "extra": {}, "fechas": set(),
+                                 "unit_viat": f.get("viat_unit", 0.0)}
         r["fechas"].add(f["fecha"])
         k = _clave_dia(f)
         lineas = LINEAS[hoja][f["ventana"]]
@@ -152,8 +153,8 @@ def armar_recibos(serenos: dict, base: dict) -> list[dict]:
         jornales = sum(l["cant"] for l in lineas)
         ret, contrib, obra = round(bruto * RET_JUBIL, 2), bruto * CONTRIB_SOL / 100, round(bruto * OBRA_SOCIAL, 2)
         ded = ret + contrib + obra
-        viat = jornales * unit_viat
-        r.update(lineas=lineas, bruto=bruto, ret=ret, contrib=contrib, obra=obra, ded=ded, jornales=jornales, viat_unit=unit_viat, viat=viat, neto=bruto - ded + viat)
+        viat = jornales * r["unit_viat"]
+        r.update(lineas=lineas, bruto=bruto, ret=ret, contrib=contrib, obra=obra, ded=ded, jornales=jornales, viat_unit=r["unit_viat"], viat=viat, neto=bruto - ded + viat)
         recibos.append(r)
     orden_hoja = {h: i for i, h in enumerate(HOJAS)}
     recibos.sort(key=lambda r: (orden_hoja[r["hoja"]], r["mes"], VENTANAS.index(r["ventana"]), r["nombre"]))
@@ -245,7 +246,10 @@ def _recibo(h: Hoja, S: int, r: dict, buque: str, hoy: date, viat_ref: str, n: i
     h.v(f"D{fv}", "Viatico ", SEGOE)
     h.f(f"G{fv}", f"SUM(F{L0}:F{ult})", r["jornales"], SEGOE, "0", h="right")
     h.v(f"H{fv}", "$", SEGOE, h="right")
-    h.f(f"I{fv}", viat_ref, r["viat_unit"], SEGOE, NUM2)
+    if viat_ref:
+        h.f(f"I{fv}", viat_ref, r["viat_unit"], SEGOE, NUM2)
+    else:  # viatico distinto al de la hoja (shifting): el valor va escrito en el recibo
+        h.v(f"I{fv}", r["viat_unit"], SEGOE, NUM2)
     h.f(f"K{fv}", f"+G{fv}*I{fv}", r["viat"], SEGOE, NUM2, borde=Border(bottom=FINA))
     fn = fv + 1
     h.v(f"J{fn}", "$", SEGOE)
@@ -283,7 +287,7 @@ def _hoja_recibos(wb: Workbook, cache: dict, nombre: str, recibos: list[dict], b
         S = 1 + i * paso
         for fila in range(S, S + paso):
             ws.row_dimensions[fila].height = 18
-        _recibo(h, S, r, buque, hoy, "$K$1", n)
+        _recibo(h, S, r, buque, hoy, "$K$1" if abs(r["viat_unit"] - viat_unit) < 0.005 else None, n)
         if i % 2 == 1 and i < len(recibos) - 1:
             ws.row_breaks.append(Break(id=S + paso - 1))
     fin = max(1, len(recibos)) * paso
@@ -517,7 +521,7 @@ def generar(*, buque: str, sitio: str, serenos: dict, base: dict, padron: list[t
     _cuil(wb, cache, padron)
     for mes in meses:  # la grilla WATCHMAN tambien va por mes (con los viaticos de los turnos de ese mes)
         de_mes = [f for f in serenos["filas"] if f["fecha"][:7] == mes.strftime("%Y-%m")]
-        viat = dict(serenos["viatico"], total=round(unit * sum(f["cant"] for f in de_mes), 2)) if serenos["viatico"]["tipo"] else serenos["viatico"]
+        viat = dict(serenos["viatico"], total=round(sum(f["viat"] for f in de_mes), 2)) if serenos["viatico"]["tipo"] else serenos["viatico"]
         _watchman(wb, cache, dict(serenos, filas=de_mes, viatico=viat) if multi else serenos, buque, pct, dolar, sitio, feriados, "WATCHMAN" + (_sufijo(mes) if multi else ""))
     wb.calculation.fullCalcOnLoad = True
     buf = io.BytesIO()

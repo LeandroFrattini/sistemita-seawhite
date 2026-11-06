@@ -266,6 +266,9 @@ def clean_state(raw) -> dict:
             "fees": fees,
         },
     }
+    if not con_shifting(out["buque"]):  # el viatico por turno es solo para un barco con shifting (dos muelles)
+        for t in out["serenos"]["turnos"]:
+            t["viatico"] = ""
     if out["buque"]["servicio"] == "HUSBANDRY":
         # solo gastos basicos: no se proforma nada de practicaje, muelle, fondeadero, vias, amarre, escala, draft, tally ni serenos
         for c in (out["practicaje"]["in"], out["practicaje"]["out"], out["practicaje"]["shift"], out["muelle"], out["fondeo"], out["vias"], out["lds_amarre"],

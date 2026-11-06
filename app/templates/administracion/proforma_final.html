@@ -240,6 +240,7 @@
           </select>
         </label>
       </div>
+      <p class="muted" id="se-viat-nota" hidden>Este barco hizo shifting: además del viático de arriba, podés elegir el viático de cada turno (por ejemplo White hasta el cambio de muelle y Galván después).</p>
       <div id="se-box"></div>
       <p class="pfn-total">Total serenos: <b id="se-total">$ 0,00</b> <span class="muted" id="se-usd"></span></p>
     </div>
@@ -341,6 +342,10 @@
 .pfn-trn .nombre-sereno { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; box-sizing: border-box; width: 100%; }
 .pfn-trn .nombre-sereno select, .pfn-trn .nombre-sereno input { font-size: 12.5px; flex: 1 1 220px; min-width: 0; }
 .pfn-trn .nombre-sereno [hidden] { display: none; }
+.pfn-trn .nombre-sereno select.propio { border-color: var(--accent, #1f5fa8); font-weight: 600; }
+.pfn-viat-shift { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin: 6px 0 10px; padding: 10px 12px; border: 1px solid var(--line, #d9dee5); border-radius: 8px; background: rgba(0,0,0,.02); }
+.pfn-viat-shift label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
+.pfn-viat-shift select { font-size: 13px; }
 .pfn-trn .nombre-sereno .btn.chico { font-size: 11.5px; padding: 3px 9px; flex: 0 0 auto; white-space: nowrap; }
 .pfn-encargado { margin: 8px 0 12px; padding: 10px 12px; border: 1px solid var(--line, #d9dee5); border-radius: 8px; background: rgba(0,0,0,.02); }
 .pfn-encargado label { display: block; font-weight: 600; }
@@ -1312,6 +1317,27 @@ function aplicarRegla(t, pisar) {
   if (n) msg("«" + t.nombre + "» también quedó en los otros " + n + " turnos de " + VENT_TXT[t.ventana] + ". Si en alguno es otra persona, cambialo en ese turno.", true);
   render(); pintarSerenos();
 }
+const VIAT_TXT = { WHITE: "White", GALVAN: "Galván", NINGUNO: "Sin viático" };
+function selectorViatico(t) {  // con shifting, cada turno puede llevar su viatico (el barco estuvo en dos muelles)
+  if (!shiftOn()) return null;
+  const sel = elx("select"); sel.setAttribute("aria-label", "Viático de este turno");
+  sel.add(new Option("Viático: como arriba" + (SERENOS.viatico ? " (" + VIAT_TXT[SERENOS.viatico] + ")" : " (sin elegir)"), ""));
+  Object.entries(VIAT_TXT).forEach(([k, v]) => sel.add(new Option(k === "NINGUNO" ? v : "Viático " + v, k)));
+  sel.value = t.viatico || "";
+  if (t.viatico) sel.classList.add("propio");
+  sel.addEventListener("change", () => { t.viatico = sel.value; render(); pintarSerenos(); });
+  return sel;
+}
+// hora de arranque del turno ("2026-12-07T12:00"), para ver si es antes o despues del cambio de muelle
+const inicioVentana = (t) => t.fecha + "T" + t.ventana.slice(0, 2) + ":00";
+function aplicarViaticoShifting(antes, despues) {
+  const corte = BUQUE.shifting.desamarre;  // lo que arranca antes del desamarre del primer muelle es del primero; el resto, del segundo
+  SERENOS.turnos.forEach((t) => {
+    const v = inicioVentana(t) < corte ? antes : despues;
+    if (v) t.viatico = v;
+  });
+  render(); pintarSerenos();
+}
 function selectorSereno(t) {
   const caja = elx("div", "nombre-sereno");
   const nom = elx("input"); nom.maxLength = 40; nom.setAttribute("aria-label", "Nombre del sereno");
@@ -1327,7 +1353,9 @@ function selectorSereno(t) {
   });
   if (SERENOS.turnos.filter((u) => u.ventana === t.ventana).length < 2) rep.hidden = true;
   if (!PADRON_SERENOS.length) {  // sin lista cargada: se escribe a mano, como siempre
-    nom.value = t.nombre || ""; nom.placeholder = "Nombre del sereno (opcional; sale en la hoja SERENOS)"; caja.append(nom, rep); return caja;
+    nom.value = t.nombre || ""; nom.placeholder = "Nombre del sereno (opcional; sale en la hoja SERENOS)"; caja.append(nom, rep);
+    const vs0 = selectorViatico(t); if (vs0) caja.appendChild(vs0);
+    return caja;
   }
   const sel = elx("select"); sel.setAttribute("aria-label", "Sereno de este turno");
   sel.add(new Option("Sereno: sin nombre", ""));
@@ -1341,6 +1369,7 @@ function selectorSereno(t) {
     else { nom.hidden = true; nom.value = ""; t.nombre = sel.value; if (t.nombre) aplicarRegla(t, false); }
   });
   caja.append(sel, nom, rep);
+  const vs = selectorViatico(t); if (vs) caja.appendChild(vs);
   return caja;
 }
 
@@ -1479,7 +1508,7 @@ $("#ta-cat").addEventListener("change", (ev) => { TALLY.categoria = ev.target.va
 // ----- Serenos
 const serenosVacio = () => ({ cuenta_ajena: false, omitido: false, categoria: "", viatico: "", viatico_precio: 0, armado: false, turnos: [], cantidad: 0, subtotal_ars: 0, cargas_ars: 0, viaticos_ars: 0, total_ars: 0 });
 let SERENOS = serenosVacio(), SE_CALC = null, firmaSeAnt = "";
-const firmaSe = () => JSON.stringify([SERENOS.categoria, SERENOS.viatico, SERENOS.viatico_precio, SERENOS.armado, SERENOS.turnos.map((t) => [t.fecha, t.ventana, t.cat, t.cant, t.precio]), $("#ag-ser").value, $("#dolar-valor").value,
+const firmaSe = () => JSON.stringify([SERENOS.categoria, SERENOS.viatico, SERENOS.viatico_precio, SERENOS.armado, SERENOS.turnos.map((t) => [t.fecha, t.ventana, t.cat, t.cant, t.precio, t.viatico || ""]), $("#ag-ser").value, $("#dolar-valor").value,
   refFecha(), SERENOS.armado ? "" : [BUQUE.amarre, BUQUE.zarpe]]);
 function resetSerenos() { SERENOS = serenosVacio(); SE_CALC = null; firmaSeAnt = ""; pintarSerenos(); }
 
@@ -1506,12 +1535,21 @@ function pintarSerenos() {
   $("#se-cat").value = SERENOS.categoria; $("#se-viat").value = SERENOS.viatico;
   const box = $("#se-box"); box.replaceChildren();
   const c = SE_CALC, lista = SERENOS.turnos;
-  lista.forEach((t) => { t.cant = 1; });  // un sereno por turno
+  lista.forEach((t) => { t.cant = 1; if (!shiftOn()) t.viatico = ""; });  // un sereno por turno; el viatico propio de cada turno es solo con shifting
+  $("#se-viat-nota").hidden = !shiftOn();
   const ok = !!(c && c.filas && c.filas.length === lista.length);
   if (!lista.length) {
     box.appendChild(elx("p", SERENOS.armado || (BUQUE.amarre && BUQUE.zarpe) ? "muted" : "falta", SERENOS.armado ? "No hay turnos de serenos. Agregá los que hagan falta acá abajo." :
       (BUQUE.amarre && BUQUE.zarpe ? "Armando los turnos desde el amarre hasta el zarpe…" : "Faltan el amarre y el zarpe (paso 3) para armar los turnos. También podés agregarlos a mano acá abajo.")));
   } else {
+    if (shiftOn()) {  // atajo: un viatico para los turnos del primer muelle y otro para los del segundo
+      const ay = elx("div", "pfn-viat-shift");
+      const mk = (txt) => { const l = elx("label", null, txt); const s = elx("select"); s.add(new Option("— sin cambiar —", "")); Object.entries(VIAT_TXT).forEach(([k, v]) => s.add(new Option(v, k))); l.appendChild(s); ay.appendChild(l); return s; };
+      const sa = mk("Viático hasta el desamarre del 1.º muelle (" + fmtDT(BUQUE.shifting.desamarre) + ")"), sd = mk("Viático desde ahí (2.º muelle)");
+      const bt = elx("button", "btn chico", "Aplicar a los turnos"); bt.type = "button";
+      bt.addEventListener("click", () => { if (!sa.value && !sd.value) { msg("Elegí al menos un viático para aplicar.", false); return; } aplicarViaticoShifting(sa.value, sd.value); });
+      ay.appendChild(bt); box.appendChild(ay);
+    }
     const cab = elx("div", "pfn-trn se cab"); ["Fecha", "Turno", "Categoría", "Precio por turno", "Total", ""].forEach((t) => cab.appendChild(elx("span", null, t))); box.appendChild(cab);
     lista.forEach((t, i) => {
       const f = ok ? c.filas[i] : null;
@@ -1556,7 +1594,9 @@ function pintarSerenos() {
     const fila = (txt, v, cl, extra) => { const tr = elx("tr", cl); const a = elx("td", null, txt); if (extra) a.appendChild(extra); tr.append(a, elx("td", "num", v)); t.appendChild(tr); };
     fila(`Sueldos (${c.cantidad} turno${c.cantidad === 1 ? "" : "s"})`, ars(c.subtotal), "sub");
     fila(`Cargas sociales serenos (${fmt(c.cargas_pct)} %)`, ars(c.cargas));
-    if (c.viatico.tipo) {
+    if (c.viatico.tipo && c.viatico.mixto) {
+      fila("Viáticos por turno (sin cargas)", ars(c.viatico.total), "", elx("small", null, " " + c.viatico.partes.map((p) => `${p.cantidad} × ${VIAT_TXT[p.tipo]} ${fm2(p.unit)}`).join(" + ")));
+    } else if (c.viatico.tipo) {
       const inp = elx("input"); inp.inputMode = "decimal"; inp.value = fm2(c.viatico.unit); inp.setAttribute("aria-label", "Viático por turno");
       inp.addEventListener("change", () => { const v = num(inp.value); SERENOS.viatico_precio = Math.abs(v - c.viatico.unit_tabla) < 0.005 ? 0 : v; render(); });
       const w = elx("span"); w.append(" ", inp, ` × ${c.viatico.cantidad}`);
@@ -1795,7 +1835,7 @@ function faltantes(s) {
   f[9] = [];
   if (!s.serenos.omitido && !s.serenos.turnos.length && !(b.amarre && b.zarpe)) f[9].push("Faltan el amarre y el zarpe (paso 3) para armar los turnos, o agregalos a mano.");
   if (!s.serenos.omitido && s.serenos.turnos.length && !s.serenos.categoria && s.serenos.turnos.some((t) => !t.cat)) f[9].push("Elegí la categoría de los serenos (normal, insalubre o peligroso).");
-  if (!s.serenos.omitido && s.serenos.turnos.length && !s.serenos.viatico) f[9].push("Elegí los viáticos (White, Galván o sin viáticos).");
+  if (!s.serenos.omitido && s.serenos.turnos.length && !s.serenos.viatico && s.serenos.turnos.some((t) => !t.viatico)) f[9].push("Elegí los viáticos (White, Galván o sin viáticos).");
   f[10] = s.migraciones.items.some((i) => i.on && !i.omitido && i.key === "free_pratique") && !(b.trn > 0) ? ["Falta el TRN (paso 3) para calcular el free pratique."] : [];
   const pendientes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].filter((n) => f[n].length);
   f[11] = pendientes.length ? ["Faltan completar los pasos: " + pendientes.join(", ") + "."] : [];
