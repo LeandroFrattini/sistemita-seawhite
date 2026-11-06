@@ -307,6 +307,15 @@ def _resultado(wb: Workbook, cache: dict, recibos: list[dict], buque: str, padro
         h.v(f"{col}1", t, ARIAL12, h="center", borde=Border(bottom=FINA))
     orden = sorted(recibos, key=lambda r: (r["mes"], VENTANAS.index(r["ventana"]), r["nombre"], HOJAS.index(r["hoja"])))
     cuil_de = {n: c for n, c in padron}
+    # un renglon por sereno, tramo y mes: si por el shifting tuvo dos viaticos distintos (dos recibos), se suman en UN renglon y los DIAS siguen siendo 1
+    grupos: dict[tuple, list[dict]] = {}
+    for r in orden:
+        grupos.setdefault((r["mes"], r["ventana"], r["nombre"], r["hoja"]), []).append(r)
+    filas_res = []
+    for partes in grupos.values():
+        r = dict(partes[0], bruto=sum(p["bruto"] for p in partes), viat=sum(p["viat"] for p in partes), neto=sum(p["neto"] for p in partes), partes=partes)
+        filas_res.append(r)
+    orden = filas_res
     for i, r in enumerate(orden):
         fila = 2 + i
         hoja, c = r["hoja"], r["celdas"]
@@ -316,8 +325,8 @@ def _resultado(wb: Workbook, cache: dict, recibos: list[dict], buque: str, padro
         h.v(f"C{fila}", f"{a} - {b}", ARIAL12, h="center")
         h.f(f"D{fila}", f"{_ref(r['sheet'])}!{c['nombre']}", r["nombre"], ARIAL12)
         h.f(f"E{fila}", f'IFERROR(VLOOKUP(D{fila},CUIL!$B$5:$C$300,2,FALSE),"SIN CUIL")', cuil_de.get(r["nombre"], "SIN CUIL"), ARIAL12)
-        h.f(f"F{fila}", f"{_ref(r['sheet'])}!{c['bruto']}", r["bruto"], ARIAL12, NUM2)  # el TOTAL de la liquidacion es el BRUTO (antes de los aportes)
-        h.f(f"G{fila}", f"{_ref(r['sheet'])}!{c['viat']}", r["viat"], ARIAL12, NUM2)
+        h.f(f"F{fila}", "+".join(f"{_ref(p['sheet'])}!{p['celdas']['bruto']}" for p in r["partes"]), r["bruto"], ARIAL12, NUM2)  # el TOTAL de la liquidacion es el BRUTO (antes de los aportes)
+        h.f(f"G{fila}", "+".join(f"{_ref(p['sheet'])}!{p['celdas']['viat']}" for p in r["partes"]), r["viat"], ARIAL12, NUM2)
         h.v(f"H{fila}", 1, ARIAL12, "0")  # DIAS: siempre 1 por tramo (por facturacion), aunque haya trabajado ese tramo en dos dias; los jornales y los viaticos siguen sumando todos
     ult = 1 + len(orden)
     t = ult + 1
