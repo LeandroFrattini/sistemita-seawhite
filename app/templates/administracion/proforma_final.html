@@ -870,7 +870,7 @@ function pintarPracticaje() {
   const dato = (k, v) => { const d = document.createElement("div"); const a = document.createElement("span"); a.textContent = k; const bb = document.createElement("b"); bb.textContent = v; d.append(a, bb); res.appendChild(d); };
   dato("Barco", b.nombre || "—");
   dato("Eslora × manga × puntal", `${b.eslora ? fmt(b.eslora) : "—"} × ${b.manga ? fmt(b.manga) : "—"} × ${b.puntal ? fmt(b.puntal) : "—"} m`);
-  dato("UF (÷ 800)", c && c.uf ? fmt(c.uf) : "—");
+  dato("UF (÷ 800, redondeado para arriba)", c && c.uf ? fmt(c.uf) + (c.uf_exacto && c.uf_exacto !== c.uf ? " (da " + fmt(c.uf_exacto) + ")" : "") : "—");
   dato("Prácticos", c && c.dos_practicos ? "DOS (manga mayor a 39,9 m)" : "Uno");
   const box = $("#pr-box"); box.replaceChildren();
   [["in", "PILOTAGE IN", "calado de entrada", b.calado_entrada], ["out", "PILOTAGE OUT", "calado de salida", b.calado_salida]]

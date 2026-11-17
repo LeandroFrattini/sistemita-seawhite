@@ -207,10 +207,17 @@ BUNKER_INFO_BOYA3_BARCAZA = {
 }
 
 
+def redondear_uf(valor: float) -> int:
+    """El UF (= FC) del barco SIEMPRE se redondea para arriba al entero (149,1 pasa a 150), como el ROUNDUP de Excel
+    (se mira sobre 15 cifras significativas para que 150,0000000001 por error de coma flotante no pase a 151)."""
+    from decimal import ROUND_UP, Decimal
+    return int(Decimal(format(float(valor), ".15g")).to_integral_value(rounding=ROUND_UP))
+
+
 def calcular_fc(eslora, manga, puntal):
     if not eslora or not manga or not puntal:
         return None
-    return round(eslora * manga * puntal / 800)
+    return redondear_uf(eslora * manga * puntal / 800)
 
 
 def get_param(db: Session, clave: str, default: float = 0.0) -> float:

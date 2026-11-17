@@ -37,6 +37,7 @@ ESTILOS = {
     "datotxt": (False, False, 11, "0000FF", None, True, None, "right", "center", False),
     "cuenta2": (True, False, 11, "404040", "F2F2F2", True, "#,##0.00", "right", "center", False),
     "cuenta4": (True, False, 11, "404040", "F2F2F2", True, "#,##0.0000", "right", "center", False),
+    "cuenta0": (True, False, 11, "404040", "F2F2F2", True, "#,##0", "right", "center", False),
     "res_et": (True, False, 12, "1E4620", "E2EFDA", True, None, "left", "center", True),
     "res2": (True, False, 12, "1E4620", "E2EFDA", True, "#,##0.00", "right", "center", False),
     "unidad": (False, False, 10, "7F7F7F", None, True, None, "center", "center", False),
@@ -139,6 +140,12 @@ def fecha_dia(iso: str) -> str:
         return str(iso or "")
 
 
+def _redondear_arriba(x: float, n: int = 0) -> float:
+    """ROUNDUP de Excel (siempre se aleja del cero)."""
+    from decimal import ROUND_UP, Decimal
+    return float(Decimal(format(float(x), ".15g")).quantize(Decimal(1).scaleb(-n), rounding=ROUND_UP))
+
+
 def _redondear(x: float, n: int = 0) -> float:
     """ROUND de Excel (la mitad se va para arriba, en valor absoluto)."""
     from decimal import ROUND_HALF_UP, Decimal
@@ -226,7 +233,7 @@ class Ex:
         return f
 
     def ev(self, formula: str) -> float:
-        """Valor de una formula de esta hoja (referencias a la columna C, + - * / ^, ROUND, SUM, MAX, MIN, ABS) para guardarlo junto a la formula."""
+        """Valor de una formula de esta hoja (referencias a la columna C, + - * / ^, ROUND, ROUNDUP, SUM, MAX, MIN, ABS) para guardarlo junto a la formula."""
         def celda(m):
             return repr(float(self.cache.get(f"C{m.group(1)}", 0.0)))
 
@@ -236,7 +243,7 @@ class Ex:
 
         expr = re.sub(r"\$?C\$?(\d+):\$?C\$?(\d+)", rango, formula)
         expr = re.sub(r"\$?C\$?(\d+)", celda, expr).replace("^", "**")
-        return float(eval(expr, {"__builtins__": {}}, {"ROUND": _redondear, "SUM": lambda *a: sum(sum(x) if isinstance(x, tuple) else x for x in a),
+        return float(eval(expr, {"__builtins__": {}}, {"ROUND": _redondear, "ROUNDUP": _redondear_arriba, "SUM": lambda *a: sum(sum(x) if isinstance(x, tuple) else x for x in a),
                                                         "MAX": max, "MIN": min, "ABS": abs}))
 
     def cuenta(self, etiqueta: str, formula: str, unidad: str = "", texto: str = "", fmt: str = "2", valor: float | None = None) -> int:

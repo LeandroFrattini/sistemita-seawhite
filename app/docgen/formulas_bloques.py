@@ -29,7 +29,7 @@ def _practicaje(ex: Ex, c: dict, l: dict, s: dict, det: dict) -> int | None:
     f_e = ex.dato("Eslora", b["eslora"], "m", "Paso 3 (datos del buque)")
     f_m = ex.dato("Manga", b["manga"], "m", "Paso 3 (datos del buque)")
     f_p = ex.dato("Puntal", b["puntal"], "m", "Paso 3 (datos del buque)")
-    f_uf = ex.cuenta("UF = eslora × manga × puntal ÷ 800", f"C{f_e}*C{f_m}*C{f_p}/800", "", "Valor del barco para la tarifa.", fmt="4")
+    f_uf = ex.cuenta("UF = eslora × manga × puntal ÷ 800, redondeado para arriba", f"ROUNDUP(C{f_e}*C{f_m}*C{f_p}/800,0)", "", "Valor del barco para la tarifa. Siempre se redondea al entero de arriba (149,1 pasa a 150).", fmt="0")
     f_cal = ex.dato(f"Calado de {'entrada' if k == 'in' else ('salida' if k == 'out' else 'shifting')}", m["calado_pies"], "pies", "Paso 3 (en pies)")
     f_fac = ex.dato("Coeficiente por calado", m["factor"], "", "Tabla de practicaje (Proformador → Fórmulas), tramo en el que cae el calado.", fmt="4")
     f_cm = ex.dato("Coeficiente de maniobra", p["coef_maniobra"], "", "Parámetro de practicaje (Proformador → Fórmulas)", fmt="4")
