@@ -158,6 +158,9 @@ def normalizar(formato: str, raw, servicio: str = FULL) -> dict:
         if t:
             extra.append({"t": t.upper(), "on": bool(e.get("on", True)), "buoy": False})
     out["extra"] = extra
+    # conceptos que, estando ya en el voucher de otro cliente del barco, se confirmo que tambien figuran en este (los pone el servidor)
+    dup = raw.get("dup") if isinstance(raw.get("dup"), list) else []
+    out["dup"] = [str(x)[:220] for x in dup[:80] if isinstance(x, str) and x]
     return out
 
 

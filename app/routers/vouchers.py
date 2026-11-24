@@ -34,11 +34,9 @@ def _crear(db: Session, o: OperatedVessel, user: User) -> Voucher:
         return o.voucher
     formato = vch.formato_para(o.principal)
     inicial = vch.estado_inicial(formato, o.servicio)
-    for h in lib.hermanos(db, o):  # barco con mas de un cliente: Head Tally y Serenos van en un solo voucher, el segundo nace sin ellos
+    for h in lib.hermanos(db, o):  # barco con mas de un cliente: el nuevo voucher nace sin lo que ya lleva el del otro (menos Agency fee y Bank commission)
         if h.voucher is not None:
-            for k in lib.exclusivos_activos(h.voucher.formato, lib.estado_voucher(h.voucher), h.voucher.servicio):
-                if k in inicial["c"]:
-                    inicial["c"][k]["on"] = False
+            lib.destildar(inicial, formato, o.servicio, set(lib.tildes(h.voucher.formato, lib.estado_voucher(h.voucher), h.voucher.servicio)))
     v = Voucher(
         operated_id=o.id, formato=formato, buque=(o.vessel_name or "").strip(), agencia=(o.principal or "").strip(),
         fecha=lib.fecha_por_defecto(o), items=json.dumps(inicial),
@@ -112,20 +110,23 @@ def _leer(v: Voucher, data: dict) -> tuple[dict, str]:
     return estado, fecha
 
 
-def _choque_hermanos(db: Session, v: Voucher, estado: dict, mover: bool):
-    """Head Tally y Serenos van en un solo voucher por barco. Si este lo tiene tildado y el de otro cliente tambien: avisa (409) o, si se confirmo, se lo saca al otro."""
+def _choque_hermanos(db: Session, v: Voucher, estado: dict, confirmar: bool):
+    """Con mas de un cliente, cada concepto (menos Agency fee y Bank commission) es de uno u otro. Si este voucher tiene tildado algo que ya lleva el de
+    otro cliente: avisa (409) y pregunta si tambien tiene que figurar en este; si se confirma, queda anotado y no se vuelve a preguntar."""
+    propios = lib.tildes(v.formato, estado, v.servicio)
+    # las confirmaciones las guarda el servidor (no el navegador) y solo valen mientras el concepto siga tildado
+    estado["dup"] = [k for k in vch.normalizar(v.formato, lib.estado_voucher(v), v.servicio)["dup"] if k in propios]
     choques = lib.conflictos(db, v, estado)
     if not choques:
         return None
-    if mover:
-        for otro, claves in choques:
-            lib.sacar_de(otro, claves)
+    claves = {k: t for _o, cs in choques for k, t in cs.items()}
+    if confirmar:
+        estado["dup"] = sorted(set(estado["dup"]) | set(claves))
         return None
-    claves = sorted({k for _o, cs in choques for k in cs})
-    nombres = " y ".join(lib.EXCLUSIVOS[k] for k in claves)
+    nombres = ", ".join(dict.fromkeys(claves.values()))
     donde = ", ".join(sorted({o.agencia for o, _c in choques}))
     return JSONResponse({"ok": False, "conflicto": True, "conceptos": nombres, "agencia": donde,
-                         "error": f"{nombres} ya {'va' if len(claves) == 1 else 'van'} en el voucher de {donde}. Cada barco lleva el Head Tally y los Serenos en un solo voucher."}, status_code=409)
+                         "error": f"{nombres} ya {'va' if len(claves) == 1 else 'van'} en el voucher de {donde}."}, status_code=409)
 
 
 def _recordar(db: Session, estado: dict, user: User, *, contar: bool) -> None:
@@ -157,7 +158,7 @@ async def guardar(vid: int, request: Request, db: Session = Depends(get_db), use
         return JSONResponse({"error": "no existe"}, status_code=404)
     data = await request.json()
     estado, fecha = _leer(v, data)
-    choque = _choque_hermanos(db, v, estado, bool(data.get("mover")))
+    choque = _choque_hermanos(db, v, estado, bool(data.get("confirmar")))
     if choque is not None:
         return choque
     v.items, v.fecha = json.dumps(estado, ensure_ascii=False), fecha
@@ -174,7 +175,7 @@ async def enviar(vid: int, request: Request, db: Session = Depends(get_db), user
         return JSONResponse({"error": "no existe"}, status_code=404)
     data = await request.json()
     estado, fecha = _leer(v, data)
-    choque = _choque_hermanos(db, v, estado, bool(data.get("mover")))
+    choque = _choque_hermanos(db, v, estado, bool(data.get("confirmar")))
     if choque is not None:
         return choque
     if not vch.lineas(v.formato, estado, v.servicio):

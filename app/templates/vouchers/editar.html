@@ -20,10 +20,10 @@
 
 {% if hermanos %}
 <div class="vc-herm" role="note">
-  <b>Este barco también se atiende para otro cliente.</b> Cada cliente tiene su propio voucher; el <b>Head Tally</b> y los <b>Serenos</b> van en <u>un solo</u> voucher: el que los tenga tildado.
+  <b>Este barco también se atiende para otro cliente.</b> Cada cliente tiene su propio voucher. <b>Agency fee</b> y <b>Bank commission</b> van siempre en todos; el resto de los conceptos son de <u>uno u otro</u>: si ya están en el voucher del otro cliente, acá no tienen que estar (si los tildás, te pregunto si también tienen que figurar).
   <ul>
     {% for h in hermanos %}
-    <li><a href="{{ h.url }}">{{ h.agencia }}</a> <span class="vc-pill {{ 'vc-ok' if h.estado == 'Enviado' else 'vc-borrador' }}">{{ h.estado }}</span>{% if h.lleva %} <span class="muted">· lleva {{ h.lleva|join(' y ') }}</span>{% endif %}</li>
+    <li><a href="{{ h.url }}">{{ h.agencia }}</a> <span class="vc-pill {{ 'vc-ok' if h.estado == 'Enviado' else 'vc-borrador' }}">{{ h.estado }}</span>{% if h.lleva %} <span class="muted">· lleva {{ h.lleva|join(', ') }}</span>{% endif %}</li>
     {% endfor %}
   </ul>
 </div>
@@ -35,7 +35,7 @@
   <span class="muted">por {{ v.enviado_por }} el {{ v.enviado_en|localdt("%d/%m/%Y %H:%M") }}. Podés seguir editándolo y descargarlo.</span>
   {% else %}
   <span class="vc-pill vc-borrador">Borrador</span>
-  <span class="muted">Todos los conceptos vienen tildados{% if hermanos %} (menos los que ya lleva el voucher del otro cliente){% endif %}: destildá los que no corresponden. Cuando esté listo, tocá ENVIAR.</span>
+  <span class="muted">Todos los conceptos vienen tildados{% if hermanos %} (menos los que ya lleva el voucher del otro cliente, salvo Agency fee y Bank commission){% endif %}: destildá los que no corresponden. Cuando esté listo, tocá ENVIAR.</span>
   {% endif %}
 </div>
 
@@ -210,16 +210,16 @@ document.addEventListener("click", async (ev) => {
   }
 });
 
-const cuerpo = (mover) => JSON.stringify({ items: ESTADO, fecha: $("#vc-fecha") ? $("#vc-fecha").value : "", mover: !!mover });
-async function post(url, mover) {
-  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: cuerpo(mover) });
+const cuerpo = (confirmar) => JSON.stringify({ items: ESTADO, fecha: $("#vc-fecha") ? $("#vc-fecha").value : "", confirmar: !!confirmar });
+async function post(url, confirmar) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: cuerpo(confirmar) });
   return { ok: r.ok, status: r.status, data: await r.json().catch(() => ({})) };
 }
-// Head Tally y Serenos van en un solo voucher por barco: si ya estan en el de otro cliente, se pregunta si se pasan a este
+// Con mas de un cliente cada concepto (menos Agency fee y Bank commission) es de uno u otro: si ya esta en el voucher de otro cliente, se pregunta si tambien figura en este
 async function resolverChoque(r, url) {
   if (r.status !== 409 || !r.data.conflicto) return r;
-  if (confirm(r.data.error + "\n\n¿Pasar " + r.data.conceptos + " a ESTE voucher? Se destildan en el de " + r.data.agencia + ".")) return post(url, true);
-  location.reload();  // no se paso: se vuelve a lo guardado
+  if (confirm(r.data.error + "\n\n¿Querés que también figure en este voucher?")) return post(url, true);
+  location.reload();  // no: se vuelve a lo guardado (sin eso en este voucher)
   return { ok: false, data: { error: "No se guardó." } };
 }
 

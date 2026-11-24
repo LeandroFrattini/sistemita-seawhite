@@ -37,8 +37,12 @@ def estado_voucher(v: Voucher) -> dict:
         return {}
 
 
-# Cuando un barco se atiende para mas de un cliente, cada uno tiene su voucher, pero el Head Tally y los Serenos (watchman)
-# van en UN solo voucher: el que los tenga tildado.
+# Cuando un barco se atiende para mas de un cliente, cada uno tiene su voucher. Agency fee y Bank commission van SIEMPRE en todos;
+# el resto de los conceptos son de uno u otro: si ya esta tildado en el voucher de otro cliente, en este no tiene que estar (y si se tilda,
+# se pregunta si tambien tiene que figurar).
+COMPARTIDOS = {"agency", "bank"}
+ALIAS = {"sanitary": "free_pratique"}  # el formato Word y el Excel lo llaman distinto: es el mismo concepto
+# El Head Tally y los Serenos (watchman) son los que ademas deciden que se proforma en la proforma final.
 EXCLUSIVOS = {"head_tally": "HEAD TALLY", "watchman": "SERENOS"}
 
 
@@ -83,29 +87,86 @@ def exclusivos_activos(formato: str, estado: dict, servicio: str = "FULL") -> se
     return {k for k in EXCLUSIVOS if k in est["c"] and est["c"][k].get("on")}
 
 
-def conflictos(db: Session, v: Voucher, estado: dict) -> list[tuple[Voucher, set[str]]]:
-    """Los vouchers hermanos que ya llevan alguno de los conceptos exclusivos que este voucher tiene tildados: [(voucher, {claves})]."""
-    propios = exclusivos_activos(v.formato, estado, v.servicio)
+def tildes(formato: str, estado: dict, servicio: str = "FULL") -> dict[str, str]:
+    """Cada tilde de un voucher que no es de los que van en todos (Agency fee y Bank commission), como {clave: texto}: un concepto simple, cada
+    sub-concepto de un grupo (aduana, etc.), la entrada y la salida por separado, y cada concepto agregado a mano."""
+    est = vch.normalizar(formato, estado, servicio)
+    out: dict[str, str] = {}
+    for c in vch.catalogo(formato, servicio):
+        k = c["key"]
+        e = est["c"][k]
+        if k in COMPARTIDOS or not e["on"]:
+            continue
+        kk = ALIAS.get(k, k)
+        if c["tipo"] == "simple":
+            out[kk] = c["text"]
+        elif c["tipo"] == "group":
+            for name in c["subs"]:
+                if e["subs"][name]["on"]:
+                    out[f"{kk}:{name}"] = c["prefix"] + name
+        else:
+            for d in ("in", "out"):
+                if e[d]:
+                    out[f"{kk}:{d}"] = f"{c['base']} {d.upper()}"
+    for x in est["extra"]:
+        if x["on"]:
+            out["extra:" + x["t"]] = x["t"]
+    return out
+
+
+def destildar(est: dict, formato: str, servicio: str, claves) -> None:
+    """Destilda en un estado esos conceptos (los que ya lleva el voucher de otro cliente)."""
+    for c in vch.catalogo(formato, servicio):
+        k = c["key"]
+        e = est["c"][k]
+        if k in COMPARTIDOS:
+            continue
+        kk = ALIAS.get(k, k)
+        if c["tipo"] == "simple":
+            if kk in claves:
+                e["on"] = False
+        elif c["tipo"] == "group":
+            for name in c["subs"]:
+                if f"{kk}:{name}" in claves:
+                    e["subs"][name]["on"] = False
+            if not any(e["subs"][n]["on"] for n in c["subs"]):
+                e["on"] = False
+        else:
+            for d in ("in", "out"):
+                if f"{kk}:{d}" in claves:
+                    e[d] = False
+            if not e["in"] and not e["out"]:
+                e["on"] = False
+    est["extra"] = [x for x in est["extra"] if "extra:" + x["t"] not in claves]
+
+
+def conflictos(db: Session, v: Voucher, estado: dict) -> list[tuple[Voucher, dict[str, str]]]:
+    """Los vouchers hermanos que ya llevan alguno de los conceptos que este voucher tiene tildados (sin contar Agency fee y Bank commission, ni los que
+    ya se confirmo que van en los dos): [(voucher, {clave: texto})]."""
+    propios = tildes(v.formato, estado, v.servicio)
     if not propios:
         return []
+    confirmados_propios = set(vch.normalizar(v.formato, estado, v.servicio)["dup"])
     o = db.get(OperatedVessel, v.operated_id)
     out = []
     for h in hermanos(db, o) if o is not None else []:
         if h.voucher is None:
             continue
-        comunes = propios & exclusivos_activos(h.voucher.formato, estado_voucher(h.voucher), h.voucher.servicio)
+        est_h = estado_voucher(h.voucher)
+        otros = tildes(h.voucher.formato, est_h, h.voucher.servicio)
+        confirmados = confirmados_propios | set(vch.normalizar(h.voucher.formato, est_h, h.voucher.servicio)["dup"])  # lo confirmo cualquiera de los dos
+        comunes = {k: t for k, t in propios.items() if k in otros and k not in confirmados}
         if comunes:
             out.append((h.voucher, comunes))
     return out
 
 
-def sacar_de(v: Voucher, claves: set[str]) -> None:
-    """Destilda esos conceptos en un voucher (se pasan al otro)."""
-    est = vch.normalizar(v.formato, estado_voucher(v), v.servicio)
-    for k in claves:
-        if k in est["c"]:
-            est["c"][k]["on"] = False
-    v.items = json.dumps(est, ensure_ascii=False)
+def _resumen_lleva(v: Voucher | None, tope: int = 6) -> list[str]:
+    """Los conceptos (sin Agency fee ni Bank commission) que lleva el voucher de otro cliente; los primeros y cuantos mas."""
+    if v is None:
+        return []
+    ts = list(tildes(v.formato, estado_voucher(v), v.servicio).values())
+    return ts[:tope] + ([f"{len(ts) - tope} más"] if len(ts) > tope else [])
 
 
 def resumen_hermanos(db: Session, o: OperatedVessel) -> list[dict]:
@@ -115,7 +176,7 @@ def resumen_hermanos(db: Session, o: OperatedVessel) -> list[dict]:
         v = h.voucher
         out.append({"agencia": h.principal, "estado": ("Enviado" if v.estado == "ENVIADO" else "Borrador") if v else "Sin armar",
                     "url": f"/vouchers/{v.id}" if v else f"/vouchers/nuevo?operated_id={h.id}",
-                    "lleva": [EXCLUSIVOS[k] for k in EXCLUSIVOS if v and k in exclusivos_activos(v.formato, estado_voucher(v), v.servicio)]})
+                    "lleva": _resumen_lleva(v)})
     return out
 
 
