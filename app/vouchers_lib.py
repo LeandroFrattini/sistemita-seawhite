@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from .docgen import voucher as vch
@@ -46,14 +46,35 @@ def _estibas(db: Session) -> set[str]:
     return {c.name.strip().lower() for c in db.scalars(select(Client).where(Client.client_type == "ESTIBA"))}
 
 
+def _momento(raw) -> datetime | None:
+    try:
+        return datetime.strptime(str(raw or "").strip()[:16], "%Y-%m-%dT%H:%M")
+    except ValueError:
+        return None
+
+
+def _misma_estadia(o: OperatedVessel, h: OperatedVessel) -> bool:
+    """Dos filas del mismo barco son la misma estadia si sus horarios coinciden o SE SUPERPONEN en el muelle (cada cliente puede haber cargado
+    los suyos por separado, con minutos distintos), o, si todavia no tienen horarios, si se sacaron juntas del line-up (mismo muelle, en el mismo momento)."""
+    a1, z1, a2, z2 = _momento(o.amarre), _momento(o.zarpe), _momento(h.amarre), _momento(h.zarpe)
+    if a1 and z1 and a2 and z2:
+        return a1 < z2 and a2 < z1 or (a1, z1) == (a2, z2)
+    return bool(o.operated_at and h.operated_at and abs((o.operated_at - h.operated_at).total_seconds()) <= 10
+                and o.terminal_code == h.terminal_code and o.berth_label == h.berth_label)
+
+
 def hermanos(db: Session, o: OperatedVessel) -> list[OperatedVessel]:
-    """Las otras filas de agencia del mismo barco y la misma estadia (mismo nombre, mismo amarre y zarpe): los demas clientes del barco."""
-    if not (o.amarre or "").strip() or not (o.zarpe or "").strip():
+    """Las otras filas de agencia del mismo barco y la misma estadia (mismo nombre o mismo IMO, y horarios que coinciden o se superponen):
+    los demas clientes del barco. Una estiba no es un cliente. El mismo barco en otra estadia (otras fechas) no cuenta."""
+    nombre, imo = (o.vessel_name or "").strip().lower(), (o.imo or "").strip()
+    cond = [func.lower(OperatedVessel.vessel_name) == nombre] if nombre else []
+    if imo:
+        cond.append(OperatedVessel.imo == imo)
+    if not cond:
         return []
     estibas = _estibas(db)
-    return [h for h in db.scalars(select(OperatedVessel).where(
-        OperatedVessel.id != o.id, func.lower(OperatedVessel.vessel_name) == (o.vessel_name or "").strip().lower(),
-        OperatedVessel.amarre == o.amarre, OperatedVessel.zarpe == o.zarpe)) if es_fila_de_agencia(h, estibas)]
+    return [h for h in db.scalars(select(OperatedVessel).where(OperatedVessel.id != o.id, or_(*cond)))
+            if es_fila_de_agencia(h, estibas) and _misma_estadia(o, h)]
 
 
 def exclusivos_activos(formato: str, estado: dict, servicio: str = "FULL") -> set[str]:
