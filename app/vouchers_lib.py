@@ -40,7 +40,7 @@ def estado_voucher(v: Voucher) -> dict:
 # Cuando un barco se atiende para mas de un cliente, cada uno tiene su voucher. Agency fee y Bank commission van SIEMPRE en todos;
 # el resto de los conceptos son de uno u otro: si ya esta tildado en el voucher de otro cliente, en este no tiene que estar (y si se tilda,
 # se pregunta si tambien tiene que figurar).
-COMPARTIDOS = {"agency", "bank"}
+COMPARTIDOS = {"agency", "bank", "osro"}  # osro (solo en el formato Word) es algo que se agrega en el voucher que corresponda: nunca avisa
 ALIAS = {"sanitary": "free_pratique"}  # el formato Word y el Excel lo llaman distinto: es el mismo concepto
 # El Head Tally y los Serenos (watchman) son los que ademas deciden que se proforma en la proforma final.
 EXCLUSIVOS = {"head_tally": "HEAD TALLY", "watchman": "SERENOS"}
