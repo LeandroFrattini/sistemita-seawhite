@@ -694,3 +694,11 @@ El UF (= FC, el coeficiente propio de cada barco) es eslora × manga × puntal �
 
 ## Vouchers de un barco con dos clientes: el reconocimiento del «mismo barco» es más robusto
 Head Tally y Serenos (watchman) van en **un solo voucher** por barco. Esa regla fallaba cuando los dos clientes se habían cargado por separado (se sacaron del line-up en momentos distintos o cada uno completó sus horarios con minutos distintos): el sistema no los reconocía como el mismo barco y los dos vouchers quedaban con Head Tally y Watchman. Ahora dos filas son del mismo barco y la misma estadia si tienen el **mismo nombre o el mismo IMO** y sus horarios **coinciden o se superponen** en el muelle (o, si todavía no tienen horarios, se sacaron juntas del line-up). Un barco que vuelve otro día, dos barcos distintos con horarios parecidos y las estibas no se juntan. Si ya hay dos vouchers con Watchman en los dos, al guardar o enviar cualquiera de ellos avisa y se elige en cuál queda. Código: `hermanos` / `_misma_estadia` en `app/vouchers_lib.py`. Test: `t_hermanos`.
+
+## Utilidades → Números importantes (matrículas y teléfonos)
+Pantalla nueva en Utilidades («NÚMEROS IMPORTANTES») con lo que estaba en los Excel «REMOLQUES ESTIBA CONTROLES» y «MATRICULAS TUGS Y PRACTICOS». Pestañas, buscador (nombre, matrícula, empresa o teléfono) y un botón en cada número que lo **copia con un toque**:
+- **Remolcadores** (23): por empresa (Svitzer, Antares, Transona, CPT, Pto Mariel / Coopor) con su matrícula de cinco cifras. **Criollo 02224** (agregado a pedido) está con Coopor. Mirador, Madrugador y Zeus I van en «Sin empresa indicada» porque el listado no dice de quién son.
+- **Prácticos** (22): por empresa (DONMAR, ESEM) con matrícula/credencial y, cuando hay, DNI; más el cuadro «Práctico de cada cliente» (qué clientes usan ESEM y cuáles DONMAR). Bonastre y Arancibia figuran sin empresa porque el listado no la dice.
+- **Teléfonos**: controles, terminales, estiba y draft.
+- **SIG Bodegas**: las anotaciones de equivalencias (Duro = Grano trigo, Cereal = Maíz, etc.).
+- Son datos fijos: para sumar o corregir uno se edita `app/numeros_data.py`. Código: `app/numeros.py`, `app/templates/utilidades/numeros.html`, ruta `/operaciones/utilidades/numeros` en `app/routers/operaciones.py`. Test: `t_numeros` (compara contra los dos Excel originales).

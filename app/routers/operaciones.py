@@ -13,7 +13,8 @@ from starlette.datastructures import UploadFile
 
 from ..auth import current_user
 from ..config import BASE_DIR
-from .. import rendimientos
+from .. import numeros, rendimientos
+from ..numeros_data import SIG_BODEGAS
 from ..costos_templates import PLANTILLAS as COSTOS_PLANTILLAS
 from ..database import get_db
 from ..eml import build_eml, safe_filename
@@ -58,6 +59,14 @@ def utilidades_page(request: Request, user: User = Depends(current_user)):
 def rendimientos_page(request: Request, user: User = Depends(current_user)):
     return templates.TemplateResponse(request, "utilidades/rendimientos.html", {
         "user": user, "por_muelle": rendimientos.por_muelle(), "por_producto": rendimientos.por_producto(), "sin_datos": rendimientos.sin_datos(),
+    })
+
+
+@router.get("/operaciones/utilidades/numeros", response_class=HTMLResponse)
+def numeros_page(request: Request, user: User = Depends(current_user)):
+    return templates.TemplateResponse(request, "utilidades/numeros.html", {
+        "user": user, "remolcadores": numeros.remolcadores(), "practicos": numeros.practicos(), "por_cliente": numeros.clientes_por_practico(),
+        "telefonos": numeros.telefonos(), "sig_bodegas": SIG_BODEGAS, "total": numeros.total(),
     })
 
 

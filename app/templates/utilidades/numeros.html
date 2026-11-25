@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block nav_utilidades %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Números importantes</h1>
+    <span class="muted">Matrículas de remolcadores y prácticos, y teléfonos de controles, terminales, estiba y draft. Tocá un número para copiarlo.</span>
+  </div>
+  <div class="actions">
+    <a class="btn" href="/operaciones/utilidades">← Utilidades</a>
+  </div>
+</div>
+
+<div class="nm-barra">
+  <div class="nm-seg" role="tablist" aria-label="Qué querés ver">
+    <button type="button" class="nm-seg-b on" role="tab" data-vista="remolcadores" aria-selected="true">Remolcadores <span class="nm-n">{{ total.remolcadores }}</span></button>
+    <button type="button" class="nm-seg-b" role="tab" data-vista="practicos" aria-selected="false">Prácticos <span class="nm-n">{{ total.practicos }}</span></button>
+    <button type="button" class="nm-seg-b" role="tab" data-vista="telefonos" aria-selected="false">Teléfonos <span class="nm-n">{{ total.telefonos }}</span></button>
+    <button type="button" class="nm-seg-b" role="tab" data-vista="notas" aria-selected="false">SIG Bodegas</button>
+  </div>
+  <label class="nm-buscar">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.500-3.500"/></svg>
+    <input type="search" id="nm-q" placeholder="Buscar un nombre, matrícula, empresa o teléfono…" aria-label="Buscar" autocomplete="off">
+  </label>
+  <span class="nm-cuenta" id="nm-cuenta" role="status"></span>
+</div>
+
+<section class="nm-vista" id="nm-remolcadores">
+  <div class="nm-grid">
+    {% for g in remolcadores %}
+    <article class="nm-card{{ ' sin' if g.sin_empresa }}" data-n="{{ g.empresa|lower }}">
+      <header class="nm-card-h"><span class="nm-card-t">{{ g.empresa }}</span><span class="nm-chip">{{ g.filas|length }} {{ 'remolcador' if g.filas|length == 1 else 'remolcadores' }}</span></header>
+      <table class="nm-tabla">
+        <thead><tr><th>Remolcador</th><th class="num">Matrícula</th></tr></thead>
+        <tbody>
+          {% for f in g.filas %}
+          <tr data-p="{{ f.nombre|lower }} {{ f.matricula }}">
+            <td>{{ f.nombre }}</td>
+            <td class="num"><button type="button" class="nm-copiar" data-v="{{ f.matricula }}" title="Copiar la matrícula" aria-label="Copiar la matrícula {{ f.matricula }} de {{ f.nombre }}">{{ f.matricula }}</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if g.sin_empresa %}<p class="nm-nota">El listado no dice de qué empresa son.</p>{% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="nm-vista" id="nm-practicos" hidden>
+  <div class="nm-grid">
+    {% for g in practicos %}
+    <article class="nm-card{{ ' sin' if g.sin_empresa }}" data-n="{{ g.empresa|lower }}">
+      <header class="nm-card-h"><span class="nm-card-t">{{ g.empresa }}</span><span class="nm-chip">{{ g.filas|length }} {{ 'práctico' if g.filas|length == 1 else 'prácticos' }}</span></header>
+      <table class="nm-tabla">
+        <thead><tr><th>Práctico</th><th class="num">Matrícula</th></tr></thead>
+        <tbody>
+          {% for f in g.filas %}
+          <tr data-p="{{ f.nombre|lower }} {{ f.matricula }} {{ f.datos|lower }}">
+            <td>{{ f.nombre }}{% if f.datos %}<small class="nm-datos">{{ f.datos }}</small>{% endif %}</td>
+            <td class="num"><button type="button" class="nm-copiar" data-v="{{ f.matricula }}" title="Copiar la matrícula" aria-label="Copiar la matrícula {{ f.matricula }} de {{ f.nombre }}">{{ f.matricula }}</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if g.sin_empresa %}<p class="nm-nota">El listado no dice a qué empresa pertenecen.</p>{% endif %}
+    </article>
+    {% endfor %}
+    <article class="nm-card" data-n="empresa de práctico por cliente">
+      <header class="nm-card-h"><span class="nm-card-t">Práctico de cada cliente</span><span class="nm-chip">por cliente</span></header>
+      {% for g in por_cliente %}
+      <div class="nm-clientes" data-p="{{ g.empresa|lower }} {{ g.clientes|join(' ')|lower }}">
+        <b>{{ g.empresa }}</b>
+        <span>{% for c in g.clientes %}<span class="nm-cli" data-p="{{ c|lower }}">{{ c }}</span>{% endfor %}</span>
+      </div>
+      {% endfor %}
+    </article>
+  </div>
+</section>
+
+<section class="nm-vista" id="nm-telefonos" hidden>
+  <div class="nm-grid">
+    {% for t in telefonos %}
+    <article class="nm-card" data-n="{{ t.titulo|lower }}">
+      <header class="nm-card-h"><span class="nm-card-t">{{ t.titulo }}</span><span class="nm-chip">{{ t.filas|length }}</span></header>
+      <table class="nm-tabla">
+        <thead><tr>{% for col in t.cols %}<th{{ ' class="num"' if loop.last }}>{{ col }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for f in t.filas %}
+          <tr data-p="{{ f|join(' ')|lower }}">
+            {% for v in f %}
+              {% if loop.last %}<td class="num"><button type="button" class="nm-copiar" data-v="{{ v }}" title="Copiar el teléfono" aria-label="Copiar el teléfono {{ v }} de {{ f[0] }}">{{ v }}</button></td>
+              {% else %}<td>{{ v }}</td>{% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="nm-vista" id="nm-notas" hidden>
+  <div class="nm-grid">
+    <article class="nm-card" data-n="sig bodegas anotaciones equivalencias">
+      <header class="nm-card-h"><span class="nm-card-t">Anotaciones para SIG Bodegas</span></header>
+      <table class="nm-tabla">
+        <thead><tr><th>Mercadería</th><th>En SIG Bodegas</th></tr></thead>
+        <tbody>
+          {% for a, b in sig_bodegas %}
+          <tr data-p="{{ a|lower }} {{ b|lower }}"><td>{{ a }}</td><td><b>{{ b }}</b></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </article>
+  </div>
+</section>
+
+<p class="nm-vacio" id="nm-vacio" hidden>No hay nada que coincida con la búsqueda.</p>
+<span class="nm-toast" id="nm-toast" role="status" aria-live="polite" hidden></span>
+
+<style>
+.nm-barra { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.nm-seg { display: inline-flex; padding: 3px; background: #e6edf6; border-radius: 12px; flex-wrap: wrap; }
+.nm-seg-b { padding: 8px 16px; font-size: 13.5px; font-weight: 600; color: var(--blue-dark); background: transparent; border: 0; border-radius: 9px; cursor: pointer; box-shadow: none; }
+.nm-seg-b.on { background: #fff; color: var(--navy, #0f2a4a); box-shadow: 0 1px 3px rgba(16, 42, 77, .18); }
+.nm-n { margin-left: 4px; padding: 1px 7px; font-size: 11px; background: #d5e3f4; border-radius: 999px; }
+.nm-seg-b.on .nm-n { background: #e1ecf9; }
+.nm-buscar { position: relative; flex: 1 1 260px; max-width: 420px; }
+.nm-buscar svg { position: absolute; left: 12px; top: 50%; width: 18px; height: 18px; margin-top: -9px; fill: none; stroke: var(--muted); stroke-width: 1.8; stroke-linecap: round; pointer-events: none; }
+.nm-buscar input { width: 100%; padding: 10px 12px 10px 38px; font-size: 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.nm-buscar input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(27, 95, 168, .15); }
+.nm-cuenta { margin-left: auto; font-size: 13px; color: var(--muted); }
+.nm-vista[hidden] { display: none; }
+.nm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; align-items: start; }
+.nm-card { background: #fff; border: 1px solid var(--line); border-top: 4px solid var(--blue); border-radius: 14px; padding: 12px 14px 10px; box-shadow: 0 1px 2px rgba(16, 42, 77, .05); }
+.nm-card.sin { border-top-color: #c9a45c; }
+.nm-card[hidden] { display: none; }
+.nm-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+.nm-card-t { font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; color: var(--navy, #0f2a4a); }
+.nm-chip { padding: 2px 9px; font-size: 11.5px; font-weight: 600; color: var(--blue-dark); background: #eaf2fb; border-radius: 999px; white-space: nowrap; }
+.nm-tabla { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.nm-tabla th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.nm-tabla td { padding: 6px; border-bottom: 1px solid #eef2f7; vertical-align: middle; }
+.nm-tabla tr:last-child td { border-bottom: 0; }
+.nm-tabla tbody tr:hover { background: #f5f9fe; }
+.nm-tabla .num { text-align: right; white-space: nowrap; }
+.nm-tabla tr[hidden] { display: none; }
+.nm-datos { display: block; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+.nm-copiar { padding: 3px 10px; font: inherit; font-size: 13px; font-weight: 700; letter-spacing: .02em; color: var(--blue-dark); background: #eef4fb; border: 1px solid #d3e2f3; border-radius: 8px; cursor: pointer; box-shadow: none; }
+.nm-copiar:hover { background: #dfeaf8; }
+.nm-copiar:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.nm-copiar.ok { background: #e8f7ee; border-color: #b7e1c6; color: #0b5132; }
+.nm-nota { margin: 8px 2px 2px; font-size: 12px; color: #7a5a1a; }
+.nm-clientes { display: flex; gap: 10px; align-items: baseline; padding: 8px 2px; border-bottom: 1px solid #eef2f7; }
+.nm-clientes:last-child { border-bottom: 0; }
+.nm-clientes > b { flex: 0 0 76px; font-size: 13px; color: var(--navy, #0f2a4a); }
+.nm-clientes > span { display: flex; flex-wrap: wrap; gap: 6px; }
+.nm-cli { padding: 2px 9px; font-size: 12.5px; background: #f1f5f9; border-radius: 999px; }
+.nm-cli[hidden] { display: none; }
+.nm-clientes[hidden] { display: none; }
+.nm-vacio { padding: 30px; text-align: center; color: var(--muted); background: #fff; border: 1px dashed var(--line); border-radius: 12px; }
+.nm-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 9px 18px; font-size: 13.5px; font-weight: 600; color: #fff; background: #0f2a4a; border-radius: 999px; box-shadow: 0 6px 20px rgba(16, 42, 77, .3); z-index: 50; }
+.nm-toast[hidden] { display: none; }
+@media (max-width: 640px) { .nm-grid { grid-template-columns: 1fr; } }
+</style>
+<script>
+(function () {
+  const nombres = ["remolcadores", "practicos", "telefonos", "notas"];
+  const vistas = Object.fromEntries(nombres.map((n) => [n, document.getElementById("nm-" + n)]));
+  const botones = [...document.querySelectorAll(".nm-seg-b")];
+  const q = document.getElementById("nm-q");
+  let vista = "remolcadores";
+  try { const g = sessionStorage.getItem("nm-vista"); if (nombres.includes(g)) vista = g; } catch (e) { /* sin almacenamiento: arranca en remolcadores */ }
+  const UNIDAD = { remolcadores: ["remolcador", "remolcadores"], practicos: ["práctico", "prácticos"], telefonos: ["contacto", "contactos"], notas: ["anotación", "anotaciones"] };
+
+  function aplicar() {
+    const t = q.value.trim().toLowerCase();
+    nombres.forEach((n) => { vistas[n].hidden = n !== vista; });
+    botones.forEach((b) => { const on = b.dataset.vista === vista; b.classList.toggle("on", on); b.setAttribute("aria-selected", on ? "true" : "false"); });
+    let renglones = 0;
+    vistas[vista].querySelectorAll(".nm-card").forEach((c) => {
+      const nombreOk = !t || c.dataset.n.includes(t);  // si coincide la empresa o el título, se ve toda la tarjeta
+      let alguna = false;
+      c.querySelectorAll("tbody tr").forEach((f) => { const ok = nombreOk || f.dataset.p.includes(t); f.hidden = !ok; if (ok) { alguna = true; renglones++; } });
+      c.querySelectorAll(".nm-clientes").forEach((g) => {  // «práctico de cada cliente»
+        let alguno = false;
+        const emp = g.querySelector("b").textContent.toLowerCase();
+        g.querySelectorAll(".nm-cli").forEach((x) => { const ok = nombreOk || emp.includes(t) || x.dataset.p.includes(t); x.hidden = !ok; if (ok) alguno = true; });
+        g.hidden = !alguno; if (alguno) { alguna = true; renglones++; }
+      });
+      c.hidden = !alguna;
+    });
+    const u = UNIDAD[vista];
+    document.getElementById("nm-cuenta").textContent = renglones + " " + (renglones === 1 ? u[0] : u[1]);
+    document.getElementById("nm-vacio").hidden = renglones > 0;
+  }
+  botones.forEach((b) => b.addEventListener("click", () => { vista = b.dataset.vista; try { sessionStorage.setItem("nm-vista", vista); } catch (e) { /* nada */ } aplicar(); }));
+  q.addEventListener("input", aplicar);
+
+  // copiar un numero con un toque
+  const toast = document.getElementById("nm-toast");
+  let timer = null;
+  function aviso(txt) { toast.textContent = txt; toast.hidden = false; clearTimeout(timer); timer = setTimeout(() => { toast.hidden = true; }, 1600); }
+  function copiarViejo(v) {  // metodo de siempre: sirve sin https (red interna) o si el navegador no deja usar el portapapeles moderno
+    return new Promise((ok, mal) => {
+      const a = document.createElement("textarea"); a.value = v; a.setAttribute("readonly", ""); a.style.position = "fixed"; a.style.opacity = "0";
+      document.body.appendChild(a); a.select();
+      try { document.execCommand("copy") ? ok() : mal(); } catch (e) { mal(e); } finally { a.remove(); }
+    });
+  }
+  function copiarTexto(v) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(v).catch(() => copiarViejo(v));
+    return copiarViejo(v);
+  }
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest(".nm-copiar");
+    if (!b) return;
+    copiarTexto(b.dataset.v).then(() => {
+      b.classList.add("ok"); setTimeout(() => b.classList.remove("ok"), 900);
+      aviso("Copiado: " + b.dataset.v);
+    }).catch(() => aviso("No se pudo copiar. El número es " + b.dataset.v));
+  });
+  aplicar();
+})();
+</script>
+{% endblock %}
