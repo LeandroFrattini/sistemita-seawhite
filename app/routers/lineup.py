@@ -13,6 +13,7 @@ from fastapi.responses import Response
 
 from .. import aduana
 from ..auth import current_user
+from ..barcos_sync import hermanas_creadas_juntas
 from ..eml import build_eml, safe_filename
 from ..reports import _text_to_html
 from ..charts import build_donut, describir_fuera, filtrar_por_tipo
@@ -384,16 +385,7 @@ def completar_operado(
             row.fin_operacion = fin_operacion.strip()
             row.cantidad_operada = cantidad_operada.strip()
 
-        hermanas = db.scalars(
-            select(OperatedVessel).where(
-                OperatedVessel.id != row.id,
-                func.lower(OperatedVessel.vessel_name) == row.vessel_name.strip().lower(),
-                OperatedVessel.terminal_code == row.terminal_code,
-                OperatedVessel.berth_label == row.berth_label,
-                OperatedVessel.operated_at >= row.operated_at - timedelta(seconds=10),
-                OperatedVessel.operated_at <= row.operated_at + timedelta(seconds=10),
-            )
-        ).all()
+        hermanas = hermanas_creadas_juntas(db, row)  # la misma regla que usa la proforma final al devolver datos a Nuestros barcos
         for h in hermanas:
             h.servicio = row.servicio
             h.amarre = row.amarre

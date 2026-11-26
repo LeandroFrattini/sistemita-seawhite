@@ -24,7 +24,7 @@ from ..docgen import voucher as vch
 from ..models import ProformaFinalReg, AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, Sereno, TarifaPersonal, User, Encargado, EncargadoTope
 from .. import practicaje as pract
 from .. import lds as lds_calc
-from .. import chequeo, encargados as enc, firmas as firmas_lib, migraciones, personal, proformas_hist, serenos_padron, serenos_pagos
+from .. import barcos_sync, chequeo, encargados as enc, firmas as firmas_lib, migraciones, personal, proformas_hist, serenos_padron, serenos_pagos
 from ..docgen import resumen_sereno_xlsx
 from .. import muelle as muelle_calc
 from .. import vouchers_lib as lib_vouchers
@@ -285,9 +285,31 @@ async def proforma_final_serenos(request: Request, db: Session = Depends(get_db)
                                      dolar=pf._num(d.get("dolar"), 1_000_000), ref=_ref_fecha(d))
 
 
+def _devolver_a_nuestros_barcos(db: Session, buque: dict, usuario: str) -> dict:
+    """Lo que se completo o corrigio en el paso 3 vuelve a «Nuestros barcos» (y a los datos del buque). Nunca rompe lo que se estaba haciendo."""
+    try:
+        return barcos_sync.sincronizar(db, buque, usuario)
+    except Exception:
+        db.rollback()
+        log.exception("proforma final: no se pudo devolver los datos del barco a Nuestros barcos (usuario=%s, buque=%s)", usuario, buque.get("nombre"))
+        return {"operado": [], "buque": [], "completo": False, "error": True}
+
+
+@router.post("/proforma-final/sincronizar-barco")
+async def proforma_final_sincronizar_barco(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
+    """Al salir del paso 3: guarda en «Nuestros barcos» lo que se completo o corrigio del barco (horarios, carga) y en el historial del buque (TRN, medidas, bandera)."""
+    try:
+        d = await request.json()
+    except ValueError:
+        return JSONResponse({"ok": False, "error": "Datos inválidos"}, status_code=400)
+    cambios = _devolver_a_nuestros_barcos(db, pf.clean_buque(d), user.username)
+    return {"ok": not cambios.get("error"), "operado": cambios.get("operado", []), "buque": cambios.get("buque", []), "completo": bool(cambios.get("completo"))}
+
+
 @router.post("/proforma-final/excel")
 async def proforma_final_excel(request: Request, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     state = pf.clean_state(await request.json())
+    _devolver_a_nuestros_barcos(db, state["buque"], user.username)
     nombre = f"Proforma final - {state['agencia']['nombre'] or 'sin agencia'} - {date.today().strftime('%d.%m.%Y')}.xlsx"
     headers = {"X-Filename": nombre.encode("ascii", "ignore").decode() or "Proforma final.xlsx"}
     try:
@@ -303,8 +325,10 @@ async def proforma_final_excel(request: Request, db: Session = Depends(get_db), 
 @router.post("/proforma-final/guardar")
 async def proforma_final_guardar(request: Request, id: int | None = None, base: str = "", forzar: int = 0, db: Session = Depends(get_db), user: User = Depends(administracion_required)):
     """Guarda la proforma en el historial (nueva, o actualiza la que se abrio). Si alguien la cambio mientras estaba abierta, avisa (409) en vez de pisarla."""
+    datos = await request.json()
+    _devolver_a_nuestros_barcos(db, pf.clean_buque((datos or {}).get("buque") if isinstance(datos, dict) else None), user.username)
     try:
-        reg = proformas_hist.guardar(db, await request.json(), user.username, id, base, bool(forzar))
+        reg = proformas_hist.guardar(db, datos, user.username, id, base, bool(forzar))
     except proformas_hist.Conflicto as e:
         return JSONResponse({"ok": False, "error": e.mensaje, "conflicto": True, "duplicada": e.duplicada}, status_code=409)
     except ValueError as e:

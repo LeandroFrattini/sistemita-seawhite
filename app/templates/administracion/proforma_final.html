@@ -1931,9 +1931,26 @@ function render() {
   $("#pfn-next").disabled = false;
 }
 
+// Lo que se completo o corrigio del barco en el paso 3 vuelve a «Nuestros barcos» (horarios y carga) y al historial del buque (TRN, medidas, bandera)
+const NOMBRE_DATO = { amarre: "amarre", inicio_operacion: "comienzo", fin_operacion: "final", zarpe: "zarpe", cantidad_operada: "carga", servicio: "tipo de servicio",
+  grade: "mercadería", shipper: "shipper", trn: "TRN", trb: "TRB", eslora: "eslora", manga: "manga", puntal: "puntal", flag: "bandera" };
+async function devolverBarco() {
+  if (!BUQUE.operated_id && !BUQUE.imo) return;
+  getState();
+  try {
+    const r = await fetch("/administracion/proforma-final/sincronizar-barco", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(BUQUE) });
+    const d = await r.json();
+    if (!r.ok || !d.ok) return;
+    if (d.operado.length) msg("Se guardó en «Nuestros barcos»: " + d.operado.map((k) => NOMBRE_DATO[k] || k).join(", ") + (d.completo ? ". El barco ya figura con los datos completos (en verde)." : "."), true);
+    else if (d.buque.length) msg("Se guardaron los datos del buque (" + d.buque.map((k) => NOMBRE_DATO[k] || k).join(", ") + ") para la próxima escala.", true);
+  } catch (e) { /* no se pudo: no frena el trabajo; se vuelve a intentar al guardar o bajar el Excel */ }
+}
+
 function ir(n) {  // cambia de paso y vuelve arriba, para que se vea el principio del paso nuevo
   msg("");  // los avisos de un paso no se arrastran al siguiente
+  const veniaDe3 = step === 3 && Number(n) !== 3;
   step = Math.max(1, Math.min(TOTAL, n)); render();
+  if (veniaDe3) devolverBarco();
   ({ 4: pintarPracticaje, 5: pintarMuelle, 6: pintarLds, 7: pintarAduana, 8: pintarTally, 9: pintarSerenos, 10: pintarMig, 11: pintarCheq })[step]?.();  // lo que se cambio desde otro paso (p. ej. el chequeo) se ve actualizado
   $("#pfn-body").scrollIntoView({ behavior: "smooth", block: "start" });
   const b = $(`.pfn-step[data-step="${step}"]`); if (b) b.scrollIntoView({ inline: "center", block: "nearest" });

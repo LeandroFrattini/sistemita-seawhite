@@ -711,3 +711,12 @@ Cada recibo de la liquidación de serenos tiene el renglón «Recibí copia del 
 - **Imagen**: se recorta a la firma, se pasa a fondo transparente (si venía con fondo blanco) y se achica (≈ 10–30 KB cada una).
 - **Privacidad**: las firmas son datos personales. Se guardan en la base (columna `firma` de `serenos`), **no en el repositorio**, y solo las ve quien tiene acceso a los datos reservados (misma contraseña que Serenos y Encargados).
 - Código: `app/firmas.py` (`preparar`, `leer_zip`, `emparejar`), rutas `/administracion/serenos/{id}/firma*` y `/administracion/serenos-firmas*` en `app/routers/proforma_final.py`, dibujo en `app/docgen/serenos_xlsx.py` (`_poner_firma`). Test: `t_firmas`.
+
+## La proforma final devuelve los datos del barco a «Nuestros barcos» (ida y vuelta)
+Antes los datos viajaban solo de «Nuestros barcos» a la proforma. Ahora también **vuelven**: lo que se completa o se corrige en el **paso 3** (datos del buque) queda guardado en la fila de ese barco en «Nuestros barcos → Operados», así que si se completó todo desde la proforma (caso MOUNT HIKURANGI), **la fila pasa a verde** y aparece el botón del voucher.
+- **Cuándo se guarda**: al **salir del paso 3** (el asistente avisa «Se guardó en Nuestros barcos: zarpe… El barco ya figura con los datos completos (en verde)»), y también al **guardar en el historial** y al **bajar el Excel** (por si se pasó de largo).
+- **Qué vuelve**: amarre, comienzo, final, zarpe y carga (cantidad operada) y el tipo de servicio (FULL / HUSBANDRY). También se copian a las filas de los otros clientes del mismo barco (mismo movimiento, creado junto), igual que en «Completar datos». La mercadería y el shipper solo se completan si la fila no los tenía (no se pisa lo del line-up).
+- **Datos del buque**: TRN, TRB, eslora, manga, puntal y bandera quedan en el historial del buque **por IMO** (el mismo que usa el Generador de documentación), así la próxima escala ya vienen solos.
+- **Reglas**: solo se escribe lo que se cargó (un campo vacío **nunca borra** lo que ya estaba); solo en un barco real de la lista (no el de prueba ni uno escrito a mano); volver a guardar lo mismo no cambia nada; si algo falla, no frena la proforma.
+- **No** se abre un voucher pendiente por esto (la proforma ya se está haciendo): el voucher se hace desde su botón en la fila.
+- Código: `app/barcos_sync.py`, ruta `/administracion/proforma-final/sincronizar-barco` y los dos engarces en `app/routers/proforma_final.py`; `devolverBarco()` en `proforma_final.html`. Test: `t_sync_barco`.
