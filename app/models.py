@@ -965,6 +965,9 @@ class Sereno(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(String(40))              # APELLIDO NOMBRE, en mayusculas
     cuil: Mapped[str] = mapped_column(String(13), unique=True)   # 20-12345678-9
+    # firma digital (PNG con fondo transparente, ya recortada y achicada): sale en el recibo de este sereno. `deferred`: no se trae en cada consulta de la lista
+    firma: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    firma_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # cuando se cargo (marca de «tiene firma»)
 
 
 class Encargado(Base):

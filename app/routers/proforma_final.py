@@ -7,7 +7,10 @@ import os
 import re
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Form, Request, UploadFile
+import base64
+from urllib.parse import quote
+
+from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,7 +24,7 @@ from ..docgen import voucher as vch
 from ..models import ProformaFinalReg, AgenciaFee, AppSetting, Client, DocCall, DocVessel, Feriado, OperatedVessel, ProformaPilotageTramo, Sereno, TarifaPersonal, User, Encargado, EncargadoTope
 from .. import practicaje as pract
 from .. import lds as lds_calc
-from .. import chequeo, encargados as enc, migraciones, personal, proformas_hist, serenos_padron, serenos_pagos
+from .. import chequeo, encargados as enc, firmas as firmas_lib, migraciones, personal, proformas_hist, serenos_padron, serenos_pagos
 from ..docgen import resumen_sereno_xlsx
 from .. import muelle as muelle_calc
 from .. import vouchers_lib as lib_vouchers
@@ -495,7 +498,102 @@ def serenos_page(request: Request, mes: str = "", db: Session = Depends(get_db),
         "meses": meses, "mes": elegido, "jornales": serenos_pagos.jornales_por_sereno(db, elegido) if elegido else {},
         "ok": request.query_params.get("ok", ""), "error": request.query_params.get("error", ""),
         "nombre_en_error": request.query_params.get("n", ""), "cuil_en_error": request.query_params.get("c", ""),
+        "con_firma": {x for (x,) in db.execute(select(Sereno.id).where(Sereno.firma_en.is_not(None)))}, "msg": request.query_params.get("msg", ""),
     })
+
+
+# ----- firmas digitales de los serenos: salen solas en su recibo cuando se lo elige
+@router.get("/serenos/{sereno_id}/firma.png")
+def sereno_firma_png(sereno_id: int, db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
+    s = db.get(Sereno, sereno_id)
+    if s is None or not s.firma:
+        return Response(status_code=404)
+    return Response(content=s.firma, media_type="image/png", headers={"Cache-Control": "private, max-age=60", "X-Content-Type-Options": "nosniff"})
+
+
+@router.post("/serenos/{sereno_id}/firma")
+async def sereno_firma_subir(sereno_id: int, archivo: UploadFile = File(None), db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
+    s = db.get(Sereno, sereno_id)
+    if s is None:
+        return RedirectResponse("/administracion/serenos?error=no_existe", status_code=303)
+    try:
+        datos = await archivo.read(firmas_lib.MAX_ARCHIVO + 1) if archivo is not None else b""
+        s.firma, s.firma_en = firmas_lib.preparar(datos), datetime.utcnow()
+    except firmas_lib.FirmaInvalida as e:
+        return RedirectResponse(f"/administracion/serenos?error=firma_{sereno_id}&msg={quote(str(e))}", status_code=303)
+    db.commit()
+    return RedirectResponse(f"/administracion/serenos?ok=firma&n={quote(s.nombre)}", status_code=303)
+
+
+@router.post("/serenos/{sereno_id}/firma/quitar")
+def sereno_firma_quitar(sereno_id: int, db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
+    s = db.get(Sereno, sereno_id)
+    if s is not None:
+        s.firma, s.firma_en = None, None
+        db.commit()
+    return RedirectResponse("/administracion/serenos?ok=firma_quitada", status_code=303)
+
+
+@router.get("/serenos-firmas", response_class=HTMLResponse)
+def serenos_firmas_page(request: Request, db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
+    return templates.TemplateResponse(request, "administracion/serenos_firmas.html", {"user": user, "filas": None, "error": request.query_params.get("error", ""), "serenos": []})
+
+
+@router.post("/serenos-firmas/previsualizar", response_class=HTMLResponse)
+async def serenos_firmas_previsualizar(request: Request, archivo: UploadFile = File(None), db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
+    """Lee el ZIP, propone a que sereno va cada imagen y muestra todo para confirmar ANTES de guardar nada (una firma en el recibo equivocado seria grave)."""
+    serenos = [(x.id, x.nombre) for x in db.scalars(select(Sereno).order_by(Sereno.nombre))]
+    con_firma = {x for (x,) in db.execute(select(Sereno.id).where(Sereno.firma_en.is_not(None)))}
+    filas, error = [], ""
+    try:
+        datos = await archivo.read(firmas_lib.MAX_ZIP + 1) if archivo is not None else b""
+        if archivo is not None and archivo.filename and archivo.filename.lower().endswith((".png", ".jpg", ".jpeg")):
+            imagenes = [(archivo.filename, datos)]  # tambien sirve una sola imagen suelta
+        else:
+            imagenes = firmas_lib.leer_zip(datos)
+    except firmas_lib.FirmaInvalida as e:
+        return templates.TemplateResponse(request, "administracion/serenos_firmas.html", {"user": user, "filas": None, "error": str(e), "serenos": []})
+    for nombre, crudo in imagenes:
+        try:
+            png = firmas_lib.preparar(crudo)
+        except firmas_lib.FirmaInvalida as e:
+            filas.append({"archivo": nombre, "error": str(e)})
+            continue
+        m = firmas_lib.emparejar(nombre, serenos)
+        filas.append({"archivo": nombre, "b64": base64.b64encode(png).decode(), "sereno_id": m["sereno_id"], "sugerido": m["nombre"], "seguro": m["seguro"], "puntaje": m["puntaje"]})
+    usados = [f["sereno_id"] for f in filas if f.get("sereno_id")]
+    repetidos = {i for i in usados if usados.count(i) > 1}
+    return templates.TemplateResponse(request, "administracion/serenos_firmas.html", {"user": user, "filas": filas, "serenos": serenos, "con_firma": con_firma, "repetidos": repetidos, "error": ""})
+
+
+@router.post("/serenos-firmas/aplicar", response_class=HTMLResponse)
+async def serenos_firmas_aplicar(request: Request, db: Session = Depends(get_db), user: User = Depends(datos_reservados_required)):
+    form = await request.form()
+    pares, usados = [], set()
+    for k in form.keys():
+        if not k.startswith("sereno_"):
+            continue
+        i = k[len("sereno_"):]
+        try:
+            sid = int(str(form.get(k) or ""))
+        except ValueError:
+            continue  # «no cargar»
+        if sid in usados:
+            return RedirectResponse("/administracion/serenos-firmas?error=" + quote("Elegiste el mismo sereno para dos archivos distintos. Volvé a subir el ZIP y revisá la elección."), status_code=303)
+        usados.add(sid)
+        pares.append((sid, str(form.get("datos_" + i) or "")))
+    n = 0
+    for sid, b64 in pares:
+        s = db.get(Sereno, sid)
+        if s is None or not b64:
+            continue
+        try:
+            s.firma, s.firma_en = firmas_lib.preparar(base64.b64decode(b64, validate=True)), datetime.utcnow()  # se vuelve a validar: lo que llega del navegador no se da por bueno
+        except (firmas_lib.FirmaInvalida, ValueError):
+            continue
+        n += 1
+    db.commit()
+    return RedirectResponse(f"/administracion/serenos?ok=firmas_{n}", status_code=303)
 
 
 def _datos_sereno(db: Session, nombre: str, cuil: str, propio_id: int | None, cuil_actual: str = ""):

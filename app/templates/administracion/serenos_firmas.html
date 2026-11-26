@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block nav_administracion %}active{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1 style="margin:0">Firmas de los serenos</h1>
+    <span class="muted">Subí un ZIP con una imagen por sereno (PNG o JPG). Te muestro a quién le corresponde cada una y confirmás antes de guardar.</span>
+  </div>
+  <div class="actions"><a class="btn" href="/administracion/serenos">← Serenos</a></div>
+</div>
+
+{% if error %}<p class="flash-inline" role="alert">{{ error }}</p>{% endif %}
+
+{% if filas is none %}
+<div class="card">
+  <form method="post" action="/administracion/serenos-firmas/previsualizar" enctype="multipart/form-data" class="fs-form">
+    <label>ZIP con las firmas
+      <input type="file" name="archivo" accept=".zip,.png,.jpg,.jpeg" required>
+    </label>
+    <button type="submit" class="primary">Ver a quién corresponde cada firma</button>
+  </form>
+  <ul class="muted fs-ayuda">
+    <li>El nombre de cada archivo tiene que parecerse al del sereno (por ejemplo <b>01_Becerra_Jose.png</b>). Aunque esté escrito un poco distinto, el sistema lo reconoce y te lo marca.</li>
+    <li>Las firmas se guardan en el sistema, no se comparten, y solo las ve quien tiene acceso a los datos reservados. Salen solas en el recibo del sereno cuando se lo elige.</li>
+    <li>Si un sereno ya tiene firma, la nueva la reemplaza (lo ves marcado antes de confirmar).</li>
+  </ul>
+</div>
+{% else %}
+<form method="post" action="/administracion/serenos-firmas/aplicar" class="card">
+  <p class="muted" style="margin-top:0">Revisá que cada firma esté con la persona correcta. Lo que dejes en «— No cargar —» no se guarda.</p>
+  {% if repetidos %}<p class="flash-inline" role="alert">Hay dos archivos propuestos para el mismo sereno: elegí a mano a quién corresponde cada uno (no se puede guardar así).</p>{% endif %}
+  <table class="list fs-tabla">
+    <thead><tr><th>Firma</th><th>Archivo</th><th>Corresponde a</th></tr></thead>
+    <tbody>
+    {% for f in filas %}
+      {% if f.error %}
+      <tr class="fs-mal"><td colspan="2">{{ f.archivo }}</td><td><span class="flash-inline">No sirve: {{ f.error }}</span></td></tr>
+      {% else %}
+      <tr>
+        <td><img class="fs-img" src="data:image/png;base64,{{ f.b64 }}" alt="Firma del archivo {{ f.archivo }}"></td>
+        <td>{{ f.archivo }}</td>
+        <td>
+          <input type="hidden" name="datos_{{ loop.index }}" value="{{ f.b64 }}">
+          <select name="sereno_{{ loop.index }}" aria-label="Sereno de la firma {{ f.archivo }}" class="{{ 'fs-dudoso' if (not f.seguro or f.sereno_id in repetidos) }}">
+            <option value="">— No cargar —</option>
+            {% for id, nom in serenos %}<option value="{{ id }}" {{ 'selected' if f.sereno_id == id }}>{{ nom }}{{ ' (ya tiene firma: se reemplaza)' if id in con_firma }}</option>{% endfor %}
+          </select>
+          {% if f.seguro %}<small class="fs-ok">Coincide con «{{ f.sugerido }}»{{ ' (nombre escrito un poco distinto)' if f.puntaje < 0.999 }}</small>
+          {% else %}<small class="fs-duda">No estoy seguro{% if f.sugerido %}: lo más parecido es «{{ f.sugerido }}»{% endif %}. Elegilo a mano.</small>{% endif %}
+        </td>
+      </tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+  <div class="fs-acciones">
+    <button type="submit" class="primary">Guardar las firmas elegidas</button>
+    <a class="btn" href="/administracion/serenos-firmas">Cancelar</a>
+  </div>
+</form>
+{% endif %}
+
+<style>
+.fs-form { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
+.fs-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.fs-ayuda { margin: 14px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.5; }
+.fs-tabla td { vertical-align: middle; }
+.fs-img { height: 52px; max-width: 150px; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; }
+.fs-tabla select { min-width: 260px; font-size: 14px; }
+.fs-tabla select.fs-dudoso { border-color: #d97706; background: #fffbeb; }
+.fs-tabla small { display: block; margin-top: 3px; font-size: 12px; }
+.fs-ok { color: #166534; }
+.fs-duda { color: #b45309; font-weight: 600; }
+.fs-mal td { background: #fef2f2; }
+.fs-acciones { display: flex; gap: 10px; margin-top: 14px; }
+@media (max-width: 760px) { .fs-tabla { display: block; overflow-x: auto; } .fs-tabla select { min-width: 200px; } }
+</style>
+{% endblock %}

@@ -590,8 +590,9 @@ def build_excel_serenos(state: dict, db, usuario: str = "") -> tuple[bytes, str]
     feriados, _ = conjuntos(db)
     padron = [(x.nombre, x.cuil) for x in db.scalars(select(Sereno).order_by(Sereno.nombre))]
     titulo = proforma_xlsx.titulo_buque(b["nombre"])
+    firmas = {nom: f for nom, f in db.execute(select(Sereno.nombre, Sereno.firma).where(Sereno.firma_en.is_not(None))) if f}  # las firmas digitales cargadas: salen en el recibo de cada sereno
     datos, recibos = serenos_xlsx.generar(buque=titulo, sitio=b["sitio"], serenos=serenos, base=base, padron=padron, pct=s["agencia"]["serenos_pct"], dolar=dolar or 0.0,
-                                          feriados=feriados, hoy=date.today())
+                                          feriados=feriados, hoy=date.today(), firmas=firmas)
     if not es_barco_de_prueba(b):
         serenos_pagos.registrar(db, barco_clave=barco_clave(b), buque=titulo, recibos=recibos, usuario=usuario)
     limpio = re.sub(r"[^A-Za-z0-9 ._-]", "", titulo).strip() or "buque"

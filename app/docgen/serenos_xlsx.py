@@ -18,6 +18,9 @@ from pathlib import Path
 from lxml import etree
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
+from openpyxl.drawing.spreadsheet_drawing import AnchorMarker, OneCellAnchor
+from openpyxl.drawing.xdr import XDRPositiveSize2D
+from openpyxl.utils.units import pixels_to_EMU
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.pagebreak import Break
 from openpyxl.worksheet.properties import PageSetupProperties
@@ -199,7 +202,22 @@ class Hoja:
         return c
 
 
-def _recibo(h: Hoja, S: int, r: dict, buque: str, hoy: date, viat_ref: str, n: int) -> int:
+FIRMA_ANCHO, FIRMA_ALTO = 210, 66      # lo que ocupa la firma en el recibo (px): entra sobre la linea de «Recibí copia del presente recibo»
+ANCHO_C_A_G = 401                      # ancho de las columnas C a G (px), para centrarla
+
+
+def _poner_firma(ws, png: bytes, fila_firma: int) -> None:
+    """La firma digital del sereno, centrada justo arriba de la linea de firma del recibo."""
+    img = XLImage(io.BytesIO(png))
+    esc = min(FIRMA_ANCHO / img.width, FIRMA_ALTO / img.height)
+    w, hgt = max(1, int(img.width * esc)), max(1, int(img.height * esc))
+    img.width, img.height = w, hgt
+    marca = AnchorMarker(col=2, colOff=pixels_to_EMU(max(0, (ANCHO_C_A_G - w) // 2)), row=fila_firma - 4, rowOff=pixels_to_EMU(max(0, 3 * 24 - hgt - 3)))  # tres renglones de 24 px
+    img.anchor = OneCellAnchor(_from=marca, ext=XDRPositiveSize2D(pixels_to_EMU(w), pixels_to_EMU(hgt)))
+    ws.add_image(img)
+
+
+def _recibo(h: Hoja, S: int, r: dict, buque: str, hoy: date, viat_ref: str, n: int, firma_png: bytes | None = None) -> int:
     """Escribe un recibo desde la fila S. Devuelve la fila del NETO. n es la cantidad de renglones de la solapa (para el alto)."""
     ws = h.ws
     ws.add_image(_logo(), f"B{S}")
@@ -259,6 +277,8 @@ def _recibo(h: Hoja, S: int, r: dict, buque: str, hoy: date, viat_ref: str, n: i
     for col in "DEFG":
         ws[f"{col}{firma}"].border = Border(top=FINA)
     ws.merge_cells(f"C{firma}:G{firma}")
+    if firma_png:
+        _poner_firma(ws, firma_png, firma)
     if any(l["texto"].endswith(" *") for l in r["lineas"]):
         h.v(f"C{fn + 2}", "* Precio del turno modificado a mano en el paso 9 de la proforma final.", Font(name="Segoe UI", size=9, italic=True), h="left")
     r["celdas"] = {"nombre": f"C{S + 9}", "neto": f"K{fn}", "viat": f"K{fv}", "jornales": f"G{fv}", "bruto": f"K{G0}"}
@@ -271,7 +291,7 @@ def _logo() -> XLImage:
     return img
 
 
-def _hoja_recibos(wb: Workbook, cache: dict, nombre: str, recibos: list[dict], buque: str, hoy: date, viat_unit: float) -> None:
+def _hoja_recibos(wb: Workbook, cache: dict, nombre: str, recibos: list[dict], buque: str, hoy: date, viat_unit: float, firmas: dict[str, bytes] | None = None) -> None:
     ws = wb.create_sheet(nombre)
     for r in recibos:
         r["sheet"] = nombre  # para las formulas de RESULTADO
@@ -287,7 +307,7 @@ def _hoja_recibos(wb: Workbook, cache: dict, nombre: str, recibos: list[dict], b
         S = 1 + i * paso
         for fila in range(S, S + paso):
             ws.row_dimensions[fila].height = 18
-        _recibo(h, S, r, buque, hoy, "$K$1" if abs(r["viat_unit"] - viat_unit) < 0.005 else None, n)
+        _recibo(h, S, r, buque, hoy, "$K$1" if abs(r["viat_unit"] - viat_unit) < 0.005 else None, n, (firmas or {}).get(r["nombre"]))
         if i % 2 == 1 and i < len(recibos) - 1:
             ws.row_breaks.append(Break(id=S + paso - 1))
     fin = max(1, len(recibos)) * paso
@@ -504,7 +524,8 @@ def _con_valores(datos: bytes, cache: dict, titulos: list[str]) -> bytes:
     return salida.getvalue()
 
 
-def generar(*, buque: str, sitio: str, serenos: dict, base: dict, padron: list[tuple[str, str]], pct: float, dolar: float, feriados: set[str], hoy: date) -> tuple[bytes, list[dict]]:
+def generar(*, buque: str, sitio: str, serenos: dict, base: dict, padron: list[tuple[str, str]], pct: float, dolar: float, feriados: set[str], hoy: date,
+            firmas: dict[str, bytes] | None = None) -> tuple[bytes, list[dict]]:
     """El libro SERENOS completo. `serenos` es lo que calcula personal.calcular_serenos (con el nombre de cada turno); `base`, las tarifas vigentes."""
     if not serenos["filas"]:
         raise ValueError("No hay turnos de serenos cargados en el paso 9.")
@@ -525,7 +546,7 @@ def generar(*, buque: str, sitio: str, serenos: dict, base: dict, padron: list[t
         for nombre in HOJAS:
             solos = [r for r in del_mes if r["hoja"] == nombre]
             if solos:  # una solapa sin recibos no se arma (como las hojas sin datos de la proforma final)
-                _hoja_recibos(wb, cache, nombre + suf, solos, buque, hoy, unit)
+                _hoja_recibos(wb, cache, nombre + suf, solos, buque, hoy, unit, firmas)
         _resultado(wb, cache, del_mes, buque, padron, "RESULTADO" + suf, j)
     _cuil(wb, cache, padron)
     for mes in meses:  # la grilla WATCHMAN tambien va por mes (con los viaticos de los turnos de ese mes)

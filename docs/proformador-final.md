@@ -702,3 +702,12 @@ Pantalla nueva en Utilidades («NÚMEROS IMPORTANTES») con lo que estaba en los
 - **Teléfonos**: controles, terminales, estiba y draft.
 - **SIG Bodegas**: las anotaciones de equivalencias (Duro = Grano trigo, Cereal = Maíz, etc.).
 - Son datos fijos: para sumar o corregir uno se edita `app/numeros_data.py`. Código: `app/numeros.py`, `app/templates/utilidades/numeros.html`, ruta `/operaciones/utilidades/numeros` en `app/routers/operaciones.py`. Test: `t_numeros` (compara contra los dos Excel originales).
+
+## Firmas digitales de los serenos en los recibos
+Cada recibo de la liquidación de serenos tiene el renglón «Recibí copia del presente recibo». Ahora, **si el sereno tiene su firma digital cargada, aparece sola sobre esa línea** cuando se lo elige en el paso 9 y se baja el Excel de serenos (centrada, tamaño justo). Los serenos sin firma salen como siempre (línea en blanco); la firma de un sereno que no trabajó en el barco no aparece.
+- **Cargarlas**: Administración → Serenos.
+  - **Una por una**: en cada renglón, «Cargar firma» / «Cambiar» (imagen PNG o JPG; se ve la miniatura, «Quitar» la saca).
+  - **Todas juntas**: botón «✍ Cargar firmas (ZIP)». Se sube un ZIP con una imagen por sereno; el sistema **propone a quién corresponde cada una por el nombre del archivo** (`01_Becerra_Jose.png` → BECERRA JOSE, aunque esté escrito un poco distinto: Treque → TREUQUE, Sardon → SARDEN, Kolmar → KOLMAN) y **muestra todo para confirmar antes de guardar**. Lo dudoso o ambiguo queda sin asignar para elegirlo a mano; dos archivos para el mismo sereno no se dejan guardar; las imágenes inválidas se rechazan con el motivo; si el sereno ya tenía firma, avisa que se reemplaza.
+- **Imagen**: se recorta a la firma, se pasa a fondo transparente (si venía con fondo blanco) y se achica (≈ 10–30 KB cada una).
+- **Privacidad**: las firmas son datos personales. Se guardan en la base (columna `firma` de `serenos`), **no en el repositorio**, y solo las ve quien tiene acceso a los datos reservados (misma contraseña que Serenos y Encargados).
+- Código: `app/firmas.py` (`preparar`, `leer_zip`, `emparejar`), rutas `/administracion/serenos/{id}/firma*` y `/administracion/serenos-firmas*` en `app/routers/proforma_final.py`, dibujo en `app/docgen/serenos_xlsx.py` (`_poner_firma`). Test: `t_firmas`.

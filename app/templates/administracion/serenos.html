@@ -12,13 +12,17 @@
     <span class="muted">Apellido, nombre y CUIL de cada sereno. Se eligen desde el paso de Serenos de la proforma final.</span>
   </div>
   <div class="actions">
+    <a class="btn" href="/administracion/serenos-firmas" title="Cargar de una vez las firmas digitales de varios serenos desde un ZIP">✍ Cargar firmas (ZIP)</a>
     <a class="btn" href="/administracion">← Administración</a>
   </div>
 </div>
 
 {% if ok == 'agregado' %}<p class="flash-ok" role="status">✓ Sereno agregado.</p>
 {% elif ok == 'guardado' %}<p class="flash-ok" role="status">✓ Cambios guardados.</p>
-{% elif ok == 'eliminado' %}<p class="flash-ok" role="status">✓ Sereno eliminado de la lista.</p>{% endif %}
+{% elif ok == 'eliminado' %}<p class="flash-ok" role="status">✓ Sereno eliminado de la lista.</p>
+{% elif ok == 'firma' %}<p class="flash-ok" role="status">✓ Firma de {{ nombre_en_error }} guardada. Va a salir en sus recibos.</p>
+{% elif ok == 'firma_quitada' %}<p class="flash-ok" role="status">✓ Firma quitada.</p>
+{% elif ok.startswith('firmas_') %}<p class="flash-ok" role="status">✓ {{ ok[7:] }} firma{{ '' if ok[7:] == '1' else 's' }} cargada{{ '' if ok[7:] == '1' else 's' }}. Van a salir solas en el recibo de cada sereno.</p>{% endif %}
 {% if error in errores %}<p class="flash-inline" role="alert">{{ errores[error] }}</p>{% elif error == 'no_existe' %}<p class="flash-inline" role="alert">Ese sereno ya no está en la lista.</p>{% endif %}
 
 <div class="card">
@@ -52,6 +56,20 @@
       <label><span class="sr-et">CUIL</span><input name="cuil" inputmode="numeric" maxlength="13" required value="{{ s.cuil }}" aria-label="CUIL de {{ s.nombre }}" autocomplete="off"></label>
       <button type="submit">Guardar</button>
     </form>
+    <div class="sr-firma">
+      {% if s.id in con_firma %}
+      <img src="/administracion/serenos/{{ s.id }}/firma.png?v={{ s.firma_en.strftime('%Y%m%d%H%M%S') if s.firma_en }}" alt="Firma de {{ s.nombre }}" class="sr-firma-img">
+      {% else %}<span class="sr-sin-firma">sin firma</span>{% endif %}
+      <form method="post" action="/administracion/serenos/{{ s.id }}/firma" enctype="multipart/form-data" class="sr-firma-form">
+        <label class="btn chico" title="{{ 'Cambiar la firma de ' ~ s.nombre if s.id in con_firma else 'Cargar la firma digital de ' ~ s.nombre }} (imagen PNG o JPG)">{{ 'Cambiar' if s.id in con_firma else 'Cargar firma' }}
+          <input type="file" name="archivo" accept="image/png,image/jpeg" hidden onchange="this.form.submit()" aria-label="Firma de {{ s.nombre }}"></label>
+      </form>
+      {% if s.id in con_firma %}
+      <form method="post" action="/administracion/serenos/{{ s.id }}/firma/quitar" onsubmit="return confirm('¿Quitar la firma de {{ s.nombre|e }}? Sus recibos van a salir sin firma.')">
+        <button type="submit" class="mini danger" aria-label="Quitar la firma de {{ s.nombre }}">Quitar</button>
+      </form>
+      {% endif %}
+    </div>
     {% set j = jornales.get(s.id, jornales.get(s.nombre, 0)) %}
     <div class="sr-jor" title="Jornales de {{ s.nombre }} en {{ mes|mesnom if mes else 'el mes' }}"><b class="{{ 'cero' if not j }}">{{ j }}</b><span>jornales</span></div>
     <a class="btn" href="/administracion/serenos/{{ s.id }}" aria-label="Resumen de {{ s.nombre }}">Resumen</a>
@@ -60,6 +78,7 @@
     </form>
     {% set e = error.rsplit('_', 1) %}
     {% if e|length == 2 and e[1] == s.id|string and e[0] in errores %}<p class="flash-inline sr-err" role="alert">{{ errores[e[0]] }}</p>{% endif %}
+    {% if e|length == 2 and e[1] == s.id|string and e[0] == 'firma' %}<p class="flash-inline sr-err" role="alert">No se pudo cargar la firma de {{ s.nombre }}: {{ msg }}</p>{% endif %}
   </div>
   {% endfor %}
 </div>
@@ -72,6 +91,11 @@
 .sr-item:last-child { border-bottom: 0; }
 .sr-item .sr-et { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 .sr-err { flex-basis: 100%; margin: 4px 0 0; }
+.sr-firma { display: flex; align-items: center; gap: 8px; min-width: 250px; }
+.sr-firma-img { height: 34px; max-width: 96px; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 6px; padding: 2px 4px; }
+.sr-sin-firma { display: inline-block; min-width: 96px; padding: 7px 8px; text-align: center; font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 6px; }
+.sr-firma-form { margin: 0; }
+.sr-firma .btn.chico { font-size: 12px; padding: 5px 10px; cursor: pointer; margin: 0; }
 .sr-cab { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
 .sr-mes label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--muted); }
 .sr-jor { display: flex; flex-direction: column; align-items: center; min-width: 96px; line-height: 1.15; }

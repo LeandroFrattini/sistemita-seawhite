@@ -127,6 +127,8 @@ _MIGRATIONS = [
     ("proformas_finales", "servicio", "TEXT DEFAULT 'FULL'"),
     ("vessel_calls", "etb_manual", "BOOLEAN DEFAULT FALSE"),
     ("vessel_calls", "etc_manual", "BOOLEAN DEFAULT FALSE"),
+    ("serenos", "firma", "BLOB"),
+    ("serenos", "firma_en", "TIMESTAMP"),
 ]
 
 
@@ -144,7 +146,7 @@ def _migrate(db: Session) -> None:
                 )
             }
         if column not in cols:
-            db.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {decl}"))
+            db.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {decl if dialect == 'sqlite' else decl.replace('BLOB', 'BYTEA')}"))
     if dialect != "sqlite":
         # ampliar columnas que se concatenan al fusionar pasos por varios muelles (antes VARCHAR(40)/(120))
         for column in ("terminal_code", "berth_label", "quantity"):
